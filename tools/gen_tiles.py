@@ -1315,15 +1315,56 @@ class Straight:
 class Curve:
     """Track curving round a corner of the tile, meeting the straight track at both edges it joins."""
 
+    # Sleepers: as many as fit round the middle of the curve, the first and last
+    # as far in from the edges as the straight track's are.
+    SLEEPERS = 7
+
     def __init__(self, mask):
         (self.cx, self.cy), self.a, self.b = BENDS[mask]
         self.start, self.end = self._rails_at(self.a), self._rails_at(self.b)
+        self.rails = self._trace()
 
     def _rails_at(self, edge):
-        # A rail's two pixels, r and r + 1, have their middle at r + 1.
+        # A rail's two pixels, r and r + 1, meet at r + 1: that's its middle.
         if edge[0] != 0:
             return sorted(abs(r + 1 - self.cx) for r in RAIL_AT)
         return sorted(abs(r + 1 - self.cy) for r in RAIL_AT)
+
+    def _point(self, radius, t):
+        a = t * math.pi / 2
+        return (self.cx + radius * (math.cos(a) * self.a[0] + math.sin(a) * self.b[0]),
+                self.cy + radius * (math.cos(a) * self.a[1] + math.sin(a) * self.b[1]))
+
+    def _trace(self):
+        """Each rail followed along the curve and plotted as the straight ones are:
+        two pixels side by side, the lit one west or north of the other, one
+        pair to a row where it runs north to south and to a column where it
+        runs east to west, so it steps like a drawn line."""
+        out = {}
+        for k in range(2):
+            # For each row or column, the point on the rail nearest its middle.
+            best = {}
+            steps = 800
+            for n in range(steps + 1):
+                t = n / steps
+                c = self.start[k] + (self.end[k] - self.start[k]) * t
+                x, y = self._point(c, t)
+                x1, y1 = self._point(c, max(0.0, t - 0.001))
+                x2, y2 = self._point(c, min(1.0, t + 0.001))
+                upright = abs(y2 - y1) >= abs(x2 - x1)
+                key = ("row", math.floor(y)) if upright else ("col", math.floor(x))
+                off = abs(y - (math.floor(y) + 0.5)) if upright else abs(x - (math.floor(x) + 0.5))
+                if key not in best or off < best[key][0]:
+                    best[key] = (off, x, y, upright)
+            for _, x, y, upright in best.values():
+                if upright:
+                    lit, dark = (round(x) - 1, math.floor(y)), (round(x), math.floor(y))
+                else:
+                    lit, dark = (math.floor(x), round(y) - 1), (math.floor(x), round(y))
+                for (px_, py_), col in ((lit, RAIL_STEEL), (dark, RAIL_SHADE)):
+                    if 0 <= px_ < T and 0 <= py_ < T and out.get((px_, py_)) != RAIL_STEEL:
+                        out[(px_, py_)] = col
+        return out
 
     def _polar(self, x, y):
         vx, vy = x + 0.5 - self.cx, y + 0.5 - self.cy
@@ -1337,24 +1378,15 @@ class Curve:
 
     def sleeper(self, x, y):
         d, t = self._polar(x, y)
-        # About as far apart as on the straight, measured round the middle of the curve.
-        arc = t * (math.pi / 2) * 16
-        return -0.01 <= t <= 1.01 and TRACK_LO + 1 <= d <= TRACK_HI - 1 and arc % 4 < 1.6
-
-    def _lit_nearer(self, edge):
-        # Rails running north to south are lit on the west, east to west on the north.
-        return self.cx == 0 if edge[0] != 0 else self.cy == 0
+        if not (-0.01 <= t <= 1.01 and TRACK_LO + 1 <= d <= TRACK_HI - 1):
+            return False
+        length = math.pi / 2 * 16
+        arc = t * length
+        pitch = (length - 3) / (self.SLEEPERS - 1)
+        return any(abs(arc - (1.5 + k * pitch)) < 0.8 for k in range(self.SLEEPERS))
 
     def rail(self, x, y):
-        d, t = self._polar(x, y)
-        if not (-0.01 <= t <= 1.01):
-            return None
-        for k in range(2):
-            c = self.start[k] + (self.end[k] - self.start[k]) * t
-            if abs(d - c) < 1.0:
-                edge = self.a if t < 0.5 else self.b
-                return RAIL_STEEL if (d < c) == self._lit_nearer(edge) else RAIL_SHADE
-        return None
+        return self.rails.get((x, y))
 
 
 def pieces(mask):
