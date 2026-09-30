@@ -42,6 +42,7 @@ enum class KeyAction(val held: Boolean = false) {
     DevHourBack,
     DevHourNext,
     DevGraphics,
+    DevWeather,
 }
 
 /** A key and the modifiers held with it. Cmd counts as Ctrl, for Macs in the browser. */
@@ -86,6 +87,7 @@ val DefaultKeys: Map<Key, KeyAction> = mapOf(
     Key.Comma to KeyAction.DevHourBack,
     Key.Period to KeyAction.DevHourNext,
     Key.G to KeyAction.DevGraphics,
+    Key.Q to KeyAction.DevWeather,
 )
 
 /**

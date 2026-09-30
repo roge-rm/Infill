@@ -13,6 +13,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.BlendMode
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /** The toolbar's icons, drawn on a 24 unit square so they scale with the button. */
 @Composable
@@ -84,6 +88,56 @@ fun SpeedIcon(speed: Int, colour: Color, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** What the sky is doing, as the top strip shows it. */
+enum class Sky { Clear, Night, Partly, Cloudy, Rain, Snow, Fog }
+
+/** A small picture of the sky. */
+@Composable
+fun WeatherIcon(sky: Sky, colour: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val u = size.minDimension / 24f
+        fun cloud(cx: Float, cy: Float, c: Color) {
+            drawCircle(c, 4.5f * u, Offset(cx - 3.5f * u, cy + 1 * u))
+            drawCircle(c, 6f * u, Offset(cx + 1 * u, cy - 1 * u))
+            drawCircle(c, 4f * u, Offset(cx + 6f * u, cy + 1.5f * u))
+            drawRect(c, Offset(cx - 3.5f * u, cy + 1.5f * u), Size(9.5f * u, 4f * u))
+        }
+        when (sky) {
+            Sky.Clear -> {
+                drawCircle(SUN, 5 * u, Offset(12 * u, 12 * u))
+                for (k in 0 until 8) {
+                    val a = k * PI.toFloat() / 4
+                    drawLine(SUN, Offset(12 * u + cos(a) * 7.5f * u, 12 * u + sin(a) * 7.5f * u), Offset(12 * u + cos(a) * 10 * u, 12 * u + sin(a) * 10 * u), 1.8f * u, StrokeCap.Round)
+                }
+            }
+            Sky.Night -> {
+                drawCircle(colour, 7 * u, Offset(12 * u, 12 * u))
+                drawCircle(Color.Transparent, 6 * u, Offset(15 * u, 9 * u), blendMode = BlendMode.Clear)
+            }
+            Sky.Partly -> {
+                drawCircle(SUN, 5 * u, Offset(15 * u, 8 * u))
+                cloud(10 * u, 14 * u, colour)
+            }
+            Sky.Cloudy -> cloud(11 * u, 11 * u, colour)
+            Sky.Rain -> {
+                cloud(11 * u, 8 * u, colour)
+                for (x in listOf(7f, 12f, 17f)) drawLine(RAIN_DROP, Offset(x * u, 17 * u), Offset((x - 1.5f) * u, 21 * u), 1.8f * u, StrokeCap.Round)
+            }
+            Sky.Snow -> {
+                cloud(11 * u, 8 * u, colour)
+                for (x in listOf(7f, 12f, 17f)) drawCircle(colour, 1.4f * u, Offset(x * u, 19 * u))
+            }
+            Sky.Fog -> for (k in 0 until 4) {
+                val y = (6 + k * 4) * u
+                drawLine(colour, Offset((4 + k % 2 * 2) * u, y), Offset((20 - k % 2 * 2) * u, y), 2f * u, StrokeCap.Round)
+            }
+        }
+    }
+}
+
+private val SUN = Color(0xFFF2B233)
+private val RAIN_DROP = Color(0xFF5A8FCC)
 
 /** A head and shoulders, for the population. */
 @Composable

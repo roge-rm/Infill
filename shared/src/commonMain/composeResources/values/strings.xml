@@ -57,6 +57,7 @@
     <string name="inspect_power_line">Power line</string>
 
     <string name="speed">Speed</string>
+    <string name="temperature">%1$s°</string>
     <string name="demand">Demand</string>
     <string name="jobs_label">Jobs</string>
     <string name="income">Income a month</string>

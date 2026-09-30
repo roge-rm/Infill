@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -65,6 +66,8 @@ fun MapView(
     sunStep: Int,
     sun: Sun,
     tint: Color,
+    weather: WeatherLook,
+    running: Boolean,
     graphics: Graphics,
     gestures: MapGestures,
     preview: Preview?,
@@ -79,6 +82,20 @@ fun MapView(
     var hoverX by remember { mutableIntStateOf(-1) }
     var hoverY by remember { mutableIntStateOf(-1) }
     val g by rememberUpdatedState(gestures)
+    val clouds = remember { CloudTextures.make() }
+
+    // Rain, snow and clouds move while the game runs.
+    var weatherTime by remember { mutableFloatStateOf(0f) }
+    val animate = running && weather.moving && (graphics.particles > 0f || graphics.cloudShadows)
+    LaunchedEffect(animate) {
+        if (!animate) return@LaunchedEffect
+        var last = withFrameNanos { it }
+        while (true) {
+            val now = withFrameNanos { it }
+            weatherTime += (now - last) / 1e9f
+            last = now
+        }
+    }
 
     // Bakes what the last frame asked for, in its order. Where baking shares the
     // screen's thread it stops for a frame whenever it has used its share.
@@ -163,6 +180,7 @@ fun MapView(
                 )
             }
         }
+        drawWeather(weather, camera, clouds, weatherTime, sun.strength, graphics)
         if (tint != Color.White) drawRect(tint, blendMode = BlendMode.Multiply)
         if (preview != null) drawPreview(preview, map, camera, measurer, costText)
         else if (gestures.toolActive && hoverX >= 0) drawHover(hoverX, hoverY, camera)

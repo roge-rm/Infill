@@ -59,6 +59,11 @@ import com.rm.infill.map.Graphics
 import com.rm.infill.map.GraphicsLevel
 import com.rm.infill.map.MapView
 import com.rm.infill.map.Seasons
+import com.rm.infill.map.SHADOW_KEEP
+import com.rm.infill.map.WeatherLook
+import com.rm.infill.map.weatherTint
+import com.rm.infill.sim.Precipitation
+import com.rm.infill.sim.Weather
 import com.rm.infill.map.Sky
 import com.rm.infill.map.rememberTileAtlas
 import kotlinx.coroutines.delay
@@ -105,15 +110,32 @@ fun App() {
             }
         }
         var lookOverride by remember { mutableIntStateOf(-1) }
-        val look = if (lookOverride >= 0) lookOverride else Seasons.lookFor(city.month)
+        game.revision
+        val w = city.weather
+        var weatherOverride by remember { mutableIntStateOf(-1) }
+        val weather = if (weatherOverride >= 0) DEV_WEATHER[weatherOverride]
+        else WeatherLook.of(w.cloud, w.precipitation, w.intensity, w.fog, w.windDirection, w.windSpeed)
+        // Snow on the ground decides the winter look; a winter month without it is bare.
+        val seasonal = Seasons.lookFor(city.month)
+        val look = when {
+            lookOverride >= 0 -> lookOverride
+            w.snowCover >= Weather.SNOW_LOOK -> Atlas.SNOW
+            seasonal == Atlas.SNOW -> Atlas.BARE
+            else -> seasonal
+        }
         val month = if (lookOverride >= 0) Seasons.monthOf(lookOverride) else city.month
         val sunStep by remember { derivedStateOf { Sky.step(hour) } }
         val lightStep by remember { derivedStateOf { (hour * LIGHT_STEPS_PER_HOUR).toInt() } }
         var graphicsLevel by remember { mutableStateOf(GraphicsLevel.High) }
         val graphics = remember(graphicsLevel) { Graphics(graphicsLevel) }
-        val shadowStep = graphics.sunStep(sunStep)
-        val sun = remember(shadowStep, month) { Sky.sun(shadowStep, month) }
-        val tint = remember(lightStep, month) { Sky.tint(lightStep / LIGHT_STEPS_PER_HOUR, month) }
+        // Chunks are baked for a sun step and how clear the sky is, four levels of it.
+        val clear = weather.clearness
+        val shadowStep = graphics.sunStep(sunStep) * 4 + clear
+        val sun = remember(shadowStep, month) {
+            Sky.sun(shadowStep / 4, month).let { it.copy(strength = it.strength * SHADOW_KEEP[clear]) }
+        }
+        val skyTint = remember(lightStep, month) { Sky.tint(lightStep / LIGHT_STEPS_PER_HOUR, month) }
+        val tint = remember(skyTint, weather) { weatherTint(skyTint, weather) }
 
         // Time runs at the chosen speed while the game isn't paused, a few days a frame at most.
         LaunchedEffect(paused, speed) {
@@ -242,6 +264,7 @@ fun App() {
                             KeyAction.DevSeasonNext -> lookOverride = (look + 1) % Atlas.LOOKS
                             KeyAction.DevHourBack -> hour = (hour + 24f - 24f / Sky.STEPS) % 24f
                             KeyAction.DevHourNext -> hour = (hour + 24f / Sky.STEPS) % 24f
+                            KeyAction.DevWeather -> weatherOverride = if (weatherOverride + 1 >= DEV_WEATHER.size) -1 else weatherOverride + 1
                             KeyAction.DevGraphics -> graphicsLevel = GraphicsLevel.entries[(graphicsLevel.ordinal + 1) % GraphicsLevel.entries.size]
                             else -> {}
                         }
@@ -251,7 +274,7 @@ fun App() {
             val layout = screenLayout(maxWidth, maxHeight)
             viewSize = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
             MapView(
-                game, atlas, camera, look, shadowStep, sun, tint, graphics, gestures, preview, costText,
+                game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, graphics, gestures, preview, costText,
                 Modifier.fillMaxSize(),
             )
 
@@ -260,7 +283,8 @@ fun App() {
             val sideTools = layout.large || layout.shape == ScreenShape.Wide
             val compactTools = layout.compact || layout.short || layout.narrow
             StatusStrip(
-                game, paused, { paused = !paused }, speed, { speed = (speed + 1) % DAYS_PER_SECOND.size }, layout.compact,
+                game, paused, { paused = !paused }, speed, { speed = (speed + 1) % DAYS_PER_SECOND.size },
+                Sky.sun(sunStep, month).strength == 0f, layout.compact,
                 Modifier
                     // Beside the tools rather than above them when they run down the side.
                     .align(if (sideTools && !layout.large) Alignment.TopCenter else Alignment.TopStart)
@@ -327,6 +351,15 @@ private const val KEY_PAN_DP = 600f
 private const val KEY_ZOOM = 1.5f
 
 private const val PANEL_WIDTH = 240
+
+/** Weather the W key steps through while the looks are being made: clear, cloudy, rain, snow, fog. */
+private val DEV_WEATHER = listOf(
+    WeatherLook.of(5, Precipitation.None, 0, false, 250, 30),
+    WeatherLook.of(60, Precipitation.None, 0, false, 250, 50),
+    WeatherLook.of(90, Precipitation.Rain, 70, false, 250, 60),
+    WeatherLook.of(85, Precipitation.Snow, 60, false, 300, 40),
+    WeatherLook.of(55, Precipitation.None, 0, true, 250, 10),
+)
 
 /** Game days a second at each speed, and the most days one frame will run. */
 private val DAYS_PER_SECOND = doubleArrayOf(3.0, 8.0, 20.0)

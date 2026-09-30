@@ -46,6 +46,8 @@ import com.rm.infill.res.undo
 import com.rm.infill.res.year
 import com.rm.infill.GameState
 import com.rm.infill.sim.Zone
+import com.rm.infill.sim.Precipitation
+import com.rm.infill.res.temperature
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -76,6 +78,7 @@ fun StatusStrip(
     onPause: () -> Unit,
     speed: Int,
     onSpeed: () -> Unit,
+    night: Boolean,
     compact: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -102,11 +105,42 @@ fun StatusStrip(
                 stringResource(Res.string.date, months.getOrElse(city.month) { "" }, city.year),
                 color = c.text, fontSize = textSize, fontWeight = FontWeight.SemiBold,
             )
+            val w = city.weather
+            WeatherReading(skyOf(w.fog, w.precipitation, w.cloud, night), w.temperature, compact, textSize)
             Text(stringResource(Res.string.money, groupThousands(city.funds)), color = c.text, fontSize = textSize)
             PersonCount(city.stats.population, textSize)
             val st = city.stats
             DemandBars(st.residentialDemand, st.commercialDemand, st.industryDemand, st.population + st.jobs, Modifier.padding(end = 4.dp))
         }
+    }
+}
+
+/** What the sky is doing, from the day's weather. */
+private fun skyOf(fog: Boolean, precipitation: Precipitation, cloud: Int, night: Boolean): Sky = when {
+    fog -> Sky.Fog
+    precipitation == Precipitation.Snow -> Sky.Snow
+    precipitation == Precipitation.Rain -> Sky.Rain
+    cloud >= 70 -> Sky.Cloudy
+    night -> Sky.Night
+    cloud >= 35 -> Sky.Partly
+    else -> Sky.Clear
+}
+
+/**
+ * A picture of the sky and the temperature in °C. On a small screen, just the
+ * picture. Handed the values, not the weather itself, which changes in place.
+ */
+@Composable
+private fun WeatherReading(sky: Sky, degrees: Int, compact: Boolean, textSize: androidx.compose.ui.unit.TextUnit) {
+    val c = Infill.colors
+    val temperature = stringResource(Res.string.temperature, if (degrees < 0) "\u2212${-degrees}" else "$degrees")
+    Row(
+        Modifier.semantics(mergeDescendants = true) { contentDescription = temperature },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        WeatherIcon(sky, c.textDim, Modifier.size(20.dp))
+        if (!compact) Text(temperature, color = c.text, fontSize = textSize)
     }
 }
 

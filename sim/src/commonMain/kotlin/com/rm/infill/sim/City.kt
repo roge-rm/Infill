@@ -18,6 +18,7 @@ class City(
 ) {
     val map = CityMap(width, height).also { TerrainGen.generate(it, seed, terrain) }
     val rng = Rng(seed)
+    val weather = Weather(seed)
 
     /** Whole dollars. */
     var funds: Long = START_FUNDS
@@ -304,6 +305,7 @@ class City(
         if (networksDirty) updateNetworks()
         for (b in buildings.values) b.age++
         growDay()
+        weather.nextDay(month, day, daysIn(month, year))
         day++
         if (day > daysIn(month, year)) {
             day = 1

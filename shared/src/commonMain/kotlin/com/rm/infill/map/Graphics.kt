@@ -14,6 +14,16 @@ class Graphics(val level: GraphicsLevel) {
     /** Shadows follow the sun. Otherwise they stay as they are mid morning. */
     val movingShadows = level == GraphicsLevel.High
 
+    /** Cloud shadows drifting over the map, and banks in fog. */
+    val cloudShadows = level != GraphicsLevel.Low
+
+    /** How much rain and snow is drawn, as a share of all of it. */
+    val particles = when (level) {
+        GraphicsLevel.Low -> 0f
+        GraphicsLevel.Medium -> 0.5f
+        GraphicsLevel.High -> 1f
+    }
+
     /** The sharpest atlas used: 0 is 32 px a tile, 1 is 16. */
     val sharpest = if (level == GraphicsLevel.Low) 1 else 0
 
