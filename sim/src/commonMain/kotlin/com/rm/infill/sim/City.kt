@@ -14,9 +14,13 @@ class City(
     val seed: Long,
     width: Int = DEFAULT_SIZE,
     height: Int = DEFAULT_SIZE,
-    terrain: TerrainOptions = TerrainOptions(),
+    terrain: TerrainOptions? = TerrainOptions(),
 ) {
-    val map = CityMap(width, height).also { TerrainGen.generate(it, seed, terrain) }
+    /** Blank when [terrain] is null, for a city being loaded. */
+    val map = CityMap(width, height).also { if (terrain != null) TerrainGen.generate(it, seed, terrain) }
+
+    /** What the player calls the town. */
+    var name = "New town"
     val rng = Rng(seed)
     val weather = Weather(seed)
 
@@ -860,7 +864,90 @@ class City(
         for (y in top..bottom) for (x in left..right) action(map.index(x, y))
     }
 
+    // ---- saving ----------------------------------------------------------------
+
+    internal fun writeTo(w: SaveWriter) {
+        // The summary comes first so a list of saves can read it without the rest.
+        w.string(name); w.int(year); w.int(month); w.int(stats.population); w.long(funds)
+        w.long(seed); w.int(map.width); w.int(map.height)
+        w.int(day)
+        w.int(residentialTax); w.int(commercialTax); w.int(industrialTax)
+        w.int(policeFunding); w.int(fireFunding); w.int(parkFunding)
+        w.long(rng.state)
+        w.int(nextId)
+        for (q in quota) w.int(q)
+        val s = stats
+        for (v in intArrayOf(
+            s.population, s.workers, s.shopJobs, s.industryJobs, s.otherJobs, s.unemployment,
+            s.residentialDemand, s.commercialDemand, s.industryDemand, s.crime, s.pollution, s.landValue,
+        )) w.int(v)
+        for (v in longArrayOf(
+            s.residentialIncome, s.commercialIncome, s.industrialIncome, s.income,
+            s.roadUpkeep, s.powerUpkeep, s.policeUpkeep, s.fireUpkeep, s.parkUpkeep, s.upkeep,
+        )) w.long(v)
+        weather.writeTo(w)
+        history.writeTo(w)
+        for (layer in arrayOf(map.terrain, map.road, map.zone, map.power, map.grime, map.pollution, map.landValue, map.crime, map.policeCover, map.fireCover)) {
+            w.layer(layer)
+        }
+        w.count(buildings.size)
+        for (b in buildings.values) {
+            w.int(b.id); w.string(b.type.name); w.int(b.x); w.int(b.y); w.int(b.variant); w.int(b.age); w.int(b.burning)
+        }
+    }
+
     companion object {
+        internal fun readSummary(r: SaveReader) = SaveSummary(r.string(), r.int(), r.int(), r.int(), r.long())
+
+        internal fun readFrom(r: SaveReader): City {
+            val name = r.string()
+            val year = r.int()
+            val month = r.int()
+            r.int() // population, from the summary; the stats below have it too
+            val funds = r.long()
+            val seed = r.long()
+            val width = r.int()
+            val height = r.int()
+            if (width !in 8..1024 || height !in 8..1024) throw SaveError("the map size doesn't make sense")
+            val c = City(seed, width, height, terrain = null)
+            c.name = name
+            c.year = year
+            c.month = month
+            c.funds = funds
+            c.day = r.int()
+            c.residentialTax = r.int(); c.commercialTax = r.int(); c.industrialTax = r.int()
+            c.policeFunding = r.int(); c.fireFunding = r.int(); c.parkFunding = r.int()
+            c.rng.state = r.long()
+            c.nextId = r.int()
+            for (k in c.quota.indices) c.quota[k] = r.int()
+            val s = c.stats
+            s.population = r.int(); s.workers = r.int(); s.shopJobs = r.int(); s.industryJobs = r.int()
+            s.otherJobs = r.int(); s.unemployment = r.int(); s.residentialDemand = r.int(); s.commercialDemand = r.int()
+            s.industryDemand = r.int(); s.crime = r.int(); s.pollution = r.int(); s.landValue = r.int()
+            s.residentialIncome = r.long(); s.commercialIncome = r.long(); s.industrialIncome = r.long(); s.income = r.long()
+            s.roadUpkeep = r.long(); s.powerUpkeep = r.long(); s.policeUpkeep = r.long(); s.fireUpkeep = r.long()
+            s.parkUpkeep = r.long(); s.upkeep = r.long()
+            c.weather.readFrom(r)
+            c.history.readFrom(r)
+            val m = c.map
+            for (layer in arrayOf(m.terrain, m.road, m.zone, m.power, m.grime, m.pollution, m.landValue, m.crime, m.policeCover, m.fireCover)) {
+                r.layer(layer)
+            }
+            repeat(r.count()) {
+                val id = r.int()
+                val typeName = r.string()
+                val type = BuildingType.entries.firstOrNull { it.name == typeName } ?: throw SaveError("a building of a kind this version doesn't know")
+                val b = Building(id, type, r.int(), r.int(), r.int())
+                b.age = r.int()
+                b.burning = r.int()
+                if (b.burning > 0) c.burningNow++
+                c.buildings[b.id] = b
+                c.stamp(b)
+            }
+            c.networksChanged()
+            return c
+        }
+
         const val DEFAULT_SIZE = 128
         const val START_YEAR = 1900
         const val START_FUNDS = 20_000L
@@ -943,6 +1030,32 @@ class History(val capacity: Int = 240) {
         months[next] = city.month
         next = (next + 1) % capacity
         if (count < capacity) count++
+    }
+
+    internal fun writeTo(w: SaveWriter) {
+        w.count(count)
+        for (k in 0 until count) {
+            val at = (next - count + k + capacity) % capacity
+            w.int(years[at]); w.int(months[at])
+            for (d in data) w.long(d[at])
+        }
+    }
+
+    internal fun readFrom(r: SaveReader) {
+        val n = r.count()
+        count = 0
+        next = 0
+        repeat(n) {
+            val y = r.int()
+            val m = r.int()
+            val values = LongArray(data.size) { r.long() }
+            if (count == capacity) count--
+            years[next] = y
+            months[next] = m
+            for (k in data.indices) data[k][next] = values[k]
+            next = (next + 1) % capacity
+            count++
+        }
     }
 
     /** A series oldest first. */

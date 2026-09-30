@@ -1,5 +1,26 @@
 package com.rm.infill
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.unit.Density
+import com.rm.infill.platform.AUTOSAVE
+import com.rm.infill.platform.BackButton
+import com.rm.infill.platform.Settings
+import com.rm.infill.platform.ThemeChoice
+import com.rm.infill.platform.platform
+import com.rm.infill.platform.saveFileName
+import com.rm.infill.res.load_failed
+import com.rm.infill.res.saved
+import com.rm.infill.sim.SaveError
+import com.rm.infill.sim.SaveGame
+import com.rm.infill.ui.LoadWindow
+import com.rm.infill.ui.MenuWindow
+import com.rm.infill.ui.NewCityScreen
+import com.rm.infill.ui.SettingsWindow
+import com.rm.infill.ui.StartScreen
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -87,11 +108,143 @@ import com.rm.infill.ui.ToolBar
 import com.rm.infill.ui.screenLayout
 import com.rm.infill.ui.theme.InfillTheme
 
-/** The whole game, the same on every platform. */
+/** The whole app, the same on every platform: the start screen, a new city, and the game. */
 @Composable
 fun App() {
-    InfillTheme {
-        val game = remember { GameState(City(seed = 1900)) }
+    val settings = remember { Settings(platform) }
+    val dark = when (settings.theme) {
+        ThemeChoice.Auto -> isSystemInDarkTheme()
+        ThemeChoice.Light -> false
+        ThemeChoice.Dark -> true
+    }
+    InfillTheme(dark) {
+        // The size setting scales everything drawn in dp and sp at once.
+        val base = LocalDensity.current
+        CompositionLocalProvider(LocalDensity provides Density(base.density * settings.uiScale, base.fontScale)) {
+            Screens(settings)
+        }
+    }
+}
+
+private enum class Screen { Start, New, Game }
+
+@Composable
+private fun Screens(settings: Settings) {
+    var screen by remember { mutableStateOf(Screen.Start) }
+    var game by remember { mutableStateOf<GameState?>(null) }
+    var loadOpen by remember { mutableStateOf(false) }
+    var settingsOpen by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
+    val notice = remember { mutableStateOf<Message?>(null) }
+    var savesChanged by remember { mutableIntStateOf(0) }
+    val saves = remember(savesChanged, loadOpen, screen) {
+        platform.saves().mapNotNull { f -> platform.readSave(f)?.let { SaveGame.summary(it) }?.let { f to it } }
+            .sortedBy { if (it.first == AUTOSAVE) 0 else 1 }
+    }
+    val lastSave = saves.firstOrNull { it.first == AUTOSAVE }?.second
+
+    fun autosave() {
+        game?.let { platform.writeSave(AUTOSAVE, SaveGame.write(it.city)) }
+    }
+
+    fun load(file: String) {
+        val bytes = platform.readSave(file)
+        val city = try {
+            bytes?.let { SaveGame.read(it) }
+        } catch (e: SaveError) {
+            null
+        }
+        if (city == null) {
+            notice.value = Message(Res.string.load_failed)
+            return
+        }
+        game = GameState(city)
+        loadOpen = false
+        menuOpen = false
+        screen = Screen.Game
+    }
+
+    // Put away or hidden: the game saves itself.
+    val current by rememberUpdatedState(game)
+    LaunchedEffect(Unit) {
+        platform.onHidden { current?.let { platform.writeSave(AUTOSAVE, SaveGame.write(it.city)) } }
+    }
+
+    when (screen) {
+        Screen.Start -> StartScreen(
+            lastSave,
+            onContinue = { load(AUTOSAVE) },
+            onNew = { screen = Screen.New },
+            onLoad = { loadOpen = true },
+            onSettings = { settingsOpen = true },
+        )
+        Screen.New -> NewCityScreen(
+            onStart = { name, seed, options ->
+                game = GameState(City(seed, terrain = options).also { it.name = name })
+                screen = Screen.Game
+            },
+            onBack = { screen = if (game != null) Screen.Game else Screen.Start },
+        )
+        Screen.Game -> game?.let { g ->
+            key(g) {
+                GameScreen(
+                    g, settings, notice, windowOpen = menuOpen || loadOpen || settingsOpen,
+                    onMenu = { menuOpen = true }, onNewMonth = { autosave() },
+                )
+            }
+        }
+    }
+    if (menuOpen) {
+        MenuWindow(
+            onSave = {
+                game?.let {
+                    platform.writeSave(saveFileName(it.city.name), SaveGame.write(it.city))
+                    notice.value = Message(Res.string.saved, name = it.city.name)
+                    savesChanged++
+                }
+                menuOpen = false
+            },
+            onLoad = { loadOpen = true },
+            onNew = { autosave(); menuOpen = false; screen = Screen.New },
+            onSettings = { settingsOpen = true },
+            onMain = { autosave(); menuOpen = false; screen = Screen.Start },
+            onClose = { menuOpen = false },
+        )
+    }
+    if (loadOpen) {
+        LoadWindow(saves, ::load, { platform.deleteSave(it); savesChanged++ }, { loadOpen = false })
+    }
+    if (settingsOpen) SettingsWindow(settings) { settingsOpen = false }
+    // Android's back button: close what's open, or step back a screen. From the start screen it leaves.
+    BackButton(enabled = menuOpen || loadOpen || settingsOpen || screen == Screen.New) {
+        when {
+            settingsOpen -> settingsOpen = false
+            loadOpen -> loadOpen = false
+            menuOpen -> menuOpen = false
+            screen == Screen.New -> screen = if (game != null) Screen.Game else Screen.Start
+        }
+    }
+    if (screen != Screen.Game) {
+        notice.value?.let { m ->
+            LaunchedEffect(m) { delay(MESSAGE_MS); notice.value = null }
+            Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(12.dp), contentAlignment = Alignment.TopCenter) {
+                MessageChip(stringResource(m.text), null)
+            }
+        }
+    }
+}
+
+/** A city being played: the map, the bars and panels over it, and time running. */
+@Composable
+private fun GameScreen(
+    game: GameState,
+    settings: Settings,
+    notice: MutableState<Message?>,
+    windowOpen: Boolean,
+    onMenu: () -> Unit,
+    onNewMonth: () -> Unit,
+) {
+    run {
         val city = game.city
         val density = LocalDensity.current.density
         val camera = remember(density) {
@@ -103,7 +256,7 @@ fun App() {
         var speed by remember { mutableIntStateOf(1) }
         var drag by remember { mutableStateOf<ToolDrag?>(null) }
         var inspected by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-        var message by remember { mutableStateOf<Message?>(null) }
+        var message by notice
         var serviceKind by remember { mutableStateOf(ServiceKind.Police) }
         var overlay by remember { mutableStateOf(Overlay.None) }
         var choosingOverlay by remember { mutableStateOf(false) }
@@ -111,6 +264,7 @@ fun App() {
         var graphsOpen by remember { mutableStateOf(false) }
         var paused by remember { mutableStateOf(true) }
         val keys = remember { KeyInput() }
+        keys.bindings = settings.keys
         val focus = remember { FocusRequester() }
         var viewSize by remember { mutableStateOf(Size.Zero) }
         val atlas = rememberTileAtlas()
@@ -144,8 +298,7 @@ fun App() {
         val month = if (lookOverride >= 0) Seasons.monthOf(lookOverride) else city.month
         val sunStep by remember { derivedStateOf { Sky.step(hour) } }
         val lightStep by remember { derivedStateOf { (hour * LIGHT_STEPS_PER_HOUR).toInt() } }
-        var graphicsLevel by remember { mutableStateOf(GraphicsLevel.High) }
-        val graphics = remember(graphicsLevel) { Graphics(graphicsLevel) }
+        val graphics = remember(settings.graphics) { Graphics(settings.graphics) }
         // Chunks are baked for a sun step and how clear the sky is, four levels of it.
         val clear = weather.clearness
         val shadowStep = graphics.sunStep(sunStep) * 4 + clear
@@ -167,6 +320,7 @@ fun App() {
                 val days = min(progress.toInt(), MAX_DAYS_PER_FRAME)
                 progress = if (progress.toInt() > MAX_DAYS_PER_FRAME) 0f else progress - days
                 dayProgress = progress
+                val monthBefore = city.month
                 game.tick(days) { e ->
                     val text = when (e.kind) {
                         EventKind.FireStarted -> Res.string.event_fire
@@ -175,6 +329,7 @@ fun App() {
                     }
                     message = Message(text, buildingName(e.type), e.x, e.y)
                 }
+                if (city.month != monthBefore) onNewMonth()
             }
         }
 
@@ -223,6 +378,21 @@ fun App() {
             drag = null
             tell(game.redo()?.problem)
         }
+
+        // Esc and the back button: let go of a drag, close what's open, put the tool down, then the menu.
+        fun back() {
+            when {
+                budgetOpen || graphsOpen -> { budgetOpen = false; graphsOpen = false }
+                drag != null -> drag = null
+                choosingOverlay -> choosingOverlay = false
+                inspected != null -> inspected = null
+                tool == Tool.Inspect -> onMenu()
+                else -> pick(Tool.Inspect)
+            }
+        }
+        // Android picks the back handler added last, not the one declared last, so this
+        // one stands aside while one of the app's windows is open over the game.
+        BackButton(enabled = !windowOpen) { back() }
 
         val gestures = MapGestures(
             toolActive = tool != Tool.Inspect,
@@ -286,20 +456,14 @@ fun App() {
                             KeyAction.Undo -> undo()
                             KeyAction.Redo -> redo()
                             // Esc lets go of a drag, then closes the inspector, then puts the tool down.
-                            KeyAction.Back -> when {
-                                budgetOpen || graphsOpen -> { budgetOpen = false; graphsOpen = false }
-                                drag != null -> drag = null
-                                choosingOverlay -> choosingOverlay = false
-                                inspected != null -> inspected = null
-                                else -> pick(Tool.Inspect)
-                            }
+                            KeyAction.Back -> back()
                             KeyAction.DevSeasonBack -> lookOverride = (look + Atlas.LOOKS - 1) % Atlas.LOOKS
                             KeyAction.DevSeasonNext -> lookOverride = (look + 1) % Atlas.LOOKS
                             KeyAction.DevHourBack -> hourShift -= 24f / Sky.STEPS
                             KeyAction.DevHourNext -> hourShift += 24f / Sky.STEPS
                             KeyAction.DevFire -> inspected?.let { (x, y) -> city.startFireAt(x, y); game.tick(0) }
                             KeyAction.DevWeather -> weatherOverride = if (weatherOverride + 1 >= DEV_WEATHER.size) -1 else weatherOverride + 1
-                            KeyAction.DevGraphics -> graphicsLevel = GraphicsLevel.entries[(graphicsLevel.ordinal + 1) % GraphicsLevel.entries.size]
+                            KeyAction.DevGraphics -> settings.graphics = GraphicsLevel.entries[(settings.graphics.ordinal + 1) % GraphicsLevel.entries.size]
                             else -> {}
                         }
                     }
@@ -316,11 +480,13 @@ fun App() {
             val gap = if (layout.compact) 6.dp else 10.dp
             val sideTools = layout.large || layout.shape == ScreenShape.Wide
             val compactTools = layout.compact || layout.short || layout.narrow
+            val twoLines = layout.narrow && layout.shape == ScreenShape.Tall
             StatusStrip(
-                game, paused, { paused = !paused }, speed, { speed = (speed + 1) % SPEEDS.size },
+                game, onMenu, paused, { paused = !paused }, speed, { speed = (speed + 1) % SPEEDS.size },
                 overlay != Overlay.None || choosingOverlay, { choosingOverlay = !choosingOverlay },
                 { budgetOpen = true }, { graphsOpen = true },
                 Sky.sun(sunStep, month).strength == 0f, layout.compact || layout.narrow,
+                twoLines = twoLines, onUndo = ::undo, onRedo = ::redo,
                 Modifier
                     // Beside the tools rather than above them when they run down the side.
                     .align(if (sideTools && !layout.large) Alignment.TopCenter else Alignment.TopStart)
@@ -329,7 +495,11 @@ fun App() {
             )
             message?.let { m ->
                 MessageChip(
-                    if (m.arg != null) stringResource(m.text, stringResource(m.arg)) else stringResource(m.text),
+                    when {
+                        m.arg != null -> stringResource(m.text, stringResource(m.arg))
+                        m.name != null -> stringResource(m.text, m.name)
+                        else -> stringResource(m.text)
+                    },
                     if (m.x >= 0) ({ camera.centreOn(m.x, m.y) }) else null,
                     Modifier
                         .align(Alignment.TopCenter)
@@ -372,7 +542,9 @@ fun App() {
                         { overlay = it; if (it == Overlay.None) choosingOverlay = false }, compactTools,
                     )
                 }
-                if (!sideTools) ToolBar(tool, ::pick, game.canUndo, game.canRedo, ::undo, ::redo, vertical = false, compact = compactTools)
+                if (!sideTools) {
+                    ToolBar(tool, ::pick, game.canUndo, game.canRedo, ::undo, ::redo, vertical = false, compact = compactTools, withHistory = !twoLines)
+                }
             }
             if (layout.large) {
                 CityPanel(
@@ -402,7 +574,13 @@ private const val KEY_ZOOM = 1.5f
 private const val PANEL_WIDTH = 240
 
 /** A message for the top of the screen, with a building's name in it and a tile to go to if it's about a place. */
-private data class Message(val text: StringResource, val arg: StringResource? = null, val x: Int = -1, val y: Int = -1)
+private data class Message(
+    val text: StringResource,
+    val arg: StringResource? = null,
+    val x: Int = -1,
+    val y: Int = -1,
+    val name: String? = null,
+)
 
 /** Weather the W key steps through while the looks are being made: clear, cloudy, rain, snow, fog. */
 private val DEV_WEATHER = listOf(

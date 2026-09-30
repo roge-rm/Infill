@@ -10,7 +10,7 @@ package com.rm.infill.sim
  */
 class Rng(seed: Long) {
     var state: Long = seed
-        private set
+        internal set
 
     fun nextLong(): Long {
         state += GOLDEN

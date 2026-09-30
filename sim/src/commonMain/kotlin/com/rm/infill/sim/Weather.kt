@@ -101,6 +101,21 @@ class Weather(seed: Long, private val climate: Climate = Climate.TEMPERATE) {
         }
     }
 
+    internal fun writeTo(w: SaveWriter) {
+        w.long(rng.state)
+        w.int(warmth); w.int(cloudBias); w.int(temperature); w.int(cloud)
+        w.int(precipitation.ordinal); w.int(intensity); w.bool(fog); w.int(snowCover)
+        w.int(windDirection); w.int(windSpeed)
+    }
+
+    internal fun readFrom(r: SaveReader) {
+        rng.state = r.long()
+        warmth = r.int(); cloudBias = r.int(); temperature = r.int(); cloud = r.int()
+        precipitation = Precipitation.entries.getOrElse(r.int()) { Precipitation.None }
+        intensity = r.int(); fog = r.bool(); snowCover = r.int()
+        windDirection = r.int(); windSpeed = r.int()
+    }
+
     companion object {
         private const val WEATHER_SALT = 0x5eed_c10dL
 

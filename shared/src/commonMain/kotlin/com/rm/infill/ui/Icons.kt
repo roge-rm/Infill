@@ -158,6 +158,15 @@ private fun DrawScope.civic(u: Float, c: Color) {
     drawRect(c, Offset(3 * u, 19 * u), Size(18 * u, 2.5f * u))
 }
 
+/** Three lines, for the menu. */
+@Composable
+fun MenuIcon(colour: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val u = size.minDimension / 24f
+        for (y in listOf(6f, 12f, 18f)) drawLine(colour, Offset(4 * u, y * u), Offset(20 * u, y * u), 2.4f * u, StrokeCap.Round)
+    }
+}
+
 /** Stacked sheets, for the map views. */
 @Composable
 fun LayersIcon(colour: Color, modifier: Modifier = Modifier) {

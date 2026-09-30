@@ -10,6 +10,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.rm.infill.platform.AndroidPlatform
+import com.rm.infill.platform.platform
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,7 +32,16 @@ class MainActivity : ComponentActivity() {
             }
         }
         goFullScreen()
+        platform = androidPlatform
         setContent { App() }
+    }
+
+    private val androidPlatform by lazy { AndroidPlatform(applicationContext) }
+
+    /** Put away: the game saves itself. */
+    override fun onStop() {
+        super.onStop()
+        androidPlatform.hide()
     }
 
     /** Hides the status and navigation bars. They come back on a swipe and hide again after. */

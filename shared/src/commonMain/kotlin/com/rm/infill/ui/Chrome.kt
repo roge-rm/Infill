@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +39,7 @@ import com.rm.infill.res.income
 import com.rm.infill.res.jobs_label
 import com.rm.infill.res.speed
 import com.rm.infill.res.overlay
+import com.rm.infill.res.menu
 import com.rm.infill.res.upkeep
 import com.rm.infill.res.funds
 import com.rm.infill.res.money
@@ -77,6 +81,7 @@ fun ChromeBox(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
 @Composable
 fun StatusStrip(
     game: GameState,
+    onMenu: () -> Unit,
     paused: Boolean,
     onPause: () -> Unit,
     speed: Int,
@@ -87,6 +92,9 @@ fun StatusStrip(
     onGraphs: () -> Unit,
     night: Boolean,
     compact: Boolean,
+    twoLines: Boolean,
+    onUndo: () -> Unit,
+    onRedo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val c = Infill.colors
@@ -95,37 +103,64 @@ fun StatusStrip(
     val months = stringArrayResource(Res.array.month_short)
     val textSize = if (compact) 13.sp else 15.sp
     val button = if (compact) 36.dp else 40.dp
+    val gap = if (compact) 8.dp else 10.dp
+    val buttons = @Composable {
+        SquareButton(selected = false, size = button, description = stringResource(Res.string.menu), onClick = onMenu) { tint ->
+            MenuIcon(tint, Modifier.size(22.dp))
+        }
+        val label = stringResource(if (paused) Res.string.play else Res.string.pause)
+        SquareButton(selected = paused, size = button, description = label, onClick = onPause) { tint ->
+            PauseIcon(paused, tint, Modifier.size(22.dp))
+        }
+        SquareButton(selected = false, size = button, description = stringResource(Res.string.speed), onClick = onSpeed) { tint ->
+            SpeedIcon(speed, tint, Modifier.size(22.dp))
+        }
+        SquareButton(selected = overlayOn, size = button, description = stringResource(Res.string.overlay), onClick = onOverlay) { tint ->
+            LayersIcon(tint, Modifier.size(22.dp))
+        }
+        Text(
+            stringResource(Res.string.date, months.getOrElse(city.month) { "" }, city.year),
+            color = c.text, fontSize = textSize, fontWeight = FontWeight.SemiBold,
+        )
+    }
+    val readings = @Composable {
+        val w = city.weather
+        WeatherReading(skyOf(w.fog, w.precipitation, w.cloud, night), w.temperature, compact && !twoLines, textSize)
+        Text(
+            moneyText(city.funds), color = if (city.funds < 0) Color(0xFFD84343) else c.text, fontSize = textSize,
+            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onBudget).padding(2.dp),
+        )
+        Box(Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onGraphs).padding(2.dp)) {
+            PersonCount(city.stats.population, textSize)
+        }
+        val st = city.stats
+        DemandBars(st.residentialDemand, st.commercialDemand, st.industryDemand, st.population + st.jobs, Modifier.padding(end = 4.dp))
+    }
     ChromeBox(modifier) {
-        Row(
-            Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 10.dp),
-        ) {
-            val label = stringResource(if (paused) Res.string.play else Res.string.pause)
-            SquareButton(selected = paused, size = button, description = label, onClick = onPause) { tint ->
-                PauseIcon(paused, tint, Modifier.size(22.dp))
+        // On a narrow screen the readings go on a second line under the buttons.
+        if (twoLines) {
+            Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gap)) { buttons() }
+                Row(
+                    Modifier.padding(start = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(gap),
+                ) {
+                    readings()
+                    // Undo and redo live up here on a narrow phone, so the toolbar keeps its labels.
+                    HistoryButton(false, game.canUndo, 32.dp, onUndo)
+                    HistoryButton(true, game.canRedo, 32.dp, onRedo)
+                }
             }
-            SquareButton(selected = false, size = button, description = stringResource(Res.string.speed), onClick = onSpeed) { tint ->
-                SpeedIcon(speed, tint, Modifier.size(22.dp))
+        } else {
+            Row(
+                Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(gap),
+            ) {
+                buttons()
+                readings()
             }
-            SquareButton(selected = overlayOn, size = button, description = stringResource(Res.string.overlay), onClick = onOverlay) { tint ->
-                LayersIcon(tint, Modifier.size(22.dp))
-            }
-            Text(
-                stringResource(Res.string.date, months.getOrElse(city.month) { "" }, city.year),
-                color = c.text, fontSize = textSize, fontWeight = FontWeight.SemiBold,
-            )
-            val w = city.weather
-            WeatherReading(skyOf(w.fog, w.precipitation, w.cloud, night), w.temperature, compact, textSize)
-            Text(
-                moneyText(city.funds), color = if (city.funds < 0) Color(0xFFD84343) else c.text, fontSize = textSize,
-                modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onBudget).padding(2.dp),
-            )
-            Box(Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onGraphs).padding(2.dp)) {
-                PersonCount(city.stats.population, textSize)
-            }
-            val st = city.stats
-            DemandBars(st.residentialDemand, st.commercialDemand, st.industryDemand, st.population + st.jobs, Modifier.padding(end = 4.dp))
         }
     }
 }
@@ -211,6 +246,7 @@ fun ToolBar(
     vertical: Boolean,
     compact: Boolean,
     modifier: Modifier = Modifier,
+    withHistory: Boolean = true,
 ) {
     val c = Infill.colors
     val side = if (compact) 36.dp else 40.dp
@@ -218,25 +254,28 @@ fun ToolBar(
         for (tool in Tool.entries) {
             ToolButton(tool, tool == selected, compact) { onSelect(tool) }
         }
-        Box(
-            Modifier
-                .padding(if (vertical) 0.dp else 2.dp, if (vertical) 2.dp else 0.dp)
-                .background(c.chromeEdge)
-                .then(if (vertical) Modifier.height(1.dp).width(side) else Modifier.width(1.dp).height(side)),
-        )
-        HistoryButton(false, canUndo, side, onUndo)
-        HistoryButton(true, canRedo, side, onRedo)
+        if (withHistory) {
+            Box(
+                Modifier
+                    .padding(if (vertical) 0.dp else 2.dp, if (vertical) 2.dp else 0.dp)
+                    .background(c.chromeEdge)
+                    .then(if (vertical) Modifier.height(1.dp).width(side) else Modifier.width(1.dp).height(side)),
+            )
+            HistoryButton(false, canUndo, side, onUndo)
+            HistoryButton(true, canRedo, side, onRedo)
+        }
     }
     ChromeBox(modifier) {
         if (vertical) {
+            // Scrolls when a short screen can't fit the whole rail.
             Column(
-                Modifier.padding(4.dp),
+                Modifier.verticalScroll(rememberScrollState()).padding(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) { buttons() }
         } else {
             Row(
-                Modifier.padding(4.dp),
+                Modifier.horizontalScroll(rememberScrollState()).padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) { buttons() }
@@ -246,7 +285,7 @@ fun ToolBar(
 
 /** Undo, or redo when [redo]. Dimmed when there's nothing to do. */
 @Composable
-private fun HistoryButton(redo: Boolean, enabled: Boolean, side: Dp, onClick: () -> Unit) {
+fun HistoryButton(redo: Boolean, enabled: Boolean, side: Dp, onClick: () -> Unit) {
     val c = Infill.colors
     val label = stringResource(if (redo) Res.string.redo else Res.string.undo)
     Box(

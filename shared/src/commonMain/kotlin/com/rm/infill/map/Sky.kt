@@ -60,14 +60,14 @@ object Sky {
 
     /**
      * The hour at [progress] (0 to 1) through a month's day and night, starting
-     * an hour before sunrise. The daylight, with an hour of twilight either
-     * side, takes [DAY_SHARE] of the time whatever the season, so a winter
-     * month isn't mostly spent in the dark.
+     * at sunrise. The daylight and the hour of dusk after it take [DAY_SHARE]
+     * of the time whatever the season, so a winter month isn't mostly spent in
+     * the dark.
      */
     fun hourAt(progress: Float, month: Int): Float {
         val (rise, set) = daylight(month)
-        val start = rise - 1f
-        val lit = set - rise + 2f
+        val start = rise
+        val lit = set - rise + 1f
         val p = progress.mod(1f)
         val hour = if (p < DAY_SHARE) start + p / DAY_SHARE * lit
         else start + lit + (p - DAY_SHARE) / (1f - DAY_SHARE) * (24f - lit)

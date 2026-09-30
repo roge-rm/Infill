@@ -16,7 +16,7 @@ import androidx.compose.ui.input.key.type
  * Everything a key can do. [held] ones keep going while the key is down
  * (panning, zooming), the rest happen once per press.
  */
-enum class KeyAction(val held: Boolean = false) {
+enum class KeyAction(val held: Boolean = false, val dev: Boolean = false) {
     PanUp(held = true),
     PanDown(held = true),
     PanLeft(held = true),
@@ -41,13 +41,13 @@ enum class KeyAction(val held: Boolean = false) {
     Redo,
 
     // For trying the looks while they're being made.
-    DevSeasonBack,
-    DevSeasonNext,
-    DevHourBack,
-    DevHourNext,
-    DevGraphics,
-    DevWeather,
-    DevFire,
+    DevSeasonBack(dev = true),
+    DevSeasonNext(dev = true),
+    DevHourBack(dev = true),
+    DevHourNext(dev = true),
+    DevGraphics(dev = true),
+    DevWeather(dev = true),
+    DevFire(dev = true),
 }
 
 /** A key and the modifiers held with it. Cmd counts as Ctrl, for Macs in the browser. */
@@ -106,7 +106,7 @@ val DefaultKeys: Map<Key, KeyAction> = mapOf(
  * [held] until their key comes up.
  */
 class KeyInput(
-    private val bindings: Map<Key, KeyAction> = DefaultKeys,
+    var bindings: Map<Key, KeyAction> = DefaultKeys,
     private val chords: Map<KeyChord, KeyAction> = DefaultChords,
 ) {
     /** Keys that are down and what they did, so a key's release matches its press even if Shift came up first. */
@@ -145,4 +145,25 @@ class KeyInput(
             heldVersion++
         }
     }
+}
+
+/** A key's name as printed on it. */
+fun keyName(key: Key): String = KEY_NAMES[key] ?: "#${key.keyCode}"
+
+private val KEY_NAMES: Map<Key, String> = buildMap {
+    val letters = listOf(
+        Key.A, Key.B, Key.C, Key.D, Key.E, Key.F, Key.G, Key.H, Key.I, Key.J, Key.K, Key.L, Key.M,
+        Key.N, Key.O, Key.P, Key.Q, Key.R, Key.S, Key.T, Key.U, Key.V, Key.W, Key.X, Key.Y, Key.Z,
+    )
+    letters.forEachIndexed { i, k -> put(k, ('A' + i).toString()) }
+    val digits = listOf(Key.Zero, Key.One, Key.Two, Key.Three, Key.Four, Key.Five, Key.Six, Key.Seven, Key.Eight, Key.Nine)
+    digits.forEachIndexed { i, k -> put(k, i.toString()) }
+    val functions = listOf(Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F6, Key.F7, Key.F8, Key.F9, Key.F10, Key.F11, Key.F12)
+    functions.forEachIndexed { i, k -> put(k, "F${i + 1}") }
+    put(Key.DirectionUp, "\u2191"); put(Key.DirectionDown, "\u2193"); put(Key.DirectionLeft, "\u2190"); put(Key.DirectionRight, "\u2192")
+    put(Key.Spacebar, "Space"); put(Key.Escape, "Esc"); put(Key.Enter, "Enter"); put(Key.Tab, "Tab")
+    put(Key.Backspace, "Backspace"); put(Key.Delete, "Delete")
+    put(Key.Minus, "-"); put(Key.Equals, "="); put(Key.Plus, "+"); put(Key.Comma, ","); put(Key.Period, ".")
+    put(Key.LeftBracket, "["); put(Key.RightBracket, "]"); put(Key.Slash, "/"); put(Key.Semicolon, ";")
+    put(Key.NumPadAdd, "Num +"); put(Key.NumPadSubtract, "Num -")
 }
