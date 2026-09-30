@@ -4,12 +4,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
 import com.rm.infill.sim.Balance
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.TrainRoute
-import kotlin.math.floor
-import kotlin.math.max
+import kotlin.math.PI
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 
 /**
  * Trains along the lines they ran last month: out along the track, a stop at
@@ -43,7 +46,7 @@ internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera
                 // Engine, tender, then the cars, each behind the last.
                 val s = if (forward) head - c * CAR_GAP else head + c * CAR_GAP
                 if (s < 0f || s > length) continue
-                val (x, y, along) = pointOn(path, s, map.width)
+                val (x, y, heading) = pointOn(path, s, map.width)
                 if (x < topLeft.x - 1 || y < topLeft.y - 1 || x > bottomRight.x + 1 || y > bottomRight.y + 1) continue
                 val tile = path[min(path.size - 1, (s + 0.5f).toInt())]
                 if (map.road[tile].toInt() != 0) crossings += tile
@@ -52,8 +55,8 @@ internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera
                     1 -> Car.Tender
                     else -> if (route.passengers) Car.Coach else FREIGHT[(k * 3 + c) % FREIGHT.size]
                 }
-                car(camera.tileToScreen(x + 0.5f, y + 0.5f, size), t, along, kind, k + c)
-                if (c == 0 && smoke) puffs(camera.tileToScreen(x + 0.5f, y + 0.5f, size), t, time, k * 7 + n)
+                car(camera.tileToScreen(x, y, size), t, heading, kind, k + c)
+                if (c == 0 && smoke) puffs(camera.tileToScreen(x, y, size), t, time, k * 7 + n)
             }
         }
     }
@@ -64,59 +67,79 @@ private enum class Car { Engine, Tender, Coach, Boxcar, Hopper, Flatcar }
 
 private val FREIGHT = listOf(Car.Boxcar, Car.Hopper, Car.Flatcar, Car.Boxcar)
 
-/** A point [s] tiles along [path], as tile x and y, and whether that stretch runs east to west. */
-private fun pointOn(path: IntArray, s: Float, width: Int): Triple<Float, Float, Boolean> {
-    val i = min(path.size - 2, max(0, floor(s).toInt()))
-    val f = s - i
-    val a = path[i]
-    val b = path[i + 1]
-    val ax = (a % width).toFloat()
-    val ay = (a / width).toFloat()
-    val bx = (b % width).toFloat()
-    val by = (b / width).toFloat()
-    return Triple(ax + (bx - ax) * f, ay + (by - ay) * f, ay == by)
+/**
+ * Where [s] tiles along [path] is, as a point on the map in tiles, and which
+ * way the track runs there, in degrees clockwise from east. Each tile is
+ * crossed from the middle of the edge it's entered by to the middle of the
+ * one it's left by: straight through, or round a quarter circle where the
+ * track bends, as it's drawn.
+ */
+private fun pointOn(path: IntArray, s: Float, width: Int): Triple<Float, Float, Float> {
+    val n = path.size
+    val i = (s + 0.5f).toInt().coerceIn(0, n - 1)
+    val u = (s - (i - 0.5f)).coerceIn(0f, 1f)
+    val cx = path[i] % width + 0.5f
+    val cy = path[i] / width + 0.5f
+    fun way(a: Int, b: Int) = (b % width - a % width) to (b / width - a / width)
+    val (ix, iy) = if (i > 0) way(path[i - 1], path[i]) else way(path[i], path[i + 1])
+    val (ox, oy) = if (i < n - 1) way(path[i], path[i + 1]) else ix to iy
+    if (ix == ox && iy == oy) {
+        return Triple(cx + ix * (u - 0.5f), cy + iy * (u - 0.5f), degrees(atan2(iy.toFloat(), ix.toFloat())))
+    }
+    // Round the corner between the edge it came in by and the one it leaves by.
+    val cornerX = cx - ix * 0.5f + ox * 0.5f
+    val cornerY = cy - iy * 0.5f + oy * 0.5f
+    val from = atan2(cy - iy * 0.5f - cornerY, cx - ix * 0.5f - cornerX)
+    var sweep = atan2(cy + oy * 0.5f - cornerY, cx + ox * 0.5f - cornerX) - from
+    if (sweep > PI) sweep -= (2 * PI).toFloat()
+    if (sweep < -PI) sweep += (2 * PI).toFloat()
+    val a = from + sweep * u
+    // Moving round the circle one way or the other, the track runs square to the radius.
+    val heading = a + if (sweep > 0) (PI / 2).toFloat() else -(PI / 2).toFloat()
+    return Triple(cornerX + 0.5f * cos(a), cornerY + 0.5f * sin(a), degrees(heading))
 }
+
+private fun degrees(radians: Float) = radians * 180f / PI.toFloat()
 
 /** Slow away and slow in, quicker in between. */
 private fun ease(u: Float): Float = u * u * (3 - 2 * u)
 
-private fun DrawScope.car(at: Offset, t: Float, alongX: Boolean, kind: Car, seed: Int) {
+private fun DrawScope.car(at: Offset, t: Float, heading: Float, kind: Car, seed: Int) {
     val long = t * CAR_LENGTH
     val wide = t * 0.36f
-    val size = if (alongX) Size(long, wide) else Size(wide, long)
-    val topLeft = Offset(at.x - size.width / 2, at.y - size.height / 2)
-    when (kind) {
-        Car.Engine -> {
-            drawRect(ENGINE, topLeft, size)
-            // The boiler down the middle, and the chimney.
-            val boiler = if (alongX) Size(long * 0.7f, wide * 0.5f) else Size(wide * 0.5f, long * 0.7f)
-            drawRect(BOILER, Offset(at.x - boiler.width / 2, at.y - boiler.height / 2), boiler)
-            drawCircle(Color.Black, t * 0.07f, at)
+    // Drawn lying east to west, then turned the way the track runs.
+    rotate(heading, at) {
+        fun part(lengthShare: Float, widthShare: Float, colour: Color) {
+            val size = Size(long * lengthShare, wide * widthShare)
+            drawRect(colour, Offset(at.x - size.width / 2, at.y - size.height / 2), size)
         }
-        Car.Tender -> {
-            drawRect(ENGINE, topLeft, size)
-            val coal = if (alongX) Size(long * 0.7f, wide * 0.6f) else Size(wide * 0.6f, long * 0.7f)
-            drawRect(COAL, Offset(at.x - coal.width / 2, at.y - coal.height / 2), coal)
-        }
-        Car.Coach -> {
-            drawRect(COACHES[seed.mod(COACHES.size)], topLeft, size)
-            val roof = if (alongX) Size(long * 0.9f, wide * 0.4f) else Size(wide * 0.4f, long * 0.9f)
-            drawRect(COACH_ROOF, Offset(at.x - roof.width / 2, at.y - roof.height / 2), roof)
-        }
-        Car.Boxcar -> {
-            drawRect(BOXCAR, topLeft, size)
-            val seam = if (alongX) Size(t * 0.03f, wide) else Size(wide, t * 0.03f)
-            drawRect(BOXCAR_SEAM, Offset(at.x - seam.width / 2, at.y - seam.height / 2), seam)
-        }
-        Car.Hopper -> {
-            drawRect(HOPPER, topLeft, size)
-            val load = if (alongX) Size(long * 0.8f, wide * 0.6f) else Size(wide * 0.6f, long * 0.8f)
-            drawRect(COAL, Offset(at.x - load.width / 2, at.y - load.height / 2), load)
-        }
-        Car.Flatcar -> {
-            drawRect(FLATCAR, topLeft, size)
-            val load = if (alongX) Size(long * 0.6f, wide * 0.7f) else Size(wide * 0.7f, long * 0.6f)
-            drawRect(LUMBER, Offset(at.x - load.width / 2, at.y - load.height / 2), load)
+        when (kind) {
+            Car.Engine -> {
+                part(1f, 1f, ENGINE)
+                // The boiler down the middle, and the chimney.
+                part(0.7f, 0.5f, BOILER)
+                drawCircle(Color.Black, t * 0.07f, at)
+            }
+            Car.Tender -> {
+                part(1f, 1f, ENGINE)
+                part(0.7f, 0.6f, COAL)
+            }
+            Car.Coach -> {
+                part(1f, 1f, COACHES[seed.mod(COACHES.size)])
+                part(0.9f, 0.4f, COACH_ROOF)
+            }
+            Car.Boxcar -> {
+                part(1f, 1f, BOXCAR)
+                part(0.04f, 1f, BOXCAR_SEAM)
+            }
+            Car.Hopper -> {
+                part(1f, 1f, HOPPER)
+                part(0.8f, 0.6f, COAL)
+            }
+            Car.Flatcar -> {
+                part(1f, 1f, FLATCAR)
+                part(0.6f, 0.7f, LUMBER)
+            }
         }
     }
 }

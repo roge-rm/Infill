@@ -1264,55 +1264,172 @@ PLATFORM_EDGE = c("#e8e2d4")
 COAL = [c("#1e1e22"), c("#2a2a2f"), c("#35353b")]
 
 
-def sleepers_and_rails(px, mask, look, rng):
-    """Sleepers across, then the two rails along, each way the track goes."""
-    vertical = mask & 5 or mask == 0
-    horizontal = mask & 10
-    lo, hi = TRACK_LO + 1, TRACK_HI - 1
-    if vertical:
-        top = 0 if mask & 1 else TRACK_LO
-        bottom = T - 1 if mask & 4 else TRACK_HI
-        for y in range(top + 1, bottom + 1, 4):
-            for x in range(lo, hi + 1):
-                px[x, y] = SLEEPER[look]
-                if y + 1 <= bottom: px[x, y + 1] = shade(SLEEPER[look], 0.85)
-    if horizontal:
-        left = 0 if mask & 8 else TRACK_LO
-        right = T - 1 if mask & 2 else TRACK_HI
-        for x in range(left + 1, right + 1, 4):
-            for y in range(lo, hi + 1):
-                px[x, y] = SLEEPER[look]
-                if x + 1 <= right: px[x + 1, y] = shade(SLEEPER[look], 0.85)
-    for a in RAIL_AT:
-        if vertical:
-            top = 0 if mask & 1 else TRACK_LO + 1
-            bottom = T - 1 if mask & 4 else TRACK_HI - 1
-            for y in range(top, bottom + 1):
-                px[a, y] = RAIL_STEEL
-                px[a + 1, y] = RAIL_SHADE
-        if horizontal:
-            left = 0 if mask & 8 else TRACK_LO + 1
-            right = T - 1 if mask & 2 else TRACK_HI - 1
-            for x in range(left, right + 1):
-                px[x, a] = RAIL_STEEL
-                px[x, a + 1] = RAIL_SHADE
+# Track is drawn from pieces: straights through the middle of the tile and
+# curves round one of its corners. A bend is one curve; a junction is the
+# straight line with a curve off it each way; a crossing is two straights; a
+# dead end is half a straight with a buffer stop. All the pieces' ballast goes
+# down first, then their sleepers, then their rails, so where they meet the
+# rails lie over everything.
+
+# Curves: the tile corner each goes round, and the two edges it joins, as the
+# way along each edge away from that corner.
+BENDS = {
+    3: ((T, 0), (-1, 0), (0, 1)),   # north and east
+    6: ((T, T), (0, -1), (-1, 0)),  # east and south
+    12: ((0, T), (1, 0), (0, -1)),  # south and west
+    9: ((0, 0), (0, 1), (1, 0)),    # west and north
+}
+BUFFER = c("#8a2f24")
+
+
+class Straight:
+    """Track through the middle of the tile, north to south or east to west, between [lo] and [hi] along it."""
+
+    def __init__(self, vertical, lo=0, hi=T - 1):
+        self.vertical, self.lo, self.hi = vertical, lo, hi
+
+    def _along_across(self, x, y):
+        return (y, x) if self.vertical else (x, y)
+
+    def ballast(self, x, y):
+        along, across = self._along_across(x, y)
+        return self.lo <= along <= self.hi and TRACK_LO <= across <= TRACK_HI
+
+    def sleeper(self, x, y):
+        along, across = self._along_across(x, y)
+        return self.lo <= along <= self.hi and TRACK_LO + 1 <= across <= TRACK_HI - 1 and along % 4 in (1, 2)
+
+    def rail(self, x, y):
+        """RAIL_STEEL, RAIL_SHADE or None. The lit side is west or north, as the sun is."""
+        along, across = self._along_across(x, y)
+        if not (self.lo <= along <= self.hi):
+            return None
+        for a in RAIL_AT:
+            if across == a:
+                return RAIL_STEEL
+            if across == a + 1:
+                return RAIL_SHADE
+        return None
+
+
+class Curve:
+    """Track curving round a corner of the tile, meeting the straight track at both edges it joins."""
+
+    def __init__(self, mask):
+        (self.cx, self.cy), self.a, self.b = BENDS[mask]
+        self.start, self.end = self._rails_at(self.a), self._rails_at(self.b)
+
+    def _rails_at(self, edge):
+        # A rail's two pixels, r and r + 1, have their middle at r + 1.
+        if edge[0] != 0:
+            return sorted(abs(r + 1 - self.cx) for r in RAIL_AT)
+        return sorted(abs(r + 1 - self.cy) for r in RAIL_AT)
+
+    def _polar(self, x, y):
+        vx, vy = x + 0.5 - self.cx, y + 0.5 - self.cy
+        d = math.hypot(vx, vy)
+        t = math.atan2(vx * self.b[0] + vy * self.b[1], vx * self.a[0] + vy * self.a[1]) / (math.pi / 2)
+        return d, t
+
+    def ballast(self, x, y):
+        d, t = self._polar(x, y)
+        return -0.01 <= t <= 1.01 and TRACK_LO + 0.5 <= d <= TRACK_HI + 0.5
+
+    def sleeper(self, x, y):
+        d, t = self._polar(x, y)
+        # About as far apart as on the straight, measured round the middle of the curve.
+        arc = t * (math.pi / 2) * 16
+        return -0.01 <= t <= 1.01 and TRACK_LO + 1 <= d <= TRACK_HI - 1 and arc % 4 < 1.6
+
+    def _lit_nearer(self, edge):
+        # Rails running north to south are lit on the west, east to west on the north.
+        return self.cx == 0 if edge[0] != 0 else self.cy == 0
+
+    def rail(self, x, y):
+        d, t = self._polar(x, y)
+        if not (-0.01 <= t <= 1.01):
+            return None
+        for k in range(2):
+            c = self.start[k] + (self.end[k] - self.start[k]) * t
+            if abs(d - c) < 1.0:
+                edge = self.a if t < 0.5 else self.b
+                return RAIL_STEEL if (d < c) == self._lit_nearer(edge) else RAIL_SHADE
+        return None
+
+
+def pieces(mask):
+    """The pieces of track for a tile joined to the neighbours in [mask]."""
+    n, e, s_, w = mask & 1, mask & 2, mask & 4, mask & 8
+    joins = bin(mask).count("1")
+    if mask in BENDS:
+        return [Curve(mask)]
+    if joins == 4:
+        return [Straight(True), Straight(False)]
+    if joins == 3:
+        # The straight line, and a curve off it each way to the branch.
+        if n and s_:
+            return [Straight(True), Curve(3 if e else 9), Curve(6 if e else 12)]
+        return [Straight(False), Curve(3 if n else 6), Curve(9 if n else 12)]
+    if mask in (5, 10):
+        return [Straight(mask == 5)]
+    # A dead end, or track on its own: half a straight, or a short one, with buffer stops.
+    if n:
+        return [Straight(True, 0, TRACK_HI)]
+    if s_:
+        return [Straight(True, TRACK_LO, T - 1)]
+    if e:
+        return [Straight(False, TRACK_LO, T - 1)]
+    if w:
+        return [Straight(False, 0, TRACK_HI)]
+    return [Straight(True, TRACK_LO, TRACK_HI)]
 
 
 def track(look, mask):
     img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
     px = img.load()
     rng = random.Random(6600 + mask)
-    inside = road_shape(mask, TRACK_LO, TRACK_HI)
+    parts = pieces(mask)
+    ballast = [[any(p.ballast(x, y) for p in parts) for x in range(T)] for y in range(T)]
+
+    def on(x, y):
+        if not (0 <= x < T and 0 <= y < T):
+            # Past the edge the track goes on only where it's joined.
+            if y < 0: return bool(mask & 1) and TRACK_LO <= x <= TRACK_HI
+            if x >= T: return bool(mask & 2) and TRACK_LO <= y <= TRACK_HI
+            if y >= T: return bool(mask & 4) and TRACK_LO <= x <= TRACK_HI
+            return bool(mask & 8) and TRACK_LO <= y <= TRACK_HI
+        return ballast[y][x]
+
     cols = BALLAST[look]
     for y in range(T):
         for x in range(T):
-            if not inside(x, y):
+            if not ballast[y][x]:
                 continue
-            if near_edge(inside, x, y, 1) and rng.random() < 0.4:
+            if not (on(x - 1, y) and on(x + 1, y) and on(x, y - 1) and on(x, y + 1)) and rng.random() < 0.4:
                 continue  # a ragged edge to the ballast
             r = rng.random()
             px[x, y] = cols[0] if r < 0.6 else cols[1] if r < 0.85 else cols[2]
-    sleepers_and_rails(px, mask, look, rng)
+    for y in range(T):
+        for x in range(T):
+            if any(p.sleeper(x, y) for p in parts):
+                px[x, y] = SLEEPER[look]
+    for y in range(T):
+        for x in range(T):
+            for p in parts:
+                col = p.rail(x, y)
+                if col is not None:
+                    px[x, y] = col
+                    break
+    # Buffer stops across the rails at dead ends.
+    d = ImageDraw.Draw(img)
+    ends = {1: "s", 4: "n", 2: "w", 8: "e", 0: None}
+    if mask in ends:
+        sides = ["n", "s"] if mask == 0 else [ends[mask]]
+        for side in sides:
+            if side == "s": d.rectangle([TRACK_LO + 2, TRACK_HI - 2, TRACK_HI - 2, TRACK_HI - 1], BUFFER)
+            if side == "n": d.rectangle([TRACK_LO + 2, TRACK_LO + 1, TRACK_HI - 2, TRACK_LO + 2], BUFFER)
+            if side == "e": d.rectangle([TRACK_HI - 2, TRACK_LO + 2, TRACK_HI - 1, TRACK_HI - 2], BUFFER)
+            if side == "w": d.rectangle([TRACK_LO + 1, TRACK_LO + 2, TRACK_LO + 2, TRACK_HI - 2], BUFFER)
     return img
 
 
@@ -1333,7 +1450,8 @@ def crossing(look, vertical):
         d.line([cx - 2, cy - 2, cx + 2, cy + 2], TRIM)
         d.line([cx - 2, cy + 2, cx + 2, cy - 2], TRIM)
         d.point((cx, cy + 3), OUTLINE)
-    return img if vertical else img.rotate(90)
+    # Mirrored across the diagonal rather than turned, so each rail keeps its light side where the track has it.
+    return img if vertical else img.transpose(Image.Transpose.TRANSPOSE)
 
 
 def trestle(vertical):
