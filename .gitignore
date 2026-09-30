@@ -1,0 +1,23 @@
+*.iml
+.gradle
+/local.properties
+local.properties
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+
+# Working design notes. Kept on disk, never committed.
+/docs/
+
+# The IDE's own state, all of it.
+/.idea/
+
+# Kotlin compiler caches.
+/.kotlin/
+
+# Release signing lives in ../Keys, outside this tree. These are here in case
+# one ever lands in here by accident.
+*.jks
+*.keystore

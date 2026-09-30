@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Infill</string>
+
+    <string name="tool_inspect">Inspect</string>
+    <string name="tool_bulldoze">Bulldoze</string>
+    <string name="tool_road">Road</string>
+    <string name="tool_zone">Zone</string>
+
+    <string name="pause">Pause</string>
+    <string name="play">Play</string>
+    <string name="paused">Paused</string>
+
+    <string name="date">%1$s %2$d</string>
+    <string name="money">$%1$s</string>
+    <string name="population">Population</string>
+    <string name="funds">Funds</string>
+    <string name="year">Year</string>
+
+    <string-array name="month_short">
+        <item>Jan</item>
+        <item>Feb</item>
+        <item>Mar</item>
+        <item>Apr</item>
+        <item>May</item>
+        <item>Jun</item>
+        <item>Jul</item>
+        <item>Aug</item>
+        <item>Sep</item>
+        <item>Oct</item>
+        <item>Nov</item>
+        <item>Dec</item>
+    </string-array>
+</resources>

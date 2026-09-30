@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Infill</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #121417; overflow: hidden; }
+  canvas { touch-action: none; }
+  #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #e8e6e1; font: 16px/1.5 system-ui, sans-serif; }
+  @media (prefers-color-scheme: light) {
+    html, body { background: #d8d2c4; }
+    #loading { color: #22262b; }
+  }
+</style>
+<script src="infill.js" defer></script>
+</head>
+<body>
+<div id="loading">Loading Infill…</div>
+</body>
+</html>
