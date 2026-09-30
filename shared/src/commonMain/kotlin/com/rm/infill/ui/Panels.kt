@@ -27,7 +27,25 @@ import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
 import com.rm.infill.map.MapRenderer
 import com.rm.infill.res.Res
+import com.rm.infill.res.building_bank
+import com.rm.infill.res.building_cottage
+import com.rm.infill.res.building_factory
+import com.rm.infill.res.building_general_store
+import com.rm.infill.res.building_hotel
+import com.rm.infill.res.building_house
+import com.rm.infill.res.building_large_house
+import com.rm.infill.res.building_mill
+import com.rm.infill.res.building_shop
+import com.rm.infill.res.building_tenement
+import com.rm.infill.res.building_warehouse
+import com.rm.infill.res.building_workshop
 import com.rm.infill.res.close
+import com.rm.infill.res.coal_plant
+import com.rm.infill.res.has_power
+import com.rm.infill.res.inspect_power_line
+import com.rm.infill.res.jobs
+import com.rm.infill.res.no_power
+import com.rm.infill.res.residents
 import com.rm.infill.res.inspect_dirt_road
 import com.rm.infill.res.inspect_grass
 import com.rm.infill.res.inspect_tile
@@ -36,32 +54,44 @@ import com.rm.infill.res.inspect_water
 import com.rm.infill.res.inspect_zone_commercial
 import com.rm.infill.res.inspect_zone_industrial
 import com.rm.infill.res.inspect_zone_residential
+import com.rm.infill.sim.BuildingType
+import com.rm.infill.sim.Power
 import com.rm.infill.sim.Road
 import com.rm.infill.sim.Terrain
 import com.rm.infill.sim.Zone
 import com.rm.infill.ui.theme.Infill
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
-/** The three kinds of zone, shown while the zone tool is picked. */
+/** The choices a tool has, like the kinds of zone, shown above the toolbar while it's picked. */
 @Composable
-fun ZonePicker(selected: ZoneKind, onSelect: (ZoneKind) -> Unit, compact: Boolean, modifier: Modifier = Modifier) {
+fun <T> OptionPicker(
+    options: List<T>,
+    selected: T,
+    title: (T) -> StringResource,
+    dot: (T) -> Color?,
+    onSelect: (T) -> Unit,
+    compact: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val c = Infill.colors
     ChromeBox(modifier) {
         Row(Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            for (kind in ZoneKind.entries) {
-                val on = kind == selected
+            for (option in options) {
+                val on = option == selected
                 Row(
                     Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(if (on) c.accent else c.button)
                         .semantics(mergeDescendants = true) { this.selected = on }
-                        .clickable(role = Role.Tab) { onSelect(kind) }
+                        .clickable(role = Role.Tab) { onSelect(option) }
                         .padding(horizontal = 10.dp, vertical = if (compact) 6.dp else 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Box(Modifier.size(10.dp).clip(CircleShape).background(zoneColour(kind.zone)))
-                    Text(stringResource(kind.title), color = if (on) c.onAccent else c.text, fontSize = if (compact) 12.sp else 13.sp)
+                    dot(option)?.let { Box(Modifier.size(10.dp).clip(CircleShape).background(it)) }
+                    Text(stringResource(title(option)), color = if (on) c.onAccent else c.text, fontSize = if (compact) 12.sp else 13.sp)
                 }
             }
         }
@@ -73,22 +103,38 @@ fun ZonePicker(selected: ZoneKind, onSelect: (ZoneKind) -> Unit, compact: Boolea
 fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier: Modifier = Modifier) {
     val c = Infill.colors
     game.revision
-    val map = game.city.map
+    val city = game.city
+    val map = city.map
+    val building = city.buildingAt(x, y)
+    val i = map.index(x, y)
     val lines = buildList {
-        add(
-            stringResource(
-                when {
-                    map.roadAt(x, y) == Road.DIRT -> Res.string.inspect_dirt_road
-                    map.terrainAt(x, y) == Terrain.WATER -> Res.string.inspect_water
-                    map.terrainAt(x, y) == Terrain.TREES -> Res.string.inspect_trees
-                    else -> Res.string.inspect_grass
-                },
-            ),
-        )
-        when (map.zoneAt(x, y)) {
-            Zone.RESIDENTIAL -> add(stringResource(Res.string.inspect_zone_residential))
-            Zone.COMMERCIAL -> add(stringResource(Res.string.inspect_zone_commercial))
-            Zone.INDUSTRIAL -> add(stringResource(Res.string.inspect_zone_industrial))
+        if (building != null) {
+            val t = building.type
+            add(stringResource(buildingName(t)))
+            when (t.zone) {
+                Zone.RESIDENTIAL -> add(pluralStringResource(Res.plurals.residents, t.capacity, t.capacity))
+                else -> add(pluralStringResource(Res.plurals.jobs, t.capacity, t.capacity))
+            }
+            if (t.needsPower || t.zone == Zone.NONE) {
+                add(stringResource(if (map.powered[i]) Res.string.has_power else Res.string.no_power))
+            }
+        } else {
+            add(
+                stringResource(
+                    when {
+                        map.road[i] == Road.DIRT -> Res.string.inspect_dirt_road
+                        map.power[i] != Power.NONE -> Res.string.inspect_power_line
+                        map.terrain[i] == Terrain.WATER -> Res.string.inspect_water
+                        map.terrain[i] == Terrain.TREES -> Res.string.inspect_trees
+                        else -> Res.string.inspect_grass
+                    },
+                ),
+            )
+            when (map.zone[i]) {
+                Zone.RESIDENTIAL -> add(stringResource(Res.string.inspect_zone_residential))
+                Zone.COMMERCIAL -> add(stringResource(Res.string.inspect_zone_commercial))
+                Zone.INDUSTRIAL -> add(stringResource(Res.string.inspect_zone_industrial))
+            }
         }
     }
     val close = stringResource(Res.string.close)
@@ -110,6 +156,22 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
             ) { Text("×", color = c.textDim, fontSize = 20.sp) }
         }
     }
+}
+
+fun buildingName(t: BuildingType): StringResource = when (t) {
+    BuildingType.COTTAGE -> Res.string.building_cottage
+    BuildingType.HOUSE -> Res.string.building_house
+    BuildingType.LARGE_HOUSE -> Res.string.building_large_house
+    BuildingType.TENEMENT -> Res.string.building_tenement
+    BuildingType.GENERAL_STORE -> Res.string.building_general_store
+    BuildingType.SHOP -> Res.string.building_shop
+    BuildingType.BANK -> Res.string.building_bank
+    BuildingType.HOTEL -> Res.string.building_hotel
+    BuildingType.WORKSHOP -> Res.string.building_workshop
+    BuildingType.MILL -> Res.string.building_mill
+    BuildingType.WAREHOUSE -> Res.string.building_warehouse
+    BuildingType.FACTORY -> Res.string.building_factory
+    BuildingType.COAL_PLANT -> Res.string.coal_plant
 }
 
 /** A short message that goes away by itself. */

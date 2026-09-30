@@ -31,8 +31,15 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
             for (i in p.blocked) drawRect(BLOCKED, at(i), tile)
         }
         is Action.Bulldoze -> rect(a.x0, a.y0, a.x1, a.y1, camera, BULLDOZE_FILL, BULLDOZE_EDGE)
+        is Action.BuildPowerLine -> for (i in a.tiles) {
+            drawRect(if (i in p.blocked) BLOCKED else LINE_FILL, at(i), tile)
+        }
+        is Action.PlaceBuilding -> {
+            val ok = p.plan.problem != Problem.Blocked
+            rect(a.x, a.y, a.x + a.type.width - 1, a.y + a.type.height - 1, camera, if (ok) PLACE_FILL else BLOCKED, if (ok) PLACE_EDGE else BULLDOZE_EDGE)
+        }
     }
-    if (p.plan.problem == Problem.NothingToDo) return
+    if (p.plan.problem == Problem.NothingToDo || p.plan.problem == Problem.Blocked) return
     // The cost, just above and right of where the drag is.
     val style = TextStyle(
         color = if (p.plan.problem == Problem.NotEnoughMoney) Color(0xFFFF8A80) else Color.White,
@@ -70,4 +77,7 @@ private val BLOCKED = Color(0x80E53935)
 private val BULLDOZE_FILL = Color(0x40E53935)
 private val BULLDOZE_EDGE = Color(0xE6E53935)
 private val HOVER = Color(0xCCFFFFFF)
+private val LINE_FILL = Color(0x66FFD54F)
+private val PLACE_FILL = Color(0x4DFFFFFF)
+private val PLACE_EDGE = Color(0xE6FFFFFF)
 private val LABEL = Color(0xD91C1F24)

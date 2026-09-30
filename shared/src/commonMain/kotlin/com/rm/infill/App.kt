@@ -37,13 +37,19 @@ import com.rm.infill.map.MapGestures
 import com.rm.infill.res.Res
 import com.rm.infill.res.money
 import com.rm.infill.res.not_enough_money
+import com.rm.infill.res.nothing_to_undo
 import com.rm.infill.sim.Problem
 import com.rm.infill.ui.InspectPanel
 import com.rm.infill.ui.MessageChip
 import com.rm.infill.ui.Preview
 import com.rm.infill.ui.ToolDrag
 import com.rm.infill.ui.ZoneKind
-import com.rm.infill.ui.ZonePicker
+import com.rm.infill.ui.OptionPicker
+import com.rm.infill.ui.PowerKind
+import com.rm.infill.ui.zoneColour
+import com.rm.infill.res.blocked
+import com.rm.infill.res.town_built_there
+import kotlin.math.min
 import com.rm.infill.ui.groupThousands
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -79,6 +85,8 @@ fun App() {
         }
         var tool by remember { mutableStateOf(Tool.Inspect) }
         var zoneKind by remember { mutableStateOf(ZoneKind.Residential) }
+        var powerKind by remember { mutableStateOf(PowerKind.Line) }
+        var speed by remember { mutableIntStateOf(1) }
         var drag by remember { mutableStateOf<ToolDrag?>(null) }
         var inspected by remember { mutableStateOf<Pair<Int, Int>?>(null) }
         var message by remember { mutableStateOf<StringResource?>(null) }
@@ -107,6 +115,21 @@ fun App() {
         val sun = remember(shadowStep, month) { Sky.sun(shadowStep, month) }
         val tint = remember(lightStep, month) { Sky.tint(lightStep / LIGHT_STEPS_PER_HOUR, month) }
 
+        // Time runs at the chosen speed while the game isn't paused, a few days a frame at most.
+        LaunchedEffect(paused, speed) {
+            if (paused) return@LaunchedEffect
+            var last = withFrameNanos { it }
+            var owed = 0.0
+            while (true) {
+                val now = withFrameNanos { it }
+                owed += (now - last) / 1e9 * DAYS_PER_SECOND[speed]
+                last = now
+                val days = min(owed.toInt(), MAX_DAYS_PER_FRAME)
+                owed = if (owed.toInt() > MAX_DAYS_PER_FRAME) 0.0 else owed - days
+                game.tick(days)
+            }
+        }
+
         LaunchedEffect(message) {
             if (message != null) {
                 delay(MESSAGE_MS)
@@ -115,8 +138,8 @@ fun App() {
         }
 
         // What the drag would do, worked out again as it moves.
-        val preview = remember(drag, tool, zoneKind, game.revision) {
-            drag?.let { d -> d.action(tool, zoneKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) } }
+        val preview = remember(drag, tool, zoneKind, powerKind, game.revision) {
+            drag?.let { d -> d.action(tool, zoneKind, powerKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) } }
         }
         val costText = preview?.let {
             if (it.plan.problem == Problem.NotEnoughMoney) stringResource(Res.string.not_enough_money)
@@ -126,9 +149,30 @@ fun App() {
         fun pick(t: Tool) {
             // Picking the zone tool again moves on to the next kind of zone.
             if (t == Tool.Zone && tool == Tool.Zone) zoneKind = ZoneKind.entries[(zoneKind.ordinal + 1) % ZoneKind.entries.size]
+            if (t == Tool.Power && tool == Tool.Power) powerKind = PowerKind.entries[(powerKind.ordinal + 1) % PowerKind.entries.size]
             tool = t
             drag = null
             if (t != Tool.Inspect) inspected = null
+        }
+
+        fun tell(problem: Problem?) {
+            message = when (problem) {
+                Problem.NotEnoughMoney -> Res.string.not_enough_money
+                Problem.TownBuiltThere -> Res.string.town_built_there
+                Problem.Blocked -> Res.string.blocked
+                else -> message
+            }
+        }
+
+        fun undo() {
+            drag = null
+            val plan = game.undo()
+            if (plan == null) message = Res.string.nothing_to_undo else tell(plan.problem)
+        }
+
+        fun redo() {
+            drag = null
+            tell(game.redo()?.problem)
         }
 
         val gestures = MapGestures(
@@ -138,11 +182,8 @@ fun App() {
             onToolUp = {
                 val d = drag
                 drag = null
-                val action = d?.action(tool, zoneKind, city.map)
-                if (action != null) {
-                    val plan = game.apply(action)
-                    if (plan.problem == Problem.NotEnoughMoney) message = Res.string.not_enough_money
-                }
+                val action = d?.action(tool, zoneKind, powerKind, city.map)
+                if (action != null) tell(game.apply(action).problem)
             },
             onToolCancel = { drag = null },
             onTap = { x, y -> if (tool == Tool.Inspect) inspected = x to y },
@@ -184,7 +225,13 @@ fun App() {
                             KeyAction.ToolBulldoze -> pick(Tool.Bulldoze)
                             KeyAction.ToolRoad -> pick(Tool.Road)
                             KeyAction.ToolZone -> pick(Tool.Zone)
+                            KeyAction.ToolPower -> pick(Tool.Power)
+                            KeyAction.Speed1 -> { speed = 0; paused = false }
+                            KeyAction.Speed2 -> { speed = 1; paused = false }
+                            KeyAction.Speed3 -> { speed = 2; paused = false }
                             KeyAction.Pause -> paused = !paused
+                            KeyAction.Undo -> undo()
+                            KeyAction.Redo -> redo()
                             // Esc lets go of a drag, then closes the inspector, then puts the tool down.
                             KeyAction.Back -> when {
                                 drag != null -> drag = null
@@ -211,9 +258,9 @@ fun App() {
             val safe = WindowInsets.safeDrawing
             val gap = if (layout.compact) 6.dp else 10.dp
             val sideTools = layout.large || layout.shape == ScreenShape.Wide
-            val compactTools = layout.compact || layout.short
+            val compactTools = layout.compact || layout.short || layout.narrow
             StatusStrip(
-                game, paused, { paused = !paused }, layout.compact,
+                game, paused, { paused = !paused }, speed, { speed = (speed + 1) % DAYS_PER_SECOND.size }, layout.compact,
                 Modifier
                     // Beside the tools rather than above them when they run down the side.
                     .align(if (sideTools && !layout.large) Alignment.TopCenter else Alignment.TopStart)
@@ -231,7 +278,7 @@ fun App() {
             }
             if (sideTools) {
                 ToolBar(
-                    tool, ::pick, vertical = true, compact = compactTools,
+                    tool, ::pick, game.canUndo, game.canRedo, ::undo, ::redo, vertical = true, compact = compactTools,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
                         .windowInsetsPadding(safe.only(WindowInsetsSides.Start))
@@ -248,8 +295,13 @@ fun App() {
                 verticalArrangement = Arrangement.spacedBy(gap),
             ) {
                 inspected?.let { (x, y) -> InspectPanel(game, x, y, onClose = { inspected = null }) }
-                if (tool == Tool.Zone) ZonePicker(zoneKind, { zoneKind = it }, compact = compactTools)
-                if (!sideTools) ToolBar(tool, ::pick, vertical = false, compact = compactTools)
+                if (tool == Tool.Zone) {
+                    OptionPicker(ZoneKind.entries, zoneKind, { it.title }, { zoneColour(it.zone) }, { zoneKind = it }, compactTools)
+                }
+                if (tool == Tool.Power) {
+                    OptionPicker(PowerKind.entries, powerKind, { it.title }, { null }, { powerKind = it }, compactTools)
+                }
+                if (!sideTools) ToolBar(tool, ::pick, game.canUndo, game.canRedo, ::undo, ::redo, vertical = false, compact = compactTools)
             }
             if (layout.large) {
                 CityPanel(
@@ -275,6 +327,10 @@ private const val KEY_PAN_DP = 600f
 private const val KEY_ZOOM = 1.5f
 
 private const val PANEL_WIDTH = 240
+
+/** Game days a second at each speed, and the most days one frame will run. */
+private val DAYS_PER_SECOND = doubleArrayOf(3.0, 8.0, 20.0)
+private const val MAX_DAYS_PER_FRAME = 4
 
 /** How long a message stays, and how far below the top bar it sits. */
 private const val MESSAGE_MS = 2500L

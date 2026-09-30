@@ -6,6 +6,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 
@@ -24,8 +27,14 @@ enum class KeyAction(val held: Boolean = false) {
     ToolBulldoze,
     ToolRoad,
     ToolZone,
+    ToolPower,
+    Speed1,
+    Speed2,
+    Speed3,
     Pause,
     Back,
+    Undo,
+    Redo,
 
     // For trying the looks while they're being made.
     DevSeasonBack,
@@ -34,6 +43,21 @@ enum class KeyAction(val held: Boolean = false) {
     DevHourNext,
     DevGraphics,
 }
+
+/** A key and the modifiers held with it. Cmd counts as Ctrl, for Macs in the browser. */
+data class KeyChord(val key: Key, val ctrl: Boolean = false, val shift: Boolean = false)
+
+private fun Key.ctrl(shift: Boolean = false) = KeyChord(this, ctrl = true, shift = shift)
+
+/** Chords with modifiers, out of the box. These win over the same key on its own. */
+val DefaultChords: Map<KeyChord, KeyAction> = mapOf(
+    Key.Z.ctrl() to KeyAction.Undo,
+    Key.Y.ctrl() to KeyAction.Redo,
+    Key.Z.ctrl(shift = true) to KeyAction.Redo,
+    KeyChord(Key.One, shift = true) to KeyAction.Speed1,
+    KeyChord(Key.Two, shift = true) to KeyAction.Speed2,
+    KeyChord(Key.Three, shift = true) to KeyAction.Speed3,
+)
 
 /** The keys out of the box. Settings will be able to change these. */
 val DefaultKeys: Map<Key, KeyAction> = mapOf(
@@ -54,6 +78,7 @@ val DefaultKeys: Map<Key, KeyAction> = mapOf(
     Key.Two to KeyAction.ToolBulldoze,
     Key.Three to KeyAction.ToolRoad,
     Key.Four to KeyAction.ToolZone,
+    Key.Five to KeyAction.ToolPower,
     Key.Spacebar to KeyAction.Pause,
     Key.Escape to KeyAction.Back,
     Key.LeftBracket to KeyAction.DevSeasonBack,
@@ -68,8 +93,12 @@ val DefaultKeys: Map<Key, KeyAction> = mapOf(
  * held (the platform's key repeat is ignored), and held actions are listed in
  * [held] until their key comes up.
  */
-class KeyInput(private val bindings: Map<Key, KeyAction> = DefaultKeys) {
-    private val down = mutableSetOf<KeyAction>()
+class KeyInput(
+    private val bindings: Map<Key, KeyAction> = DefaultKeys,
+    private val chords: Map<KeyChord, KeyAction> = DefaultChords,
+) {
+    /** Keys that are down and what they did, so a key's release matches its press even if Shift came up first. */
+    private val down = mutableMapOf<Key, KeyAction>()
     val held = mutableSetOf<KeyAction>()
 
     /** Goes up by one whenever [held] changes, so the UI can follow it. */
@@ -77,14 +106,19 @@ class KeyInput(private val bindings: Map<Key, KeyAction> = DefaultKeys) {
         private set
 
     fun onKey(event: KeyEvent, onPress: (KeyAction) -> Unit): Boolean {
-        val action = bindings[event.key] ?: return false
         when (event.type) {
-            KeyEventType.KeyDown -> if (down.add(action)) {
+            KeyEventType.KeyDown -> {
+                if (event.key in down) return true
+                val ctrl = event.isCtrlPressed || event.isMetaPressed
+                val action = chords[KeyChord(event.key, ctrl, event.isShiftPressed)]
+                    ?: (if (ctrl || event.isShiftPressed) null else bindings[event.key])
+                    ?: return false
+                down[event.key] = action
                 if (action.held && held.add(action)) heldVersion++
                 onPress(action)
             }
             KeyEventType.KeyUp -> {
-                down.remove(action)
+                val action = down.remove(event.key) ?: return false
                 if (held.remove(action)) heldVersion++
             }
         }

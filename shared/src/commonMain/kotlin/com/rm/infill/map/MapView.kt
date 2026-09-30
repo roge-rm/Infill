@@ -100,7 +100,7 @@ fun MapView(
     }
 
     Canvas(
-        modifier.pointerInput(camera) {
+        modifier.keepEdgeSwipesOff().pointerInput(camera) {
             fun view() = Size(size.width.toFloat(), size.height.toFloat())
             fun tileAt(p: Offset): Pair<Int, Int> {
                 val t = camera.screenToTile(p, view())
@@ -138,11 +138,11 @@ fun MapView(
         val chunk = MapRenderer.CHUNK
         val topLeft = camera.screenToTile(Offset.Zero, size)
         val bottomRight = camera.screenToTile(Offset(size.width, size.height), size)
-        // A row further down, since sprites there reach up onto the screen.
+        // Rows further down too, since sprites there reach up onto the screen.
         val cx0 = floor(topLeft.x / chunk).toInt()
         val cy0 = floor(topLeft.y / chunk).toInt()
         val cx1 = floor(bottomRight.x / chunk).toInt()
-        val cy1 = floor((bottomRight.y + 1) / chunk).toInt()
+        val cy1 = floor((bottomRight.y + MapRenderer.SPRITE_ROWS) / chunk).toInt()
         renderer.plan(level, cx0, cy0, cx1, cy1, look, sunStep, sun, camera.tilePx)
         if (!renderer.ready) return@Canvas
         for (cy in max(0, cy0)..min(cy1, (map.height - 1) / chunk)) {

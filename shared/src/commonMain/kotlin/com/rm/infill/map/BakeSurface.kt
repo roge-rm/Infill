@@ -27,6 +27,8 @@ internal interface BakeSurface {
 
     /** An oval centred on [cx], [cy], [a] long along the unit direction [ux], [uy] and [b] across it. */
     fun shadowOval(cx: Float, cy: Float, ux: Float, uy: Float, a: Float, b: Float)
+    /** A convex polygon, given as x, y pairs going round. */
+    fun shadowPolygon(points: FloatArray)
     fun endShadows()
 
     fun finish(): ImageBitmap
@@ -153,6 +155,36 @@ internal class PixelSurface(atlas: TileAtlas, private val level: Int, private va
                 val across = py * ux - px * uy
                 if (along * along * ia + across * across * ib <= 1f) m[y * size + x] = true
             }
+        }
+    }
+
+    override fun shadowPolygon(points: FloatArray) {
+        val m = mask ?: return
+        val n = points.size / 2
+        if (n < 3) return
+        var top = Float.MAX_VALUE
+        var bottom = -Float.MAX_VALUE
+        for (k in 0 until n) {
+            top = min(top, points[k * 2 + 1])
+            bottom = max(bottom, points[k * 2 + 1])
+        }
+        for (y in max(0, floor(top).toInt())..min(size - 1, ceil(bottom).toInt())) {
+            val py = y + 0.5f
+            var left = Float.MAX_VALUE
+            var right = -Float.MAX_VALUE
+            for (k in 0 until n) {
+                val ax = points[k * 2]
+                val ay = points[k * 2 + 1]
+                val bx = points[((k + 1) % n) * 2]
+                val by = points[((k + 1) % n) * 2 + 1]
+                if ((ay <= py && by > py) || (by <= py && ay > py)) {
+                    val x = ax + (py - ay) / (by - ay) * (bx - ax)
+                    left = min(left, x)
+                    right = max(right, x)
+                }
+            }
+            if (left > right) continue
+            for (x in max(0, (left + 0.5f).toInt())..min(size - 1, (right - 0.5f).toInt())) m[y * size + x] = true
         }
     }
 

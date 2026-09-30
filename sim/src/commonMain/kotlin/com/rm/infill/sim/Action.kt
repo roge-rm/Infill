@@ -11,8 +11,17 @@ sealed interface Action {
     /** Zones every tile from [x0], [y0] to [x1], [y1] as [zone]. */
     data class PlaceZone(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val zone: Byte) : Action
 
-    /** Clears roads, zones and trees from [x0], [y0] to [x1], [y1]. */
+    /** Clears roads, zones, power lines, buildings and trees from [x0], [y0] to [x1], [y1]. */
     data class Bulldoze(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action
+
+    /** A power line along [tiles], given as map indices in order. */
+    data class BuildPowerLine(val tiles: IntArray) : Action {
+        override fun equals(other: Any?) = other is BuildPowerLine && tiles.contentEquals(other.tiles)
+        override fun hashCode() = tiles.contentHashCode()
+    }
+
+    /** A building the player places, like a power station, with its top left corner at [x], [y]. */
+    data class PlaceBuilding(val type: BuildingType, val x: Int, val y: Int) : Action
 
     companion object {
         /**
@@ -32,8 +41,8 @@ sealed interface Action {
     }
 }
 
-/** Why an action can't go ahead. */
-enum class Problem { NotEnoughMoney, NothingToDo }
+/** Why an action, an undo or a redo can't go ahead. */
+enum class Problem { NotEnoughMoney, NothingToDo, Blocked, TownBuiltThere }
 
 /**
  * What an action would do: its [cost], the tiles it [changes] and the ones it
@@ -50,4 +59,14 @@ object Prices {
     const val CLEAR_TREES = 5L
     const val ZONE = 5L
     const val REMOVE_ROAD = 2L
+    const val POWER_LINE = 5L
+    const val REMOVE_LINE = 1L
+    const val DEMOLISH = 15L
+    const val COAL_PLANT = 3_000L
+
+    /** What it costs to put up a building the player places. */
+    fun of(type: BuildingType): Long = when (type) {
+        BuildingType.COAL_PLANT -> COAL_PLANT
+        else -> 0L
+    }
 }

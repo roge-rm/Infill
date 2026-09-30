@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 
 /** The toolbar's icons, drawn on a 24 unit square so they scale with the button. */
 @Composable
@@ -23,6 +24,7 @@ fun ToolIcon(tool: Tool, colour: Color, modifier: Modifier = Modifier) {
             Tool.Bulldoze -> bulldoze(u, colour)
             Tool.Road -> road(u, colour)
             Tool.Zone -> zone(u, colour)
+            Tool.Power -> bolt(u, colour)
         }
     }
 }
@@ -42,6 +44,63 @@ fun PauseIcon(paused: Boolean, colour: Color, modifier: Modifier = Modifier) {
             drawRect(colour, Offset(13.5f * u, 5 * u), Size(3.5f * u, 14 * u))
         }
     }
+}
+
+/** A curved arrow back, or forward when [redo]. */
+@Composable
+fun UndoIcon(redo: Boolean, colour: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val u = size.minDimension / 24f
+        withTransform({ if (redo) scale(-1f, 1f, center) }) {
+            val arc = Path().apply {
+                moveTo(7 * u, 10 * u)
+                lineTo(15 * u, 10 * u)
+                cubicTo(22 * u, 10 * u, 22 * u, 20 * u, 15 * u, 20 * u)
+                lineTo(10 * u, 20 * u)
+            }
+            drawPath(arc, colour, style = Stroke(2.4f * u, cap = StrokeCap.Round))
+            val head = Path().apply {
+                moveTo(3 * u, 10 * u); lineTo(9 * u, 5 * u); lineTo(9 * u, 15 * u); close()
+            }
+            drawPath(head, colour)
+        }
+    }
+}
+
+/** One, two or three chevrons for how fast the game runs. */
+@Composable
+fun SpeedIcon(speed: Int, colour: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val u = size.minDimension / 24f
+        val count = speed + 1
+        val width = 5f * u
+        val start = 12 * u - (count * width) / 2 + 1 * u
+        for (k in 0 until count) {
+            val x = start + k * width
+            val p = Path().apply {
+                moveTo(x, 6 * u); lineTo(x + 4 * u, 12 * u); lineTo(x, 18 * u)
+            }
+            drawPath(p, colour, style = Stroke(2.2f * u, cap = StrokeCap.Round))
+        }
+    }
+}
+
+/** A head and shoulders, for the population. */
+@Composable
+fun PersonIcon(colour: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val u = size.minDimension / 24f
+        drawCircle(colour, 5 * u, Offset(12 * u, 7 * u))
+        drawRoundRect(colour, Offset(3 * u, 14 * u), Size(18 * u, 9 * u), CornerRadius(8 * u))
+    }
+}
+
+private fun DrawScope.bolt(u: Float, c: Color) {
+    val p = Path().apply {
+        moveTo(13 * u, 2 * u); lineTo(5 * u, 13 * u); lineTo(11 * u, 13 * u)
+        lineTo(9 * u, 22 * u); lineTo(19 * u, 10 * u); lineTo(13 * u, 10 * u); close()
+    }
+    drawPath(p, c)
 }
 
 private fun DrawScope.inspect(u: Float, c: Color) {

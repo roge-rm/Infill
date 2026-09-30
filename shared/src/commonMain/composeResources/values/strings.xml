@@ -6,6 +6,9 @@
     <string name="tool_bulldoze">Bulldoze</string>
     <string name="tool_road">Road</string>
     <string name="tool_zone">Zone</string>
+    <string name="tool_power">Power</string>
+    <string name="power_line">Power line</string>
+    <string name="coal_plant">Coal power station</string>
 
     <string name="zone_residential">Residential</string>
     <string name="zone_commercial">Commercial</string>
@@ -22,6 +25,42 @@
     <string name="inspect_zone_industrial">Zoned industrial</string>
     <string name="inspect_tile">Tile %1$d, %2$d</string>
     <string name="close">Close</string>
+    <string name="undo">Undo</string>
+    <string name="redo">Redo</string>
+    <string name="nothing_to_undo">Nothing to undo</string>
+
+    <string name="town_built_there">Can’t undo, the town has built there since</string>
+    <string name="blocked">There’s something in the way</string>
+
+    <string name="building_cottage">Cottage</string>
+    <string name="building_house">House</string>
+    <string name="building_large_house">Large house</string>
+    <string name="building_tenement">Tenement</string>
+    <string name="building_general_store">General store</string>
+    <string name="building_shop">Shop</string>
+    <string name="building_bank">Bank</string>
+    <string name="building_hotel">Hotel</string>
+    <string name="building_workshop">Workshop</string>
+    <string name="building_mill">Mill</string>
+    <string name="building_warehouse">Warehouse</string>
+    <string name="building_factory">Factory</string>
+    <plurals name="residents">
+        <item quantity="one">%1$d resident</item>
+        <item quantity="other">%1$d residents</item>
+    </plurals>
+    <plurals name="jobs">
+        <item quantity="one">%1$d job</item>
+        <item quantity="other">%1$d jobs</item>
+    </plurals>
+    <string name="has_power">Has power</string>
+    <string name="no_power">No power</string>
+    <string name="inspect_power_line">Power line</string>
+
+    <string name="speed">Speed</string>
+    <string name="demand">Demand</string>
+    <string name="jobs_label">Jobs</string>
+    <string name="income">Income a month</string>
+    <string name="upkeep">Upkeep a month</string>
 
     <string name="pause">Pause</string>
     <string name="play">Play</string>

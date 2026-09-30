@@ -50,3 +50,6 @@ internal actual fun newSurface(atlas: TileAtlas, level: Int, size: Int): BakeSur
 internal actual val cacheScale: Int = 2
 
 internal actual val bakeBudgetMs: Long? = 6L
+
+/** Browsers have no edge swipes to keep off. */
+internal actual fun androidx.compose.ui.Modifier.keepEdgeSwipesOff(): androidx.compose.ui.Modifier = this

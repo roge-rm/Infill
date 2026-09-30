@@ -3,12 +3,16 @@ package com.rm.infill.ui
 import com.rm.infill.res.Res
 import com.rm.infill.res.tool_bulldoze
 import com.rm.infill.res.tool_inspect
+import com.rm.infill.res.tool_power
 import com.rm.infill.res.tool_road
+import com.rm.infill.res.power_line
+import com.rm.infill.res.coal_plant
 import com.rm.infill.res.tool_zone
 import com.rm.infill.res.zone_commercial
 import com.rm.infill.res.zone_industrial
 import com.rm.infill.res.zone_residential
 import com.rm.infill.sim.Action
+import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Plan
 import com.rm.infill.sim.Zone
@@ -20,6 +24,13 @@ enum class Tool(val title: StringResource) {
     Bulldoze(Res.string.tool_bulldoze),
     Road(Res.string.tool_road),
     Zone(Res.string.tool_zone),
+    Power(Res.string.tool_power),
+}
+
+/** What the power tool puts down. */
+enum class PowerKind(val title: StringResource) {
+    Line(Res.string.power_line),
+    Plant(Res.string.coal_plant),
 }
 
 /** The kinds of zone, in the order the picker shows them. */
@@ -40,11 +51,16 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
         return copy(x1 = x, y1 = y, acrossFirst = across)
     }
 
-    fun action(tool: Tool, zone: ZoneKind, map: CityMap): Action? = when (tool) {
+    fun action(tool: Tool, zone: ZoneKind, power: PowerKind, map: CityMap): Action? = when (tool) {
         Tool.Inspect -> null
         Tool.Road -> Action.BuildRoad(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
         Tool.Zone -> Action.PlaceZone(x0, y0, x1, y1, zone.zone)
         Tool.Bulldoze -> Action.Bulldoze(x0, y0, x1, y1)
+        Tool.Power -> when (power) {
+            PowerKind.Line -> Action.BuildPowerLine(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
+            // A building goes where the finger ends up, with that tile its top left.
+            PowerKind.Plant -> Action.PlaceBuilding(BuildingType.COAL_PLANT, x1, y1)
+        }
     }
 }
 

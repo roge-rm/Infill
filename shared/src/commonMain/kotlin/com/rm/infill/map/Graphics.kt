@@ -50,3 +50,9 @@ internal expect fun imageBitmapOf(pixels: IntArray, width: Int, height: Int): Im
 
 /** Where chunks are baked: a background thread where there is one. */
 internal expect val bakeDispatcher: CoroutineDispatcher
+
+/**
+ * Keeps the system's edge swipes (back, on Android) off a band down the middle
+ * of the map, so a tool dragged near the edge isn't taken for one.
+ */
+internal expect fun androidx.compose.ui.Modifier.keepEdgeSwipesOff(): androidx.compose.ui.Modifier

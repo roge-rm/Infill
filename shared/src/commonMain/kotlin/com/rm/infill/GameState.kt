@@ -23,11 +23,28 @@ class GameState(val city: City) {
 
     fun apply(action: Action): Plan {
         val plan = city.apply(action)
-        if (plan.ok) {
-            for (i in plan.changes) changed += i
-            revision++
-        }
+        if (plan.ok) changedBy(plan)
         return plan
+    }
+
+    val canUndo get() = revision.let { city.canUndo }
+    val canRedo get() = revision.let { city.canRedo }
+
+    fun undo(): Plan? = city.undo()?.also { if (it.ok) changedBy(it) else revision++ }
+
+    fun redo(): Plan? = city.redo()?.also { if (it.ok) changedBy(it) else revision++ }
+
+    private fun changedBy(plan: Plan) {
+        for (i in plan.changes) changed += i
+        revision++
+    }
+
+    /** Moves the town on [days] days, then lets the screen know once. */
+    fun tick(days: Int) {
+        if (days <= 0) return
+        repeat(days) { city.tick() }
+        city.takeTownChanges { changed += it }
+        revision++
     }
 
     /** Hands over the tiles changed since the last call, as map indices. */

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,6 +29,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.res.Res
 import com.rm.infill.res.date
+import com.rm.infill.res.demand
+import com.rm.infill.res.income
+import com.rm.infill.res.jobs_label
+import com.rm.infill.res.speed
+import com.rm.infill.res.upkeep
 import com.rm.infill.res.funds
 import com.rm.infill.res.money
 import com.rm.infill.res.month_short
@@ -35,8 +41,15 @@ import com.rm.infill.res.pause
 import com.rm.infill.res.paused
 import com.rm.infill.res.play
 import com.rm.infill.res.population
+import com.rm.infill.res.redo
+import com.rm.infill.res.undo
 import com.rm.infill.res.year
 import com.rm.infill.GameState
+import com.rm.infill.sim.Zone
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import kotlin.math.max
 import com.rm.infill.ui.theme.Infill
 import org.jetbrains.compose.resources.stringArrayResource
 import org.jetbrains.compose.resources.stringResource
@@ -55,49 +68,148 @@ fun ChromeBox(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     ) { content() }
 }
 
-/** Pause, the date and the money, along the top. */
+/** Pause, the speed, the date, the money, the population and demand, along the top. */
 @Composable
-fun StatusStrip(game: GameState, paused: Boolean, onPause: () -> Unit, compact: Boolean, modifier: Modifier = Modifier) {
+fun StatusStrip(
+    game: GameState,
+    paused: Boolean,
+    onPause: () -> Unit,
+    speed: Int,
+    onSpeed: () -> Unit,
+    compact: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val c = Infill.colors
     game.revision
     val city = game.city
     val months = stringArrayResource(Res.array.month_short)
     val textSize = if (compact) 13.sp else 15.sp
+    val button = if (compact) 36.dp else 40.dp
     ChromeBox(modifier) {
         Row(
             Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 10.dp),
         ) {
             val label = stringResource(if (paused) Res.string.play else Res.string.pause)
-            SquareButton(selected = paused, size = if (compact) 36.dp else 40.dp, description = label, onClick = onPause) { tint ->
+            SquareButton(selected = paused, size = button, description = label, onClick = onPause) { tint ->
                 PauseIcon(paused, tint, Modifier.size(22.dp))
+            }
+            SquareButton(selected = false, size = button, description = stringResource(Res.string.speed), onClick = onSpeed) { tint ->
+                SpeedIcon(speed, tint, Modifier.size(22.dp))
             }
             Text(
                 stringResource(Res.string.date, months.getOrElse(city.month) { "" }, city.year),
                 color = c.text, fontSize = textSize, fontWeight = FontWeight.SemiBold,
             )
             Text(stringResource(Res.string.money, groupThousands(city.funds)), color = c.text, fontSize = textSize)
-            if (paused) Text(stringResource(Res.string.paused), color = c.textDim, fontSize = textSize)
-            Spacer(Modifier.width(2.dp))
+            PersonCount(city.stats.population, textSize)
+            val st = city.stats
+            DemandBars(st.residentialDemand, st.commercialDemand, st.industryDemand, st.population + st.jobs, Modifier.padding(end = 4.dp))
         }
     }
 }
 
-/** The tools, in a row along the bottom or a column down the side. */
 @Composable
-fun ToolBar(selected: Tool, onSelect: (Tool) -> Unit, vertical: Boolean, compact: Boolean, modifier: Modifier = Modifier) {
+private fun PersonCount(count: Int, size: androidx.compose.ui.unit.TextUnit) {
+    val c = Infill.colors
+    val label = stringResource(Res.string.population)
+    Row(
+        Modifier.semantics(mergeDescendants = true) { contentDescription = "$label $count" },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        PersonIcon(c.textDim, Modifier.size(14.dp))
+        Text(groupThousands(count.toLong()), color = c.text, fontSize = size)
+    }
+}
+
+/**
+ * Residential, commercial and industrial demand as three small bars, up for
+ * more wanted and down for too much, scaled to the size of the town ([townSize]
+ * is its people and jobs). Numbers rather than the stats themselves, which
+ * change in place and so wouldn't be seen to change.
+ */
+@Composable
+fun DemandBars(residential: Int, commercial: Int, industrial: Int, townSize: Int, modifier: Modifier = Modifier) {
+    val c = Infill.colors
+    val scale = max(20f, 0.06f * townSize)
+    val values = listOf(residential, commercial, industrial).map { (it / scale).coerceIn(-1f, 1f) }
+    val colours = listOf(Zone.RESIDENTIAL, Zone.COMMERCIAL, Zone.INDUSTRIAL).map { zoneColour(it) }
+    val label = stringResource(Res.string.demand)
+    Canvas(modifier.size(width = 26.dp, height = 28.dp).semantics { contentDescription = label }) {
+        val bar = size.width / 3f
+        val mid = size.height / 2f
+        drawLine(c.chromeEdge, Offset(0f, mid), Offset(size.width, mid), 1.dp.toPx())
+        for (k in 0..2) {
+            val h = values[k] * (mid - 1.dp.toPx())
+            val left = k * bar + 1.dp.toPx()
+            val w = bar - 2.dp.toPx()
+            if (h > 0f) drawRect(colours[k], Offset(left, mid - h), Size(w, h))
+            else if (h < 0f) drawRect(colours[k].copy(alpha = 0.5f), Offset(left, mid), Size(w, -h))
+        }
+    }
+}
+/** The tools, in a row along the bottom or a column down the side, with undo and redo at the end. */
+@Composable
+fun ToolBar(
+    selected: Tool,
+    onSelect: (Tool) -> Unit,
+    canUndo: Boolean,
+    canRedo: Boolean,
+    onUndo: () -> Unit,
+    onRedo: () -> Unit,
+    vertical: Boolean,
+    compact: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val c = Infill.colors
+    val side = if (compact) 36.dp else 40.dp
     val buttons = @Composable {
         for (tool in Tool.entries) {
             ToolButton(tool, tool == selected, compact) { onSelect(tool) }
         }
+        Box(
+            Modifier
+                .padding(if (vertical) 0.dp else 2.dp, if (vertical) 2.dp else 0.dp)
+                .background(c.chromeEdge)
+                .then(if (vertical) Modifier.height(1.dp).width(side) else Modifier.width(1.dp).height(side)),
+        )
+        HistoryButton(false, canUndo, side, onUndo)
+        HistoryButton(true, canRedo, side, onRedo)
     }
     ChromeBox(modifier) {
         if (vertical) {
-            Column(Modifier.padding(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { buttons() }
+            Column(
+                Modifier.padding(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) { buttons() }
         } else {
-            Row(Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) { buttons() }
+            Row(
+                Modifier.padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) { buttons() }
         }
+    }
+}
+
+/** Undo, or redo when [redo]. Dimmed when there's nothing to do. */
+@Composable
+private fun HistoryButton(redo: Boolean, enabled: Boolean, side: Dp, onClick: () -> Unit) {
+    val c = Infill.colors
+    val label = stringResource(if (redo) Res.string.redo else Res.string.undo)
+    Box(
+        Modifier
+            .size(side)
+            .clip(RoundedCornerShape(8.dp))
+            .background(c.button)
+            .semantics { contentDescription = label }
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        UndoIcon(redo, if (enabled) c.text else c.textDim.copy(alpha = 0.4f), Modifier.size(22.dp))
     }
 }
 
@@ -146,10 +258,14 @@ private fun SquareButton(
 fun CityPanel(game: GameState, modifier: Modifier = Modifier) {
     game.revision
     val city = game.city
+    val s = city.stats
     ChromeBox(modifier) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            PanelLine(stringResource(Res.string.population), "0")
+            PanelLine(stringResource(Res.string.population), groupThousands(s.population.toLong()))
+            PanelLine(stringResource(Res.string.jobs_label), groupThousands(s.jobs.toLong()))
             PanelLine(stringResource(Res.string.funds), stringResource(Res.string.money, groupThousands(city.funds)))
+            PanelLine(stringResource(Res.string.income), stringResource(Res.string.money, groupThousands(s.income)))
+            PanelLine(stringResource(Res.string.upkeep), stringResource(Res.string.money, groupThousands(s.upkeep)))
             PanelLine(stringResource(Res.string.year), city.year.toString())
         }
     }
