@@ -31,6 +31,22 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import com.rm.infill.map.MapGestures
+import com.rm.infill.res.Res
+import com.rm.infill.res.money
+import com.rm.infill.res.not_enough_money
+import com.rm.infill.sim.Problem
+import com.rm.infill.ui.InspectPanel
+import com.rm.infill.ui.MessageChip
+import com.rm.infill.ui.Preview
+import com.rm.infill.ui.ToolDrag
+import com.rm.infill.ui.ZoneKind
+import com.rm.infill.ui.ZonePicker
+import com.rm.infill.ui.groupThousands
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 import com.rm.infill.map.Atlas
 import com.rm.infill.map.Camera
 import com.rm.infill.map.Graphics
@@ -55,12 +71,17 @@ import com.rm.infill.ui.theme.InfillTheme
 @Composable
 fun App() {
     InfillTheme {
-        val city = remember { City(seed = 1900) }
+        val game = remember { GameState(City(seed = 1900)) }
+        val city = game.city
         val density = LocalDensity.current.density
         val camera = remember(density) {
             Camera(city.map.width, city.map.height, MIN_TILE_DP * density, MAX_TILE_DP * density, START_TILE_DP * density)
         }
         var tool by remember { mutableStateOf(Tool.Inspect) }
+        var zoneKind by remember { mutableStateOf(ZoneKind.Residential) }
+        var drag by remember { mutableStateOf<ToolDrag?>(null) }
+        var inspected by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+        var message by remember { mutableStateOf<StringResource?>(null) }
         var paused by remember { mutableStateOf(true) }
         val keys = remember { KeyInput() }
         val focus = remember { FocusRequester() }
@@ -85,6 +106,47 @@ fun App() {
         val shadowStep = graphics.sunStep(sunStep)
         val sun = remember(shadowStep, month) { Sky.sun(shadowStep, month) }
         val tint = remember(lightStep, month) { Sky.tint(lightStep / LIGHT_STEPS_PER_HOUR, month) }
+
+        LaunchedEffect(message) {
+            if (message != null) {
+                delay(MESSAGE_MS)
+                message = null
+            }
+        }
+
+        // What the drag would do, worked out again as it moves.
+        val preview = remember(drag, tool, zoneKind, game.revision) {
+            drag?.let { d -> d.action(tool, zoneKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) } }
+        }
+        val costText = preview?.let {
+            if (it.plan.problem == Problem.NotEnoughMoney) stringResource(Res.string.not_enough_money)
+            else stringResource(Res.string.money, groupThousands(it.plan.cost))
+        } ?: ""
+
+        fun pick(t: Tool) {
+            // Picking the zone tool again moves on to the next kind of zone.
+            if (t == Tool.Zone && tool == Tool.Zone) zoneKind = ZoneKind.entries[(zoneKind.ordinal + 1) % ZoneKind.entries.size]
+            tool = t
+            drag = null
+            if (t != Tool.Inspect) inspected = null
+        }
+
+        val gestures = MapGestures(
+            toolActive = tool != Tool.Inspect,
+            onToolDown = { x, y -> drag = ToolDrag(x, y, x, y) },
+            onToolMove = { x, y -> drag = drag?.to(x, y) },
+            onToolUp = {
+                val d = drag
+                drag = null
+                val action = d?.action(tool, zoneKind, city.map)
+                if (action != null) {
+                    val plan = game.apply(action)
+                    if (plan.problem == Problem.NotEnoughMoney) message = Res.string.not_enough_money
+                }
+            },
+            onToolCancel = { drag = null },
+            onTap = { x, y -> if (tool == Tool.Inspect) inspected = x to y },
+        )
 
         // Pans and zooms while a key is held, at the same speed whatever the frame rate.
         LaunchedEffect(keys.heldVersion) {
@@ -118,12 +180,17 @@ fun App() {
                 .onPreviewKeyEvent { event ->
                     keys.onKey(event) { action ->
                         when (action) {
-                            KeyAction.ToolInspect -> tool = Tool.Inspect
-                            KeyAction.ToolBulldoze -> tool = Tool.Bulldoze
-                            KeyAction.ToolRoad -> tool = Tool.Road
-                            KeyAction.ToolZone -> tool = Tool.Zone
+                            KeyAction.ToolInspect -> pick(Tool.Inspect)
+                            KeyAction.ToolBulldoze -> pick(Tool.Bulldoze)
+                            KeyAction.ToolRoad -> pick(Tool.Road)
+                            KeyAction.ToolZone -> pick(Tool.Zone)
                             KeyAction.Pause -> paused = !paused
-                            KeyAction.Back -> tool = Tool.Inspect
+                            // Esc lets go of a drag, then closes the inspector, then puts the tool down.
+                            KeyAction.Back -> when {
+                                drag != null -> drag = null
+                                inspected != null -> inspected = null
+                                else -> pick(Tool.Inspect)
+                            }
                             KeyAction.DevSeasonBack -> lookOverride = (look + Atlas.LOOKS - 1) % Atlas.LOOKS
                             KeyAction.DevSeasonNext -> lookOverride = (look + 1) % Atlas.LOOKS
                             KeyAction.DevHourBack -> hour = (hour + 24f - 24f / Sky.STEPS) % 24f
@@ -136,36 +203,57 @@ fun App() {
         ) {
             val layout = screenLayout(maxWidth, maxHeight)
             viewSize = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
-            MapView(city.map, atlas, camera, look, shadowStep, sun, tint, graphics, Modifier.fillMaxSize())
+            MapView(
+                game, atlas, camera, look, shadowStep, sun, tint, graphics, gestures, preview, costText,
+                Modifier.fillMaxSize(),
+            )
 
             val safe = WindowInsets.safeDrawing
             val gap = if (layout.compact) 6.dp else 10.dp
             val sideTools = layout.large || layout.shape == ScreenShape.Wide
+            val compactTools = layout.compact || layout.short
             StatusStrip(
-                city, paused, { paused = !paused }, layout.compact,
+                game, paused, { paused = !paused }, layout.compact,
                 Modifier
                     // Beside the tools rather than above them when they run down the side.
                     .align(if (sideTools && !layout.large) Alignment.TopCenter else Alignment.TopStart)
                     .windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                     .padding(gap),
             )
-            ToolBar(
-                tool, { tool = it }, vertical = sideTools, compact = layout.compact || layout.short,
-                modifier = if (sideTools) {
+            message?.let { m ->
+                MessageChip(
+                    stringResource(m),
                     Modifier
+                        .align(Alignment.TopCenter)
+                        .windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                        .padding(top = gap + MESSAGE_DROP.dp),
+                )
+            }
+            if (sideTools) {
+                ToolBar(
+                    tool, ::pick, vertical = true, compact = compactTools,
+                    modifier = Modifier
                         .align(Alignment.CenterStart)
                         .windowInsetsPadding(safe.only(WindowInsetsSides.Start))
-                        .padding(gap)
-                } else {
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .windowInsetsPadding(safe.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
-                        .padding(gap)
-                },
-            )
+                        .padding(gap),
+                )
+            }
+            // Along the bottom: what's being inspected, the kinds of zone, and on an upright phone the tools.
+            Column(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .windowInsetsPadding(safe.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                    .padding(gap),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(gap),
+            ) {
+                inspected?.let { (x, y) -> InspectPanel(game, x, y, onClose = { inspected = null }) }
+                if (tool == Tool.Zone) ZonePicker(zoneKind, { zoneKind = it }, compact = compactTools)
+                if (!sideTools) ToolBar(tool, ::pick, vertical = false, compact = compactTools)
+            }
             if (layout.large) {
                 CityPanel(
-                    city,
+                    game,
                     Modifier
                         .align(Alignment.TopEnd)
                         .windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.End))
@@ -187,6 +275,10 @@ private const val KEY_PAN_DP = 600f
 private const val KEY_ZOOM = 1.5f
 
 private const val PANEL_WIDTH = 240
+
+/** How long a message stays, and how far below the top bar it sits. */
+private const val MESSAGE_MS = 2500L
+private const val MESSAGE_DROP = 56
 
 /** A day lasts this many seconds of play, starting mid morning. */
 private const val DAY_SECONDS = 360f

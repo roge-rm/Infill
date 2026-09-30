@@ -4,7 +4,7 @@ Infill is a city builder for Android 8.1 and up, and it also runs in a web brows
 
 You start with a small town in 1900 and a few simple tools, and as the years go by the city and the systems that run it get deeper. New technology arrives in eras, and parts of your city get redone as it does: wells give way to water mains, streetcars to cars and back to transit, low rise blocks to something denser.
 
-It's very early. Right now there's a generated map with rivers, lakes and woods that you can move around, through the seasons and the time of day, and not much else.
+It's very early. Right now there's a generated map with rivers, lakes and woods, through the seasons and the time of day, and you can lay dirt roads, zone land and bulldoze, but nothing grows yet.
 
 ## Building
 

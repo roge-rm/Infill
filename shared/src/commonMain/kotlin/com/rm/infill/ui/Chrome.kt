@@ -36,7 +36,7 @@ import com.rm.infill.res.paused
 import com.rm.infill.res.play
 import com.rm.infill.res.population
 import com.rm.infill.res.year
-import com.rm.infill.sim.City
+import com.rm.infill.GameState
 import com.rm.infill.ui.theme.Infill
 import org.jetbrains.compose.resources.stringArrayResource
 import org.jetbrains.compose.resources.stringResource
@@ -57,8 +57,10 @@ fun ChromeBox(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
 
 /** Pause, the date and the money, along the top. */
 @Composable
-fun StatusStrip(city: City, paused: Boolean, onPause: () -> Unit, compact: Boolean, modifier: Modifier = Modifier) {
+fun StatusStrip(game: GameState, paused: Boolean, onPause: () -> Unit, compact: Boolean, modifier: Modifier = Modifier) {
     val c = Infill.colors
+    game.revision
+    val city = game.city
     val months = stringArrayResource(Res.array.month_short)
     val textSize = if (compact) 13.sp else 15.sp
     ChromeBox(modifier) {
@@ -141,8 +143,9 @@ private fun SquareButton(
 
 /** The city at a glance, down the side on a tablet. */
 @Composable
-fun CityPanel(city: City, modifier: Modifier = Modifier) {
-    val c = Infill.colors
+fun CityPanel(game: GameState, modifier: Modifier = Modifier) {
+    game.revision
+    val city = game.city
     ChromeBox(modifier) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             PanelLine(stringResource(Res.string.population), "0")

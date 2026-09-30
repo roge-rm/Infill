@@ -18,6 +18,9 @@ internal interface BakeSurface {
     /** A sprite drawn over what's there, by its alpha. */
     fun blend(index: Int, dx: Int, dy: Int)
 
+    /** A rectangle of solid RGB [colour] laid over what's there, [alpha] out of 255. */
+    fun fill(x: Int, y: Int, w: Int, h: Int, colour: Int, alpha: Int)
+
     /** Starts the shadows, which come out [alpha] dark however many overlap. */
     fun beginShadows(alpha: Float)
     fun shadowLine(ax: Float, ay: Float, bx: Float, by: Float, half: Float)
@@ -86,6 +89,23 @@ internal class PixelSurface(atlas: TileAtlas, private val level: Int, private va
                 val gg = (((p shr 8) and 0xff) * a + ((q shr 8) and 0xff) * inv) / 255
                 val bb = ((p and 0xff) * a + (q and 0xff) * inv) / 255
                 out[to + x] = (-0x1000000) or (rr shl 16) or (gg shl 8) or bb
+            }
+        }
+    }
+
+    override fun fill(x: Int, y: Int, w: Int, h: Int, colour: Int, alpha: Int) {
+        val inv = 255 - alpha
+        val cr = ((colour shr 16) and 0xff) * alpha
+        val cg = ((colour shr 8) and 0xff) * alpha
+        val cb = (colour and 0xff) * alpha
+        for (row in max(0, y) until min(size, y + h)) {
+            for (col in max(0, x) until min(size, x + w)) {
+                val i = row * size + col
+                val q = out[i]
+                val rr = (cr + ((q shr 16) and 0xff) * inv) / 255
+                val gg = (cg + ((q shr 8) and 0xff) * inv) / 255
+                val bb = (cb + (q and 0xff) * inv) / 255
+                out[i] = (q and -0x1000000) or (rr shl 16) or (gg shl 8) or bb
             }
         }
     }

@@ -142,6 +142,66 @@ def corner_north_east(look):
     return img
 
 
+# ---- roads -------------------------------------------------------------------
+# A road's sprite depends on which neighbours are road too: north 1, east 2,
+# south 4, west 8. In 1900 roads are packed dirt with wheel ruts.
+
+DIRT_ROAD = {
+    look: [c("#a88a5c"), c("#967a4e"), c("#b99b6a")] for look in LOOKS
+} | {
+    "bare": [c("#8f7650"), c("#7f6846"), c("#9c8460")],
+    "snow": [c("#cdc6b8"), c("#bdb4a3"), c("#dbd5ca")],  # packed and dirty
+}
+RUT = {look: c("#86693f") for look in LOOKS} | {"bare": c("#6f5a3c"), "snow": c("#8e7a5e")}
+ROAD_EDGE = {look: c("#7f6a44") for look in LOOKS} | {"snow": c("#b3aa98")}
+ROAD_LO, ROAD_HI = 7, 24  # the road's width across a tile
+RUTS = (12, 19)
+
+
+def road(look, mask):
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    px = img.load()
+    rng = random.Random(6000 + mask)
+
+    def inside(x, y):
+        if not (0 <= x < T and 0 <= y < T):
+            # Past the tile's edge the road carries on only where it's joined.
+            if y < 0: return mask & 1 and ROAD_LO <= x <= ROAD_HI
+            if x >= T: return mask & 2 and ROAD_LO <= y <= ROAD_HI
+            if y >= T: return mask & 4 and ROAD_LO <= x <= ROAD_HI
+            return mask & 8 and ROAD_LO <= y <= ROAD_HI
+        across = ROAD_LO <= x <= ROAD_HI
+        down = ROAD_LO <= y <= ROAD_HI
+        if across and down:
+            return True
+        return (across and ((y < ROAD_LO and mask & 1) or (y > ROAD_HI and mask & 4))) or \
+               (down and ((x > ROAD_HI and mask & 2) or (x < ROAD_LO and mask & 8)))
+
+    cols = DIRT_ROAD[look]
+    for y in range(T):
+        for x in range(T):
+            if not inside(x, y):
+                continue
+            edge = not (inside(x - 1, y) and inside(x + 1, y) and inside(x, y - 1) and inside(x, y + 1))
+            r = rng.random()
+            px[x, y] = ROAD_EDGE[look] if edge else cols[0] if r < 0.75 else cols[1] if r < 0.88 else cols[2]
+    # Wheel ruts along each way the road goes, through the middle.
+    vertical = mask & 5 or mask == 0
+    horizontal = mask & 10
+    for rut in RUTS:
+        if vertical:
+            top = 0 if mask & 1 else ROAD_LO + 2
+            bottom = T - 1 if mask & 4 else ROAD_HI - 2
+            for y in range(top, bottom + 1):
+                if rng.random() < 0.85: px[rut, y] = RUT[look]
+        if horizontal:
+            left = 0 if mask & 8 else ROAD_LO + 2
+            right = T - 1 if mask & 2 else ROAD_HI - 2
+            for x in range(left, right + 1):
+                if rng.random() < 0.85: px[x, rut] = RUT[look]
+    return img
+
+
 # ---- trees --------------------------------------------------------------------
 # A tree sprite is 32 wide and 48 tall: the bottom 32 rows are its tile and the
 # rest reaches up into the tile behind. The foot is where the trunk meets the
@@ -268,6 +328,8 @@ def sprites_for(look):
         ("corner_ne", ne, 0, []), ("corner_se", ne.rotate(-90), 0, []),
         ("corner_sw", ne.rotate(180), 0, []), ("corner_nw", ne.rotate(90), 0, []),
     ]
+    for mask in range(16):
+        out.append((f"road_{mask}", road(look, mask), 0, []))
     for v in range(5):
         img, casters = tree(look, v)
         out.append((f"tree_{v}", img, LIFT, casters))
@@ -345,7 +407,7 @@ def write_kotlin(names, flat, pos, size):
             lines.append("        " + ", ".join(str(v) for v in values[i:i + per_line]) + ",")
         return "\n".join(lines)
 
-    groups = ["grass", "water", "shore", "corner", "tree", "forest"]
+    groups = ["grass", "water", "shore", "corner", "road", "tree", "forest"]
     consts = []
     for g in groups:
         consts.append(f"    const val {g.upper()} = {first(g + '_')}")
@@ -357,7 +419,8 @@ package com.rm.infill.map
 /**
  * Where each sprite is in the atlases (files/atlas_32.png, _16 and _8) and what
  * casts a shadow. A sprite's number is its place in a look plus the look times
- * [PER_LOOK]. Shores and corners go north, east, south, west.
+ * [PER_LOOK]. Shores and corners go north, east, south, west. A road's
+ * number adds its neighbours that are road: north 1, east 2, south 4, west 8.
  */
 internal object Atlas {{
     const val LOOKS = {len(LOOKS)}

@@ -21,3 +21,6 @@ local.properties
 # one ever lands in here by accident.
 *.jks
 *.keystore
+
+# Python caches from running the tools.
+__pycache__/

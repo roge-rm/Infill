@@ -2,7 +2,9 @@ package com.rm.infill.map
 
 import androidx.compose.ui.graphics.ImageBitmap
 import com.rm.infill.sim.CityMap
+import com.rm.infill.sim.Road
 import com.rm.infill.sim.Terrain
+import com.rm.infill.sim.Zone
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -21,15 +23,17 @@ import kotlin.math.sqrt
  * is getting close to it, and the whole map at the two coarser levels, so a
  * zoom out has everything ready. A new look or sun step is baked alongside the
  * old one and each level switches over once every chunk on screen has it.
+ * When the map changes, the chunks it touches go on showing until their new
+ * bitmaps are ready ([changed]).
  *
  * Each frame, [plan] says what's on screen and gets the list of what to bake
  * next, in order. A baker (see [MapView]) takes them with [nextRequest], bakes
  * them wherever [bakeDispatcher] says and hands them back with [store].
  */
 internal class MapRenderer(private val map: CityMap, private val atlas: TileAtlas, private val graphics: Graphics) {
-    class Request(val key: Long, val cx: Int, val cy: Int, val level: Int, val look: Int, val sun: Sun?)
+    class Request(val key: Long, val cx: Int, val cy: Int, val level: Int, val look: Int, val sun: Sun?, val version: Int)
 
-    private class Entry(val cx: Int, val cy: Int, val level: Int, val image: ImageBitmap, var used: Long)
+    private class Entry(val cx: Int, val cy: Int, val level: Int, val image: ImageBitmap, var used: Long, val version: Int)
 
     private val cache = HashMap<Long, Entry>()
     private var bytes = 0L
@@ -50,16 +54,15 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     /** Goes up whenever a frame leaves something to bake. */
     val requests = MutableStateFlow(0)
 
-    /** Goes up with every change to the map, so a bake that started before one is thrown away. */
-    var edits = 0
-        private set
-
     /** True once the first screen has been baked. Until then nothing is drawn. */
     var ready = false
         private set
 
     private val chunksX = (map.width + CHUNK - 1) / CHUNK
     private val chunksY = (map.height + CHUNK - 1) / CHUNK
+
+    /** How many times each chunk has changed. A bitmap baked at an older count is out of date. */
+    private val versions = IntArray(chunksX * chunksY)
 
     /** The atlas level for a zoom, never sharper than [Graphics.sharpest] allows. */
     fun levelFor(tilePx: Float): Int = THRESHOLDS.indexOfFirst { tilePx >= it }.coerceAtLeast(graphics.sharpest)
@@ -87,7 +90,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         var complete = true
         forEachOutward(cx0, cy0, cx1, cy1, midX, midY) { cx, cy ->
             val k = key(cx, cy, level, look, step)
-            if (!touch(k)) {
+            if (!touch(k, cx, cy)) {
                 complete = false
                 onScreen += k
                 want(k, cx, cy, level, look, step, sun)
@@ -100,14 +103,14 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         } else if (shownLook[level] >= 0) {
             // Keep what's showing now until the change is ready.
             forEachOutward(cx0, cy0, cx1, cy1, midX, midY) { cx, cy ->
-                touch(key(cx, cy, level, shownLook[level], shownStep[level]))
+                touch(key(cx, cy, level, shownLook[level], shownStep[level]), cx, cy)
             }
         }
 
         // A ring around the screen, for panning.
         forEachOutward(cx0 - RING, cy0 - RING, cx1 + RING, cy1 + RING, midX, midY) { cx, cy ->
             val k = key(cx, cy, level, look, step)
-            if (!touch(k)) want(k, cx, cy, level, look, step, sun)
+            if (!touch(k, cx, cy)) want(k, cx, cy, level, look, step, sun)
         }
 
         // The sharper level, when a zoom in is getting near it.
@@ -116,7 +119,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             val s = stepFor(finer, sunStep, sun)
             forEachOutward(cx0, cy0, cx1, cy1, midX, midY) { cx, cy ->
                 val k = key(cx, cy, finer, look, s)
-                if (!touch(k)) want(k, cx, cy, finer, look, s, sun)
+                if (!touch(k, cx, cy)) want(k, cx, cy, finer, look, s, sun)
             }
         }
 
@@ -125,7 +128,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             val s = stepFor(coarse, sunStep, sun)
             forEachOutward(0, 0, chunksX - 1, chunksY - 1, midX, midY) { cx, cy ->
                 val k = key(cx, cy, coarse, look, s)
-                if (!touch(k)) want(k, cx, cy, coarse, look, s, sun)
+                if (!touch(k, cx, cy)) want(k, cx, cy, coarse, look, s, sun)
             }
         }
 
@@ -152,7 +155,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     fun nextRequest(): Request? {
         while (queueAt < queue.size) {
             val r = queue[queueAt++]
-            if (r.key in cache || r.key in baking) continue
+            if (r.key in baking || fresh(cache[r.key], r.cx, r.cy)) continue
             baking += r.key
             return r
         }
@@ -160,13 +163,18 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     }
 
     /**
-     * Keeps a baked chunk, unless the map changed while it was being baked.
+     * Keeps a baked chunk. If the map changed while it was baking it's already
+     * out of date, but it still stands in until the next one is ready.
      * True if the screen was waiting on it.
      */
-    fun store(request: Request, image: ImageBitmap, editsAtStart: Int): Boolean {
+    fun store(request: Request, image: ImageBitmap): Boolean {
         baking -= request.key
-        if (editsAtStart != edits) return false
-        cache[request.key] = Entry(request.cx, request.cy, request.level, image, frame)
+        val old = cache[request.key]
+        if (old != null) {
+            if (old.version > request.version) return false
+            bytes -= old.image.width.toLong() * old.image.height * 4
+        }
+        cache[request.key] = Entry(request.cx, request.cy, request.level, image, frame, request.version)
         bytes += image.width.toLong() * image.height * 4
         while (bytes > graphics.cacheBytes && cache.size > 1) {
             val oldest = cache.entries.minBy { it.value.used }
@@ -176,17 +184,11 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         return request.key in onScreen
     }
 
-    /** Forgets every bitmap that shows tile [x], [y], including the chunks its sprites and shadows reach. */
-    fun invalidate(x: Int, y: Int) {
-        edits++
-        val iterator = cache.entries.iterator()
-        while (iterator.hasNext()) {
-            val e = iterator.next().value
-            val x0 = e.cx * CHUNK - SHADOW_MARGIN
-            val y0 = e.cy * CHUNK - SHADOW_MARGIN
-            if (x in x0 until x0 + CHUNK + 2 * SHADOW_MARGIN && y in y0 until y0 + CHUNK + 2 * SHADOW_MARGIN) {
-                bytes -= e.image.width.toLong() * e.image.height * 4
-                iterator.remove()
+    /** Marks the chunks that show tile [x], [y] out of date, including those its sprites and shadows reach. */
+    fun changed(x: Int, y: Int) {
+        for (cy in (y - SHADOW_MARGIN) / CHUNK..(y + SHADOW_MARGIN + 1) / CHUNK) {
+            for (cx in (x - SHADOW_MARGIN) / CHUNK..(x + SHADOW_MARGIN) / CHUNK) {
+                if (cx in 0 until chunksX && cy in 0 until chunksY) versions[cy * chunksX + cx]++
             }
         }
     }
@@ -212,6 +214,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 shores(surface, base, tx, ty, dx, dy)
             } else {
                 surface.copy(base + Atlas.GRASS + h % Atlas.GRASS_COUNT, dx, dy)
+                val zone = map.zoneAt(tx, ty)
+                if (zone != Zone.NONE) zoneTint(surface, zone, tx, ty, dx, dy, s, level)
+                if (map.roadAt(tx, ty) != Road.NONE) surface.blend(base + Atlas.ROAD + roadMask(tx, ty), dx, dy)
             }
         }
 
@@ -255,6 +260,42 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
 
     private fun land(x: Int, y: Int) = map.inside(x, y) && map.terrainAt(x, y) != Terrain.WATER
 
+    /** Which neighbours are road: north 1, east 2, south 4, west 8. */
+    private fun roadMask(x: Int, y: Int): Int {
+        var m = 0
+        if (road(x, y - 1)) m = m or 1
+        if (road(x + 1, y)) m = m or 2
+        if (road(x, y + 1)) m = m or 4
+        if (road(x - 1, y)) m = m or 8
+        return m
+    }
+
+    private fun road(x: Int, y: Int) = map.inside(x, y) && map.roadAt(x, y) != Road.NONE
+
+    /**
+     * A zone is a wash of its colour dotted with it, so it reads as zoned on any
+     * ground, with a line along the sides where the zone ends.
+     */
+    private fun zoneTint(surface: BakeSurface, zone: Byte, tx: Int, ty: Int, dx: Int, dy: Int, s: Int, level: Int) {
+        val colour = ZONE_COLOURS[zone.toInt()]
+        surface.fill(dx, dy, s, s, ZONE_WASHES[zone.toInt()], ZONE_WASH)
+        val spacing = ZONE_DOTS shr level
+        val dot = max(1, 2 shr level)
+        if (spacing >= 4) {
+            for (row in 0 until s / spacing) for (col in 0 until s / spacing) {
+                val shift = if (row % 2 == 0) 0 else spacing / 2
+                surface.fill(dx + col * spacing + shift + 1, dy + row * spacing + 1, dot, dot, colour, ZONE_DOT)
+            }
+        }
+        val line = max(1, 2 shr level)
+        if (!sameZone(tx, ty - 1, zone)) surface.fill(dx, dy, s, line, colour, ZONE_LINE)
+        if (!sameZone(tx + 1, ty, zone)) surface.fill(dx + s - line, dy, line, s, colour, ZONE_LINE)
+        if (!sameZone(tx, ty + 1, zone)) surface.fill(dx, dy + s - line, s, line, colour, ZONE_LINE)
+        if (!sameZone(tx - 1, ty, zone)) surface.fill(dx, dy, line, s, colour, ZONE_LINE)
+    }
+
+    private fun sameZone(x: Int, y: Int, zone: Byte) = map.inside(x, y) && map.zoneAt(x, y) == zone
+
     /** A tree tile among others is a bit of woods, and one on its own is a single tree. */
     private fun treeSprite(tx: Int, ty: Int): Int {
         var around = 0
@@ -292,15 +333,18 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         }
     }
 
-    private fun touch(k: Long): Boolean {
+    /** Marks a bitmap as in use. True if it's there and up to date. */
+    private fun touch(k: Long, cx: Int, cy: Int): Boolean {
         val e = cache[k] ?: return false
         e.used = frame
-        return true
+        return fresh(e, cx, cy)
     }
+
+    private fun fresh(e: Entry?, cx: Int, cy: Int) = e != null && e.version == versions[cy * chunksX + cx]
 
     private fun want(k: Long, cx: Int, cy: Int, level: Int, look: Int, step: Int, sun: Sun) {
         if (k in baking || !queued.add(k)) return
-        queue += Request(k, cx, cy, level, look, if (step >= 0) sun else null)
+        queue += Request(k, cx, cy, level, look, if (step >= 0) sun else null, versions[cy * chunksX + cx])
     }
 
     /** Every chunk in the range that's on the map, nearest to [midX], [midY] first. */
@@ -328,6 +372,16 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         (cx.toLong() shl 40) or (cy.toLong() shl 24) or (level.toLong() shl 16) or (look.toLong() shl 8) or (step + 1).toLong()
 
     companion object {
+        /** Residential, commercial and industrial, as RGB: the edge and dots, and the pale wash over the ground. */
+        val ZONE_COLOURS = intArrayOf(0, 0x4CC23A, 0x3C78D7, 0xDCAA28)
+        private val ZONE_WASHES = intArrayOf(0, 0xDDF7B8, 0xC4DAFF, 0xFFE9A6)
+        private const val ZONE_WASH = 95
+        private const val ZONE_LINE = 230
+        private const val ZONE_DOT = 255
+
+        /** Dots every this many pixels at 32 px a tile, fewer as the tiles get smaller, none when they'd run together. */
+        private const val ZONE_DOTS = 8
+
         const val CHUNK = 16
         const val TILE = 32
         const val LEVELS = 3

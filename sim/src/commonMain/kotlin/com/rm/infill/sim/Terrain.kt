@@ -7,3 +7,17 @@ object Terrain {
     const val TREES: Byte = 2
     const val DIRT: Byte = 3
 }
+
+/** The road on a tile, if any. Newer kinds arrive with the eras. */
+object Road {
+    const val NONE: Byte = 0
+    const val DIRT: Byte = 1
+}
+
+/** What a tile is zoned for. */
+object Zone {
+    const val NONE: Byte = 0
+    const val RESIDENTIAL: Byte = 1
+    const val COMMERCIAL: Byte = 2
+    const val INDUSTRIAL: Byte = 3
+}

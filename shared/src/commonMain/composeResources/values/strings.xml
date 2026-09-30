@@ -7,6 +7,22 @@
     <string name="tool_road">Road</string>
     <string name="tool_zone">Zone</string>
 
+    <string name="zone_residential">Residential</string>
+    <string name="zone_commercial">Commercial</string>
+    <string name="zone_industrial">Industrial</string>
+
+    <string name="not_enough_money">Not enough money</string>
+
+    <string name="inspect_grass">Grass</string>
+    <string name="inspect_trees">Trees</string>
+    <string name="inspect_water">Water</string>
+    <string name="inspect_dirt_road">Dirt road</string>
+    <string name="inspect_zone_residential">Zoned residential</string>
+    <string name="inspect_zone_commercial">Zoned commercial</string>
+    <string name="inspect_zone_industrial">Zoned industrial</string>
+    <string name="inspect_tile">Tile %1$d, %2$d</string>
+    <string name="close">Close</string>
+
     <string name="pause">Pause</string>
     <string name="play">Play</string>
     <string name="paused">Paused</string>
