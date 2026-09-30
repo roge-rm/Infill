@@ -55,7 +55,7 @@ internal expect val cacheScale: Int
  */
 internal expect val bakeBudgetMs: Long?
 
-/** A bitmap from ARGB pixels. */
+/** A bitmap from ARGB pixels, with the alpha not multiplied in. */
 internal expect fun imageBitmapOf(pixels: IntArray, width: Int, height: Int): ImageBitmap
 
 /** Where chunks are baked: a background thread where there is one. */

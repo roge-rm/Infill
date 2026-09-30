@@ -7,6 +7,10 @@
     <string name="tool_road">Road</string>
     <string name="tool_zone">Zone</string>
     <string name="tool_power">Power</string>
+    <string name="tool_services">Services</string>
+    <string name="police_station">Police station</string>
+    <string name="fire_station">Fire hall</string>
+    <string name="park">Park</string>
     <string name="power_line">Power line</string>
     <string name="coal_plant">Coal power station</string>
 
@@ -56,6 +60,56 @@
     <string name="no_power">No power</string>
     <string name="inspect_power_line">Power line</string>
 
+    <string name="overlay">Map view</string>
+    <string name="overlay_none">Plain</string>
+    <string name="overlay_land_value">Land value</string>
+    <string name="overlay_pollution">Pollution</string>
+    <string name="overlay_crime">Crime</string>
+    <string name="overlay_power">Power</string>
+    <string name="overlay_police">Police</string>
+    <string name="overlay_fire">Fire cover</string>
+    <string name="low">Low</string>
+    <string name="high">High</string>
+
+    <string name="budget">Budget</string>
+    <string name="taxes">Taxes</string>
+    <string name="tax_residential">Homes</string>
+    <string name="tax_commercial">Shops</string>
+    <string name="tax_industrial">Industry</string>
+    <string name="funding">Funding</string>
+    <string name="last_month">Last month</string>
+    <string name="upkeep_roads">Roads and lines</string>
+    <string name="upkeep_power">Power stations</string>
+    <string name="net">Net</string>
+    <string name="percent">%1$d%</string>
+    <string name="less">Less</string>
+    <string name="more">More</string>
+    <string name="done">Done</string>
+
+    <string name="graphs">Graphs</string>
+    <string name="series_population">People</string>
+    <string name="series_jobs">Jobs</string>
+    <string name="series_funds">Money</string>
+    <string name="series_income">Income</string>
+    <string name="series_upkeep">Upkeep</string>
+    <string name="series_crime">Crime</string>
+    <string name="series_pollution">Pollution</string>
+    <string name="series_land_value">Land value</string>
+    <string name="no_history">The graphs start after the first month</string>
+
+    <string name="event_fire">Fire: %1$s</string>
+    <string name="event_lost">Burned down: %1$s</string>
+    <string name="event_saved">Fire put out: %1$s</string>
+
+    <string name="level_none">none</string>
+    <string name="level_low">low</string>
+    <string name="level_medium">medium</string>
+    <string name="level_high">high</string>
+    <string name="inspect_land_value">Land value %1$s</string>
+    <string name="inspect_crime">Crime %1$s</string>
+    <string name="inspect_pollution">Pollution %1$s</string>
+    <string name="on_fire">On fire</string>
+
     <string name="speed">Speed</string>
     <string name="temperature">%1$s°</string>
     <string name="demand">Demand</string>
@@ -69,6 +123,7 @@
 
     <string name="date">%1$s %2$d</string>
     <string name="money">$%1$s</string>
+    <string name="money_owed">−$%1$s</string>
     <string name="population">Population</string>
     <string name="funds">Funds</string>
     <string name="year">Year</string>

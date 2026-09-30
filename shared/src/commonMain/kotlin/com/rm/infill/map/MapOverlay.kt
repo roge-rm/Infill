@@ -31,6 +31,10 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
             for (i in p.blocked) drawRect(BLOCKED, at(i), tile)
         }
         is Action.Bulldoze -> rect(a.x0, a.y0, a.x1, a.y1, camera, BULLDOZE_FILL, BULLDOZE_EDGE)
+        is Action.PlaceParks -> {
+            rect(a.x0, a.y0, a.x1, a.y1, camera, PARK_FILL, PARK_EDGE)
+            for (i in p.blocked) drawRect(BLOCKED, at(i), tile)
+        }
         is Action.BuildPowerLine -> for (i in a.tiles) {
             drawRect(if (i in p.blocked) BLOCKED else LINE_FILL, at(i), tile)
         }
@@ -78,6 +82,8 @@ private val BULLDOZE_FILL = Color(0x40E53935)
 private val BULLDOZE_EDGE = Color(0xE6E53935)
 private val HOVER = Color(0xCCFFFFFF)
 private val LINE_FILL = Color(0x66FFD54F)
+private val PARK_FILL = Color(0x4D6AAE4A)
+private val PARK_EDGE = Color(0xE66AAE4A)
 private val PLACE_FILL = Color(0x4DFFFFFF)
 private val PLACE_EDGE = Color(0xE6FFFFFF)
 private val LABEL = Color(0xD91C1F24)

@@ -34,6 +34,30 @@ object Balance {
     const val ROAD_UPKEEP = 0.4
     const val LINE_UPKEEP = 0.1
     const val PLANT_UPKEEP = 60.0
+    const val POLICE_UPKEEP = 40.0
+    const val FIRE_UPKEEP = 45.0
+    const val PARK_UPKEEP = 0.5
+
+    /** How far a fully funded station reaches, in tiles. Less money, less reach, down to 40% of it. */
+    const val POLICE_REACH = 14
+    const val FIRE_REACH = 12
+
+    /** Chance in ten thousand each month that a building catches fire with no fire station near. */
+    const val FIRE_CHANCE = 30
+    const val FIRE_CHANCE_INDUSTRY = 80
+
+    /** Chance in a hundred each day that a fire spreads to a building next to it. */
+    const val FIRE_SPREAD = 1
+
+    /**
+     * How many days a fire burns, and up to how many more. Longer than a real
+     * fire, so it's on screen for a few seconds even at the fastest speed.
+     */
+    const val FIRE_DAYS = 25
+    const val FIRE_DAYS_MORE = 20
+
+    /** Fire cover at which a burning building is saved, damaged, rather than lost. */
+    const val FIRE_SAVED = 80
 
     /** Growth a month can't go past, as a share of what the zone has, with a floor for small towns. */
     const val GROWTH_SHARE = 0.05

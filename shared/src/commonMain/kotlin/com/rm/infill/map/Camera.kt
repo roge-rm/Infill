@@ -41,6 +41,12 @@ class Camera(
         centreY = (centreY + before.y - after.y).coerceIn(0f, mapHeight.toFloat())
     }
 
+    /** Looks at the middle of tile [x], [y]. */
+    fun centreOn(x: Int, y: Int) {
+        centreX = x + 0.5f
+        centreY = y + 0.5f
+    }
+
     /** A screen point in tile coordinates. The tile is the whole part. */
     fun screenToTile(p: Offset, view: Size) = Offset(
         centreX + (p.x - view.width / 2f) / tilePx,

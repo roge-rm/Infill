@@ -137,7 +137,7 @@ class GrowthTest {
     @Test
     fun yearByYear() {
         val c = town()
-        println("year  people  workers  shops  industry  demand R/C/I      income  upkeep  funds")
+        println("year  people  workers  shops  industry  demand R/C/I      income  upkeep  funds   crime  value")
         repeat(25) {
             c.run(1)
             val s = c.stats
@@ -145,7 +145,8 @@ class GrowthTest {
                 "${c.year}  ${s.population.toString().padStart(6)}  ${s.workers.toString().padStart(7)}  " +
                     "${s.shopJobs.toString().padStart(5)}  ${s.industryJobs.toString().padStart(8)}  " +
                     "${s.residentialDemand}/${s.commercialDemand}/${s.industryDemand}".padEnd(16) +
-                    "  ${s.income.toString().padStart(6)}  ${s.upkeep.toString().padStart(6)}  ${c.funds}",
+                    "  ${s.income.toString().padStart(6)}  ${s.upkeep.toString().padStart(6)}  ${c.funds.toString().padStart(6)}" +
+                    "  ${s.crime.toString().padStart(5)}  ${s.landValue.toString().padStart(5)}",
             )
         }
     }

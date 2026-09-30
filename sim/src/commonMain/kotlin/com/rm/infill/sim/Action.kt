@@ -23,6 +23,9 @@ sealed interface Action {
     /** A building the player places, like a power station, with its top left corner at [x], [y]. */
     data class PlaceBuilding(val type: BuildingType, val x: Int, val y: Int) : Action
 
+    /** Parks on every free tile from [x0], [y0] to [x1], [y1]. Trees stay and become part of them. */
+    data class PlaceParks(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action
+
     companion object {
         /**
          * The tiles of a road dragged from one tile to another: along one axis and
@@ -63,10 +66,16 @@ object Prices {
     const val REMOVE_LINE = 1L
     const val DEMOLISH = 15L
     const val COAL_PLANT = 3_000L
+    const val POLICE_STATION = 1_500L
+    const val FIRE_STATION = 1_800L
+    const val PARK = 60L
 
     /** What it costs to put up a building the player places. */
     fun of(type: BuildingType): Long = when (type) {
         BuildingType.COAL_PLANT -> COAL_PLANT
+        BuildingType.POLICE_STATION -> POLICE_STATION
+        BuildingType.FIRE_STATION -> FIRE_STATION
+        BuildingType.PARK -> PARK
         else -> 0L
     }
 }

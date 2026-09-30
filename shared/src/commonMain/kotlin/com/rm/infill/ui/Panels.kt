@@ -2,6 +2,8 @@ package com.rm.infill.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,6 +42,17 @@ import com.rm.infill.res.building_tenement
 import com.rm.infill.res.building_warehouse
 import com.rm.infill.res.building_workshop
 import com.rm.infill.res.close
+import com.rm.infill.res.fire_station
+import com.rm.infill.res.inspect_crime
+import com.rm.infill.res.inspect_land_value
+import com.rm.infill.res.inspect_pollution
+import com.rm.infill.res.level_high
+import com.rm.infill.res.level_low
+import com.rm.infill.res.level_medium
+import com.rm.infill.res.level_none
+import com.rm.infill.res.on_fire
+import com.rm.infill.res.park
+import com.rm.infill.res.police_station
 import com.rm.infill.res.coal_plant
 import com.rm.infill.res.has_power
 import com.rm.infill.res.inspect_power_line
@@ -77,7 +90,11 @@ fun <T> OptionPicker(
 ) {
     val c = Infill.colors
     ChromeBox(modifier) {
-        Row(Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Scrolls sideways when the choices are wider than the screen.
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()).padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             for (option in options) {
                 val on = option == selected
                 Row(
@@ -91,7 +108,10 @@ fun <T> OptionPicker(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     dot(option)?.let { Box(Modifier.size(10.dp).clip(CircleShape).background(it)) }
-                    Text(stringResource(title(option)), color = if (on) c.onAccent else c.text, fontSize = if (compact) 12.sp else 13.sp)
+                    Text(
+                        stringResource(title(option)), color = if (on) c.onAccent else c.text,
+                        fontSize = if (compact) 12.sp else 13.sp, maxLines = 1, softWrap = false,
+                    )
                 }
             }
         }
@@ -115,9 +135,10 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 Zone.RESIDENTIAL -> add(pluralStringResource(Res.plurals.residents, t.capacity, t.capacity))
                 else -> add(pluralStringResource(Res.plurals.jobs, t.capacity, t.capacity))
             }
-            if (t.needsPower || t.zone == Zone.NONE) {
+            if (t.needsPower || t == BuildingType.COAL_PLANT) {
                 add(stringResource(if (map.powered[i]) Res.string.has_power else Res.string.no_power))
             }
+            if (building.burning > 0) add(stringResource(Res.string.on_fire))
         } else {
             add(
                 stringResource(
@@ -137,12 +158,21 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
             }
         }
     }
+    val value = level(map.landValue[i].toInt() and 0xff)
+    val crime = level(map.crime[i].toInt() and 0xff)
+    val pollution = level(map.pollution[i].toInt() and 0xff)
+    val details = if (map.terrain[i] == Terrain.WATER) emptyList() else listOf(
+        stringResource(Res.string.inspect_land_value, value),
+        stringResource(Res.string.inspect_crime, crime),
+        stringResource(Res.string.inspect_pollution, pollution),
+    )
     val close = stringResource(Res.string.close)
     ChromeBox(modifier.widthIn(min = 200.dp, max = 360.dp)) {
         Row(Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(lines.first(), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 for (line in lines.drop(1)) Text(line, color = c.text, fontSize = 14.sp)
+                for (line in details) Text(line, color = c.textDim, fontSize = 13.sp)
                 Text(stringResource(Res.string.inspect_tile, x, y), color = c.textDim, fontSize = 12.sp)
             }
             Box(
@@ -172,15 +202,33 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.WAREHOUSE -> Res.string.building_warehouse
     BuildingType.FACTORY -> Res.string.building_factory
     BuildingType.COAL_PLANT -> Res.string.coal_plant
+    BuildingType.POLICE_STATION -> Res.string.police_station
+    BuildingType.FIRE_STATION -> Res.string.fire_station
+    BuildingType.PARK -> Res.string.park
 }
 
-/** A short message that goes away by itself. */
+/** A short message that goes away by itself. If it's about a place, tapping it goes there. */
 @Composable
-fun MessageChip(text: String, modifier: Modifier = Modifier) {
+fun MessageChip(text: String, onClick: (() -> Unit)?, modifier: Modifier = Modifier) {
     val c = Infill.colors
     ChromeBox(modifier) {
-        Text(text, color = c.text, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
+        Text(
+            text, color = c.text, fontSize = 14.sp,
+            modifier = (if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        )
     }
 }
+
+/** A 0 to 255 level as a word. */
+@Composable
+private fun level(v: Int): String = stringResource(
+    when {
+        v < 8 -> Res.string.level_none
+        v < 70 -> Res.string.level_low
+        v < 150 -> Res.string.level_medium
+        else -> Res.string.level_high
+    },
+)
 
 fun zoneColour(zone: Byte): Color = Color(0xFF000000.toInt() or MapRenderer.ZONE_COLOURS[zone.toInt()])

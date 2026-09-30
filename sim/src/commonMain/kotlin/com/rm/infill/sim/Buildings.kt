@@ -30,7 +30,14 @@ enum class BuildingType(
     FACTORY(Zone.INDUSTRIAL, 4, 30, pollution = 18),
 
     COAL_PLANT(Zone.NONE, 0, 8, width = 2, height = 2, pollution = 30),
+
+    POLICE_STATION(Zone.NONE, 0, 10, width = 2, height = 1),
+    FIRE_STATION(Zone.NONE, 0, 12, width = 2, height = 2),
+    PARK(Zone.NONE, 0, 0),
     ;
+
+    /** A building the city runs rather than one that grows on zoned land. */
+    val service get() = this == POLICE_STATION || this == FIRE_STATION || this == PARK
 
     val needsPower get() = stage >= 2
 
@@ -49,6 +56,9 @@ enum class BuildingType(
 class Building(val id: Int, var type: BuildingType, val x: Int, val y: Int, val variant: Int) {
     /** Days since it was built or last grew. */
     var age = 0
+
+    /** Days left of a fire, 0 when it isn't burning. */
+    var burning = 0
 }
 
 /** The power line on a tile, if any. */

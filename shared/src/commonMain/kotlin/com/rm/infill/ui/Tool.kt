@@ -4,6 +4,10 @@ import com.rm.infill.res.Res
 import com.rm.infill.res.tool_bulldoze
 import com.rm.infill.res.tool_inspect
 import com.rm.infill.res.tool_power
+import com.rm.infill.res.tool_services
+import com.rm.infill.res.police_station
+import com.rm.infill.res.fire_station
+import com.rm.infill.res.park
 import com.rm.infill.res.tool_road
 import com.rm.infill.res.power_line
 import com.rm.infill.res.coal_plant
@@ -25,6 +29,14 @@ enum class Tool(val title: StringResource) {
     Road(Res.string.tool_road),
     Zone(Res.string.tool_zone),
     Power(Res.string.tool_power),
+    Services(Res.string.tool_services),
+}
+
+/** What the services tool puts down. Parks are dragged out; stations go where the finger ends up. */
+enum class ServiceKind(val title: StringResource, val type: BuildingType) {
+    Police(Res.string.police_station, BuildingType.POLICE_STATION),
+    Fire(Res.string.fire_station, BuildingType.FIRE_STATION),
+    Park(Res.string.park, BuildingType.PARK),
 }
 
 /** What the power tool puts down. */
@@ -51,7 +63,9 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
         return copy(x1 = x, y1 = y, acrossFirst = across)
     }
 
-    fun action(tool: Tool, zone: ZoneKind, power: PowerKind, map: CityMap): Action? = when (tool) {
+    fun action(tool: Tool, zone: ZoneKind, power: PowerKind, service: ServiceKind, map: CityMap): Action? = when (tool) {
+        Tool.Services -> if (service == ServiceKind.Park) Action.PlaceParks(x0, y0, x1, y1)
+        else Action.PlaceBuilding(service.type, x1, y1)
         Tool.Inspect -> null
         Tool.Road -> Action.BuildRoad(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
         Tool.Zone -> Action.PlaceZone(x0, y0, x1, y1, zone.zone)

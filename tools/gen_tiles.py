@@ -684,11 +684,111 @@ def coal_plant(look, v):
     return b
 
 
+def police_station(look, v):
+    """Two storeys of dark brick with a stone band, a door in the middle and a blue lamp beside it."""
+    b = Building(2, 1, height=2 * STOREY + 4)
+    roof, wall = b.box(3, 5, 60, 26, 2 * STOREY + 4)
+    brick(b.d, wall, c("#7a3f36"))
+    x0, y0, x1, y1 = wall
+    b.d.rectangle([x0, y0 + STOREY + 1, x1, y0 + STOREY + 2], STONE)
+    windows(b.d, wall, 2, sill=TRIM, every=5, skip_door=True)
+    cx = (x0 + x1) // 2
+    b.d.rectangle([cx - 2, y1 - 5, cx + 2, y1], c("#2a2a30"))
+    b.d.rectangle([cx - 2, y1 - 6, cx + 2, y1 - 6], STONE)
+    b.d.rectangle([cx + 4, y1 - 6, cx + 5, y1 - 4], c("#3f6fd8"))
+    b.d.point((cx + 4, y1 - 6), c("#a8c4ff"))
+    b.d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(7500), [("stack", 6, 3), ("stack", 48, 3), ("hatch", 26, 8)], parapet=STONE)
+    return b
+
+
+def fire_station(look, v):
+    """A brick engine hall with two big red doors, a hose tower with a bell on top, and an apron out front."""
+    b = Building(2, 2, height=5 * STOREY + 6)
+    d = b.d
+    # The apron in front of the doors.
+    gx0, gy0 = b.ground(6, 50)
+    gx1, gy1 = b.ground(46, 61)
+    d.rectangle([gx0, gy0, gx1, gy1], c("#b8b2a6") if look != "snow" else c("#dfe5ea"))
+    roof, wall = b.box(4, 14, 46, 48, 2 * STOREY + 4)
+    brick(d, wall, c("#9a3e30"))
+    x0, y0, x1, y1 = wall
+    windows(d, (x0, y0, x1, y0 + STOREY), 1, sill=TRIM, every=5)
+    for dx in (6, 24):
+        d.rectangle([x0 + dx, y1 - 9, x0 + dx + 11, y1], c("#c0392b"))
+        d.line([x0 + dx + 5, y1 - 9, x0 + dx + 5, y1], c("#8e2a20"))
+        d.rectangle([x0 + dx, y1 - 10, x0 + dx + 11, y1 - 10], STONE)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(7600), [("stack", 4, 3), ("vent", 20, 12)], parapet=STONE)
+    # The hose tower, standing taller at the east end.
+    troof, twall = b.box(48, 22, 58, 34, 5 * STOREY + 2)
+    brick(d, twall, c("#8a3a2e"))
+    tx0, ty0, tx1, ty1 = twall
+    for k in range(4):
+        d.rectangle([tx0 + 4, ty0 + 3 + k * 7, tx0 + 6, ty0 + 5 + k * 7], WINDOW)
+    d.rectangle(twall, outline=OUTLINE)
+    rx0, ry0, rx1, ry1 = troof
+    d.rectangle(troof, SNOW_ROOF[0] if look == "snow" else c("#5a5a60"))
+    d.rectangle([rx0 + 3, ry0 + 3, rx1 - 3, ry1 - 3], c("#d9b44a"))
+    d.point(((rx0 + rx1) // 2, (ry0 + ry1) // 2), c("#8a6a1a"))
+    d.rectangle(troof, outline=OUTLINE)
+    return b
+
+
+PATH = c("#d9ccaa")
+FLOWERS = [c("#e0584a"), c("#f2c94c"), c("#f2f2ea"), c("#b86ad0")]
+
+
+def park(look, v):
+    """A tile of park: lawn, paths and one of trees, a fountain, a bandstand or flower beds."""
+    b = Building(height=LIFT)
+    img, d = b.img, b.d
+    rng = random.Random(7700 + v)
+    top = b.lift
+    lawn = GRASS[look] if look != "summer" else [c("#6aae4a"), c("#5f9f42"), c("#78bc56")]
+    noise_fill(img, (0, top, T, top + T), lawn, rng)
+    path = PATH if look != "snow" else c("#e6ecf0")
+    if v == 0:
+        d.line([0, top + 20, 31, top + 12], path, 3)
+    else:
+        d.line([15, top, 15, top + 31], path, 3)
+        d.line([0, top + 16, 31, top + 16], path, 3)
+    if v == 1:
+        d.ellipse([9, top + 10, 22, top + 23], c("#bdb6a4"))
+        d.ellipse([11, top + 12, 20, top + 21], c("#6fa0cf") if look != "snow" else c("#dfe8ef"))
+        d.point((15, top + 16), c("#e8f4ff"))
+    elif v == 2:
+        # A bandstand: an eight sided roof on posts.
+        d.ellipse([8, top + 8, 23, top + 23], c("#efe8d8"))
+        d.polygon([(10, top + 6), (21, top + 6), (24, top + 10), (21, top + 14), (10, top + 14), (7, top + 10)],
+                  SNOW_ROOF[0] if look == "snow" else c("#3f6b48"), OUTLINE)
+        for x in (9, 15, 22):
+            d.line([x, top + 14, x, top + 20], TRIM)
+        b.casters.append((1, 7, 6, 25, 15, 8))
+    elif v == 3:
+        for bx, by in ((3, 3), (19, 3), (3, 19), (19, 19)):
+            d.rectangle([bx, top + by, bx + 9, top + by + 8], c("#6b4a30"))
+            if look in ("spring", "summer"):
+                for _ in range(10):
+                    d.point((bx + 1 + rng.randrange(8), top + by + 1 + rng.randrange(7)), rng.choice(FLOWERS))
+            elif look == "snow":
+                d.rectangle([bx, top + by, bx + 9, top + by + 8], SNOW_ROOF[1])
+    # A bench beside the path.
+    d.rectangle([4, top + 26, 9, top + 27], c("#7a5a3a"))
+    # Trees along the edges.
+    spots = [(23, 26, 7)] if v == 2 else [(7, 12, 6), (23, 26, 7)] if v != 3 else [(25, 13, 6)]
+    for fx, fy, r in spots:
+        cast = deciduous(img, look, v, fx, fy + top, r, rng)
+        b.casters.append((0, cast[0], cast[1] - top, cast[2], cast[3], 0))
+    return b
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 2), ("shop", shop, 3), ("hotel", hotel, 2), ("bank", bank, 1),
     ("workshop", workshop, 2), ("mill", mill, 2), ("warehouse", warehouse, 2), ("factory", factory, 1),
     ("coal_plant", coal_plant, 1),
+    ("police_station", police_station, 1), ("fire_station", fire_station, 1), ("park", park, 4),
 ]
 
 

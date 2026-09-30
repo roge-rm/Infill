@@ -28,6 +28,10 @@ enum class KeyAction(val held: Boolean = false) {
     ToolRoad,
     ToolZone,
     ToolPower,
+    ToolServices,
+    Budget,
+    Graphs,
+    NextOverlay,
     Speed1,
     Speed2,
     Speed3,
@@ -43,6 +47,7 @@ enum class KeyAction(val held: Boolean = false) {
     DevHourNext,
     DevGraphics,
     DevWeather,
+    DevFire,
 }
 
 /** A key and the modifiers held with it. Cmd counts as Ctrl, for Macs in the browser. */
@@ -80,14 +85,19 @@ val DefaultKeys: Map<Key, KeyAction> = mapOf(
     Key.Three to KeyAction.ToolRoad,
     Key.Four to KeyAction.ToolZone,
     Key.Five to KeyAction.ToolPower,
+    Key.Six to KeyAction.ToolServices,
+    Key.B to KeyAction.Budget,
+    Key.G to KeyAction.Graphs,
+    Key.V to KeyAction.NextOverlay,
     Key.Spacebar to KeyAction.Pause,
     Key.Escape to KeyAction.Back,
     Key.LeftBracket to KeyAction.DevSeasonBack,
     Key.RightBracket to KeyAction.DevSeasonNext,
     Key.Comma to KeyAction.DevHourBack,
     Key.Period to KeyAction.DevHourNext,
-    Key.G to KeyAction.DevGraphics,
+    Key.K to KeyAction.DevGraphics,
     Key.Q to KeyAction.DevWeather,
+    Key.X to KeyAction.DevFire,
 )
 
 /**

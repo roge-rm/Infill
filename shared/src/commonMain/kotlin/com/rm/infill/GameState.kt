@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import com.rm.infill.sim.Action
 import com.rm.infill.sim.City
+import com.rm.infill.sim.CityEvent
 import com.rm.infill.sim.Plan
 
 /**
@@ -39,11 +40,28 @@ class GameState(val city: City) {
         revision++
     }
 
-    /** Moves the town on [days] days, then lets the screen know once. */
-    fun tick(days: Int) {
+    /** Moves the town on [days] days, then lets the screen know once. Events it raises go to [onEvent]. */
+    fun tick(days: Int, onEvent: (CityEvent) -> Unit = {}) {
         if (days <= 0) return
         repeat(days) { city.tick() }
         city.takeTownChanges { changed += it }
+        city.takeEvents(onEvent)
+        revision++
+    }
+
+    /** Tax rates in percent; any left out stay as they are. */
+    fun setTaxes(r: Int = city.residentialTax, c: Int = city.commercialTax, i: Int = city.industrialTax) {
+        city.residentialTax = r
+        city.commercialTax = c
+        city.industrialTax = i
+        revision++
+    }
+
+    /** Service funding in percent; any left out stay as they are. */
+    fun setFunding(police: Int = city.policeFunding, fire: Int = city.fireFunding, parks: Int = city.parkFunding) {
+        city.policeFunding = police
+        city.fireFunding = fire
+        city.parkFunding = parks
         revision++
     }
 

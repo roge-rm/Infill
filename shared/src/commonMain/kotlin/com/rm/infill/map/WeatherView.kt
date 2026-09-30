@@ -247,3 +247,54 @@ private val RAIN = Color(0x8CC8D6E6)
 private val SNOW = Color(0xE6FFFFFF)
 private val FOG = Color(0xFFD9DEE3)
 private val FOG_BANK = Color(0xFFE8ECF0)
+
+/**
+ * Flames and smoke over each burning tile that's on screen, flickering with
+ * [time]: the building darkened, then columns of flame in art-sized pixels,
+ * yellow at the base to red at the tips, and smoke leaning with the wind.
+ */
+internal fun DrawScope.drawFires(map: com.rm.infill.sim.CityMap, camera: Camera, look: WeatherLook, time: Float) {
+    val topLeft = camera.screenToTile(Offset.Zero, size)
+    val bottomRight = camera.screenToTile(Offset(size.width, size.height), size)
+    val x0 = floor(topLeft.x).toInt().coerceAtLeast(0)
+    val y0 = floor(topLeft.y).toInt().coerceAtLeast(0)
+    val x1 = kotlin.math.ceil(bottomRight.x).toInt().coerceAtMost(map.width - 1)
+    val y1 = (kotlin.math.ceil(bottomRight.y).toInt() + 1).coerceAtMost(map.height - 1)
+    val t = camera.tilePx
+    // One art pixel on screen, and flames drawn in blocks of two of them.
+    val px = t / 32f
+    val block = px * 2
+    for (y in y0..y1) for (x in x0..x1) {
+        if (map.fire[map.index(x, y)].toInt() == 0) continue
+        val corner = camera.tileToScreen(x.toFloat(), y.toFloat(), size)
+        drawRect(Color.Black, corner, androidx.compose.ui.geometry.Size(t, t), alpha = 0.3f)
+        val seed = x * 31 + y * 17
+        val baseY = corner.y + t * 0.55f
+        for (k in 0 until 5) {
+            val age = (time * 0.5f + unit(seed + k)) % 1f
+            val drift = look.windX * look.wind * age * t * 0.8f
+            val r = t * (0.08f + age * 0.16f)
+            val cx = corner.x + t * (0.3f + 0.4f * unit(seed * 3 + k)) + drift
+            drawCircle(SMOKE, r, Offset(cx, baseY - t * 0.35f - age * t * 1.4f), alpha = 0.5f * (1f - age))
+        }
+        val columns = 8
+        for (k in 0 until columns) {
+            val flicker = 0.5f + 0.5f * sin(time * 9f + k * 1.7f + seed)
+            val rows = (2 + (4 * flicker + 3 * unit(seed + k * 7))).toInt()
+            val fx = corner.x + t * 0.19f + k * block
+            for (r in 0 until rows) {
+                val colour = when {
+                    r >= rows - 1 -> FLAME_TIP
+                    r >= rows / 2 -> FLAME_OUTER
+                    else -> FLAME_INNER
+                }
+                drawRect(colour, Offset(fx, baseY - (r + 1) * block), androidx.compose.ui.geometry.Size(block, block))
+            }
+        }
+    }
+}
+
+private val SMOKE = Color(0xFF55585E)
+private val FLAME_TIP = Color(0xFFC0392B)
+private val FLAME_OUTER = Color(0xFFE8622A)
+private val FLAME_INNER = Color(0xFFF7C948)

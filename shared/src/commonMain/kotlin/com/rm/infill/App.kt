@@ -46,6 +46,15 @@ import com.rm.infill.ui.ToolDrag
 import com.rm.infill.ui.ZoneKind
 import com.rm.infill.ui.OptionPicker
 import com.rm.infill.ui.PowerKind
+import com.rm.infill.ui.ServiceKind
+import com.rm.infill.ui.BudgetWindow
+import com.rm.infill.ui.GraphsWindow
+import com.rm.infill.ui.buildingName
+import com.rm.infill.map.Overlay
+import com.rm.infill.sim.EventKind
+import com.rm.infill.res.event_fire
+import com.rm.infill.res.event_lost
+import com.rm.infill.res.event_saved
 import com.rm.infill.ui.zoneColour
 import com.rm.infill.res.blocked
 import com.rm.infill.res.town_built_there
@@ -94,7 +103,12 @@ fun App() {
         var speed by remember { mutableIntStateOf(1) }
         var drag by remember { mutableStateOf<ToolDrag?>(null) }
         var inspected by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-        var message by remember { mutableStateOf<StringResource?>(null) }
+        var message by remember { mutableStateOf<Message?>(null) }
+        var serviceKind by remember { mutableStateOf(ServiceKind.Police) }
+        var overlay by remember { mutableStateOf(Overlay.None) }
+        var choosingOverlay by remember { mutableStateOf(false) }
+        var budgetOpen by remember { mutableStateOf(false) }
+        var graphsOpen by remember { mutableStateOf(false) }
         var paused by remember { mutableStateOf(true) }
         val keys = remember { KeyInput() }
         val focus = remember { FocusRequester() }
@@ -148,7 +162,14 @@ fun App() {
                 last = now
                 val days = min(owed.toInt(), MAX_DAYS_PER_FRAME)
                 owed = if (owed.toInt() > MAX_DAYS_PER_FRAME) 0.0 else owed - days
-                game.tick(days)
+                game.tick(days) { e ->
+                    val text = when (e.kind) {
+                        EventKind.FireStarted -> Res.string.event_fire
+                        EventKind.BuildingLost -> Res.string.event_lost
+                        EventKind.FireSaved -> Res.string.event_saved
+                    }
+                    message = Message(text, buildingName(e.type), e.x, e.y)
+                }
             }
         }
 
@@ -160,8 +181,8 @@ fun App() {
         }
 
         // What the drag would do, worked out again as it moves.
-        val preview = remember(drag, tool, zoneKind, powerKind, game.revision) {
-            drag?.let { d -> d.action(tool, zoneKind, powerKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) } }
+        val preview = remember(drag, tool, zoneKind, powerKind, serviceKind, game.revision) {
+            drag?.let { d -> d.action(tool, zoneKind, powerKind, serviceKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) } }
         }
         val costText = preview?.let {
             if (it.plan.problem == Problem.NotEnoughMoney) stringResource(Res.string.not_enough_money)
@@ -172,6 +193,7 @@ fun App() {
             // Picking the zone tool again moves on to the next kind of zone.
             if (t == Tool.Zone && tool == Tool.Zone) zoneKind = ZoneKind.entries[(zoneKind.ordinal + 1) % ZoneKind.entries.size]
             if (t == Tool.Power && tool == Tool.Power) powerKind = PowerKind.entries[(powerKind.ordinal + 1) % PowerKind.entries.size]
+            if (t == Tool.Services && tool == Tool.Services) serviceKind = ServiceKind.entries[(serviceKind.ordinal + 1) % ServiceKind.entries.size]
             tool = t
             drag = null
             if (t != Tool.Inspect) inspected = null
@@ -179,9 +201,9 @@ fun App() {
 
         fun tell(problem: Problem?) {
             message = when (problem) {
-                Problem.NotEnoughMoney -> Res.string.not_enough_money
-                Problem.TownBuiltThere -> Res.string.town_built_there
-                Problem.Blocked -> Res.string.blocked
+                Problem.NotEnoughMoney -> Message(Res.string.not_enough_money)
+                Problem.TownBuiltThere -> Message(Res.string.town_built_there)
+                Problem.Blocked -> Message(Res.string.blocked)
                 else -> message
             }
         }
@@ -189,7 +211,7 @@ fun App() {
         fun undo() {
             drag = null
             val plan = game.undo()
-            if (plan == null) message = Res.string.nothing_to_undo else tell(plan.problem)
+            if (plan == null) message = Message(Res.string.nothing_to_undo) else tell(plan.problem)
         }
 
         fun redo() {
@@ -204,7 +226,7 @@ fun App() {
             onToolUp = {
                 val d = drag
                 drag = null
-                val action = d?.action(tool, zoneKind, powerKind, city.map)
+                val action = d?.action(tool, zoneKind, powerKind, serviceKind, city.map)
                 if (action != null) tell(game.apply(action).problem)
             },
             onToolCancel = { drag = null },
@@ -248,6 +270,10 @@ fun App() {
                             KeyAction.ToolRoad -> pick(Tool.Road)
                             KeyAction.ToolZone -> pick(Tool.Zone)
                             KeyAction.ToolPower -> pick(Tool.Power)
+                            KeyAction.ToolServices -> pick(Tool.Services)
+                            KeyAction.Budget -> budgetOpen = !budgetOpen
+                            KeyAction.Graphs -> graphsOpen = !graphsOpen
+                            KeyAction.NextOverlay -> overlay = Overlay.entries[(overlay.ordinal + 1) % Overlay.entries.size]
                             KeyAction.Speed1 -> { speed = 0; paused = false }
                             KeyAction.Speed2 -> { speed = 1; paused = false }
                             KeyAction.Speed3 -> { speed = 2; paused = false }
@@ -256,7 +282,9 @@ fun App() {
                             KeyAction.Redo -> redo()
                             // Esc lets go of a drag, then closes the inspector, then puts the tool down.
                             KeyAction.Back -> when {
+                                budgetOpen || graphsOpen -> { budgetOpen = false; graphsOpen = false }
                                 drag != null -> drag = null
+                                choosingOverlay -> choosingOverlay = false
                                 inspected != null -> inspected = null
                                 else -> pick(Tool.Inspect)
                             }
@@ -264,6 +292,7 @@ fun App() {
                             KeyAction.DevSeasonNext -> lookOverride = (look + 1) % Atlas.LOOKS
                             KeyAction.DevHourBack -> hour = (hour + 24f - 24f / Sky.STEPS) % 24f
                             KeyAction.DevHourNext -> hour = (hour + 24f / Sky.STEPS) % 24f
+                            KeyAction.DevFire -> inspected?.let { (x, y) -> city.startFireAt(x, y); game.tick(0) }
                             KeyAction.DevWeather -> weatherOverride = if (weatherOverride + 1 >= DEV_WEATHER.size) -1 else weatherOverride + 1
                             KeyAction.DevGraphics -> graphicsLevel = GraphicsLevel.entries[(graphicsLevel.ordinal + 1) % GraphicsLevel.entries.size]
                             else -> {}
@@ -274,7 +303,7 @@ fun App() {
             val layout = screenLayout(maxWidth, maxHeight)
             viewSize = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
             MapView(
-                game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, graphics, gestures, preview, costText,
+                game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, graphics, gestures, preview, costText, overlay,
                 Modifier.fillMaxSize(),
             )
 
@@ -284,7 +313,9 @@ fun App() {
             val compactTools = layout.compact || layout.short || layout.narrow
             StatusStrip(
                 game, paused, { paused = !paused }, speed, { speed = (speed + 1) % DAYS_PER_SECOND.size },
-                Sky.sun(sunStep, month).strength == 0f, layout.compact,
+                overlay != Overlay.None || choosingOverlay, { choosingOverlay = !choosingOverlay },
+                { budgetOpen = true }, { graphsOpen = true },
+                Sky.sun(sunStep, month).strength == 0f, layout.compact || layout.narrow,
                 Modifier
                     // Beside the tools rather than above them when they run down the side.
                     .align(if (sideTools && !layout.large) Alignment.TopCenter else Alignment.TopStart)
@@ -293,7 +324,8 @@ fun App() {
             )
             message?.let { m ->
                 MessageChip(
-                    stringResource(m),
+                    if (m.arg != null) stringResource(m.text, stringResource(m.arg)) else stringResource(m.text),
+                    if (m.x >= 0) ({ camera.centreOn(m.x, m.y) }) else null,
                     Modifier
                         .align(Alignment.TopCenter)
                         .windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
@@ -325,6 +357,16 @@ fun App() {
                 if (tool == Tool.Power) {
                     OptionPicker(PowerKind.entries, powerKind, { it.title }, { null }, { powerKind = it }, compactTools)
                 }
+                if (tool == Tool.Services) {
+                    OptionPicker(ServiceKind.entries, serviceKind, { it.title }, { null }, { serviceKind = it }, compactTools)
+                }
+                // The map views stay up while one is showing, so its name is on screen.
+                if (choosingOverlay || overlay != Overlay.None) {
+                    OptionPicker(
+                        Overlay.entries, overlay, { it.title }, { if (it == Overlay.None) null else it.high.copy(alpha = 1f) },
+                        { overlay = it; if (it == Overlay.None) choosingOverlay = false }, compactTools,
+                    )
+                }
                 if (!sideTools) ToolBar(tool, ::pick, game.canUndo, game.canRedo, ::undo, ::redo, vertical = false, compact = compactTools)
             }
             if (layout.large) {
@@ -337,6 +379,8 @@ fun App() {
                         .width(PANEL_WIDTH.dp),
                 )
             }
+            if (budgetOpen) BudgetWindow(game) { budgetOpen = false }
+            if (graphsOpen) GraphsWindow(game) { graphsOpen = false }
         }
     }
 }
@@ -351,6 +395,9 @@ private const val KEY_PAN_DP = 600f
 private const val KEY_ZOOM = 1.5f
 
 private const val PANEL_WIDTH = 240
+
+/** A message for the top of the screen, with a building's name in it and a tile to go to if it's about a place. */
+private data class Message(val text: StringResource, val arg: StringResource? = null, val x: Int = -1, val y: Int = -1)
 
 /** Weather the W key steps through while the looks are being made: clear, cloudy, rain, snow, fog. */
 private val DEV_WEATHER = listOf(

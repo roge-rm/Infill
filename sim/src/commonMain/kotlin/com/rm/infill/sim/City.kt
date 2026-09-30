@@ -48,6 +48,22 @@ class City(
     var commercialTax = Balance.DEFAULT_TAX
     var industrialTax = Balance.DEFAULT_TAX
 
+    /** How much of what each service asks for it gets, in percent. Less money, less reach. */
+    var policeFunding = 100
+    var fireFunding = 100
+    var parkFunding = 100
+
+    /** The town month by month, for the graphs. */
+    val history = History()
+
+    /** Things that happened that the player should hear about, since the UI last asked. */
+    private val events = ArrayList<CityEvent>()
+
+    fun takeEvents(each: (CityEvent) -> Unit) {
+        for (e in events) each(e)
+        events.clear()
+    }
+
     /** Last month's census, demand and money. */
     val stats = Stats()
 
@@ -119,6 +135,16 @@ class City(
                     cost = 0
                 } else {
                     cost += Prices.of(t)
+                }
+            }
+            is Action.PlaceParks -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
+                if (m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
+                    m.zone[i] != Zone.NONE || m.building[i] != 0
+                ) {
+                    blocked += i
+                } else {
+                    changes += i
+                    cost += Prices.PARK
                 }
             }
             is Action.Bulldoze -> {
@@ -199,6 +225,10 @@ class City(
                 for (i in plan.changes) clearTrees(i)
                 added += addBuilding(action.type, action.x, action.y, rng.nextInt(1000))
             }
+            is Action.PlaceParks -> for (i in plan.changes) {
+                clearTrees(i)
+                added += addBuilding(BuildingType.PARK, i % m.width, i / m.width, rng.nextInt(1000))
+            }
             is Action.Bulldoze -> for (i in plan.changes) {
                 buildings[m.building[i]]?.let { removed += it; removeBuilding(it) }
                 m.road[i] = Road.NONE
@@ -277,6 +307,7 @@ class City(
             map.building[i] = 0
             map.buildingType[i] = 0
             map.buildingVariant[i] = 0
+            map.fire[i] = 0
         }
     }
 
@@ -286,6 +317,7 @@ class City(
             map.building[i] = b.id
             map.buildingType[i] = (b.type.ordinal + 1).toByte()
             map.buildingVariant[i] = b.variant.toByte()
+            map.fire[i] = min(b.burning, 127).toByte()
         }
     }
 
@@ -295,6 +327,7 @@ class City(
             val b = buildings[map.building[i]]
             map.buildingType[i] = if (b == null) 0 else (b.type.ordinal + 1).toByte()
             map.buildingVariant[i] = if (b == null) 0 else b.variant.toByte()
+            map.fire[i] = if (b == null) 0 else min(b.burning, 127).toByte()
         }
     }
 
@@ -304,6 +337,7 @@ class City(
     fun tick() {
         if (networksDirty) updateNetworks()
         for (b in buildings.values) b.age++
+        burnDay()
         growDay()
         weather.nextDay(month, day, daysIn(month, year))
         day++
@@ -326,9 +360,102 @@ class City(
         powerCuts()
         updatePollution()
         updateGrime()
+        updateServices()
         census()
+        Effects.crime(
+            map, { i -> buildings[map.building[i]]?.let { if (it.type.zone == Zone.RESIDENTIAL) it.type.capacity else 0 } ?: 0 },
+            { i -> map.building[i] != 0 }, stats.unemployment, map.crime,
+        )
+        Effects.landValue(map, { i -> buildings[map.building[i]]?.type }, nearRoad, map.landValue)
+        startFires()
         demand()
         money()
+        record()
+    }
+
+    // ---- services and fires ----------------------------------------------------
+
+    private fun reach(base: Int, funding: Int) = base * (40 + 60 * funding.coerceIn(0, 100) / 100) / 100
+
+    private fun updateServices() {
+        val police = buildings.values.filter { it.type == BuildingType.POLICE_STATION }
+        val fire = buildings.values.filter { it.type == BuildingType.FIRE_STATION }
+        Effects.cover(map, police, reach(Balance.POLICE_REACH, policeFunding), map.policeCover)
+        Effects.cover(map, fire, reach(Balance.FIRE_REACH, fireFunding), map.fireCover)
+    }
+
+    /**
+     * Now and then a home, shop or works catches fire, far less often near a
+     * fire station. Power stations and services don't, until disasters come.
+     */
+    private fun startFires() {
+        for (b in buildings.values.toList()) {
+            if (b.type.zone == Zone.NONE || b.burning > 0) continue
+            val chance = if (b.type.zone == Zone.INDUSTRIAL) Balance.FIRE_CHANCE_INDUSTRY else Balance.FIRE_CHANCE
+            val cover = map.fireCover[map.index(b.x, b.y)].toInt() and 0xff
+            if (rng.nextInt(10_000) < chance * (255 - cover * 85 / 100) / 255) ignite(b)
+        }
+    }
+
+    /** How many buildings are on fire. */
+    var burningNow = 0
+        private set
+
+    /** Sets the building on [x], [y] alight, if there's one that can burn. For disasters, and for trying fires out. */
+    fun startFireAt(x: Int, y: Int): Boolean {
+        val b = buildingAt(x, y) ?: return false
+        if (b.type.zone == Zone.NONE || b.burning > 0) return false
+        ignite(b)
+        return true
+    }
+
+    private fun ignite(b: Building) {
+        if (b.burning == 0) burningNow++
+        b.burning = Balance.FIRE_DAYS + rng.nextInt(Balance.FIRE_DAYS_MORE)
+        stamp(b)
+        events += CityEvent(EventKind.FireStarted, b.x, b.y, b.type)
+    }
+
+    /**
+     * Fires burn down a day at a time and may spread next door. When one burns
+     * out, a building a fire station can reach is saved, a stage lower, and one
+     * it can't is lost.
+     */
+    private fun burnDay() {
+        val burning = buildings.values.filter { it.burning > 0 }
+        for (b in burning) {
+            val i = map.index(b.x, b.y)
+            val cover = map.fireCover[i].toInt() and 0xff
+            // A covered fire burns out twice as fast.
+            b.burning -= if (cover >= Balance.FIRE_SAVED) 2 else 1
+            if (rng.nextInt(100) < Balance.FIRE_SPREAD && cover < 160) {
+                val k = rng.nextInt(4)
+                val next = buildings[neighbour(b, k)]
+                if (next != null && next.burning == 0 && next.type.zone != Zone.NONE) ignite(next)
+            }
+            if (b.burning > 0) {
+                stamp(b)
+                continue
+            }
+            b.burning = 0
+            burningNow--
+            if (cover >= Balance.FIRE_SAVED) {
+                if (b.type.previous != null) shrink(b) else stamp(b)
+                events += CityEvent(EventKind.FireSaved, b.x, b.y, b.type)
+            } else {
+                events += CityEvent(EventKind.BuildingLost, b.x, b.y, b.type)
+                forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { townChanges += it }
+                removeBuilding(b)
+                networksChanged()
+            }
+        }
+    }
+
+    /** The building next to [b] on side [k] (north, east, south, west), by id, or 0. */
+    private fun neighbour(b: Building, k: Int): Int {
+        val x = when (k) { 1 -> b.x + b.type.width; 3 -> b.x - 1; else -> b.x }
+        val y = when (k) { 0 -> b.y - 1; 2 -> b.y + b.type.height; else -> b.y }
+        return if (map.inside(x, y)) map.building[map.index(x, y)] else 0
     }
 
     // ---- networks ------------------------------------------------------------
@@ -517,48 +644,36 @@ class City(
     }
 
     /**
-     * How much a zone wants a lot, roughly 0 to 100: power, water and trees
-     * nearby, and for homes, shops within reach and no industry or pollution;
-     * for shops, people nearby.
+     * How much a zone wants a lot, roughly 0 to 100. Homes want valuable land,
+     * power, and no crime, pollution or industry next door; shops want valuable
+     * land and people nearby; industry wants power and water.
      */
     fun attraction(i: Int, zone: Byte): Int {
         val m = map
         val x = i % m.width
         val y = i / m.width
-        var score = 50
-        if (m.powered[i]) score += 10
+        val value = m.landValue[i].toInt() and 0xff
+        val crime = m.crime[i].toInt() and 0xff
         val pollution = m.pollution[i].toInt() and 0xff
+        var score = if (m.powered[i]) 10 else 0
         when (zone) {
             Zone.RESIDENTIAL -> {
-                var trees = 0
-                var water = false
                 var industry = false
-                var shops = 0
-                around(x, y, 6) { j, d ->
-                    val b = buildings[m.building[j]]
-                    if (d <= 2) {
-                        if (m.terrain[j] == Terrain.TREES) trees++
-                        if (b != null && b.type.zone == Zone.INDUSTRIAL) industry = true
-                    }
-                    if (d <= 3 && m.terrain[j] == Terrain.WATER) water = true
-                    if (b != null && b.type.zone == Zone.COMMERCIAL) shops += b.type.capacity
-                }
-                score += min(trees, 8) + (if (water) 6 else 0) - (if (industry) 10 else 0) + min(shops / 3, 10)
-                score -= pollution / 2
+                around(x, y, 2) { j, _ -> if (buildings[m.building[j]]?.type?.zone == Zone.INDUSTRIAL) industry = true }
+                score += 35 + value / 3 - crime / 5 - pollution / 3 - if (industry) 10 else 0
             }
             Zone.COMMERCIAL -> {
-                score -= 10
                 var people = 0
                 around(x, y, 6) { j, _ ->
                     val b = buildings[m.building[j]]
                     if (b != null && b.type.zone == Zone.RESIDENTIAL) people += b.type.capacity
                 }
-                score += min(people / 8, 30) - pollution / 4
+                score += 28 + value / 4 + min(people / 8, 30) - crime / 6 - pollution / 5
             }
             Zone.INDUSTRIAL -> {
                 var water = false
                 around(x, y, 3) { j, _ -> if (m.terrain[j] == Terrain.WATER) water = true }
-                if (water) score += 5
+                score += 50 + (if (water) 5 else 0) - crime / 8
             }
         }
         return score
@@ -630,6 +745,8 @@ class City(
         stats.industryJobs = industryJobs
         stats.otherJobs = otherJobs
         stats.workers = (residents * Balance.LABOUR_SHARE).toInt()
+        val jobs = shopJobs + industryJobs + otherJobs
+        stats.unemployment = if (stats.workers == 0) 0 else max(0, (stats.workers - jobs) * 100 / stats.workers)
     }
 
     /**
@@ -663,21 +780,74 @@ class City(
         return demand.coerceIn(-most, most)
     }
 
+    /**
+     * Taxes come in by the resident and the job, worth more on more valuable
+     * land. Upkeep goes out on roads, lines, the power stations and the services,
+     * each service's scaled by its funding.
+     */
     private fun money() {
         val s = stats
-        val income = s.population * residentialTax * Balance.RESIDENT_TAX +
-            (s.shopJobs * commercialTax + s.industryJobs * industrialTax) * Balance.JOB_TAX
+        var homes = 0.0
+        var shops = 0.0
+        var works = 0.0
+        var police = 0
+        var fire = 0
+        var parks = 0
+        var plants = 0
+        for (b in buildings.values) {
+            val worth = 0.5 + (map.landValue[map.index(b.x, b.y)].toInt() and 0xff) / 200.0
+            when {
+                b.type.zone == Zone.RESIDENTIAL -> homes += b.type.capacity * worth
+                b.type.zone == Zone.COMMERCIAL -> shops += b.type.capacity * worth
+                b.type.zone == Zone.INDUSTRIAL -> works += b.type.capacity * worth
+                b.type == BuildingType.POLICE_STATION -> police++
+                b.type == BuildingType.FIRE_STATION -> fire++
+                b.type == BuildingType.PARK -> parks++
+                b.type == BuildingType.COAL_PLANT -> plants++
+            }
+        }
+        s.residentialIncome = (homes * residentialTax * Balance.RESIDENT_TAX).roundToLong()
+        s.commercialIncome = (shops * commercialTax * Balance.JOB_TAX).roundToLong()
+        s.industrialIncome = (works * industrialTax * Balance.JOB_TAX).roundToLong()
         var roads = 0
         var lines = 0
         for (i in 0 until map.size) {
             if (map.road[i] != Road.NONE) roads++
             if (map.power[i] != Power.NONE) lines++
         }
-        val plants = buildings.values.count { it.type == BuildingType.COAL_PLANT }
-        val upkeep = roads * Balance.ROAD_UPKEEP + lines * Balance.LINE_UPKEEP + plants * Balance.PLANT_UPKEEP
-        s.income = income.roundToLong()
-        s.upkeep = upkeep.roundToLong()
+        s.roadUpkeep = (roads * Balance.ROAD_UPKEEP + lines * Balance.LINE_UPKEEP).roundToLong()
+        s.powerUpkeep = (plants * Balance.PLANT_UPKEEP).roundToLong()
+        s.policeUpkeep = (police * Balance.POLICE_UPKEEP * policeFunding / 100).roundToLong()
+        s.fireUpkeep = (fire * Balance.FIRE_UPKEEP * fireFunding / 100).roundToLong()
+        s.parkUpkeep = (parks * Balance.PARK_UPKEEP * parkFunding / 100).roundToLong()
+        s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome
+        s.upkeep = s.roadUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep
         funds += s.income - s.upkeep
+    }
+
+    /** This month's numbers into the history. */
+    private fun record() {
+        var crime = 0L
+        var pollution = 0L
+        var value = 0L
+        var built = 0
+        var land = 0
+        for (i in 0 until map.size) {
+            if (map.building[i] != 0) {
+                crime += map.crime[i].toInt() and 0xff
+                pollution += map.pollution[i].toInt() and 0xff
+                built++
+            }
+            if (map.terrain[i] != Terrain.WATER) {
+                value += map.landValue[i].toInt() and 0xff
+                land++
+            }
+        }
+        val s = stats
+        s.crime = if (built == 0) 0 else (crime / built).toInt()
+        s.pollution = if (built == 0) 0 else (pollution / built).toInt()
+        s.landValue = if (land == 0) 0 else (value / land).toInt()
+        history.record(this)
     }
 
     private fun inMap(i: Int) = i in 0 until map.size
@@ -719,11 +889,71 @@ class Stats {
     var shopJobs = 0
     var industryJobs = 0
     var otherJobs = 0
+    /** Percent of workers without a job. */
+    var unemployment = 0
     var residentialDemand = 0
     var commercialDemand = 0
     var industryDemand = 0
+
+    var residentialIncome = 0L
+    var commercialIncome = 0L
+    var industrialIncome = 0L
     var income = 0L
+
+    var roadUpkeep = 0L
+    var powerUpkeep = 0L
+    var policeUpkeep = 0L
+    var fireUpkeep = 0L
+    var parkUpkeep = 0L
     var upkeep = 0L
 
+    /** Averages: crime and pollution where there are buildings, land value over all the land. 0 to 255. */
+    var crime = 0
+    var pollution = 0
+    var landValue = 0
+
     val jobs get() = shopJobs + industryJobs + otherJobs
+}
+
+enum class EventKind { FireStarted, FireSaved, BuildingLost }
+
+/** Something that happened to a building at [x], [y]. */
+class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType)
+
+/** What the graphs can show. */
+enum class Series { Population, Jobs, Funds, Income, Upkeep, Crime, Pollution, LandValue }
+
+/** The town month by month, the last [capacity] months of it. */
+class History(val capacity: Int = 240) {
+    private val data = Array(Series.entries.size) { LongArray(capacity) }
+    private val years = IntArray(capacity)
+    private val months = IntArray(capacity)
+    var count = 0
+        private set
+    private var next = 0
+
+    internal fun record(city: City) {
+        val s = city.stats
+        val values = longArrayOf(
+            s.population.toLong(), s.jobs.toLong(), city.funds, s.income, s.upkeep,
+            s.crime.toLong(), s.pollution.toLong(), s.landValue.toLong(),
+        )
+        for (k in values.indices) data[k][next] = values[k]
+        years[next] = city.year
+        months[next] = city.month
+        next = (next + 1) % capacity
+        if (count < capacity) count++
+    }
+
+    /** A series oldest first. */
+    fun values(series: Series): LongArray {
+        val d = data[series.ordinal]
+        return LongArray(count) { d[(next - count + it + capacity) % capacity] }
+    }
+
+    /** The year and month (0 is January) of the [k]th recorded month, oldest first. */
+    fun dateOf(k: Int): Pair<Int, Int> {
+        val at = (next - count + k + capacity) % capacity
+        return years[at] to months[at]
+    }
 }

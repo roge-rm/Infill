@@ -1,0 +1,291 @@
+package com.rm.infill.ui
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.rm.infill.GameState
+import com.rm.infill.res.Res
+import com.rm.infill.res.budget
+import com.rm.infill.res.done
+import com.rm.infill.res.fire_station
+import com.rm.infill.res.funding
+import com.rm.infill.res.graphs
+import com.rm.infill.res.last_month
+import com.rm.infill.res.less
+import com.rm.infill.res.money
+import com.rm.infill.res.month_short
+import com.rm.infill.res.more
+import com.rm.infill.res.net
+import com.rm.infill.res.no_history
+import com.rm.infill.res.park
+import com.rm.infill.res.percent
+import com.rm.infill.res.police_station
+import com.rm.infill.res.series_crime
+import com.rm.infill.res.series_funds
+import com.rm.infill.res.series_income
+import com.rm.infill.res.series_jobs
+import com.rm.infill.res.series_land_value
+import com.rm.infill.res.series_pollution
+import com.rm.infill.res.series_population
+import com.rm.infill.res.series_upkeep
+import com.rm.infill.res.tax_commercial
+import com.rm.infill.res.tax_industrial
+import com.rm.infill.res.tax_residential
+import com.rm.infill.res.taxes
+import com.rm.infill.res.upkeep_power
+import com.rm.infill.res.upkeep_roads
+import com.rm.infill.sim.Series
+import com.rm.infill.ui.theme.Infill
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringArrayResource
+import org.jetbrains.compose.resources.stringResource
+
+/**
+ * A window over the map: the map dims behind it and a tap outside closes it.
+ * It keeps clear of the camera cutout and scrolls if the screen is short.
+ */
+@Composable
+fun Window(title: StringResource, onClose: () -> Unit, content: @Composable () -> Unit) {
+    val c = Infill.colors
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color(0x66000000))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        ChromeBox(
+            Modifier
+                .widthIn(max = 460.dp)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+        ) {
+            Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+                Text(stringResource(title), color = c.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                Box(Modifier.padding(vertical = 10.dp)) { content() }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Text(
+                        stringResource(Res.string.done),
+                        color = c.onAccent,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(c.accent)
+                            .clickable(role = Role.Button, onClick = onClose)
+                            .padding(horizontal = 18.dp, vertical = 8.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Taxes, what each service gets, and last month's money in and out. */
+@Composable
+fun BudgetWindow(game: GameState, onClose: () -> Unit) {
+    val c = Infill.colors
+    game.revision
+    val city = game.city
+    val s = city.stats
+    Window(Res.string.budget, onClose) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Heading(Res.string.taxes)
+            Stepper(Res.string.tax_residential, city.residentialTax, 1) { game.setTaxes(r = (city.residentialTax + it).coerceIn(0, 20)) }
+            Stepper(Res.string.tax_commercial, city.commercialTax, 1) { game.setTaxes(c = (city.commercialTax + it).coerceIn(0, 20)) }
+            Stepper(Res.string.tax_industrial, city.industrialTax, 1) { game.setTaxes(i = (city.industrialTax + it).coerceIn(0, 20)) }
+            Heading(Res.string.funding)
+            Stepper(Res.string.police_station, city.policeFunding, 10) { game.setFunding(police = (city.policeFunding + it).coerceIn(0, 100)) }
+            Stepper(Res.string.fire_station, city.fireFunding, 10) { game.setFunding(fire = (city.fireFunding + it).coerceIn(0, 100)) }
+            Stepper(Res.string.park, city.parkFunding, 10) { game.setFunding(parks = (city.parkFunding + it).coerceIn(0, 100)) }
+            Heading(Res.string.last_month)
+            MoneyLine(Res.string.tax_residential, s.residentialIncome)
+            MoneyLine(Res.string.tax_commercial, s.commercialIncome)
+            MoneyLine(Res.string.tax_industrial, s.industrialIncome)
+            MoneyLine(Res.string.upkeep_roads, -s.roadUpkeep)
+            MoneyLine(Res.string.upkeep_power, -s.powerUpkeep)
+            MoneyLine(Res.string.police_station, -s.policeUpkeep)
+            MoneyLine(Res.string.fire_station, -s.fireUpkeep)
+            MoneyLine(Res.string.park, -s.parkUpkeep)
+            Box(Modifier.fillMaxWidth().height(1.dp).background(c.chromeEdge))
+            MoneyLine(Res.string.net, s.income - s.upkeep, bold = true)
+        }
+    }
+}
+
+@Composable
+private fun Heading(text: StringResource) {
+    Text(stringResource(text), color = Infill.colors.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+}
+
+/** A name, a percentage and buttons to take [step] off it or add it. */
+@Composable
+private fun Stepper(label: StringResource, value: Int, step: Int, change: (Int) -> Unit) {
+    val c = Infill.colors
+    val name = stringResource(label)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(name, color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
+        StepButton("−", stringResource(Res.string.less) + " " + name) { change(-step) }
+        Text(
+            stringResource(Res.string.percent, value),
+            color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.widthIn(min = 52.dp).padding(horizontal = 6.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+        StepButton("+", stringResource(Res.string.more) + " " + name) { change(step) }
+    }
+}
+
+@Composable
+private fun StepButton(sign: String, description: String, onClick: () -> Unit) {
+    val c = Infill.colors
+    Box(
+        Modifier
+            .size(36.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(c.button)
+            .semantics { contentDescription = description }
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Text(sign, color = c.text, fontSize = 18.sp) }
+}
+
+@Composable
+private fun MoneyLine(label: StringResource, amount: Long, bold: Boolean = false) {
+    val c = Infill.colors
+    Row(Modifier.fillMaxWidth()) {
+        Text(stringResource(label), color = c.textDim, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        Text(
+            moneyText(amount),
+            color = c.text, fontSize = 14.sp, fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
+        )
+    }
+}
+
+private val SERIES_NAMES = mapOf(
+    Series.Population to Res.string.series_population,
+    Series.Jobs to Res.string.series_jobs,
+    Series.Funds to Res.string.series_funds,
+    Series.Income to Res.string.series_income,
+    Series.Upkeep to Res.string.series_upkeep,
+    Series.Crime to Res.string.series_crime,
+    Series.Pollution to Res.string.series_pollution,
+    Series.LandValue to Res.string.series_land_value,
+)
+
+/** The town over the years, one thing at a time. */
+@Composable
+fun GraphsWindow(game: GameState, onClose: () -> Unit) {
+    val c = Infill.colors
+    game.revision
+    val history = game.city.history
+    var series by remember { mutableStateOf(Series.Population) }
+    Window(Res.string.graphs, onClose) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Two rows of choices, so they fit an upright phone.
+            for (row in Series.entries.chunked(4)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    for (s in row) {
+                        val on = s == series
+                        Text(
+                            stringResource(SERIES_NAMES.getValue(s)),
+                            color = if (on) c.onAccent else c.text,
+                            fontSize = 13.sp,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (on) c.accent else c.button)
+                                .clickable(role = Role.Tab) { series = s }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+            }
+            if (history.count < 2) {
+                Text(stringResource(Res.string.no_history), color = c.textDim, fontSize = 14.sp)
+            } else {
+                val values = history.values(series)
+                val months = stringArrayResource(Res.array.month_short)
+                val (y0, m0) = history.dateOf(0)
+                val (y1, m1) = history.dateOf(history.count - 1)
+                val top = values.max()
+                val money = series == Series.Funds || series == Series.Income || series == Series.Upkeep
+                val topLabel = if (money) stringResource(Res.string.money, groupThousands(top)) else groupThousands(top)
+                Row(Modifier.fillMaxWidth()) {
+                    Text(topLabel, color = c.textDim, fontSize = 12.sp)
+                }
+                LineChart(values, c.accent, c.chromeEdge, Modifier.fillMaxWidth().height(180.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("${months.getOrElse(m0) { "" }} $y0", color = c.textDim, fontSize = 12.sp)
+                    Text("${months.getOrElse(m1) { "" }} $y1", color = c.textDim, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+/** A line over time from zero up to the highest value, with a soft fill under it. */
+@Composable
+private fun LineChart(values: LongArray, line: Color, grid: Color, modifier: Modifier) {
+    Canvas(modifier) {
+        val top = maxOf(1L, values.max()).toFloat()
+        val bottom = minOf(0L, values.min()).toFloat()
+        val span = top - bottom
+        for (k in 0..3) {
+            val y = size.height * k / 3f
+            drawLine(grid, Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
+        }
+        fun at(k: Int) = Offset(
+            size.width * k / (values.size - 1).coerceAtLeast(1),
+            size.height - (values[k] - bottom) / span * size.height,
+        )
+        val path = Path().apply {
+            moveTo(at(0).x, at(0).y)
+            for (k in 1 until values.size) lineTo(at(k).x, at(k).y)
+        }
+        val fill = Path().apply {
+            addPath(path)
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+        drawPath(fill, line.copy(alpha = 0.15f))
+        drawPath(path, line, style = Stroke(2.dp.toPx()))
+    }
+}

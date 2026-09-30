@@ -29,6 +29,7 @@ fun ToolIcon(tool: Tool, colour: Color, modifier: Modifier = Modifier) {
             Tool.Road -> road(u, colour)
             Tool.Zone -> zone(u, colour)
             Tool.Power -> bolt(u, colour)
+            Tool.Services -> civic(u, colour)
         }
     }
 }
@@ -146,6 +147,27 @@ fun PersonIcon(colour: Color, modifier: Modifier = Modifier) {
         val u = size.minDimension / 24f
         drawCircle(colour, 5 * u, Offset(12 * u, 7 * u))
         drawRoundRect(colour, Offset(3 * u, 14 * u), Size(18 * u, 9 * u), CornerRadius(8 * u))
+    }
+}
+
+/** A small civic building with a pediment and columns. */
+private fun DrawScope.civic(u: Float, c: Color) {
+    val roof = Path().apply { moveTo(3 * u, 9 * u); lineTo(12 * u, 3 * u); lineTo(21 * u, 9 * u); close() }
+    drawPath(roof, c)
+    for (x in listOf(5f, 10f, 15f)) drawRect(c, Offset(x * u, 10.5f * u), Size(3 * u, 8 * u))
+    drawRect(c, Offset(3 * u, 19 * u), Size(18 * u, 2.5f * u))
+}
+
+/** Stacked sheets, for the map views. */
+@Composable
+fun LayersIcon(colour: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val u = size.minDimension / 24f
+        for (k in 0..2) {
+            val y = (6 + k * 5) * u
+            val p = Path().apply { moveTo(12 * u, y - 3 * u); lineTo(21 * u, y + 1.5f * u); lineTo(12 * u, y + 6 * u); lineTo(3 * u, y + 1.5f * u); close() }
+            if (k == 0) drawPath(p, colour) else drawPath(p, colour, style = Stroke(1.6f * u))
+        }
     }
 }
 

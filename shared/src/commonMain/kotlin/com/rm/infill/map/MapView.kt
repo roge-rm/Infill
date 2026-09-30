@@ -72,6 +72,7 @@ fun MapView(
     gestures: MapGestures,
     preview: Preview?,
     costText: String,
+    overlay: Overlay,
     modifier: Modifier = Modifier,
 ) {
     val map = game.city.map
@@ -86,7 +87,9 @@ fun MapView(
 
     // Rain, snow and clouds move while the game runs.
     var weatherTime by remember { mutableFloatStateOf(0f) }
-    val animate = running && weather.moving && (graphics.particles > 0f || graphics.cloudShadows)
+    val fires = game.city.burningNow > 0
+    val animate = running && (fires || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
+    val overlayImage = remember(overlay, game.revision) { overlayImage(overlay, map) }
     LaunchedEffect(animate) {
         if (!animate) return@LaunchedEffect
         var last = withFrameNanos { it }
@@ -180,8 +183,10 @@ fun MapView(
                 )
             }
         }
+        if (fires) drawFires(map, camera, weather, weatherTime)
         drawWeather(weather, camera, clouds, weatherTime, sun.strength, graphics)
         if (tint != Color.White) drawRect(tint, blendMode = BlendMode.Multiply)
+        overlayImage?.let { drawOverlay(it, map, camera, overlay) }
         if (preview != null) drawPreview(preview, map, camera, measurer, costText)
         else if (gestures.toolActive && hoverX >= 0) drawHover(hoverX, hoverY, camera)
     }

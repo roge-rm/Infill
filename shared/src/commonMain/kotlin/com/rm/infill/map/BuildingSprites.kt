@@ -23,6 +23,9 @@ internal object BuildingSprites {
                 BuildingType.WAREHOUSE -> Atlas.WAREHOUSE to Atlas.WAREHOUSE_COUNT
                 BuildingType.FACTORY -> Atlas.FACTORY to Atlas.FACTORY_COUNT
                 BuildingType.COAL_PLANT -> Atlas.COAL_PLANT to Atlas.COAL_PLANT_COUNT
+                BuildingType.POLICE_STATION -> Atlas.POLICE_STATION to Atlas.POLICE_STATION_COUNT
+                BuildingType.FIRE_STATION -> Atlas.FIRE_STATION to Atlas.FIRE_STATION_COUNT
+                BuildingType.PARK -> Atlas.PARK to Atlas.PARK_COUNT
             }
             first[t.ordinal] = f
             count[t.ordinal] = n

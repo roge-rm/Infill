@@ -36,6 +36,19 @@ class CityMap(val width: Int, val height: Int) {
     /** How grimy a tile looks, 0 to 3. The map changes only when this does. */
     fun grimeLevel(i: Int): Int = (grime[i].toInt() and 0xff) / 64
 
+    /** What land is worth, 0 to 255, worked out each month. */
+    val landValue = ByteArray(size)
+
+    /** Crime, 0 to 255, worked out each month. */
+    val crime = ByteArray(size)
+
+    /** How well police and fire stations reach each tile, 0 to 255. */
+    val policeCover = ByteArray(size)
+    val fireCover = ByteArray(size)
+
+    /** Days left burning on each tile of a building on fire, 0 for none. The map draws the flames from it. */
+    val fire = ByteArray(size)
+
     /** Whether each tile has power, worked out whenever power lines or buildings change. */
     val powered = BooleanArray(size)
 
@@ -67,7 +80,7 @@ class CityMap(val width: Int, val height: Int) {
         var h = FNV_OFFSET
         h = mix(h, width.toLong())
         h = mix(h, height.toLong())
-        for (layer in arrayOf(terrain, road, zone, power, grime)) for (b in layer) h = mix(h, b.toLong())
+        for (layer in arrayOf(terrain, road, zone, power, grime, fire)) for (b in layer) h = mix(h, b.toLong())
         for (b in building) h = mix(mix(h, b.toLong()), (b ushr 8).toLong())
         return h
     }

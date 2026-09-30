@@ -27,8 +27,16 @@ internal actual fun imageBitmapOf(pixels: IntArray, width: Int, height: Int): Im
         val buffer = allocator.allocate(bytes)
         for (i in pixels.indices) {
             val p = pixels[i]
-            // ARGB to the bytes R, G, B, A. Every pixel is opaque or empty, so it's already premultiplied.
-            val rgba = (p and -0xff0100) or ((p shr 16) and 0xff) or ((p and 0xff) shl 16)
+            val a = p ushr 24
+            // ARGB to the bytes R, G, B, A, with the alpha multiplied in as Skia wants it.
+            val rgba = if (a == 255 || a == 0) {
+                if (a == 0) 0 else (p and -0xff0100) or ((p shr 16) and 0xff) or ((p and 0xff) shl 16)
+            } else {
+                val r = ((p shr 16) and 0xff) * a / 255
+                val g = ((p shr 8) and 0xff) * a / 255
+                val b = (p and 0xff) * a / 255
+                (a shl 24) or (b shl 16) or (g shl 8) or r
+            }
             (buffer + i * 4).storeInt(rgba)
         }
         copyIntoSkia(loadedWasm, buffer.address.toInt(), target, bytes)

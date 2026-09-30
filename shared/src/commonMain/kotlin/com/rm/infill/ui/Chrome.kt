@@ -29,10 +29,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.res.Res
 import com.rm.infill.res.date
+import com.rm.infill.res.money_owed
+import androidx.compose.ui.graphics.Color
 import com.rm.infill.res.demand
 import com.rm.infill.res.income
 import com.rm.infill.res.jobs_label
 import com.rm.infill.res.speed
+import com.rm.infill.res.overlay
 import com.rm.infill.res.upkeep
 import com.rm.infill.res.funds
 import com.rm.infill.res.money
@@ -78,6 +81,10 @@ fun StatusStrip(
     onPause: () -> Unit,
     speed: Int,
     onSpeed: () -> Unit,
+    overlayOn: Boolean,
+    onOverlay: () -> Unit,
+    onBudget: () -> Unit,
+    onGraphs: () -> Unit,
     night: Boolean,
     compact: Boolean,
     modifier: Modifier = Modifier,
@@ -101,14 +108,22 @@ fun StatusStrip(
             SquareButton(selected = false, size = button, description = stringResource(Res.string.speed), onClick = onSpeed) { tint ->
                 SpeedIcon(speed, tint, Modifier.size(22.dp))
             }
+            SquareButton(selected = overlayOn, size = button, description = stringResource(Res.string.overlay), onClick = onOverlay) { tint ->
+                LayersIcon(tint, Modifier.size(22.dp))
+            }
             Text(
                 stringResource(Res.string.date, months.getOrElse(city.month) { "" }, city.year),
                 color = c.text, fontSize = textSize, fontWeight = FontWeight.SemiBold,
             )
             val w = city.weather
             WeatherReading(skyOf(w.fog, w.precipitation, w.cloud, night), w.temperature, compact, textSize)
-            Text(stringResource(Res.string.money, groupThousands(city.funds)), color = c.text, fontSize = textSize)
-            PersonCount(city.stats.population, textSize)
+            Text(
+                moneyText(city.funds), color = if (city.funds < 0) Color(0xFFD84343) else c.text, fontSize = textSize,
+                modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onBudget).padding(2.dp),
+            )
+            Box(Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onGraphs).padding(2.dp)) {
+                PersonCount(city.stats.population, textSize)
+            }
             val st = city.stats
             DemandBars(st.residentialDemand, st.commercialDemand, st.industryDemand, st.population + st.jobs, Modifier.padding(end = 4.dp))
         }
@@ -297,9 +312,9 @@ fun CityPanel(game: GameState, modifier: Modifier = Modifier) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             PanelLine(stringResource(Res.string.population), groupThousands(s.population.toLong()))
             PanelLine(stringResource(Res.string.jobs_label), groupThousands(s.jobs.toLong()))
-            PanelLine(stringResource(Res.string.funds), stringResource(Res.string.money, groupThousands(city.funds)))
-            PanelLine(stringResource(Res.string.income), stringResource(Res.string.money, groupThousands(s.income)))
-            PanelLine(stringResource(Res.string.upkeep), stringResource(Res.string.money, groupThousands(s.upkeep)))
+            PanelLine(stringResource(Res.string.funds), moneyText(city.funds))
+            PanelLine(stringResource(Res.string.income), moneyText(s.income))
+            PanelLine(stringResource(Res.string.upkeep), moneyText(s.upkeep))
             PanelLine(stringResource(Res.string.year), city.year.toString())
         }
     }
@@ -313,6 +328,11 @@ private fun PanelLine(name: String, value: String) {
         Text(value, color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
+
+/** An amount of money as $20,000, or −$861 when it's owed. */
+@Composable
+fun moneyText(amount: Long): String =
+    if (amount < 0) stringResource(Res.string.money_owed, groupThousands(-amount)) else stringResource(Res.string.money, groupThousands(amount))
 
 /** 20000 as 20,000. */
 fun groupThousands(n: Long): String {
