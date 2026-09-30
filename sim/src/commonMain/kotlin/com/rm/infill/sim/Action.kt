@@ -2,10 +2,14 @@ package com.rm.infill.sim
 
 /** Something the player does to the map. Every change goes through [City.plan] and [City.apply]. */
 sealed interface Action {
-    /** A road along [tiles], given as map indices in order. */
-    data class BuildRoad(val tiles: IntArray) : Action {
-        override fun equals(other: Any?) = other is BuildRoad && tiles.contentEquals(other.tiles)
-        override fun hashCode() = tiles.contentHashCode()
+    /**
+     * A road of [type] along [tiles], given as map indices in order. One-way
+     * roads run the way it was drawn. A two-wide road is drawn along its
+     * right-hand carriageway, and stops at the first turn.
+     */
+    data class BuildRoad(val tiles: IntArray, val type: RoadType = RoadType.DIRT) : Action {
+        override fun equals(other: Any?) = other is BuildRoad && type == other.type && tiles.contentEquals(other.tiles)
+        override fun hashCode() = tiles.contentHashCode() * 31 + type.hashCode()
     }
 
     /** Zones every tile from [x0], [y0] to [x1], [y1] as [zone]. */
@@ -58,7 +62,8 @@ class Plan(val cost: Long, val changes: IntArray, val blocked: IntArray, val pro
 
 /** What things cost, in the dollars of 1900. */
 object Prices {
-    const val DIRT_ROAD = 10L
+    /** A road over water costs this many times as much. */
+    const val BRIDGE = 6
     const val CLEAR_TREES = 5L
     const val ZONE = 5L
     const val REMOVE_ROAD = 2L

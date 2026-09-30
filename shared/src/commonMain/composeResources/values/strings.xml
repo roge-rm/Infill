@@ -23,7 +23,18 @@
     <string name="inspect_grass">Grass</string>
     <string name="inspect_trees">Trees</string>
     <string name="inspect_water">Water</string>
-    <string name="inspect_dirt_road">Dirt road</string>
+    <string name="road_dirt">Dirt road</string>
+    <string name="road_gravel">Gravel road</string>
+    <string name="road_lane">Lane</string>
+    <string name="road_street">Street</string>
+    <string name="road_one_way_street">One-way street</string>
+    <string name="road_avenue">Avenue</string>
+    <string name="road_one_way_avenue">One-way avenue</string>
+    <string name="road_boulevard">Boulevard</string>
+    <string name="inspect_bridge">Bridge</string>
+    <string name="inspect_traffic">Traffic %1$s</string>
+    <string name="inspect_commute">Commute %1$d min</string>
+    <string name="inspect_no_commute">No work in reach</string>
     <string name="inspect_zone_residential">Zoned residential</string>
     <string name="inspect_zone_commercial">Zoned commercial</string>
     <string name="inspect_zone_industrial">Zoned industrial</string>
@@ -68,6 +79,7 @@
     <string name="overlay_power">Power</string>
     <string name="overlay_police">Police</string>
     <string name="overlay_fire">Fire cover</string>
+    <string name="overlay_traffic">Traffic</string>
     <string name="low">Low</string>
     <string name="high">High</string>
 

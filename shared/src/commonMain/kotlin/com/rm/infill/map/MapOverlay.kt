@@ -22,8 +22,11 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
     val tile = Size(t, t)
     fun at(i: Int) = camera.tileToScreen((i % map.width).toFloat(), (i / map.width).toFloat(), size)
     when (val a = p.action) {
-        is Action.BuildRoad -> for (i in a.tiles) {
-            drawRect(if (i in p.blocked) BLOCKED else ROAD_FILL, at(i), tile)
+        is Action.BuildRoad -> {
+            // The drag faintly, then what it changes, which for a boulevard is both carriageways.
+            for (i in a.tiles) drawRect(ROAD_DRAG, at(i), tile)
+            for (i in p.plan.changes) drawRect(ROAD_FILL, at(i), tile)
+            for (i in p.blocked) drawRect(BLOCKED, at(i), tile)
         }
         is Action.PlaceZone -> {
             val rgb = MapRenderer.ZONE_COLOURS[a.zone.toInt()]
@@ -77,6 +80,7 @@ private fun DrawScope.rect(x0: Int, y0: Int, x1: Int, y1: Int, camera: Camera, f
 }
 
 private val ROAD_FILL = Color(0x66FFFFFF)
+private val ROAD_DRAG = Color(0x26FFFFFF)
 private val BLOCKED = Color(0x80E53935)
 private val BULLDOZE_FILL = Color(0x40E53935)
 private val BULLDOZE_EDGE = Color(0xE6E53935)

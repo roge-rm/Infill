@@ -31,7 +31,6 @@ object Balance {
     const val JOB_TAX = 0.08
 
     /** Monthly upkeep. */
-    const val ROAD_UPKEEP = 0.4
     const val LINE_UPKEEP = 0.1
     const val PLANT_UPKEEP = 60.0
     const val POLICE_UPKEEP = 40.0
@@ -62,6 +61,36 @@ object Balance {
     /** Growth a month can't go past, as a share of what the zone has, with a floor for small towns. */
     const val GROWTH_SHARE = 0.2
     const val GROWTH_FLOOR = 60
+
+    /** Road upkeep over water is this many times as much. */
+    const val BRIDGE_UPKEEP = 3.0
+
+    /** Shopping trips a month: one for this many residents, and how many a shop job serves. */
+    const val RESIDENTS_PER_SHOPPER = 4
+    const val SHOPPERS_PER_SHOP_JOB = 8
+
+    /** Loads of freight a month for every ten jobs at a works. */
+    const val FREIGHT_PER_TEN_JOBS = 3
+
+    /** Longest trip anyone makes to work or the shops, and for freight, in seconds. */
+    const val LONGEST_TRIP = 90 * 60
+    const val LONGEST_FREIGHT = 3 * 3_600
+
+    /**
+     * What a commute does to a home's appeal: nothing up to [FINE_COMMUTE]
+     * minutes, then a point for every two minutes more, up to [LONG_COMMUTE].
+     * No job in reach at all costs [NO_COMMUTE].
+     */
+    const val FINE_COMMUTE = 15
+    const val LONG_COMMUTE = 15
+    const val NO_COMMUTE = 15
+
+    /** A point of appeal to a shop for this many trips a month past its door, up to [PASSING_TRADE]. */
+    const val TRIPS_PER_PASSING_POINT = 40
+    const val PASSING_TRADE = 10
+
+    /** What it costs a works' appeal when its freight can't get out. */
+    const val FREIGHT_STUCK = 15
 
     /** How far a lot can be from a road and still grow, in tiles. */
     const val ROAD_REACH = 2

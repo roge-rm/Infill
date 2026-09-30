@@ -14,10 +14,12 @@ import com.rm.infill.res.overlay_none
 import com.rm.infill.res.overlay_police
 import com.rm.infill.res.overlay_pollution
 import com.rm.infill.res.overlay_power
+import com.rm.infill.res.overlay_traffic
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Terrain
 import com.rm.infill.sim.Zone
 import org.jetbrains.compose.resources.StringResource
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 /** What can be shown over the map, and the colours it goes from and to. */
@@ -29,6 +31,7 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Power(Res.string.overlay_power, Color(0xFFD84343), Color(0xFF4CAF50)),
     Police(Res.string.overlay_police, Color(0x001E5AC8), Color(0xFF1E5AC8)),
     Fire(Res.string.overlay_fire, Color(0x00E67E22), Color(0xFFE67E22)),
+    Traffic(Res.string.overlay_traffic, Color(0xFFFFF1B8), Color(0xFFD8302F)),
 }
 
 /**
@@ -39,7 +42,8 @@ internal fun overlayImage(overlay: Overlay, map: CityMap): ImageBitmap? {
     if (overlay == Overlay.None) return null
     val pixels = IntArray(map.size)
     for (i in 0 until map.size) {
-        if (map.terrain[i] == Terrain.WATER) continue
+        // Water shows nothing, except bridges for traffic.
+        if (map.terrain[i] == Terrain.WATER && (overlay != Overlay.Traffic || map.road[i].toInt() == 0)) continue
         val v: Int = when (overlay) {
             Overlay.LandValue -> map.landValue[i].toInt() and 0xff
             Overlay.Pollution -> map.pollution[i].toInt() and 0xff
@@ -51,9 +55,14 @@ internal fun overlayImage(overlay: Overlay, map: CityMap): ImageBitmap? {
                 if (map.building[i] == 0 && map.zone[i] == Zone.NONE && map.power[i].toInt() == 0) continue
                 if (map.powered[i]) 255 else 0
             }
+            Overlay.Traffic -> {
+                // Every road, pale when it's clear and red when it's full.
+                if (map.road[i].toInt() == 0) continue
+                min(255, (map.congestion[i].toInt() and 0xff) * 2)
+            }
             Overlay.None -> 0
         }
-        if (overlay != Overlay.LandValue && overlay != Overlay.Power && v == 0) continue
+        if (overlay != Overlay.LandValue && overlay != Overlay.Power && overlay != Overlay.Traffic && v == 0) continue
         pixels[i] = mix(overlay.low, overlay.high, v / 255f)
     }
     return imageBitmapOf(pixels, map.width, map.height)

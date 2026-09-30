@@ -85,10 +85,11 @@ fun MapView(
     val g by rememberUpdatedState(gestures)
     val clouds = remember { CloudTextures.make() }
 
-    // Rain, snow and clouds move while the game runs.
+    // Rain, snow, clouds and traffic move while the game runs.
     var weatherTime by remember { mutableFloatStateOf(0f) }
     val fires = game.city.burningNow > 0
-    val animate = running && (fires || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
+    val traffic = graphics.vehicles > 0 && game.city.stats.population > 0
+    val animate = running && (fires || traffic || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
     val overlayImage = remember(overlay, game.revision) { overlayImage(overlay, map) }
     LaunchedEffect(animate) {
         if (!animate) return@LaunchedEffect
@@ -183,6 +184,7 @@ fun MapView(
                 )
             }
         }
+        if (traffic) drawVehicles(map, camera, game.city.year, weatherTime, graphics.vehicles)
         if (fires) drawFires(map, camera, weather, weatherTime)
         drawWeather(weather, camera, clouds, weatherTime, sun.strength, graphics)
         if (tint != Color.White) drawRect(tint, blendMode = BlendMode.Multiply)

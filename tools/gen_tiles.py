@@ -144,7 +144,10 @@ def corner_north_east(look):
 
 # ---- roads -------------------------------------------------------------------
 # A road's sprite depends on which neighbours are road too: north 1, east 2,
-# south 4, west 8. In 1900 roads are packed dirt with wheel ruts.
+# south 4, west 8. In 1900 roads are packed dirt with wheel ruts; gravel,
+# lanes, paved streets and avenues come with them. One-way roads are the same
+# sprites with an arrow painted over, and a boulevard is avenue with half a
+# median along the side it shares with the other carriageway.
 
 DIRT_ROAD = {
     look: [c("#a88a5c"), c("#967a4e"), c("#b99b6a")] for look in LOOKS
@@ -157,26 +160,79 @@ ROAD_EDGE = {look: c("#7f6a44") for look in LOOKS} | {"snow": c("#b3aa98")}
 ROAD_LO, ROAD_HI = 7, 24  # the road's width across a tile
 RUTS = (12, 19)
 
+GRAVEL = {
+    look: [c("#b3a893"), c("#a1967f"), c("#c4baa6")] for look in LOOKS
+} | {
+    "bare": [c("#a39a86"), c("#948b77"), c("#b2a996")],
+    "snow": [c("#dcd9d2"), c("#cbc7bd"), c("#e8e6e1")],
+}
+GRAVEL_EDGE = {look: c("#8f8674") for look in LOOKS} | {"snow": c("#b9b4a8")}
+GRAVEL_STONE = {look: c("#7c7466") for look in LOOKS} | {"snow": c("#a8a296")}
+
+LANE_LO, LANE_HI = 9, 22
+LANE_MIDDLE = (15, 16)  # grass between the wheel tracks
+
+MACADAM = {
+    look: [c("#7d7a74"), c("#74716b"), c("#86837d")] for look in LOOKS
+} | {
+    "snow": [c("#d3d6d8"), c("#c2c6c9"), c("#e2e5e7")],  # ploughed, with slush
+}
+WHEEL_TRACK = {look: c("#6d6a64") for look in LOOKS} | {"snow": c("#a9aeb2")}
+WALK = {look: [c("#c9c2b0"), c("#bdb6a4")] for look in LOOKS} | {"snow": [c("#eef2f5"), c("#dfe6eb")]}
+CURB = {look: c("#8f8a80") for look in LOOKS} | {"snow": c("#b8bfc5")}
+CENTRE_LINE = {look: c("#d8d2c0") for look in LOOKS} | {"snow": c("#9aa0a5")}
+STREET_LO, STREET_HI = 4, 27
+STREET_WALK = 2
+AVENUE_WALK = 3
+ARROW = (236, 232, 220, 210)
+MEDIAN = 4  # half a boulevard's median, on each carriageway
+
+
+def road_shape(mask, lo, hi):
+    """Whether a pixel is on a road that's [lo, hi] wide and joins the neighbours in [mask]."""
+    def inside(x, y):
+        if not (0 <= x < T and 0 <= y < T):
+            # Past the tile's edge the road carries on only where it's joined.
+            if y < 0: return bool(mask & 1) and lo <= x <= hi
+            if x >= T: return bool(mask & 2) and lo <= y <= hi
+            if y >= T: return bool(mask & 4) and lo <= x <= hi
+            return bool(mask & 8) and lo <= y <= hi
+        across = lo <= x <= hi
+        down = lo <= y <= hi
+        if across and down:
+            return True
+        return (across and ((y < lo and mask & 1) or (y > hi and mask & 4))) or \
+               (down and ((x > hi and mask & 2) or (x < lo and mask & 8)))
+    return inside
+
+
+def near_edge(inside, x, y, d):
+    """Whether a pixel on the road is within [d] of where it ends."""
+    return any(not inside(x + dx, y + dy) for dy in range(-d, d + 1) for dx in range(-d, d + 1))
+
+
+def track_lines(px, mask, at, lo, hi, col, rng, chance):
+    """Lines along each way the road goes, at the offsets [at] across it."""
+    vertical = mask & 5 or mask == 0
+    horizontal = mask & 10
+    for a in at:
+        if vertical:
+            top = 0 if mask & 1 else lo + 2
+            bottom = T - 1 if mask & 4 else hi - 2
+            for y in range(top, bottom + 1):
+                if rng.random() < chance: px[a, y] = col
+        if horizontal:
+            left = 0 if mask & 8 else lo + 2
+            right = T - 1 if mask & 2 else hi - 2
+            for x in range(left, right + 1):
+                if rng.random() < chance: px[x, a] = col
+
 
 def road(look, mask):
     img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
     px = img.load()
     rng = random.Random(6000 + mask)
-
-    def inside(x, y):
-        if not (0 <= x < T and 0 <= y < T):
-            # Past the tile's edge the road carries on only where it's joined.
-            if y < 0: return mask & 1 and ROAD_LO <= x <= ROAD_HI
-            if x >= T: return mask & 2 and ROAD_LO <= y <= ROAD_HI
-            if y >= T: return mask & 4 and ROAD_LO <= x <= ROAD_HI
-            return mask & 8 and ROAD_LO <= y <= ROAD_HI
-        across = ROAD_LO <= x <= ROAD_HI
-        down = ROAD_LO <= y <= ROAD_HI
-        if across and down:
-            return True
-        return (across and ((y < ROAD_LO and mask & 1) or (y > ROAD_HI and mask & 4))) or \
-               (down and ((x > ROAD_HI and mask & 2) or (x < ROAD_LO and mask & 8)))
-
+    inside = road_shape(mask, ROAD_LO, ROAD_HI)
     cols = DIRT_ROAD[look]
     for y in range(T):
         for x in range(T):
@@ -186,21 +242,174 @@ def road(look, mask):
             r = rng.random()
             px[x, y] = ROAD_EDGE[look] if edge else cols[0] if r < 0.75 else cols[1] if r < 0.88 else cols[2]
     # Wheel ruts along each way the road goes, through the middle.
-    vertical = mask & 5 or mask == 0
-    horizontal = mask & 10
-    for rut in RUTS:
-        if vertical:
-            top = 0 if mask & 1 else ROAD_LO + 2
-            bottom = T - 1 if mask & 4 else ROAD_HI - 2
-            for y in range(top, bottom + 1):
-                if rng.random() < 0.85: px[rut, y] = RUT[look]
-        if horizontal:
-            left = 0 if mask & 8 else ROAD_LO + 2
-            right = T - 1 if mask & 2 else ROAD_HI - 2
-            for x in range(left, right + 1):
-                if rng.random() < 0.85: px[x, rut] = RUT[look]
+    track_lines(px, mask, RUTS, ROAD_LO, ROAD_HI, RUT[look], rng, 0.85)
     return img
 
+
+def gravel_road(look, mask):
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    px = img.load()
+    rng = random.Random(6100 + mask)
+    inside = road_shape(mask, ROAD_LO, ROAD_HI)
+    cols = GRAVEL[look]
+    for y in range(T):
+        for x in range(T):
+            if not inside(x, y):
+                continue
+            if near_edge(inside, x, y, 1):
+                # A loose, ragged edge.
+                px[x, y] = GRAVEL_EDGE[look] if rng.random() < 0.7 else cols[1]
+                continue
+            r = rng.random()
+            px[x, y] = GRAVEL_STONE[look] if r < 0.08 else cols[0] if r < 0.7 else cols[1] if r < 0.85 else cols[2]
+    track_lines(px, mask, RUTS, ROAD_LO, ROAD_HI, cols[1], rng, 0.6)
+    return img
+
+
+def lane(look, mask):
+    """A narrow track: two wheel tracks with grass up the middle, except where it meets another."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    px = img.load()
+    rng = random.Random(6200 + mask)
+    inside = road_shape(mask, LANE_LO, LANE_HI)
+    cols = DIRT_ROAD[look]
+    m0, m1 = LANE_MIDDLE
+    straight = mask in (5, 10, 1, 4, 2, 8)
+    for y in range(T):
+        for x in range(T):
+            if not inside(x, y):
+                continue
+            if straight or mask == 0:
+                middle = (mask & 5 or mask == 0) and m0 <= x <= m1 or (mask & 10) and m0 <= y <= m1
+                # The grass stops short of a dead end.
+                if middle and not near_edge(inside, x, y, 3):
+                    continue
+            edge = near_edge(inside, x, y, 1)
+            r = rng.random()
+            px[x, y] = ROAD_EDGE[look] if edge and r < 0.6 else cols[0] if r < 0.8 else cols[2]
+    return img
+
+
+def paved(look, mask, lo, hi, walk, centre):
+    """A paved road with a curb and footpaths along its sides, and a painted line down the middle if [centre]."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    px = img.load()
+    rng = random.Random(6300 + mask + lo * 16)
+    inside = road_shape(mask, lo, hi)
+    cols = MACADAM[look]
+    walks = WALK[look]
+    for y in range(T):
+        for x in range(T):
+            if not inside(x, y):
+                continue
+            if near_edge(inside, x, y, walk - 1):
+                # Footpath flagstones, with a joint every so often.
+                px[x, y] = walks[1] if (x + y * 3) % 7 == 0 else walks[0]
+            elif near_edge(inside, x, y, walk):
+                px[x, y] = CURB[look]
+            else:
+                r = rng.random()
+                px[x, y] = cols[0] if r < 0.7 else cols[1] if r < 0.85 else cols[2]
+    middle = (lo + hi) // 2
+    track_lines(px, mask, (middle - 5, middle + 6), lo, hi, WHEEL_TRACK[look], rng, 0.35)
+    if centre:
+        # Dashed, and only along straight runs.
+        for k in range(T):
+            if k % 6 >= 3:
+                continue
+            if mask == 5:
+                px[middle, k] = CENTRE_LINE[look]
+                px[middle + 1, k] = CENTRE_LINE[look]
+            elif mask == 10:
+                px[k, middle] = CENTRE_LINE[look]
+                px[k, middle + 1] = CENTRE_LINE[look]
+    return img
+
+
+def street(look, mask):
+    return paved(look, mask, STREET_LO, STREET_HI, STREET_WALK, False)
+
+
+def avenue(look, mask):
+    return paved(look, mask, 0, T - 1, AVENUE_WALK, True)
+
+
+def arrow(heading):
+    """A painted arrow pointing north, turned for the other headings (1 north, 2 east, 3 south, 4 west)."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rectangle((15, 13, 16, 22), fill=ARROW)
+    d.polygon([(15.5, 8), (11, 14), (20, 14)], fill=ARROW)
+    return img.rotate(-90 * (heading - 1))
+
+
+def median(look):
+    """Half a boulevard's median along the north edge: grass, a curb and a few shrubs."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    px = img.load()
+    rng = random.Random(6400)
+    cols = GRASS[look]
+    for y in range(MEDIAN):
+        for x in range(T):
+            px[x, y] = CURB[look] if y == MEDIAN - 1 else cols[0] if rng.random() < 0.8 else cols[1]
+    shrub = {"autumn": c("#7d6a2e"), "bare": c("#6a5a40"), "snow": c("#c9d6e0")}.get(look, c("#2f6b2a"))
+    for x in range(2, T, 8):
+        px[x, 0] = shrub
+        px[x + 1, 0] = shrub
+        px[x, 1] = shrub
+        px[x + 1, 1] = shade(shrub, 0.8)
+    return img
+
+
+PLANK = [c("#8a6a45"), c("#7a5c3a"), c("#96774f")]
+PLANK_GAP = c("#5b4430")
+BRIDGE_STONE = [c("#a9a49a"), c("#9c978d"), c("#b5b0a6")]
+RAIL = c("#4a4540")
+PARAPET_STONE = c("#6b665e")
+DECK_SHADOW = (10, 25, 45, 110)
+WOOD_LO, WOOD_HI = 5, 26
+
+
+def bridge(material, vertical):
+    """A bridge deck running north to south, turned for east to west, with its shadow on the water."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    px = img.load()
+    rng = random.Random(6500 + (material == "stone"))
+    lo, hi = (WOOD_LO, WOOD_HI) if material == "wood" else (0, T - 1)
+    for y in range(T):
+        for x in range(lo, hi + 1):
+            if material == "wood":
+                px[x, y] = PLANK_GAP if y % 4 == 3 else rng.choice(PLANK)
+            else:
+                px[x, y] = BRIDGE_STONE[0] if rng.random() < 0.7 else rng.choice(BRIDGE_STONE)
+    img = img if vertical else img.rotate(90)
+    # The shadow falls on the water to the south and east of the deck.
+    out = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    shadow = Image.new("RGBA", (T, T), DECK_SHADOW)
+    mask = img.split()[3]
+    out.paste(shadow, (2, 2), mask)
+    out.alpha_composite(img)
+    return out
+
+
+def rails(material, vertical):
+    """The railings along both sides of a bridge, drawn over the road."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    px = img.load()
+    lo, hi = (WOOD_LO, WOOD_HI) if material == "wood" else (0, T - 1)
+    # Stone parapets are thicker than timber rails.
+    xs = (lo, hi) if material == "wood" else (lo, lo + 1, hi - 1, hi)
+    col = RAIL if material == "wood" else PARAPET_STONE
+    for y in range(T):
+        for x in xs:
+            px[x, y] = col
+        if y % 6 == 0:
+            for x in xs:
+                px[x, y] = shade(col, 0.7)
+    return img if vertical else img.rotate(90)
+
+
+ROAD_ART = [("road_dirt", road), ("road_gravel", gravel_road), ("road_lane", lane), ("road_street", street), ("road_avenue", avenue)]
 
 
 # ---- buildings -----------------------------------------------------------------
@@ -497,132 +706,382 @@ def tenement(look, v):
     return b
 
 
+# Shops and works: each variant changes several things at once (how much of
+# the lot it takes, what it's built of, its roof, its front and its yard), so
+# a street of them doesn't read as one building over and over.
+
+PAINT = [TIMBER, c("#c9b48a"), c("#e6dfcc"), c("#9fb39a"), c("#9c4f3a"), c("#8ea4b3")]
+BRICKS = [BRICK, c("#8a5a44"), c("#b0704e"), c("#7a4a3c"), c("#c9a86a")]
+SANDSTONE = c("#c98f6e")
+GREY_STONE = c("#b9b8b0")
+AWNINGS = [c("#c8423a"), c("#3c78a8"), c("#3f8a4a"), c("#d09a2a"), c("#7a3f7a"), c("#2f5f5a")]
+PLATE_GLASS = c("#8fb3c9")
+CRATE = c("#a07a4a")
+LUMBER = c("#c29a62")
+
+
+def awning(d, wall, colour, look, y_up=8):
+    """A striped canvas awning over the shop windows."""
+    x0, _, x1, y1 = wall
+    top = y1 - y_up
+    for xx in range(x0 + 1, x1, 4):
+        d.rectangle([xx, top, xx + 1, top + 2], SNOW_ROOF[0] if look == "snow" else colour)
+        d.rectangle([xx + 2, top, xx + 3, top + 2], TRIM)
+    d.line([x0 + 1, top + 3, x1 - 1, top + 3], shade(colour, 0.6))
+
+
+def sign(d, x0, x1, y, colour):
+    """A painted signboard with a line of lettering."""
+    d.rectangle([x0, y, x1, y + 2], colour, OUTLINE)
+    for xx in range(x0 + 2, x1 - 1, 2):
+        d.point((xx, y + 1), TRIM)
+
+
+def yard(b, look, kind, x0, x1, y):
+    """Things standing on the ground in front: crates, a lumber pile or barrels, at tile row [y]."""
+    d = b.d
+    gy = y + b.lift
+    snow = look == "snow"
+    if kind == "crates":
+        for k, xx in enumerate(range(x0, x1 - 2, 4)):
+            h = 3 if k % 2 == 0 else 2
+            d.rectangle([xx, gy - h, xx + 2, gy], CRATE, OUTLINE)
+            if snow: d.line([xx, gy - h, xx + 2, gy - h], SNOW)
+    elif kind == "lumber":
+        d.rectangle([x0, gy - 2, x1, gy], LUMBER, OUTLINE)
+        for xx in range(x0 + 2, x1, 3):
+            d.point((xx, gy - 1), shade(LUMBER, 0.7))
+        if snow: d.line([x0, gy - 2, x1, gy - 2], SNOW)
+    elif kind == "barrels":
+        for xx in range(x0, x1 - 1, 3):
+            d.ellipse([xx, gy - 2, xx + 2, gy], c("#6b4a30"), OUTLINE)
+            if snow: d.point((xx + 1, gy - 2), SNOW)
+
+
+def lean_to(b, look, x0, y0, x1, y1, col, roof_col):
+    """A low shed against the side of the main building."""
+    roof, wall = b.box(x0, y0, x1, y1, STOREY - 1)
+    siding(b.d, wall, col)
+    b.d.rectangle(wall, outline=OUTLINE)
+    b.d.rectangle(roof, SNOW_ROOF[1] if look == "snow" else shade(roof_col, 0.95), OUTLINE)
+    for yy in range(roof[1] + 2, roof[3], 2):
+        if look != "snow": b.d.line([roof[0] + 1, yy, roof[2] - 1, yy], shade(roof_col, 0.8))
+
+
 def general_store(look, v):
-    b = Building(height=STOREY + 5)
-    roof, wall = b.box(4, 10, 27, 25, STOREY)
-    # The false front stands taller than the roof behind it.
-    front = (wall[0], wall[1] - 5, wall[2], wall[3])
-    siding(b.d, front, [TIMBER, c("#c9b48a")][v % 2])
-    b.d.rectangle([front[0] + 3, front[1] + 1, front[2] - 3, front[1] + 4], TRIM)
-    b.d.rectangle([front[0] + 3, front[3] - 6, front[2] - 3, front[3] - 2], c("#8fb3c9"))
-    b.d.rectangle(front, outline=OUTLINE)
-    gable_ew(b.d, (roof[0], roof[1], roof[2], front[1] - 1), IRON_ROOF, look)
-    b.casters[-1] = (1, 4, 10, 28, 26, STOREY + 5)
+    """A timber store: a false front (or a gable to the street), a sign, sometimes a boardwalk and a shed."""
+    width, depth, paint, roof_col, front, extra = [
+        ((4, 27), (10, 25), 0, IRON_ROOF, "flat", "porch"),
+        ((6, 25), (12, 25), 1, SHINGLE[1], "stepped", "shed"),
+        ((3, 24), (9, 24), 2, SHINGLE[0], "gable", "crates"),
+        ((7, 28), (11, 26), 3, IRON_ROOF, "stepped", "porch"),
+        ((5, 22), (10, 25), 4, SHINGLE[2], "flat", "shed"),
+        ((4, 26), (12, 26), 5, IRON_ROOF, "gable", "barrels"),
+    ][v]
+    x0, x1 = width
+    y0, y1 = depth
+    b = Building(height=STOREY + 7)
+    wall_col = PAINT[paint]
+    if extra == "shed":
+        # Built first, so the store is drawn over it.
+        sx = x1 + 1 if x1 < 26 else x0 - 5
+        lean_to(b, look, sx, y0 + 5, sx + 4, y1, shade(wall_col, 0.9), roof_col)
+    roof, wall = b.box(x0, y0, x1, y1, STOREY)
+    if front == "gable":
+        siding(b.d, wall, wall_col)
+        b.d.rectangle([wall[0] + 3, wall[3] - 5, wall[2] - 3, wall[3] - 2], PLATE_GLASS)
+        door(b.d, wall)
+        b.d.rectangle(wall, outline=OUTLINE)
+        gable_ns(b.d, roof, wall, roof_col, wall_col, look)
+        b.casters[-1] = (1, x0, y0, x1 + 1, y1 + 1, STOREY + (x1 - x0) // 3)
+    else:
+        # The false front stands taller than the roof behind it.
+        rise = 5
+        top = (wall[0], wall[1] - rise, wall[2], wall[3])
+        siding(b.d, top, wall_col)
+        if front == "stepped":
+            # The front steps up in the middle, with the roof showing either side.
+            behind = SNOW_ROOF[1] if look == "snow" else shade(roof_col, 0.86)
+            for cx in (top[0], top[2] - 4):
+                b.d.rectangle([cx, top[1], cx + 4, top[1] + 1], behind)
+        sign(b.d, top[0] + 3, top[2] - 3, top[1] + 2, [c("#3a3a3a"), c("#6b2330"), c("#2e4a3a")][v % 3])
+        b.d.rectangle([top[0] + 3, top[3] - 6, top[2] - 3, top[3] - 2], PLATE_GLASS)
+        door(b.d, top)
+        b.d.rectangle(top if front == "flat" else (top[0], top[1] + 2, top[2], top[3]), outline=OUTLINE)
+        gable_ew(b.d, (roof[0], roof[1], roof[2], top[1] - 1), roof_col, look)
+        b.casters[-1] = (1, x0, y0, x1 + 1, y1 + 1, STOREY + rise)
+    if extra == "porch":
+        porch(b.d, wall, roof_col, look)
+    elif extra in ("crates", "barrels"):
+        yard(b, look, extra, x1 - 9, x1, 30)
     return b
 
 
 def shop(look, v):
-    b = Building(height=2 * STOREY + 2)
-    roof, wall = b.box(2, 6, 29, 26, 2 * STOREY + 2)
-    brick(b.d, wall, BRICK)
-    x0, y0, x1, y1 = wall
-    windows(b.d, (x0, y0, x1, y0 + STOREY), 1, sill=TRIM, every=5)
-    b.d.rectangle([x0 + 2, y1 - 5, x1 - 2, y1 - 1], c("#8fb3c9"))
-    stripe = [c("#c8423a"), c("#3c78a8"), c("#3f8a4a")][v % 3]
-    for xx in range(x0 + 1, x1, 4):
-        b.d.rectangle([xx, y1 - 8, xx + 1, y1 - 6], stripe)
-        b.d.rectangle([xx + 2, y1 - 8, xx + 3, y1 - 6], TRIM)
+    """Two storeys, the shop below and rooms above: brick, stone or painted, with an awning or a signboard."""
+    width, walls, awn, roof_kind, extra = [
+        ((2, 29), ("brick", 0), 0, "flat", ("skylight", "stack")),
+        ((4, 27), ("brick", 2), 1, "gable", ()),
+        ((2, 25), ("stone", 0), None, "flat", ("hatch", "stack")),
+        ((5, 29), ("paint", 2), 3, "gable", ("bay",)),
+        ((3, 28), ("brick", 4), 4, "flat", ("vent", "tank")),
+        ((2, 26), ("paint", 5), None, "flat", ("stack",)),
+    ][v]
+    x0, x1 = width
+    b = Building(height=2 * STOREY + 4)
+    height = 2 * STOREY + 2
+    roof, wall = b.box(x0, 6, x1, 26, height)
+    material, k = walls
+    col = BRICKS[k] if material == "brick" else GREY_STONE if material == "stone" else PAINT[k]
+    (brick if material == "brick" else siding)(b.d, wall, col)
+    if material == "stone":
+        b.d.rectangle(wall, col)
+        b.d.line([wall[0], wall[1] + STOREY, wall[2], wall[1] + STOREY], shade(col, 0.8))
+    wx0, wy0, wx1, wy1 = wall
+    windows(b.d, (wx0, wy0, wx1, wy0 + STOREY), 1, sill=TRIM, every=5 if v % 2 == 0 else 6)
+    b.d.rectangle([wx0 + 2, wy1 - 5, wx1 - 2, wy1 - 1], PLATE_GLASS)
+    b.d.line([(wx0 + wx1) // 2, wy1 - 5, (wx0 + wx1) // 2, wy1 - 1], shade(col, 0.6))
+    if awn is not None:
+        awning(b.d, wall, AWNINGS[awn], look)
+    else:
+        sign(b.d, wx0 + 2, wx1 - 2, wy1 - 9, [c("#2b3440"), c("#6b2330")][v % 2])
     b.d.rectangle(wall, outline=OUTLINE)
-    features = [[("skylight", 8, 6), ("stack", 21, 3)], [("hatch", 5, 5), ("stack", 22, 12)], [("stack", 4, 3), ("vent", 16, 9), ("vent", 20, 9)]][v % 3]
-    flat_roof(b.img, roof, look, random.Random(7100 + v), features)
+    if roof_kind == "gable":
+        gable_ew(b.d, roof, SHINGLE[v % 3], look)
+        if "bay" in extra:
+            dormers(b.d, roof, SHINGLE[v % 3], look, 2)
+    else:
+        spots = {"skylight": ("skylight", 8, 6), "stack": ("stack", 20, 3), "hatch": ("hatch", 5, 5),
+                 "vent": ("vent", 16, 9), "tank": ("tank", 6, 9)}
+        flat_roof(b.img, roof, look, random.Random(7100 + v), [spots[f] for f in extra if f in spots])
     return b
 
 
 def hotel(look, v):
-    b = Building(height=3 * STOREY + 7)
-    roof, wall = b.box(1, 2, 30, 28, 3 * STOREY + 3)
-    brick(b.d, wall, [BRICK20, c("#b8866a")][v % 2])
-    windows(b.d, wall, 3, sill=TRIM, every=4, skip_door=True)
+    """Three or four storeys, with a canopy over the door and a busy roof."""
+    storeys, walls, roof_kind, features = [
+        (3, BRICK20, "flat", [("tank", 19, 8), ("stack", 3, 3), ("stack", 3, 18), ("skylight", 9, 12)]),
+        (3, c("#b8866a"), "mansard", []),
+        (4, GREY_STONE, "flat", [("tank", 4, 8), ("stack", 24, 3), ("hatch", 14, 16)]),
+        (4, SANDSTONE, "flat", [("skylight", 6, 6), ("skylight", 16, 6), ("stack", 25, 14)]),
+    ][v]
+    height = storeys * STOREY + 3
+    b = Building(height=height + 4)
+    roof, wall = b.box(1, 2, 30, 28, height)
+    if walls in (GREY_STONE, SANDSTONE):
+        b.d.rectangle(wall, walls)
+        for yy in range(wall[1] + STOREY, wall[3], STOREY):
+            b.d.line([wall[0], yy, wall[2], yy], shade(walls, 0.88))
+    else:
+        brick(b.d, wall, walls)
+    windows(b.d, wall, storeys, sill=TRIM, every=4, skip_door=True)
     door(b.d, wall, c("#3a2a20"))
+    # A canopy on posts over the door.
+    cx = (wall[0] + wall[2]) // 2
+    b.d.rectangle([cx - 5, wall[3] - 6, cx + 5, wall[3] - 5], AWNINGS[(v + 1) % len(AWNINGS)], OUTLINE)
+    b.d.line([cx - 4, wall[3] - 4, cx - 4, wall[3]], TRIM)
+    b.d.line([cx + 4, wall[3] - 4, cx + 4, wall[3]], TRIM)
     b.d.rectangle([wall[0], wall[1], wall[2], wall[1] + 1], STONE)
     b.d.rectangle(wall, outline=OUTLINE)
-    features = [[("tank", 19, 8), ("stack", 3, 3), ("stack", 3, 18), ("skylight", 9, 12)],
-                [("tank", 4, 8), ("stack", 24, 3), ("hatch", 14, 16)]][v % 2]
-    flat_roof(b.img, roof, look, random.Random(7200 + v), features, parapet=STONE)
+    if roof_kind == "mansard":
+        gable_ew(b.d, roof, SHINGLE[2], look)
+        dormers(b.d, roof, SHINGLE[2], look, 3)
+    else:
+        flat_roof(b.img, roof, look, random.Random(7200 + v), features, parapet=STONE)
     return b
 
 
 def bank(look, v):
-    b = Building(height=2 * STOREY + 4)
-    roof, wall = b.box(3, 6, 28, 26, 2 * STOREY + 4)
-    b.d.rectangle(wall, STONE)
-    x0, y0, x1, y1 = wall
-    # Columns across the front, under a cornice.
-    for xx in range(x0 + 3, x1 - 1, 4):
-        b.d.line([xx, y0 + 4, xx, y1 - 1], c("#efe8d8"))
-        b.d.line([xx + 1, y0 + 4, xx + 1, y1 - 1], shade(STONE, 0.85))
-    b.d.rectangle([x0, y0, x1, y0 + 2], c("#e2dac6"))
+    """Stone, with columns across the front, and a pediment on the grander ones."""
+    stone, columns, pediment, width = [
+        (STONE, 4, False, (3, 28)),
+        (GREY_STONE, 5, True, (2, 29)),
+        (SANDSTONE, 3, True, (5, 26)),
+        (c("#dcd6c8"), 6, False, (1, 30)),
+    ][v]
+    x0, x1 = width
+    b = Building(height=2 * STOREY + 9)
+    roof, wall = b.box(x0, 6, x1, 26, 2 * STOREY + 4)
+    b.d.rectangle(wall, stone)
+    wx0, wy0, wx1, wy1 = wall
+    step = max(3, (wx1 - wx0 - 4) // columns)
+    for xx in range(wx0 + 3, wx1 - 1, step):
+        b.d.line([xx, wy0 + 4, xx, wy1 - 1], c("#efe8d8"))
+        b.d.line([xx + 1, wy0 + 4, xx + 1, wy1 - 1], shade(stone, 0.85))
+    b.d.rectangle([wx0, wy0, wx1, wy0 + 2], shade(stone, 1.08))
     door(b.d, wall, c("#3a2a20"))
     b.d.rectangle(wall, outline=OUTLINE)
-    flat_roof(b.img, roof, look, random.Random(7300), [("skylight", 9, 6), ("skylight", 9, 12)], parapet=STONE)
+    flat_roof(b.img, roof, look, random.Random(7300 + v), [("skylight", (x1 - x0) // 2 - 2, 6), ("skylight", (x1 - x0) // 2 - 2, 12)], parapet=stone)
+    if pediment:
+        cx = (wx0 + wx1) // 2
+        half = (wx1 - wx0) // 3
+        b.d.polygon([(cx - half, wy0), (cx, wy0 - 5), (cx + half, wy0)], shade(stone, 1.05), OUTLINE)
+        b.casters[-1] = (1, x0, 6, x1 + 1, 27, 2 * STOREY + 9)
     return b
 
 
 def workshop(look, v):
-    b = Building(height=STOREY + 3)
-    roof, wall = b.box(3, 8, 28, 25, STOREY + 3)
-    brick(b.d, wall, [BRICK, c("#8a5a44")][v % 2])
-    x0, y0, x1, y1 = wall
-    b.d.rectangle([x0 + 4, y1 - 6, x0 + 11, y1], TIMBER)
-    b.d.line([x0 + 7, y1 - 6, x0 + 7, y1], shade(TIMBER, 0.7))
-    windows(b.d, (x0 + 12, y0, x1, y1), 1, every=5)
+    """A low shop for a trade: brick, stone or timber, a big door, and its yard out front."""
+    width, depth, walls, roof_kind, door_at, stuff = [
+        ((3, 28), (8, 24), ("brick", 0), "iron", "left", "lumber"),
+        ((5, 26), (10, 25), ("brick", 1), "iron", "right", "crates"),
+        ((2, 24), (8, 23), ("timber", 0), "shingle", "left", "lumber"),
+        ((4, 29), (9, 24), ("stone", 0), "iron_ns", "right", "barrels"),
+        ((6, 27), (7, 24), ("brick", 3), "shingle", "left", "crates"),
+        ((3, 25), (10, 25), ("timber", 3), "iron", "right", "barrels"),
+    ][v]
+    x0, x1 = width
+    y0, y1 = depth
+    b = Building(height=STOREY + 8)
+    roof, wall = b.box(x0, y0, x1, y1, STOREY + 3)
+    material, k = walls
+    if material == "brick":
+        col = BRICKS[k]
+        brick(b.d, wall, col)
+    elif material == "stone":
+        col = GREY_STONE
+        b.d.rectangle(wall, col)
+    else:
+        col = PAINT[k]
+        siding(b.d, wall, col)
+    wx0, wy0, wx1, wy1 = wall
+    dx = wx0 + 3 if door_at == "left" else wx1 - 10
+    b.d.rectangle([dx, wy1 - 6, dx + 7, wy1], TIMBER, OUTLINE)
+    b.d.line([dx + 3, wy1 - 6, dx + 3, wy1], shade(TIMBER, 0.7))
+    windows(b.d, (wx0 + 12, wy0, wx1, wy1) if door_at == "left" else (wx0, wy0, wx1 - 11, wy1), 1, every=5)
     b.d.rectangle(wall, outline=OUTLINE)
-    gable_ew(b.d, roof, IRON_ROOF, look)
-    roof_feature(b.d, roof, ("stack", 18 if v else 4, 1), look)
+    roof_col = SHINGLE[k % 3] if roof_kind == "shingle" else IRON_ROOF
+    if roof_kind == "iron_ns":
+        gable_ns(b.d, roof, wall, roof_col, col, look)
+        b.casters[-1] = (1, x0, y0, x1 + 1, y1 + 1, STOREY + 3 + (x1 - x0) // 3)
+    else:
+        gable_ew(b.d, roof, roof_col, look)
+        roof_feature(b.d, roof, ("stack", (x1 - x0) * (3 if door_at == "left" else 1) // 4, 1), look)
+    sx = wx1 - 10 if door_at == "left" else wx0 + 1
+    yard(b, look, stuff, sx, sx + 9, 30)
     return b
 
 
 def mill(look, v):
-    b = Building(height=24)
-    roof, wall = b.box(2, 7, 25, 27, 2 * STOREY + 2)
-    brick(b.d, wall, [BRICK, c("#9a6a4a")][v % 2])
-    windows(b.d, wall, 2, every=5)
+    """Two or three storeys of brick with a tall chimney at one end."""
+    storeys, col, chimney_at, roof_kind, width = [
+        (2, BRICK, "east", "iron", (2, 25)),
+        (3, c("#9a6a4a"), "west", "iron", (6, 29)),
+        (2, BRICKS[2], "west", "flat", (6, 29)),
+        (3, BRICKS[3], "east", "shingle", (2, 25)),
+    ][v]
+    x0, x1 = width
+    height = storeys * STOREY + 2
+    b = Building(height=max(24, height + 4) + (4 if storeys == 3 else 0))
+    roof, wall = b.box(x0, 7, x1, 27, height)
+    brick(b.d, wall, col)
+    windows(b.d, wall, storeys, every=5, sill=shade(col, 1.25))
     b.d.rectangle(wall, outline=OUTLINE)
-    gable_ew(b.d, roof, IRON_ROOF, look)
-    chimney(b, 28, 12, 24, look=look)
+    if roof_kind == "flat":
+        flat_roof(b.img, roof, look, random.Random(7400 + v), [("vent", 8, 6), ("vent", 14, 6), ("hatch", 12, 12)])
+    else:
+        gable_ew(b.d, roof, IRON_ROOF if roof_kind == "iron" else SHINGLE[2], look)
+    chimney(b, 28 if chimney_at == "east" else 3, 12, b.lift - 2, look=look)
     return b
 
 
 def warehouse(look, v):
-    b = Building(height=2 * STOREY + 2)
+    """A big shed of brick or boards: loading doors along the front under an iron or tarred roof."""
+    walls, doors, roof_kind, canopy, roof_col = [
+        (("brick", 1), 3, "iron_ns", False, c("#8a4a3a")),
+        (("brick", 0), 2, "iron_ew", True, IRON_ROOF),
+        (("timber", 0), 3, "iron_ew", False, c("#4f6b52")),
+        (("brick", 3), 4, "flat", True, IRON_ROOF),
+        (("brick", 4), 2, "iron_ns", True, IRON_ROOF),
+    ][v]
+    b = Building(height=2 * STOREY + 4)
     roof, wall = b.box(1, 4, 30, 27, 2 * STOREY + 2)
-    brick(b.d, wall, [c("#8a5a44"), BRICK][v % 2])
+    material, k = walls
+    if material == "brick":
+        brick(b.d, wall, BRICKS[k])
+    else:
+        siding(b.d, wall, PAINT[k])
     x0, y0, x1, y1 = wall
-    for xx in (x0 + 4, x0 + 13, x0 + 22):
-        b.d.rectangle([xx, y1 - 7, xx + 5, y1], TIMBER)
-        b.d.rectangle([xx, y0 + 2, xx + 5, y0 + 4], WINDOW)
+    step = (x1 - x0 - 4) // doors
+    for n in range(doors):
+        xx = x0 + 3 + n * step
+        b.d.rectangle([xx, y1 - 7, xx + step - 4, y1], TIMBER, OUTLINE)
+        b.d.rectangle([xx, y0 + 2, xx + step - 4, y0 + 4], WINDOW)
+    if canopy:
+        b.d.rectangle([x0 + 1, y1 - 9, x1 - 1, y1 - 8], SNOW_ROOF[1] if look == "snow" else shade(IRON_ROOF, 0.8), OUTLINE)
     b.d.rectangle(wall, outline=OUTLINE)
     rx0, ry0, rx1, ry1 = roof
-    if look == "snow":
-        b.d.rectangle(roof, SNOW_ROOF[0])
-        b.d.line([rx0 + 1, ry0 + 2, rx1 - 1, ry0 + 2], SNOW_ROOF[2])
+    if roof_kind == "flat":
+        flat_roof(b.img, roof, look, random.Random(7500 + v), [("vent", 8, 10), ("vent", 20, 10), ("hatch", 13, 5)])
     else:
-        b.d.rectangle(roof, IRON_ROOF)
-        for xx in range(rx0 + 2, rx1, 3):
-            b.d.line([xx, ry0 + 1, xx, ry1 - 1], shade(IRON_ROOF, 0.88))
-    for vx in (8, 20):
-        roof_feature(b.d, roof, ("vent", vx, 10), look)
-    b.d.rectangle(roof, outline=OUTLINE)
+        if look == "snow":
+            b.d.rectangle(roof, SNOW_ROOF[0])
+            b.d.line([rx0 + 1, ry0 + 2, rx1 - 1, ry0 + 2], SNOW_ROOF[2])
+        else:
+            b.d.rectangle(roof, roof_col)
+            if roof_kind == "iron_ns":
+                for xx in range(rx0 + 2, rx1, 3):
+                    b.d.line([xx, ry0 + 1, xx, ry1 - 1], shade(roof_col, 0.88))
+            else:
+                mid = (ry0 + ry1) // 2
+                b.d.rectangle([rx0, ry0, rx1, mid], shade(roof_col, 1.12))
+                for yy in range(ry0 + 2, ry1, 2):
+                    b.d.line([rx0 + 1, yy, rx1 - 1, yy], shade(roof_col, 0.9 if yy > mid else 1.05))
+                b.d.line([rx0 + 1, mid, rx1 - 1, mid], shade(roof_col, 1.3))
+        for vx in (8, 20):
+            roof_feature(b.d, roof, ("vent", vx, 10), look)
+        b.d.rectangle(roof, outline=OUTLINE)
     return b
 
 
 def factory(look, v):
+    """Three storeys of works under a sawtooth or a row of gables, with one or two chimneys."""
+    col, roof_kind, chimneys, tank = [
+        (BRICK, "saw", (26,), False),
+        (BRICKS[1], "gables", (5, 26), False),
+        (BRICKS[3], "saw", (5,), True),
+        (BRICKS[2], "gables", (16,), True),
+    ][v]
     b = Building(height=30)
     roof, wall = b.box(1, 3, 30, 28, 3 * STOREY)
-    brick(b.d, wall, BRICK)
+    brick(b.d, wall, col)
     windows(b.d, wall, 3, glass=c("#6c7f8a"), every=5, width=3)
     b.d.rectangle(wall, outline=OUTLINE)
     x0, y0, x1, y1 = roof
-    # A sawtooth roof: glazed faces to the north, slopes to the south.
-    for xx in range(x0, x1 - 4, 7):
-        if look == "snow":
-            b.d.rectangle([xx, y0, xx + 3, y1], SNOW_ROOF[0])
-            b.d.rectangle([xx + 4, y0, min(xx + 6, x1), y1], SNOW_ROOF[2])
-        else:
-            b.d.rectangle([xx, y0, xx + 3, y1], SAW[0])
-            b.d.rectangle([xx + 4, y0, min(xx + 6, x1), y1], c("#b8c4ca"))
+    if roof_kind == "saw":
+        # Glazed faces to the north, slopes to the south.
+        for xx in range(x0, x1 - 4, 7):
+            if look == "snow":
+                b.d.rectangle([xx, y0, xx + 3, y1], SNOW_ROOF[0])
+                b.d.rectangle([xx + 4, y0, min(xx + 6, x1), y1], SNOW_ROOF[2])
+            else:
+                b.d.rectangle([xx, y0, xx + 3, y1], SAW[0])
+                b.d.rectangle([xx + 4, y0, min(xx + 6, x1), y1], c("#b8c4ca"))
+    else:
+        # Three gables side by side, ridges running north to south.
+        bay_w = (x1 - x0) // 3
+        for n in range(3):
+            bx0 = x0 + n * bay_w
+            bx1 = x1 if n == 2 else bx0 + bay_w
+            mid = (bx0 + bx1) // 2
+            if look == "snow":
+                b.d.rectangle([bx0, y0, mid, y1], SNOW_ROOF[0])
+                b.d.rectangle([mid + 1, y0, bx1, y1], SNOW_ROOF[1])
+            else:
+                slate = c("#5f6570")
+                b.d.rectangle([bx0, y0, mid, y1], shade(slate, 1.2))
+                b.d.rectangle([mid + 1, y0, bx1, y1], shade(slate, 0.8))
+                for yy in range(y0 + 2, y1, 3):
+                    b.d.line([bx0 + 1, yy, bx1 - 1, yy], shade(slate, 0.7))
+                b.d.line([mid, y0 + 1, mid, y1 - 1], shade(slate, 1.5))
+            # A gutter between each pair of gables.
+            b.d.line([bx1, y0, bx1, y1], OUTLINE)
+            b.d.line([bx1 - 1, y0, bx1 - 1, y1], OUTLINE)
+    if tank:
+        roof_feature(b.d, roof, ("tank", 20 if chimneys[0] < 16 else 4, 10), look)
     b.d.rectangle(roof, outline=OUTLINE)
-    chimney(b, 26, 8, 30, look=look)
+    for cx in chimneys:
+        chimney(b, cx, 8, 30, look=look)
     return b
 
 
@@ -785,8 +1244,8 @@ def park(look, v):
 
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
-    ("general_store", general_store, 2), ("shop", shop, 3), ("hotel", hotel, 2), ("bank", bank, 1),
-    ("workshop", workshop, 2), ("mill", mill, 2), ("warehouse", warehouse, 2), ("factory", factory, 1),
+    ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
+    ("workshop", workshop, 6), ("mill", mill, 4), ("warehouse", warehouse, 5), ("factory", factory, 4),
     ("coal_plant", coal_plant, 1),
     ("police_station", police_station, 1), ("fire_station", fire_station, 1), ("park", park, 4),
 ]
@@ -971,8 +1430,19 @@ def sprites_for(look):
         ("corner_ne", ne, 0, []), ("corner_se", ne.rotate(-90), 0, []),
         ("corner_sw", ne.rotate(180), 0, []), ("corner_nw", ne.rotate(90), 0, []),
     ]
-    for mask in range(16):
-        out.append((f"road_{mask}", road(look, mask), 0, []))
+    for name, draw in ROAD_ART:
+        for mask in range(16):
+            out.append((f"{name}_{mask}", draw(look, mask), 0, []))
+    for h in range(1, 5):
+        out.append((f"arrow_{h}", arrow(h), 0, []))
+    m = median(look)
+    out += [("median_n", m, 0, []), ("median_e", m.rotate(-90), 0, []), ("median_s", m.rotate(180), 0, []), ("median_w", m.rotate(90), 0, [])]
+    for material in ("wood", "stone"):
+        out.append((f"bridge_{material}_ns", bridge(material, True), 0, []))
+        out.append((f"bridge_{material}_ew", bridge(material, False), 0, []))
+    for material in ("wood", "stone"):
+        out.append((f"rails_{material}_ns", rails(material, True), 0, []))
+        out.append((f"rails_{material}_ew", rails(material, False), 0, []))
     def round_casters(cs):
         return [(0, fx, fy - LIFT, h, r, 0) for fx, fy, h, r in cs]
     for v in range(5):
@@ -1058,7 +1528,7 @@ def write_kotlin(names, flat, pos, size):
             lines.append("        " + ", ".join(str(v) for v in values[i:i + per_line]) + ",")
         return "\n".join(lines)
 
-    groups = ["grass", "water", "shore", "corner", "road", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line"]
+    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line"]
     consts = []
     for g in groups:
         consts.append(f"    const val {g.upper()} = {first(g + '_')}")
@@ -1070,8 +1540,10 @@ package com.rm.infill.map
 /**
  * Where each sprite is in the atlases (files/atlas_32.png, _16 and _8) and what
  * casts a shadow. A sprite's number is its place in a look plus the look times
- * [PER_LOOK]. Shores and corners go north, east, south, west. A road's
- * number adds its neighbours that are road: north 1, east 2, south 4, west 8.
+ * [PER_LOOK]. Shores, corners and medians go north, east, south, west. A
+ * road's number adds its neighbours that are road: north 1, east 2, south 4,
+ * west 8. Arrows go north, east, south, west. Bridges and rails are wood
+ * then stone, each north to south then east to west.
  */
 internal object Atlas {{
     const val LOOKS = {len(LOOKS)}

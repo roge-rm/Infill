@@ -10,6 +10,9 @@ class CityMap(val width: Int, val height: Int) {
 
     val terrain = ByteArray(size)
     val road = ByteArray(size)
+
+    /** Which way traffic runs on a one-way road tile ([Heading]), 0 on a road both ways. */
+    val roadHeading = ByteArray(size)
     val zone = ByteArray(size)
     val power = ByteArray(size)
 
@@ -49,6 +52,15 @@ class CityMap(val width: Int, val height: Int) {
     /** Days left burning on each tile of a building on fire, 0 for none. The map draws the flames from it. */
     val fire = ByteArray(size)
 
+    /** How full each road tile was last month: 128 is at capacity, 255 twice it or more. */
+    val congestion = ByteArray(size)
+
+    /**
+     * How long the commute is from each home, 1 to 254 in steps of half a
+     * minute, 255 if no job could be reached, 0 if there's no home here.
+     */
+    val commute = ByteArray(size)
+
     /** Whether each tile has power, worked out whenever power lines or buildings change. */
     val powered = BooleanArray(size)
 
@@ -65,13 +77,14 @@ class CityMap(val width: Int, val height: Int) {
     /** Everything on a tile that the player or the town can change, packed into one number for undo. */
     fun tileState(i: Int): Long =
         (terrain[i].toLong() and 0xff) or ((road[i].toLong() and 0xff) shl 8) or ((zone[i].toLong() and 0xff) shl 16) or
-            ((power[i].toLong() and 0xff) shl 24) or (building[i].toLong() shl 32)
+            ((power[i].toLong() and 0xff) shl 24) or ((roadHeading[i].toLong() and 0x0f) shl 28) or (building[i].toLong() shl 32)
 
     fun setTileState(i: Int, state: Long) {
         terrain[i] = state.toByte()
         road[i] = (state shr 8).toByte()
         zone[i] = (state shr 16).toByte()
-        power[i] = (state shr 24).toByte()
+        power[i] = ((state shr 24) and 0x0f).toByte()
+        roadHeading[i] = ((state shr 28) and 0x0f).toByte()
         building[i] = (state ushr 32).toInt()
     }
 
@@ -80,7 +93,7 @@ class CityMap(val width: Int, val height: Int) {
         var h = FNV_OFFSET
         h = mix(h, width.toLong())
         h = mix(h, height.toLong())
-        for (layer in arrayOf(terrain, road, zone, power, grime, fire)) for (b in layer) h = mix(h, b.toLong())
+        for (layer in arrayOf(terrain, road, roadHeading, zone, power, grime, fire)) for (b in layer) h = mix(h, b.toLong())
         for (b in building) h = mix(mix(h, b.toLong()), (b ushr 8).toLong())
         return h
     }

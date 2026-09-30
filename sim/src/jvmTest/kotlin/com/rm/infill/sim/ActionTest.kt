@@ -22,19 +22,26 @@ class ActionTest {
         assertEquals(5, path.size)
         val plan = c.apply(Action.BuildRoad(path))
         assertTrue(plan.ok)
-        assertEquals(5 * Prices.DIRT_ROAD + Prices.CLEAR_TREES, plan.cost)
+        assertEquals(5 * RoadType.DIRT.price + Prices.CLEAR_TREES, plan.cost)
         assertEquals(City.START_FUNDS - plan.cost, c.funds)
         assertEquals(Road.DIRT, c.map.roadAt(5, 2))
         assertEquals(Terrain.GRASS, c.map.terrainAt(5, 2))
     }
 
     @Test
-    fun roadsSkipWaterAndExistingRoad() {
+    fun roadsSkipExistingRoadAndBridgeWater() {
         val c = city()
         c.apply(Action.BuildRoad(Action.roadPath(c.map, 8, 4, 9, 4, true)))
         val plan = c.plan(Action.BuildRoad(Action.roadPath(c.map, 8, 4, 12, 4, true)))
-        assertEquals(listOf(c.map.index(10, 4)), plan.blocked.toList())
-        assertEquals(2, plan.changes.size) // 11 and 12; 8 and 9 are already road
+        assertTrue(plan.blocked.isEmpty())
+        assertEquals(3, plan.changes.size) // 10 to 12; 8 and 9 are already road
+        assertEquals(RoadType.DIRT.price * (Prices.BRIDGE + 2), plan.cost)
+        // Lanes don't bridge.
+        val lane = c.plan(Action.BuildRoad(Action.roadPath(c.map, 8, 6, 12, 6, true), RoadType.LANE))
+        assertEquals(listOf(c.map.index(10, 6)), lane.blocked.toList())
+        // Nor do roads turn on a bridge.
+        val corner = c.plan(Action.BuildRoad(Action.roadPath(c.map, 8, 8, 10, 12, true)))
+        assertEquals(listOf(c.map.index(10, 8)), corner.blocked.toList())
     }
 
     @Test

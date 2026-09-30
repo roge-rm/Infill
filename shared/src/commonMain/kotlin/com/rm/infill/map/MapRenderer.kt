@@ -3,8 +3,10 @@ package com.rm.infill.map
 import androidx.compose.ui.graphics.ImageBitmap
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.CityMap
+import com.rm.infill.sim.Heading
 import com.rm.infill.sim.Power
 import com.rm.infill.sim.Road
+import com.rm.infill.sim.RoadType
 import com.rm.infill.sim.Terrain
 import com.rm.infill.sim.Zone
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -205,6 +207,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         val x1 = min(x0 + CHUNK, map.width)
         val y1 = min(y0 + CHUNK, map.height)
         val base = r.look * Atlas.PER_LOOK
+        shown.clear()
 
         // The ground.
         for (ty in y0 until y1) for (tx in x0 until x1) {
@@ -213,16 +216,28 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             val h = tileHash(tx, ty)
             val i = map.index(tx, ty)
             val grime = map.grimeLevel(i)
+            val road = RoadType.of(map.road[i])
             if (map.terrain[i] == Terrain.WATER) {
                 surface.copy(base + Atlas.WATER + h % Atlas.WATER_COUNT, dx, dy)
                 if (grime > 0) surface.fill(dx, dy, s, s, MURK, MURK_ALPHA[grime])
                 shores(surface, base, tx, ty, dx, dy)
+                if (road != null) {
+                    val mask = roadMask(tx, ty)
+                    val timber = road == RoadType.DIRT || road == RoadType.GRAVEL || road == RoadType.LANE
+                    // One-way bridges run the way the traffic does; the rest the way the road goes on.
+                    val heading = map.roadHeading[i].toInt()
+                    val northSouth = if (heading != 0) heading % 2 == 1 else mask and 5 != 0 && mask and 10 != 10
+                    val deck = (if (timber) 0 else 2) + if (northSouth) 0 else 1
+                    surface.blend(base + Atlas.BRIDGE + deck, dx, dy)
+                    roadTile(surface, base, road, i, tx, ty, mask, dx, dy, level)
+                    surface.blend(base + Atlas.RAILS + deck, dx, dy)
+                }
             } else {
                 surface.copy(base + Atlas.GRASS + h % Atlas.GRASS_COUNT, dx, dy)
                 if (grime > 0) soot(surface, grime, h, dx, dy, s, level)
                 val zone = map.zone[i]
                 if (zone != Zone.NONE && map.building[i] == 0) zoneTint(surface, zone, tx, ty, dx, dy, s, level)
-                if (map.road[i] != Road.NONE) surface.blend(base + Atlas.ROAD + roadMask(tx, ty), dx, dy)
+                if (road != null) roadTile(surface, base, road, i, tx, ty, roadMask(tx, ty), dx, dy, level)
             }
         }
 
@@ -248,8 +263,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             if (type != 0) {
                 val (ax, ay) = anchor(tx, ty)
                 if (ax != tx || ty != bottom(tx, ty)) continue
-                val id = BuildingSprites.sprite(type - 1, map.buildingVariant[i].toInt())
-                surface.blend(base + id, (ax - x0) * s, (ay - y0) * s)
+                surface.blend(base + buildingSprite(ax, ay), (ax - x0) * s, (ay - y0) * s)
                 continue
             }
             if (map.terrain[i] == Terrain.TREES) {
@@ -291,12 +305,44 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         if (type != 0) {
             val (ax, ay) = anchor(tx, ty)
             if (anchorOnly && (ax != tx || ay != ty)) return null
-            return BuildingSprites.sprite(type - 1, map.buildingVariant[i].toInt())
+            return buildingSprite(ax, ay)
         }
         if (map.terrain[i] == Terrain.TREES) return treeSprite(tx, ty)
         if (map.power[i] != Power.NONE) return Atlas.POWER_LINE + powerMask(tx, ty)
         return null
     }
+
+    /**
+     * The sprite for the building whose top left tile is [x], [y]. When the
+     * building next to it on the west or north is the same type and shows the
+     * same variant, it takes its next variant instead, so a row of them varies.
+     */
+    private fun buildingSprite(x: Int, y: Int): Int {
+        val type = map.buildingType[map.index(x, y)].toInt() - 1
+        return BuildingSprites.sprite(type, shownVariant(x, y, type, BuildingSprites.variants(type)))
+    }
+
+    /**
+     * The variant shown on [x], [y], which follows from those shown to its west
+     * and north, so it's worked out from the north-west and remembered for the
+     * bake. The same map always gives the same answer, whichever chunk asks.
+     */
+    private fun shownVariant(x: Int, y: Int, type: Int, n: Int): Int {
+        val i = map.index(x, y)
+        var v = (map.buildingVariant[i].toInt() and 0xff) % n
+        if (n == 1) return v
+        shown[i]?.let { return it }
+        val west = if (sameType(x - 1, y, type)) shownVariant(x - 1, y, type, n) else -1
+        val north = if (sameType(x, y - 1, type)) shownVariant(x, y - 1, type, n) else -1
+        repeat(n) { if (v == west || v == north) v = (v + 1) % n }
+        shown[i] = v
+        return v
+    }
+
+    private fun sameType(x: Int, y: Int, type: Int) = map.inside(x, y) && map.buildingType[map.index(x, y)].toInt() - 1 == type
+
+    /** Variants worked out during one bake. */
+    private val shown = HashMap<Int, Int>()
 
     /** The top left tile of the building on [x], [y]. */
     private fun anchor(x: Int, y: Int): Pair<Int, Int> {
@@ -342,6 +388,40 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             val py = ((h ushr (k * 2 + 1)) + k * 11) % (s - patch + 1)
             surface.fill(dx + px, dy + py, patch, patch, DIRT, 150)
         }
+    }
+
+    /**
+     * A road tile in its type's art. A boulevard gets half its median on the
+     * side it shares with the other carriageway, except where a road crosses,
+     * and one-way roads get an arrow every few tiles along straight runs.
+     */
+    private fun roadTile(surface: BakeSurface, base: Int, type: RoadType, i: Int, tx: Int, ty: Int, mask: Int, dx: Int, dy: Int, level: Int) {
+        surface.blend(base + roadArt(type) + mask, dx, dy)
+        val heading = map.roadHeading[i].toInt()
+        if (heading == 0) return
+        if (type.width == 2) {
+            // To the left of the way it runs, and the right.
+            val left = (heading + 2) % 4 + 1
+            val right = Heading.opposite(left)
+            val lx = tx + Heading.DX[left]
+            val ly = ty + Heading.DY[left]
+            val paired = map.inside(lx, ly) && map.roadHeading[map.index(lx, ly)].toInt() == Heading.opposite(heading)
+            // No median where a road crosses or where the boulevard ends, since traffic turns there.
+            val crossed = road(tx + Heading.DX[right], ty + Heading.DY[right])
+            val end = !road(tx + Heading.DX[heading], ty + Heading.DY[heading]) || !road(tx - Heading.DX[heading], ty - Heading.DY[heading])
+            if (paired && !crossed && !end) surface.blend(base + Atlas.MEDIAN + left - 1, dx, dy)
+        }
+        val along = if (heading == Heading.NORTH.toInt() || heading == Heading.SOUTH.toInt()) ty else tx
+        val straight = mask == 5 || mask == 10 || (type.width == 2 && (mask == 7 || mask == 13 || mask == 11 || mask == 14))
+        if (level < 2 && straight && along % ARROW_EVERY == 0) surface.blend(base + Atlas.ARROW + heading - 1, dx, dy)
+    }
+
+    private fun roadArt(road: RoadType): Int = when (road) {
+        RoadType.DIRT -> Atlas.ROAD_DIRT
+        RoadType.GRAVEL -> Atlas.ROAD_GRAVEL
+        RoadType.LANE -> Atlas.ROAD_LANE
+        RoadType.STREET, RoadType.ONE_WAY_STREET -> Atlas.ROAD_STREET
+        RoadType.AVENUE, RoadType.ONE_WAY_AVENUE, RoadType.BOULEVARD -> Atlas.ROAD_AVENUE
     }
 
     /** Which neighbours are road: north 1, east 2, south 4, west 8. */
@@ -518,6 +598,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
 
         /** How many rows below a chunk have sprites tall enough to reach into it. */
         const val SPRITE_ROWS = 3
+
+        /** One-way roads get an arrow every this many tiles. */
+        private const val ARROW_EVERY = 3
 
         const val CHUNK = 16
         const val TILE = 32

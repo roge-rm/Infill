@@ -137,7 +137,7 @@ class GrowthTest {
     @Test
     fun yearByYear() {
         val c = town()
-        println("year  people  workers  shops  industry  demand R/C/I      income  upkeep  funds   crime  value")
+        println("year  people  workers  shops  industry  demand R/C/I      income  upkeep  funds   crime  value  jobless  commute  busiest")
         repeat(25) {
             c.run(1)
             val s = c.stats
@@ -146,7 +146,9 @@ class GrowthTest {
                     "${s.shopJobs.toString().padStart(5)}  ${s.industryJobs.toString().padStart(8)}  " +
                     "${s.residentialDemand}/${s.commercialDemand}/${s.industryDemand}".padEnd(16) +
                     "  ${s.income.toString().padStart(6)}  ${s.upkeep.toString().padStart(6)}  ${c.funds.toString().padStart(6)}" +
-                    "  ${s.crime.toString().padStart(5)}  ${s.landValue.toString().padStart(5)}",
+                    "  ${s.crime.toString().padStart(5)}  ${s.landValue.toString().padStart(5)}" +
+                    "  ${s.unemployment.toString().padStart(6)}%  ${s.commute.toString().padStart(4)} min" +
+                    "  ${(c.map.congestion.maxOf { it.toInt() and 0xff } * 100 / 128).toString().padStart(6)}%",
             )
         }
     }

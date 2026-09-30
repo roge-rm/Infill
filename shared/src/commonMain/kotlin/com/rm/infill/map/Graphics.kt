@@ -24,6 +24,13 @@ class Graphics(val level: GraphicsLevel) {
         GraphicsLevel.High -> 1f
     }
 
+    /** How many carts and cars there can be in a lane on one tile of road. */
+    val vehicles = when (level) {
+        GraphicsLevel.Low -> 0
+        GraphicsLevel.Medium -> 1
+        GraphicsLevel.High -> 3
+    }
+
     /** The sharpest atlas used: 0 is 32 px a tile, 1 is 16. */
     val sharpest = if (level == GraphicsLevel.Low) 1 else 0
 

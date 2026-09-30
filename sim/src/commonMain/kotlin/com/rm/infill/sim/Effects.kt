@@ -59,8 +59,8 @@ internal object Effects {
 
     /**
      * Land value, 0 to 255: water, trees and parks nearby, being near the shops
-     * and on a road, and police and fire cover raise it; pollution, crime and
-     * industry next door lower it.
+     * and on a road, and police and fire cover raise it; pollution, crime,
+     * industry next door and busy roads lower it.
      */
     fun landValue(map: CityMap, buildingTypes: (Int) -> BuildingType?, nearRoad: BooleanArray, out: ByteArray) {
         val w = map.width
@@ -70,6 +70,7 @@ internal object Effects {
         val parks = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.PARK) 1 else 0 }
         val shops = SummedArea(w, h) { buildingTypes(it)?.let { t -> if (t.zone == Zone.COMMERCIAL) t.capacity else 0 } ?: 0 }
         val industry = SummedArea(w, h) { if (buildingTypes(it)?.zone == Zone.INDUSTRIAL) 1 else 0 }
+        val traffic = SummedArea(w, h) { map.congestion[it].toInt() and 0xff }
         for (y in 0 until h) for (x in 0 until w) {
             val i = y * w + x
             if (map.terrain[i] == Terrain.WATER) {
@@ -86,6 +87,8 @@ internal object Effects {
             v -= (map.pollution[i].toInt() and 0xff) / 2
             v -= (map.crime[i].toInt() and 0xff) / 3
             if (industry.around(x, y, 2) > 0 && buildingTypes(i)?.zone != Zone.INDUSTRIAL) v -= 15
+            // The noise of busy roads.
+            v -= min(20, traffic.around(x, y, 1) / 48)
             out[i] = v.coerceIn(0, 255).toByte()
         }
     }

@@ -55,6 +55,8 @@ class SaveTest {
             loaded.tick()
         }
         assertEquals(original.fingerprint(), loaded.fingerprint())
+        assertTrue(original.map.congestion.contentEquals(loaded.map.congestion), "congestion")
+        assertTrue(original.map.commute.contentEquals(loaded.map.commute), "commutes")
         assertEquals(original.weather.temperature, loaded.weather.temperature)
         assertEquals(original.weather.snowCover, loaded.weather.snowCover)
     }

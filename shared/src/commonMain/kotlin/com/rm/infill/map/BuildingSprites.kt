@@ -32,6 +32,9 @@ internal object BuildingSprites {
         }
     }
 
-    /** The sprite for a building type's ordinal and its variant, within a look. */
-    fun sprite(type: Int, variant: Int): Int = first[type] + (variant and 0xff) % count[type]
+    /** How many ways a building type's ordinal can look. */
+    fun variants(type: Int): Int = count[type]
+
+    /** The sprite for a building type's ordinal and one of its [variants], within a look. */
+    fun sprite(type: Int, variant: Int): Int = first[type] + variant % count[type]
 }

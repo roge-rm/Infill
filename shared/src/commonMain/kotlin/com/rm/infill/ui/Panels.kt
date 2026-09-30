@@ -59,7 +59,10 @@ import com.rm.infill.res.inspect_power_line
 import com.rm.infill.res.jobs
 import com.rm.infill.res.no_power
 import com.rm.infill.res.residents
-import com.rm.infill.res.inspect_dirt_road
+import com.rm.infill.res.inspect_bridge
+import com.rm.infill.res.inspect_commute
+import com.rm.infill.res.inspect_no_commute
+import com.rm.infill.res.inspect_traffic
 import com.rm.infill.res.inspect_grass
 import com.rm.infill.res.inspect_tile
 import com.rm.infill.res.inspect_trees
@@ -69,7 +72,7 @@ import com.rm.infill.res.inspect_zone_industrial
 import com.rm.infill.res.inspect_zone_residential
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.Power
-import com.rm.infill.sim.Road
+import com.rm.infill.sim.RoadType
 import com.rm.infill.sim.Terrain
 import com.rm.infill.sim.Zone
 import com.rm.infill.ui.theme.Infill
@@ -139,11 +142,18 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 add(stringResource(if (map.powered[i]) Res.string.has_power else Res.string.no_power))
             }
             if (building.burning > 0) add(stringResource(Res.string.on_fire))
+            when (val commute = map.commute[i].toInt() and 0xff) {
+                0 -> {}
+                255 -> add(stringResource(Res.string.inspect_no_commute))
+                // Half minutes, from one up.
+                else -> add(stringResource(Res.string.inspect_commute, maxOf(1, (commute - 1) / 2)))
+            }
         } else {
+            val road = RoadType.of(map.road[i])
             add(
                 stringResource(
                     when {
-                        map.road[i] == Road.DIRT -> Res.string.inspect_dirt_road
+                        road != null -> roadName(road)
                         map.power[i] != Power.NONE -> Res.string.inspect_power_line
                         map.terrain[i] == Terrain.WATER -> Res.string.inspect_water
                         map.terrain[i] == Terrain.TREES -> Res.string.inspect_trees
@@ -151,6 +161,10 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                     },
                 ),
             )
+            if (road != null) {
+                if (map.terrain[i] == Terrain.WATER) add(stringResource(Res.string.inspect_bridge))
+                add(stringResource(Res.string.inspect_traffic, level(map.congestion[i].toInt() and 0xff)))
+            }
             when (map.zone[i]) {
                 Zone.RESIDENTIAL -> add(stringResource(Res.string.inspect_zone_residential))
                 Zone.COMMERCIAL -> add(stringResource(Res.string.inspect_zone_commercial))

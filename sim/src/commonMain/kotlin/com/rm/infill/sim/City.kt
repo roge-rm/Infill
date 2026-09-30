@@ -88,14 +88,28 @@ class City(
         var cost = 0L
         val m = map
         when (action) {
-            is Action.BuildRoad -> for (i in action.tiles) {
-                when {
-                    !inMap(i) -> {}
-                    m.terrain[i] == Terrain.WATER || m.building[i] != 0 -> blocked += i
-                    m.road[i] != Road.NONE -> {}
-                    else -> {
-                        changes += i
-                        cost += Prices.DIRT_ROAD + clearing(i)
+            is Action.BuildRoad -> {
+                val layout = roadLayout(action)
+                val type = action.type
+                for (k in layout.tiles.indices) {
+                    val i = layout.tiles[k]
+                    val run = layout.runs[k].toInt()
+                    val old = RoadType.of(m.road[i])
+                    val bridge = if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
+                    when {
+                        m.building[i] != 0 -> blocked += i
+                        bridge > 1 && (!type.bridges || layout.turns[k]) -> blocked += i
+                        old == null -> {
+                            changes += i
+                            cost += type.price * bridge + clearing(i)
+                        }
+                        old == type && (layout.headings[k] == m.roadHeading[i] || across(run, m.roadHeading[i].toInt())) -> {}
+                        // A road drawn across a better one leaves the crossing as it is.
+                        old.capacity > type.capacity && crossing(i, run) -> {}
+                        else -> {
+                            changes += i
+                            cost += max(Prices.REMOVE_ROAD, type.price - old.price) * bridge
+                        }
                     }
                 }
             }
@@ -166,7 +180,7 @@ class City(
                         return@forRect
                     }
                     var c = 0L
-                    if (m.road[i] != Road.NONE) c += Prices.REMOVE_ROAD
+                    if (m.road[i] != Road.NONE) c += Prices.REMOVE_ROAD * if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
                     if (m.power[i] != Power.NONE) c += Prices.REMOVE_LINE
                     if (m.terrain[i] == Terrain.TREES) c += Prices.CLEAR_TREES
                     if (c > 0 || m.zone[i] != Zone.NONE) {
@@ -186,6 +200,71 @@ class City(
     }
 
     private fun clearing(i: Int) = if (map.terrain[i] == Terrain.TREES) Prices.CLEAR_TREES else 0L
+
+    /**
+     * The tiles a road goes on, the way it was drawn through each, the heading
+     * each gets (only one-way roads have one) and whether it turns there.
+     */
+    private class RoadLayout(val tiles: IntArray, val runs: ByteArray, val headings: ByteArray, val turns: BooleanArray)
+
+    /**
+     * Where a drawn road goes. Each tile runs the way the drawing went through
+     * it, if the road is one-way. A two-wide road is drawn along its right-hand
+     * carriageway, stops at the first turn, and gets the other carriageway on
+     * its left running back the other way.
+     */
+    private fun roadLayout(action: Action.BuildRoad): RoadLayout {
+        val path = action.tiles.filter { inMap(it) }
+        val w = map.width
+        fun step(k: Int): Byte {
+            if (path.size < 2) return Heading.BOTH
+            val a = path[max(0, k - 1)]
+            val b = path[max(1, k)]
+            return Heading.of(b % w - a % w, b / w - a / w)
+        }
+        val tiles = ArrayList<Int>()
+        val runs = ArrayList<Byte>()
+        val headings = ArrayList<Byte>()
+        val turns = ArrayList<Boolean>()
+        val type = action.type
+        for (k in path.indices) {
+            val h = step(k)
+            if (type.width == 2 && h != step(0)) break
+            tiles += path[k]
+            runs += h
+            headings += if (type.oneWay) h else Heading.BOTH
+            turns += type.width == 1 && k + 1 < path.size && step(k + 1) != h
+        }
+        if (type.width == 2) {
+            val n = tiles.size
+            if (path.size < 2) return RoadLayout(IntArray(0), ByteArray(0), ByteArray(0), BooleanArray(0))
+            for (k in 0 until n) {
+                val h = runs[k].toInt()
+                // To the left of the way it runs.
+                val x = tiles[k] % w + Heading.DY[h]
+                val y = tiles[k] / w - Heading.DX[h]
+                if (!map.inside(x, y)) continue
+                tiles += map.index(x, y)
+                runs += Heading.opposite(h).toByte()
+                headings += Heading.opposite(h).toByte()
+                turns += false
+            }
+        }
+        return RoadLayout(tiles.toIntArray(), runs.toByteArray(), headings.toByteArray(), turns.toBooleanArray())
+    }
+
+    /** Whether two headings run at right angles. */
+    private fun across(a: Int, b: Int) = a != 0 && b != 0 && (a + b) % 2 == 1
+
+    /** Whether the tile is part of a road running across [heading]: road on both sides of it. */
+    private fun crossing(i: Int, heading: Int): Boolean {
+        if (heading == 0) return false
+        val side = heading % 4 + 1
+        val x = i % map.width
+        val y = i / map.width
+        fun road(dx: Int, dy: Int) = map.inside(x + dx, y + dy) && map.road[map.index(x + dx, y + dy)] != Road.NONE
+        return road(Heading.DX[side], Heading.DY[side]) && road(-Heading.DX[side], -Heading.DY[side])
+    }
 
     /**
      * What an action changed, tile by tile, and the buildings it put up or took
@@ -215,10 +294,16 @@ class City(
         val added = ArrayList<Building>()
         val removed = ArrayList<Building>()
         when (action) {
-            is Action.BuildRoad -> for (i in plan.changes) {
-                m.road[i] = Road.DIRT
-                m.zone[i] = Zone.NONE
-                clearTrees(i)
+            is Action.BuildRoad -> {
+                val layout = roadLayout(action)
+                val heading = HashMap<Int, Byte>()
+                for (k in layout.tiles.indices) heading[layout.tiles[k]] = layout.headings[k]
+                for (i in plan.changes) {
+                    m.road[i] = action.type.id
+                    m.roadHeading[i] = heading[i] ?: Heading.BOTH
+                    m.zone[i] = Zone.NONE
+                    clearTrees(i)
+                }
             }
             is Action.BuildPowerLine -> for (i in plan.changes) {
                 m.power[i] = Power.LINE
@@ -236,6 +321,7 @@ class City(
             is Action.Bulldoze -> for (i in plan.changes) {
                 buildings[m.building[i]]?.let { removed += it; removeBuilding(it) }
                 m.road[i] = Road.NONE
+                m.roadHeading[i] = Heading.BOTH
                 m.zone[i] = Zone.NONE
                 m.power[i] = Power.NONE
                 clearTrees(i)
@@ -343,6 +429,7 @@ class City(
         for (b in buildings.values) b.age++
         burnDay()
         growDay()
+        traffic.sendDay(day, daysIn(month, year))
         if (day % Balance.WEATHER_DAYS == 1) weather.nextDay(month, day, daysIn(month, year), Balance.WEATHER_DAYS)
         day++
         if (day > daysIn(month, year)) {
@@ -366,6 +453,7 @@ class City(
         updateGrime()
         updateServices()
         census()
+        startTraffic()
         Effects.crime(
             map, { i -> buildings[map.building[i]]?.let { if (it.type.zone == Zone.RESIDENTIAL) it.type.capacity else 0 } ?: 0 },
             { i -> map.building[i] != 0 }, stats.unemployment, map.crime,
@@ -375,6 +463,75 @@ class City(
         demand()
         money()
         record()
+    }
+
+    // ---- traffic ----------------------------------------------------------------
+
+    private val traffic = Traffic(map)
+
+    /** The road tile a building is reached from, or -1. */
+    private fun accessOf(b: Building): Int {
+        var node = -1
+        forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { i -> if (node < 0) node = access[i] }
+        return node
+    }
+
+    /**
+     * Ends last month's trips and sets out this month's: workers from homes to
+     * jobs, shoppers to shops, freight from works to the edge of the map.
+     * Workers who couldn't get to a job count as out of work, and each home
+     * learns how long its commute was.
+     */
+    private fun startTraffic() {
+        val n = map.size
+        val workersAt = IntArray(n)
+        val shoppersAt = IntArray(n)
+        val freightAt = IntArray(n)
+        val jobsAt = IntArray(n)
+        val shopsAt = IntArray(n)
+        for (b in buildings.values) {
+            val node = accessOf(b)
+            if (node < 0) continue
+            val c = b.type.capacity
+            when (b.type.zone) {
+                Zone.RESIDENTIAL -> {
+                    workersAt[node] += (c * Balance.LABOUR_SHARE).toInt()
+                    shoppersAt[node] += c / Balance.RESIDENTS_PER_SHOPPER
+                }
+                Zone.COMMERCIAL -> {
+                    jobsAt[node] += c
+                    shopsAt[node] += c * Balance.SHOPPERS_PER_SHOP_JOB
+                }
+                Zone.INDUSTRIAL -> {
+                    jobsAt[node] += c
+                    freightAt[node] += c * Balance.FREIGHT_PER_TEN_JOBS / 10
+                }
+                else -> jobsAt[node] += c
+            }
+        }
+        traffic.newMonth(workersAt, shoppersAt, freightAt, jobsAt, shopsAt, year * 12 + month)
+
+        val s = stats
+        if (traffic.workersSent > 0) {
+            val stranded = (traffic.workersSent - traffic.workersPlaced) * 100 / traffic.workersSent
+            s.unemployment = max(s.unemployment, stranded)
+        }
+        map.commute.fill(0)
+        var total = 0L
+        var people = 0
+        for (b in buildings.values) {
+            if (b.type.zone != Zone.RESIDENTIAL) continue
+            val node = accessOf(b)
+            val seconds = if (node < 0) -1 else traffic.commute[node]
+            if (seconds == 0) continue
+            val v = if (seconds < 0) 255 else min(254, 1 + seconds / 30)
+            forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { map.commute[it] = v.toByte() }
+            if (seconds > 0) {
+                total += seconds.toLong() * b.type.capacity
+                people += b.type.capacity
+            }
+        }
+        s.commute = if (people == 0) 0 else (total / people / 60).toInt()
     }
 
     // ---- services and fires ----------------------------------------------------
@@ -469,6 +626,9 @@ class City(
     /** Tiles within reach of a road, where zoned land can grow. */
     private val nearRoad = BooleanArray(map.size)
 
+    /** The road tile each tile is reached from, the nearest within reach, or -1. */
+    private val access = IntArray(map.size)
+
     /** A road reaches the edge of the map, so the town can trade with the outside. */
     var connected = false
         private set
@@ -480,24 +640,44 @@ class City(
     private fun updateNetworks() {
         networksDirty = false
         val m = map
-        val r = Balance.ROAD_REACH
-        nearRoad.fill(false)
         connected = false
-        for (y in 0 until m.height) for (x in 0 until m.width) {
-            if (m.road[m.index(x, y)] == Road.NONE) continue
+        // Out from every road tile at once, a step at a time, so each tile gets the nearest.
+        access.fill(-1)
+        val steps = IntArray(m.size)
+        val queue = IntArray(m.size)
+        var head = 0
+        var tail = 0
+        for (i in 0 until m.size) {
+            if (m.road[i] == Road.NONE) continue
+            val x = i % m.width
+            val y = i / m.width
             if (x == 0 || y == 0 || x == m.width - 1 || y == m.height - 1) connected = true
-            for (dy in -r..r) for (dx in -r..r) {
-                if (abs(dx) + abs(dy) > r || !m.inside(x + dx, y + dy)) continue
-                nearRoad[m.index(x + dx, y + dy)] = true
+            access[i] = i
+            queue[tail++] = i
+        }
+        while (head < tail) {
+            val i = queue[head++]
+            if (steps[i] == Balance.ROAD_REACH) continue
+            val x = i % m.width
+            val y = i / m.width
+            for (k in 0 until 4) {
+                val nx = x + DX[k]
+                val ny = y + DY[k]
+                if (!m.inside(nx, ny)) continue
+                val j = m.index(nx, ny)
+                if (access[j] >= 0) continue
+                access[j] = access[i]
+                steps[j] = steps[i] + 1
+                queue[tail++] = j
             }
         }
+        for (i in 0 until m.size) nearRoad[i] = access[i] >= 0
         // Power spreads from the power stations along lines, through buildings and
         // across zoned land, so a line along the back of a zone powers all of it.
         val powered = m.powered
         powered.fill(false)
-        val queue = IntArray(m.size)
-        var head = 0
-        var tail = 0
+        head = 0
+        tail = 0
         for (b in buildings.values) {
             if (b.type != BuildingType.COAL_PLANT) continue
             forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { i ->
@@ -665,6 +845,7 @@ class City(
                 var industry = false
                 around(x, y, 2) { j, _ -> if (buildings[m.building[j]]?.type?.zone == Zone.INDUSTRIAL) industry = true }
                 score += 35 + value / 3 - crime / 5 - pollution / 3 - if (industry) 10 else 0
+                score -= commutePenalty(m.commute[i].toInt() and 0xff)
             }
             Zone.COMMERCIAL -> {
                 var people = 0
@@ -673,14 +854,24 @@ class City(
                     if (b != null && b.type.zone == Zone.RESIDENTIAL) people += b.type.capacity
                 }
                 score += 28 + value / 4 + min(people / 8, 30) - crime / 6 - pollution / 5
+                // Passing trade.
+                if (access[i] >= 0) score += min(Balance.PASSING_TRADE, traffic.lastVolume[access[i]] / Balance.TRIPS_PER_PASSING_POINT)
             }
             Zone.INDUSTRIAL -> {
                 var water = false
                 around(x, y, 3) { j, _ -> if (m.terrain[j] == Terrain.WATER) water = true }
                 score += 50 + (if (water) 5 else 0) - crime / 8
+                if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
             }
         }
         return score
+    }
+
+    /** How much a long commute puts people off, from the commute layer's half minutes. */
+    private fun commutePenalty(c: Int): Int = when (c) {
+        0 -> 0
+        255 -> Balance.NO_COMMUTE
+        else -> min(Balance.LONG_COMMUTE, max(0, (c - 1) / 2 - Balance.FINE_COMMUTE) / 2)
     }
 
     private inline fun around(x: Int, y: Int, r: Int, each: (Int, Int) -> Unit) {
@@ -813,13 +1004,14 @@ class City(
         s.residentialIncome = (homes * residentialTax * Balance.RESIDENT_TAX).roundToLong()
         s.commercialIncome = (shops * commercialTax * Balance.JOB_TAX).roundToLong()
         s.industrialIncome = (works * industrialTax * Balance.JOB_TAX).roundToLong()
-        var roads = 0
+        var roads = 0.0
         var lines = 0
         for (i in 0 until map.size) {
-            if (map.road[i] != Road.NONE) roads++
+            val road = RoadType.of(map.road[i])
+            if (road != null) roads += road.upkeep * if (map.terrain[i] == Terrain.WATER) Balance.BRIDGE_UPKEEP else 1.0
             if (map.power[i] != Power.NONE) lines++
         }
-        s.roadUpkeep = (roads * Balance.ROAD_UPKEEP + lines * Balance.LINE_UPKEEP).roundToLong()
+        s.roadUpkeep = (roads + lines * Balance.LINE_UPKEEP).roundToLong()
         s.powerUpkeep = (plants * Balance.PLANT_UPKEEP).roundToLong()
         s.policeUpkeep = (police * Balance.POLICE_UPKEEP * policeFunding / 100).roundToLong()
         s.fireUpkeep = (fire * Balance.FIRE_UPKEEP * fireFunding / 100).roundToLong()
@@ -894,12 +1086,16 @@ class City(
         for (b in buildings.values) {
             w.int(b.id); w.string(b.type.name); w.int(b.x); w.int(b.y); w.int(b.variant); w.int(b.age); w.int(b.burning)
         }
+        // Since version 2.
+        w.layer(map.roadHeading); w.layer(map.congestion); w.layer(map.commute)
+        w.int(stats.commute)
+        traffic.writeTo(w)
     }
 
     companion object {
         internal fun readSummary(r: SaveReader) = SaveSummary(r.string(), r.int(), r.int(), r.int(), r.long())
 
-        internal fun readFrom(r: SaveReader): City {
+        internal fun readFrom(r: SaveReader, version: Int): City {
             val name = r.string()
             val year = r.int()
             val month = r.int()
@@ -944,6 +1140,11 @@ class City(
                 c.buildings[b.id] = b
                 c.stamp(b)
             }
+            if (version >= 2) {
+                r.layer(m.roadHeading); r.layer(m.congestion); r.layer(m.commute)
+                s.commute = r.int()
+                c.traffic.readFrom(r)
+            }
             c.networksChanged()
             return c
         }
@@ -976,8 +1177,11 @@ class Stats {
     var shopJobs = 0
     var industryJobs = 0
     var otherJobs = 0
-    /** Percent of workers without a job. */
+    /** Percent of workers without a job, or without a way to get to one. */
     var unemployment = 0
+
+    /** The average commute in minutes. */
+    var commute = 0
     var residentialDemand = 0
     var commercialDemand = 0
     var industryDemand = 0

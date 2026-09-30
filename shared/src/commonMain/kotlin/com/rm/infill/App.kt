@@ -67,6 +67,10 @@ import com.rm.infill.ui.ToolDrag
 import com.rm.infill.ui.ZoneKind
 import com.rm.infill.ui.OptionPicker
 import com.rm.infill.ui.PowerKind
+import com.rm.infill.ui.roadColour
+import com.rm.infill.ui.roadName
+import com.rm.infill.ui.roadsIn
+import com.rm.infill.sim.RoadType
 import com.rm.infill.ui.ServiceKind
 import com.rm.infill.ui.BudgetWindow
 import com.rm.infill.ui.GraphsWindow
@@ -253,6 +257,7 @@ private fun GameScreen(
         var tool by remember { mutableStateOf(Tool.Inspect) }
         var zoneKind by remember { mutableStateOf(ZoneKind.Residential) }
         var powerKind by remember { mutableStateOf(PowerKind.Line) }
+        var roadKind by remember { mutableStateOf(RoadType.DIRT) }
         var speed by remember { mutableIntStateOf(1) }
         var drag by remember { mutableStateOf<ToolDrag?>(null) }
         var inspected by remember { mutableStateOf<Pair<Int, Int>?>(null) }
@@ -341,8 +346,8 @@ private fun GameScreen(
         }
 
         // What the drag would do, worked out again as it moves.
-        val preview = remember(drag, tool, zoneKind, powerKind, serviceKind, game.revision) {
-            drag?.let { d -> d.action(tool, zoneKind, powerKind, serviceKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) } }
+        val preview = remember(drag, tool, zoneKind, powerKind, serviceKind, roadKind, game.revision) {
+            drag?.let { d -> d.action(tool, zoneKind, powerKind, serviceKind, roadKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) } }
         }
         val costText = preview?.let {
             if (it.plan.problem == Problem.NotEnoughMoney) stringResource(Res.string.not_enough_money)
@@ -352,6 +357,10 @@ private fun GameScreen(
         fun pick(t: Tool) {
             // Picking the zone tool again moves on to the next kind of zone.
             if (t == Tool.Zone && tool == Tool.Zone) zoneKind = ZoneKind.entries[(zoneKind.ordinal + 1) % ZoneKind.entries.size]
+            if (t == Tool.Road && tool == Tool.Road) {
+                val roads = roadsIn(city.year)
+                roadKind = roads[(roads.indexOf(roadKind) + 1) % roads.size]
+            }
             if (t == Tool.Power && tool == Tool.Power) powerKind = PowerKind.entries[(powerKind.ordinal + 1) % PowerKind.entries.size]
             if (t == Tool.Services && tool == Tool.Services) serviceKind = ServiceKind.entries[(serviceKind.ordinal + 1) % ServiceKind.entries.size]
             tool = t
@@ -401,7 +410,7 @@ private fun GameScreen(
             onToolUp = {
                 val d = drag
                 drag = null
-                val action = d?.action(tool, zoneKind, powerKind, serviceKind, city.map)
+                val action = d?.action(tool, zoneKind, powerKind, serviceKind, roadKind, city.map)
                 if (action != null) tell(game.apply(action).problem)
             },
             onToolCancel = { drag = null },
@@ -528,6 +537,9 @@ private fun GameScreen(
                 inspected?.let { (x, y) -> InspectPanel(game, x, y, onClose = { inspected = null }) }
                 if (tool == Tool.Zone) {
                     OptionPicker(ZoneKind.entries, zoneKind, { it.title }, { zoneColour(it.zone) }, { zoneKind = it }, compactTools)
+                }
+                if (tool == Tool.Road) {
+                    OptionPicker(roadsIn(city.year), roadKind, { roadName(it) }, { roadColour(it) }, { roadKind = it }, compactTools)
                 }
                 if (tool == Tool.Power) {
                     OptionPicker(PowerKind.entries, powerKind, { it.title }, { null }, { powerKind = it }, compactTools)

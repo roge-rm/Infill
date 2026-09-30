@@ -11,7 +11,7 @@ class SaveError(message: String) : Exception(message)
  * map's copy of each building) is worked out again on loading.
  */
 object SaveGame {
-    const val VERSION = 1
+    const val VERSION = 2
     private const val MAGIC = 0x494E464C // "INFL"
 
     fun write(city: City): ByteArray {
@@ -28,7 +28,7 @@ object SaveGame {
             if (r.int() != MAGIC) throw SaveError("not a saved city")
             val version = r.int()
             if (version > VERSION) throw SaveError("saved by a newer version ($version)")
-            return City.readFrom(r)
+            return City.readFrom(r, version)
         } catch (e: IndexOutOfBoundsException) {
             throw SaveError("the file is cut short")
         }
