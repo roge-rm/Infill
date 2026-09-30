@@ -58,12 +58,35 @@ object Sky {
         }
     }
 
+    /**
+     * The hour at [progress] (0 to 1) through a month's day and night, starting
+     * an hour before sunrise. The daylight, with an hour of twilight either
+     * side, takes [DAY_SHARE] of the time whatever the season, so a winter
+     * month isn't mostly spent in the dark.
+     */
+    fun hourAt(progress: Float, month: Int): Float {
+        val (rise, set) = daylight(month)
+        val start = rise - 1f
+        val lit = set - rise + 2f
+        val p = progress.mod(1f)
+        val hour = if (p < DAY_SHARE) start + p / DAY_SHARE * lit
+        else start + lit + (p - DAY_SHARE) / (1f - DAY_SHARE) * (24f - lit)
+        return hour.mod(24f)
+    }
+
+    /** Sunrise and sunset in hours for [month]. */
+    private fun daylight(month: Int): Pair<Float, Float> {
+        val season = cos(2f * PI.toFloat() * (month - 5.5f) / 12f)
+        val halfDay = 6f + 2f * season
+        return (12f - halfDay) to (12f + halfDay)
+    }
+
+    private const val DAY_SHARE = 0.72f
+
     /** Elevation and azimuth in degrees. Below the horizon the elevation goes about 10° down an hour. */
     private fun position(hour: Float, month: Int): Pair<Float, Float> {
         val season = cos(2f * PI.toFloat() * (month - 5.5f) / 12f) // 1 at midsummer, -1 at midwinter
-        val halfDay = 6f + 2f * season
-        val rise = 12f - halfDay
-        val set = 12f + halfDay
+        val (rise, set) = daylight(month)
         val highest = 40f + 23f * season
         return when {
             hour < rise -> -(rise - hour) * 10f to 90f

@@ -60,8 +60,12 @@ class Weather(seed: Long, private val climate: Climate = Climate.TEMPERATE) {
     var windSpeed = 30
         private set
 
-    /** The next day's weather in [month], [day] of the month and [daysInMonth]. */
-    fun nextDay(month: Int, day: Int, daysInMonth: Int) {
+    /**
+     * The weather for the next [days] days from [day] of [month] (which has
+     * [daysInMonth]). Temperature and cloud move on once; snow builds and melts
+     * for all the days.
+     */
+    fun nextDay(month: Int, day: Int, daysInMonth: Int, days: Int = 1) {
         // The average blends into next month's over the second half of this one.
         val half = daysInMonth / 2
         val next = (month + 1) % 12
@@ -90,9 +94,9 @@ class Weather(seed: Long, private val climate: Climate = Climate.TEMPERATE) {
         windSpeed = (windSpeed + rng.nextInt(21) - 10).coerceIn(5, 90)
 
         // Snow lies when it falls below freezing, and melts with warmth, and faster in rain.
-        if (precipitation == Precipitation.Snow) snowCover = min(100, snowCover + intensity / 3 + 5)
+        if (precipitation == Precipitation.Snow) snowCover = min(100, snowCover + (intensity / 3 + 5) * days / 2 + 1)
         if (temperature > 0) {
-            val melt = temperature * 3 + if (precipitation == Precipitation.Rain) intensity / 4 else 0
+            val melt = (temperature * 3 + if (precipitation == Precipitation.Rain) intensity / 4 else 0) * days / 2 + 1
             snowCover = max(0, snowCover - melt)
         }
     }

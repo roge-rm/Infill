@@ -47,21 +47,21 @@ object Balance {
     const val FIRE_CHANCE_INDUSTRY = 80
 
     /** Chance in a hundred each day that a fire spreads to a building next to it. */
-    const val FIRE_SPREAD = 1
+    const val FIRE_SPREAD = 4
 
-    /**
-     * How many days a fire burns, and up to how many more. Longer than a real
-     * fire, so it's on screen for a few seconds even at the fastest speed.
-     */
-    const val FIRE_DAYS = 25
-    const val FIRE_DAYS_MORE = 20
+    /** How many days a fire burns, and up to how many more: a minute or two at normal speed. */
+    const val FIRE_DAYS = 3
+    const val FIRE_DAYS_MORE = 4
+
+    /** The weather changes every this many days: a few spells in each month's day and night. */
+    const val WEATHER_DAYS = 5
 
     /** Fire cover at which a burning building is saved, damaged, rather than lost. */
     const val FIRE_SAVED = 80
 
     /** Growth a month can't go past, as a share of what the zone has, with a floor for small towns. */
-    const val GROWTH_SHARE = 0.05
-    const val GROWTH_FLOOR = 12
+    const val GROWTH_SHARE = 0.2
+    const val GROWTH_FLOOR = 60
 
     /** How far a lot can be from a road and still grow, in tiles. */
     const val ROAD_REACH = 2
@@ -80,5 +80,5 @@ object Balance {
     )
 
     /** Days a building waits after growing before it grows again. */
-    const val SETTLE_DAYS = 60
+    const val SETTLE_DAYS = 20
 }

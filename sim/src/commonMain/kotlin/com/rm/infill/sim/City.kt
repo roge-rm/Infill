@@ -339,7 +339,7 @@ class City(
         for (b in buildings.values) b.age++
         burnDay()
         growDay()
-        weather.nextDay(month, day, daysIn(month, year))
+        if (day % Balance.WEATHER_DAYS == 1) weather.nextDay(month, day, daysIn(month, year), Balance.WEATHER_DAYS)
         day++
         if (day > daysIn(month, year)) {
             day = 1

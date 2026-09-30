@@ -115,12 +115,16 @@ fun App() {
         var viewSize by remember { mutableStateOf(Size.Zero) }
         val atlas = rememberTileAtlas()
 
-        // The day runs while the game does. Shadows move a step at a time and the light a little more often.
-        var hour by remember { mutableFloatStateOf(START_HOUR) }
-        LaunchedEffect(paused) {
-            while (!paused) {
-                delay(DAY_TICK_MS)
-                hour = (hour + 24f * DAY_TICK_MS / 1000f / DAY_SECONDS) % 24f
+        // How far the town is through the current game day, 0 to 1, between the sim's whole days.
+        var dayProgress by remember { mutableFloatStateOf(0f) }
+        var hourShift by remember { mutableFloatStateOf(0f) }
+        // Each month is one day and night, starting at dawn on the first. Shadows move a step
+        // at a time and the light a little more often, so the screen isn't redrawn every frame for it.
+        val hour by remember {
+            derivedStateOf {
+                game.revision
+                val days = City.daysIn(city.month, city.year)
+                (Sky.hourAt((city.day - 1 + dayProgress) / days, city.month) + hourShift).mod(24f)
             }
         }
         var lookOverride by remember { mutableIntStateOf(-1) }
@@ -155,13 +159,14 @@ fun App() {
         LaunchedEffect(paused, speed) {
             if (paused) return@LaunchedEffect
             var last = withFrameNanos { it }
-            var owed = 0.0
             while (true) {
                 val now = withFrameNanos { it }
-                owed += (now - last) / 1e9 * DAYS_PER_SECOND[speed]
+                val monthDays = City.daysIn(city.month, city.year)
+                var progress = dayProgress + ((now - last) / 1e9 * monthDays / SECONDS_PER_MONTH * SPEEDS[speed]).toFloat()
                 last = now
-                val days = min(owed.toInt(), MAX_DAYS_PER_FRAME)
-                owed = if (owed.toInt() > MAX_DAYS_PER_FRAME) 0.0 else owed - days
+                val days = min(progress.toInt(), MAX_DAYS_PER_FRAME)
+                progress = if (progress.toInt() > MAX_DAYS_PER_FRAME) 0f else progress - days
+                dayProgress = progress
                 game.tick(days) { e ->
                     val text = when (e.kind) {
                         EventKind.FireStarted -> Res.string.event_fire
@@ -290,8 +295,8 @@ fun App() {
                             }
                             KeyAction.DevSeasonBack -> lookOverride = (look + Atlas.LOOKS - 1) % Atlas.LOOKS
                             KeyAction.DevSeasonNext -> lookOverride = (look + 1) % Atlas.LOOKS
-                            KeyAction.DevHourBack -> hour = (hour + 24f - 24f / Sky.STEPS) % 24f
-                            KeyAction.DevHourNext -> hour = (hour + 24f / Sky.STEPS) % 24f
+                            KeyAction.DevHourBack -> hourShift -= 24f / Sky.STEPS
+                            KeyAction.DevHourNext -> hourShift += 24f / Sky.STEPS
                             KeyAction.DevFire -> inspected?.let { (x, y) -> city.startFireAt(x, y); game.tick(0) }
                             KeyAction.DevWeather -> weatherOverride = if (weatherOverride + 1 >= DEV_WEATHER.size) -1 else weatherOverride + 1
                             KeyAction.DevGraphics -> graphicsLevel = GraphicsLevel.entries[(graphicsLevel.ordinal + 1) % GraphicsLevel.entries.size]
@@ -312,7 +317,7 @@ fun App() {
             val sideTools = layout.large || layout.shape == ScreenShape.Wide
             val compactTools = layout.compact || layout.short || layout.narrow
             StatusStrip(
-                game, paused, { paused = !paused }, speed, { speed = (speed + 1) % DAYS_PER_SECOND.size },
+                game, paused, { paused = !paused }, speed, { speed = (speed + 1) % SPEEDS.size },
                 overlay != Overlay.None || choosingOverlay, { choosingOverlay = !choosingOverlay },
                 { budgetOpen = true }, { graphsOpen = true },
                 Sky.sun(sunStep, month).strength == 0f, layout.compact || layout.narrow,
@@ -408,16 +413,17 @@ private val DEV_WEATHER = listOf(
     WeatherLook.of(55, Precipitation.None, 0, true, 250, 10),
 )
 
-/** Game days a second at each speed, and the most days one frame will run. */
-private val DAYS_PER_SECOND = doubleArrayOf(3.0, 8.0, 20.0)
+/**
+ * A month is one day and night, and lasts this long at normal speed. Slow is
+ * half as fast and fast four times. No more than a few days run in one frame.
+ */
+private const val SECONDS_PER_MONTH = 600.0
+private val SPEEDS = doubleArrayOf(0.5, 1.0, 4.0)
 private const val MAX_DAYS_PER_FRAME = 4
 
 /** How long a message stays, and how far below the top bar it sits. */
 private const val MESSAGE_MS = 2500L
 private const val MESSAGE_DROP = 56
 
-/** A day lasts this many seconds of play, starting mid morning. */
-private const val DAY_SECONDS = 360f
-private const val START_HOUR = 9.5f
-private const val DAY_TICK_MS = 250L
+/** How often the light changes: this many times an hour of the game's day. */
 private const val LIGHT_STEPS_PER_HOUR = 8f
