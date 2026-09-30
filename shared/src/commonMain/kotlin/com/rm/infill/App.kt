@@ -24,6 +24,8 @@ import com.rm.infill.ui.StartScreen
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
@@ -58,6 +60,7 @@ import com.rm.infill.map.MapGestures
 import com.rm.infill.res.Res
 import com.rm.infill.res.money
 import com.rm.infill.res.not_enough_money
+import com.rm.infill.res.needs_track
 import com.rm.infill.res.nothing_to_undo
 import com.rm.infill.sim.Problem
 import com.rm.infill.ui.InspectPanel
@@ -67,6 +70,7 @@ import com.rm.infill.ui.ToolDrag
 import com.rm.infill.ui.ZoneKind
 import com.rm.infill.ui.OptionPicker
 import com.rm.infill.ui.PowerKind
+import com.rm.infill.ui.RailKind
 import com.rm.infill.ui.roadColour
 import com.rm.infill.ui.roadName
 import com.rm.infill.ui.roadsIn
@@ -258,6 +262,7 @@ private fun GameScreen(
         var zoneKind by remember { mutableStateOf(ZoneKind.Residential) }
         var powerKind by remember { mutableStateOf(PowerKind.Line) }
         var roadKind by remember { mutableStateOf(RoadType.DIRT) }
+        var railKind by remember { mutableStateOf(RailKind.Track) }
         var speed by remember { mutableIntStateOf(1) }
         var drag by remember { mutableStateOf<ToolDrag?>(null) }
         var inspected by remember { mutableStateOf<Pair<Int, Int>?>(null) }
@@ -265,6 +270,7 @@ private fun GameScreen(
         var serviceKind by remember { mutableStateOf(ServiceKind.Police) }
         var overlay by remember { mutableStateOf(Overlay.None) }
         var choosingOverlay by remember { mutableStateOf(false) }
+        var stripSize by remember { mutableStateOf(IntSize.Zero) }
         var budgetOpen by remember { mutableStateOf(false) }
         var graphsOpen by remember { mutableStateOf(false) }
         var paused by remember { mutableStateOf(true) }
@@ -346,11 +352,12 @@ private fun GameScreen(
         }
 
         // What the drag would do, worked out again as it moves.
-        val preview = remember(drag, tool, zoneKind, powerKind, serviceKind, roadKind, game.revision) {
-            drag?.let { d -> d.action(tool, zoneKind, powerKind, serviceKind, roadKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) } }
+        val preview = remember(drag, tool, zoneKind, powerKind, serviceKind, roadKind, railKind, game.revision) {
+            drag?.let { d -> d.action(tool, zoneKind, powerKind, serviceKind, roadKind, railKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) } }
         }
         val costText = preview?.let {
             if (it.plan.problem == Problem.NotEnoughMoney) stringResource(Res.string.not_enough_money)
+            else if (it.plan.problem == Problem.NeedsTrack) stringResource(Res.string.needs_track)
             else stringResource(Res.string.money, groupThousands(it.plan.cost))
         } ?: ""
 
@@ -361,6 +368,7 @@ private fun GameScreen(
                 val roads = roadsIn(city.year)
                 roadKind = roads[(roads.indexOf(roadKind) + 1) % roads.size]
             }
+            if (t == Tool.Rail && tool == Tool.Rail) railKind = RailKind.entries[(railKind.ordinal + 1) % RailKind.entries.size]
             if (t == Tool.Power && tool == Tool.Power) powerKind = PowerKind.entries[(powerKind.ordinal + 1) % PowerKind.entries.size]
             if (t == Tool.Services && tool == Tool.Services) serviceKind = ServiceKind.entries[(serviceKind.ordinal + 1) % ServiceKind.entries.size]
             tool = t
@@ -373,6 +381,7 @@ private fun GameScreen(
                 Problem.NotEnoughMoney -> Message(Res.string.not_enough_money)
                 Problem.TownBuiltThere -> Message(Res.string.town_built_there)
                 Problem.Blocked -> Message(Res.string.blocked)
+                Problem.NeedsTrack -> Message(Res.string.needs_track)
                 else -> message
             }
         }
@@ -410,7 +419,7 @@ private fun GameScreen(
             onToolUp = {
                 val d = drag
                 drag = null
-                val action = d?.action(tool, zoneKind, powerKind, serviceKind, roadKind, city.map)
+                val action = d?.action(tool, zoneKind, powerKind, serviceKind, roadKind, railKind, city.map)
                 if (action != null) tell(game.apply(action).problem)
             },
             onToolCancel = { drag = null },
@@ -452,6 +461,7 @@ private fun GameScreen(
                             KeyAction.ToolInspect -> pick(Tool.Inspect)
                             KeyAction.ToolBulldoze -> pick(Tool.Bulldoze)
                             KeyAction.ToolRoad -> pick(Tool.Road)
+                            KeyAction.ToolRail -> pick(Tool.Rail)
                             KeyAction.ToolZone -> pick(Tool.Zone)
                             KeyAction.ToolPower -> pick(Tool.Power)
                             KeyAction.ToolServices -> pick(Tool.Services)
@@ -499,6 +509,7 @@ private fun GameScreen(
                 Modifier
                     // Beside the tools rather than above them when they run down the side.
                     .align(if (sideTools && !layout.large) Alignment.TopCenter else Alignment.TopStart)
+                    .onSizeChanged { stripSize = it }
                     .windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                     .padding(gap),
             )
@@ -541,6 +552,9 @@ private fun GameScreen(
                 if (tool == Tool.Road) {
                     OptionPicker(roadsIn(city.year), roadKind, { roadName(it) }, { roadColour(it) }, { roadKind = it }, compactTools)
                 }
+                if (tool == Tool.Rail) {
+                    OptionPicker(RailKind.entries, railKind, { it.title }, { null }, { railKind = it }, compactTools)
+                }
                 if (tool == Tool.Power) {
                     OptionPicker(PowerKind.entries, powerKind, { it.title }, { null }, { powerKind = it }, compactTools)
                 }
@@ -559,12 +573,19 @@ private fun GameScreen(
                 }
             }
             if (layout.large) {
+                // Beside the top strip, or under it when the two don't fit across.
+                val density = LocalDensity.current
+                val stripWidth = with(density) { stripSize.width.toDp() }
+                val under = stripWidth + PANEL_WIDTH.dp + gap > maxWidth
                 CityPanel(
                     game,
                     Modifier
                         .align(Alignment.TopEnd)
-                        .windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.End))
-                        .padding(gap)
+                        .then(
+                            if (under) Modifier.padding(top = with(density) { stripSize.height.toDp() })
+                                .windowInsetsPadding(safe.only(WindowInsetsSides.End)).padding(horizontal = gap)
+                            else Modifier.windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.End)).padding(gap),
+                        )
                         .width(PANEL_WIDTH.dp),
                 )
             }

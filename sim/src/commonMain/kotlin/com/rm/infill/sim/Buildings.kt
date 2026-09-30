@@ -34,10 +34,25 @@ enum class BuildingType(
     POLICE_STATION(Zone.NONE, 0, 10, width = 2, height = 1),
     FIRE_STATION(Zone.NONE, 0, 12, width = 2, height = 2),
     PARK(Zone.NONE, 0, 0),
+
+    /** Stations and freight yards, placed beside the track, lying east to west or north to south. */
+    STATION(Zone.NONE, 0, 6, width = 3, height = 1),
+    STATION_NS(Zone.NONE, 0, 6, width = 1, height = 3),
+    FREIGHT_YARD(Zone.NONE, 0, 20, width = 3, height = 2, pollution = 6),
+    FREIGHT_YARD_NS(Zone.NONE, 0, 20, width = 2, height = 3, pollution = 6),
     ;
 
     /** A building the city runs rather than one that grows on zoned land. */
     val service get() = this == POLICE_STATION || this == FIRE_STATION || this == PARK
+
+    /** Passengers board here. */
+    val station get() = this == STATION || this == STATION_NS
+
+    /** Freight goes by train from here. */
+    val yard get() = this == FREIGHT_YARD || this == FREIGHT_YARD_NS
+
+    /** Has to go beside the track. */
+    val railway get() = station || yard
 
     val needsPower get() = stage >= 2
 

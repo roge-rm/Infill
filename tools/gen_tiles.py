@@ -1242,12 +1242,300 @@ def park(look, v):
     return b
 
 
+# ---- railway -------------------------------------------------------------------
+# Track is ballast, sleepers and two rails, joining its neighbours like a road
+# (north 1, east 2, south 4, west 8). Where it crosses a road, planks between
+# the rails and a crossbuck at two corners. Over water it runs on a timber
+# trestle. Stations and freight yards come in two looks for each side the track
+# can be on: north or south for those lying east to west, west or east for the
+# others.
+
+BALLAST = {look: [c("#8f877a"), c("#80786c"), c("#9c9588")] for look in LOOKS} | {"snow": [c("#e3e8ec"), c("#d4dbe1"), c("#eef2f5")]}
+SLEEPER = {look: c("#5e4a36") for look in LOOKS} | {"snow": c("#b9b2a6")}
+RAIL_STEEL = c("#a3a9ae")
+RAIL_SHADE = c("#5f6468")
+TRACK_LO, TRACK_HI = 8, 23
+RAIL_AT = (12, 19)
+CROSSING_PLANK = c("#a88c64")
+TRESTLE = c("#6a5238")
+TRESTLE_BENT = c("#4e3c29")
+PLATFORM = c("#bdb6a6")
+PLATFORM_EDGE = c("#e8e2d4")
+COAL = [c("#1e1e22"), c("#2a2a2f"), c("#35353b")]
+
+
+def sleepers_and_rails(px, mask, look, rng):
+    """Sleepers across, then the two rails along, each way the track goes."""
+    vertical = mask & 5 or mask == 0
+    horizontal = mask & 10
+    lo, hi = TRACK_LO + 1, TRACK_HI - 1
+    if vertical:
+        top = 0 if mask & 1 else TRACK_LO
+        bottom = T - 1 if mask & 4 else TRACK_HI
+        for y in range(top + 1, bottom + 1, 4):
+            for x in range(lo, hi + 1):
+                px[x, y] = SLEEPER[look]
+                if y + 1 <= bottom: px[x, y + 1] = shade(SLEEPER[look], 0.85)
+    if horizontal:
+        left = 0 if mask & 8 else TRACK_LO
+        right = T - 1 if mask & 2 else TRACK_HI
+        for x in range(left + 1, right + 1, 4):
+            for y in range(lo, hi + 1):
+                px[x, y] = SLEEPER[look]
+                if x + 1 <= right: px[x + 1, y] = shade(SLEEPER[look], 0.85)
+    for a in RAIL_AT:
+        if vertical:
+            top = 0 if mask & 1 else TRACK_LO + 1
+            bottom = T - 1 if mask & 4 else TRACK_HI - 1
+            for y in range(top, bottom + 1):
+                px[a, y] = RAIL_STEEL
+                px[a + 1, y] = RAIL_SHADE
+        if horizontal:
+            left = 0 if mask & 8 else TRACK_LO + 1
+            right = T - 1 if mask & 2 else TRACK_HI - 1
+            for x in range(left, right + 1):
+                px[x, a] = RAIL_STEEL
+                px[x, a + 1] = RAIL_SHADE
+
+
+def track(look, mask):
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    px = img.load()
+    rng = random.Random(6600 + mask)
+    inside = road_shape(mask, TRACK_LO, TRACK_HI)
+    cols = BALLAST[look]
+    for y in range(T):
+        for x in range(T):
+            if not inside(x, y):
+                continue
+            if near_edge(inside, x, y, 1) and rng.random() < 0.4:
+                continue  # a ragged edge to the ballast
+            r = rng.random()
+            px[x, y] = cols[0] if r < 0.6 else cols[1] if r < 0.85 else cols[2]
+    sleepers_and_rails(px, mask, look, rng)
+    return img
+
+
+def crossing(look, vertical):
+    """A level crossing drawn over the road: planks between and beside the rails, and two crossbucks."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    px = img.load()
+    d = ImageDraw.Draw(img)
+    for y in range(T):
+        for x in range(TRACK_LO + 1, TRACK_HI):
+            px[x, y] = PLANK_GAP if y % 3 == 2 else (SNOW_ROOF[1] if look == "snow" and y % 3 == 0 else CROSSING_PLANK)
+    for a in RAIL_AT:
+        for y in range(T):
+            px[a, y] = RAIL_STEEL
+            px[a + 1, y] = RAIL_SHADE
+    # Crossbucks on posts at two corners.
+    for cx, cy in ((3, 3), (27, 27)):
+        d.line([cx - 2, cy - 2, cx + 2, cy + 2], TRIM)
+        d.line([cx - 2, cy + 2, cx + 2, cy - 2], TRIM)
+        d.point((cx, cy + 3), OUTLINE)
+    return img if vertical else img.rotate(90)
+
+
+def trestle(vertical):
+    """A timber trestle carrying the track over water, with its bents and its shadow."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rectangle([TRACK_LO - 1, 0, TRACK_HI + 1, T - 1], TRESTLE)
+    for y in range(2, T, 8):
+        d.rectangle([TRACK_LO - 4, y, TRACK_HI + 4, y + 1], TRESTLE_BENT)
+    img = img if vertical else img.rotate(90)
+    out = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    out.paste(Image.new("RGBA", (T, T), DECK_SHADOW), (2, 2), img.split()[3])
+    out.alpha_composite(img)
+    return out
+
+
+def rail_siding(b, look, x0, y0, x1, y1):
+    """A siding inside a yard: ballast, sleepers and rails along the longer side of the box (tile pixels)."""
+    d = b.d
+    gx0, gy0 = b.ground(x0, y0)
+    gx1, gy1 = b.ground(x1, y1)
+    cols = BALLAST[look]
+    d.rectangle([gx0, gy0, gx1, gy1], cols[1])
+    horizontal = gx1 - gx0 >= gy1 - gy0
+    if horizontal:
+        for xx in range(gx0 + 1, gx1, 4):
+            d.line([xx, gy0 + 1, xx, gy1 - 1], SLEEPER[look])
+        for ry in (gy0 + 2, gy1 - 2):
+            d.line([gx0, ry, gx1, ry], RAIL_STEEL)
+    else:
+        for yy in range(gy0 + 1, gy1, 4):
+            d.line([gx0 + 1, yy, gx1 - 1, yy], SLEEPER[look])
+        for rx in (gx0 + 2, gx1 - 2):
+            d.line([rx, gy0, rx, gy1], RAIL_STEEL)
+
+
+def platform(b, look, x0, y0, x1, y1, edge_side):
+    """A stone platform on the ground, with a pale edge on the track side."""
+    d = b.d
+    gx0, gy0 = b.ground(x0, y0)
+    gx1, gy1 = b.ground(x1, y1)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_ROOF[0] if look == "snow" else PLATFORM)
+    for xx in range(gx0 + 4, gx1, 6):
+        if gy1 - gy0 < gx1 - gx0: d.line([xx, gy0, xx, gy1], shade(PLATFORM, 0.92))
+    if edge_side == "n": d.line([gx0, gy0, gx1, gy0], PLATFORM_EDGE)
+    if edge_side == "s": d.line([gx0, gy1, gx1, gy1], PLATFORM_EDGE)
+    if edge_side == "w": d.line([gx0, gy0, gx0, gy1], PLATFORM_EDGE)
+    if edge_side == "e": d.line([gx1, gy0, gx1, gy1], PLATFORM_EDGE)
+
+
+def platform_canopy(b, look, x0, y0, x1, y1, col):
+    """A platform canopy: a flat roof on posts, a storey up."""
+    roof, wall = b.box(x0, y0, x1, y1, STOREY)
+    d = b.d
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else col)
+    if look != "snow":
+        long_way = roof[2] - roof[0] >= roof[3] - roof[1]
+        if long_way:
+            d.line([roof[0] + 1, (roof[1] + roof[3]) // 2, roof[2] - 1, (roof[1] + roof[3]) // 2], shade(col, 1.25))
+        else:
+            d.line([(roof[0] + roof[2]) // 2, roof[1] + 1, (roof[0] + roof[2]) // 2, roof[3] - 1], shade(col, 1.25))
+    d.rectangle(roof, outline=OUTLINE)
+    # Posts under the front edge, the wall itself left open.
+    for xx in range(wall[0] + 2, wall[2], 8):
+        d.line([xx, wall[1], xx, wall[3]], c("#4a4540"))
+
+
+def station_ew(look, v):
+    """A station lying east to west on 3 tiles, the track to the north (0, 1) or south (2, 3)."""
+    north = v < 2
+    style = v % 2
+    b = Building(3, 1, height=2 * STOREY + 4)
+    wall_col, roof_col, material = [(BRICK, SHINGLE[2], "brick"), (PAINT[3], SHINGLE[0], "timber")][style]
+    if north:
+        platform(b, look, 2, 0, 93, 7, "n")
+        platform_canopy(b, look, 18, 1, 77, 6, c("#5b5f6b") if style == 0 else c("#7a3f36"))
+        roof, wall = b.box(22, 11, 73, 27, STOREY + 4)
+    else:
+        platform(b, look, 2, 24, 93, 31, "s")
+        roof, wall = b.box(22, 3, 73, 20, STOREY + 4)
+    (brick if material == "brick" else siding)(b.d, wall, wall_col)
+    windows(b.d, wall, 1, sill=TRIM, every=5, skip_door=True)
+    door(b.d, wall)
+    b.d.rectangle(wall, outline=OUTLINE)
+    gable_ew(b.d, roof, roof_col, look)
+    # A little clock turret on the ridge.
+    cx = (roof[0] + roof[2]) // 2
+    mid = (roof[1] + roof[3]) // 2
+    b.d.rectangle([cx - 2, mid - 5, cx + 2, mid], shade(wall_col, 1.1), OUTLINE)
+    b.d.point((cx, mid - 3), OUTLINE)
+    if not north:
+        platform_canopy(b, look, 18, 25, 77, 30, c("#5b5f6b") if style == 0 else c("#7a3f36"))
+    return b
+
+
+def station_ns(look, v):
+    """A station lying north to south on 3 tiles, the track to the west (0, 1) or east (2, 3)."""
+    west = v < 2
+    style = v % 2
+    b = Building(1, 3, height=2 * STOREY + 4)
+    wall_col, roof_col, material = [(BRICK, SHINGLE[2], "brick"), (PAINT[3], SHINGLE[0], "timber")][style]
+    cover = c("#5b5f6b") if style == 0 else c("#7a3f36")
+    if west:
+        platform(b, look, 0, 2, 7, 93, "w")
+        platform_canopy(b, look, 1, 18, 6, 77, cover)
+        roof, wall = b.box(10, 20, 28, 75, STOREY + 4)
+    else:
+        platform(b, look, 24, 2, 31, 93, "e")
+        platform_canopy(b, look, 25, 18, 30, 77, cover)
+        roof, wall = b.box(3, 20, 21, 75, STOREY + 4)
+    (brick if material == "brick" else siding)(b.d, wall, wall_col)
+    windows(b.d, wall, 1, sill=TRIM, every=5, skip_door=True)
+    door(b.d, wall)
+    b.d.rectangle(wall, outline=OUTLINE)
+    gable_ns(b.d, roof, wall, roof_col, wall_col, look)
+    b.casters[-1] = (1, roof[0], 20, roof[2] + 1, 76, STOREY + 4 + (roof[2] - roof[0]) // 3)
+    return b
+
+
+def coal_heap(b, look, cx, cy, w):
+    d = b.d
+    gx, gy = b.ground(cx, cy)
+    for k, col in enumerate(COAL):
+        ww = w - k * 3
+        d.ellipse([gx - ww, gy - 3 - k * 2, gx + ww, gy + 3 - k * 2], col)
+    if look == "snow":
+        d.ellipse([gx - w // 2, gy - 8, gx + w // 2, gy - 5], SNOW_ROOF[0])
+
+
+def goods_shed(b, look, x0, y0, x1, y1, style):
+    roof, wall = b.box(x0, y0, x1, y1, STOREY + 4)
+    if style == 0:
+        brick(b.d, wall, BRICKS[1])
+    else:
+        siding(b.d, wall, PAINT[0])
+    wx0, wy0, wx1, wy1 = wall
+    for xx in range(wx0 + 3, wx1 - 6, 10):
+        b.d.rectangle([xx, wy1 - 6, xx + 6, wy1], TIMBER, OUTLINE)
+    b.d.rectangle(wall, outline=OUTLINE)
+    if (x1 - x0) >= (y1 - y0):
+        gable_ew(b.d, roof, IRON_ROOF if style == 0 else c("#8a4a3a"), look)
+    else:
+        gable_ns(b.d, roof, wall, IRON_ROOF if style == 0 else c("#8a4a3a"), BRICKS[1] if style == 0 else PAINT[0], look)
+        b.casters[-1] = (1, x0, y0, x1 + 1, y1 + 1, STOREY + 4 + (x1 - x0) // 3)
+
+
+def yard_ground(b, look, x0, y0, x1, y1):
+    gx0, gy0 = b.ground(x0, y0)
+    gx1, gy1 = b.ground(x1, y1)
+    noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), [c("#7a7266"), c("#70685c"), c("#847c70")] if look != "snow"
+               else [c("#dfe5ea"), c("#cfd7de"), c("#eef2f5")], random.Random(7700))
+
+
+def yard_ew(look, v):
+    """A freight yard on 3 by 2 tiles: a siding, a goods shed, coal and crates. Track to the north (0, 1) or south (2, 3)."""
+    north = v < 2
+    style = v % 2
+    b = Building(3, 2, height=STOREY + 8)
+    yard_ground(b, look, 1, 1, 94, 62)
+    if north:
+        rail_siding(b, look, 0, 2, 95, 9)
+        shed = (8, 16, 47, 40) if style == 0 else (48, 16, 87, 40)
+        heap_x = 70 if style == 0 else 22
+        crates_y = 58
+    else:
+        rail_siding(b, look, 0, 54, 95, 61)
+        shed = (8, 6, 47, 30) if style == 0 else (48, 6, 87, 30)
+        heap_x = 70 if style == 0 else 22
+        crates_y = 44
+    coal_heap(b, look, heap_x, 28 if north else 20, 12)
+    yard(b, look, "crates", heap_x - 12, heap_x + 12, crates_y)
+    goods_shed(b, look, *shed, style)
+    return b
+
+
+def yard_ns(look, v):
+    """A freight yard on 2 by 3 tiles, the track to the west (0, 1) or east (2, 3)."""
+    west = v < 2
+    style = v % 2
+    b = Building(2, 3, height=STOREY + 8)
+    yard_ground(b, look, 1, 1, 62, 94)
+    if west:
+        rail_siding(b, look, 2, 0, 9, 95)
+        shed = (16, 8, 40, 47) if style == 0 else (16, 48, 40, 87)
+        heap = (50, 72 if style == 0 else 24)
+    else:
+        rail_siding(b, look, 54, 0, 61, 95)
+        shed = (22, 8, 46, 47) if style == 0 else (22, 48, 46, 87)
+        heap = (12, 72 if style == 0 else 24)
+    coal_heap(b, look, heap[0], heap[1], 9)
+    yard(b, look, "barrels", heap[0] - 8, heap[0] + 8, heap[1] + 14)
+    goods_shed(b, look, *shed, style)
+    return b
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
     ("workshop", workshop, 6), ("mill", mill, 4), ("warehouse", warehouse, 5), ("factory", factory, 4),
     ("coal_plant", coal_plant, 1),
     ("police_station", police_station, 1), ("fire_station", fire_station, 1), ("park", park, 4),
+    ("station_ew", station_ew, 4), ("station_ns", station_ns, 4), ("yard_ew", yard_ew, 4), ("yard_ns", yard_ns, 4),
 ]
 
 
@@ -1443,6 +1731,10 @@ def sprites_for(look):
     for material in ("wood", "stone"):
         out.append((f"rails_{material}_ns", rails(material, True), 0, []))
         out.append((f"rails_{material}_ew", rails(material, False), 0, []))
+    for mask in range(16):
+        out.append((f"track_{mask}", track(look, mask), 0, []))
+    out += [("crossing_ns", crossing(look, True), 0, []), ("crossing_ew", crossing(look, False), 0, [])]
+    out += [("trestle_ns", trestle(True), 0, []), ("trestle_ew", trestle(False), 0, [])]
     def round_casters(cs):
         return [(0, fx, fy - LIFT, h, r, 0) for fx, fy, h, r in cs]
     for v in range(5):
@@ -1528,7 +1820,7 @@ def write_kotlin(names, flat, pos, size):
             lines.append("        " + ", ".join(str(v) for v in values[i:i + per_line]) + ",")
         return "\n".join(lines)
 
-    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line"]
+    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line"]
     consts = []
     for g in groups:
         consts.append(f"    const val {g.upper()} = {first(g + '_')}")

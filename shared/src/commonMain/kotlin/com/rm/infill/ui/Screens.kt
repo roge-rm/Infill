@@ -299,6 +299,7 @@ private val ACTION_NAMES: Map<KeyAction, StringResource> = mapOf(
     KeyAction.ToolInspect to Res.string.tool_inspect,
     KeyAction.ToolBulldoze to Res.string.tool_bulldoze,
     KeyAction.ToolRoad to Res.string.tool_road,
+    KeyAction.ToolRail to Res.string.tool_rail,
     KeyAction.ToolZone to Res.string.tool_zone,
     KeyAction.ToolPower to Res.string.tool_power,
     KeyAction.ToolServices to Res.string.tool_services,

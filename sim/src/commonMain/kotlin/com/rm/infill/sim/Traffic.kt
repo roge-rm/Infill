@@ -11,6 +11,10 @@ import kotlin.math.min
  * tiles can't be driven backwards, and each tile takes its road's time to
  * cross, longer the busier it was last month.
  *
+ * Stations on the same line are joined by train: a trip can board at one and
+ * get off at another, for the wait and the time on the train, when that's
+ * quicker. A freight yard on a line to the edge takes freight like the edge.
+ *
  * The trips are spread over the month, a slice of the starting tiles each
  * day, and big groups go in parts. They add up on every tile they cross, and
  * a road is as slow as the busier of last month and this month so far, so
@@ -51,9 +55,58 @@ internal class Traffic(private val map: CityMap) {
     var workersPlaced = 0
         private set
 
+    // The railway, set by the city whenever it changes. Each stop is a station
+    // or yard: the road tile it's reached from and the track tile its trains stop at.
+    private var stopNode = IntArray(0)
+    private var stopTrack = IntArray(0)
+    private var stopTimes = emptyArray<IntArray>()
+    private var stopHere = IntArray(map.size) { -1 }
+
+    /** The freight yard on a line to the edge that each road tile reaches, or -1. */
+    private val outlet = IntArray(map.size) { -1 }
+
+    /** This month and last: passengers boarding or leaving at each road tile, and freight sent by train from it. */
+    private val riders = IntArray(map.size)
+    val lastRiders = IntArray(map.size)
+    private val railFreight = IntArray(map.size)
+    val lastRailFreight = IntArray(map.size)
+
+    /**
+     * Trips by train this month and last, by the track tiles they start and end
+     * at (the end is -1 for freight out to the edge), packed into one number.
+     */
+    private val journeys = HashMap<Long, Int>()
+    var lastJourneys: Map<Long, Int> = emptyMap()
+        private set
+
+    /**
+     * Sets the railway: for each stop the road tile it's reached from (-1 if
+     * none), the track tile trains stop at, seconds by train to each other
+     * stop (-1 if not on the same line), whether passengers board there, and
+     * whether it's a freight yard on a line to the edge.
+     */
+    fun setRail(node: IntArray, track: IntArray, times: Array<IntArray>, passengers: BooleanArray, freightOut: BooleanArray) {
+        stopNode = node
+        stopTrack = track
+        stopTimes = times
+        stopHere.fill(-1)
+        outlet.fill(-1)
+        for (k in node.indices) {
+            if (node[k] < 0) continue
+            if (passengers[k] && stopHere[node[k]] < 0) stopHere[node[k]] = k
+            if (freightOut[k] && outlet[node[k]] < 0) outlet[node[k]] = k
+        }
+        // Only passenger stops take passengers.
+        for (a in node.indices) for (b in node.indices) if (!passengers[a] || !passengers[b]) times[a][b] = -1
+    }
+
     // Search state, reused. A tile's distance counts only if its stamp is this search's.
     private val dist = IntArray(map.size)
     private val from = IntArray(map.size)
+
+    /** The stops a tile was reached between by train, or -1 if it was reached by road. */
+    private val boarded = IntArray(map.size)
+    private val alighted = IntArray(map.size)
     private val stamp = IntArray(map.size)
     private var search = 0
     private var heap = IntArray(256)
@@ -87,6 +140,12 @@ internal class Traffic(private val map: CityMap) {
         }
         workersSent = sent
         workersPlaced = got
+        riders.copyInto(lastRiders)
+        riders.fill(0)
+        railFreight.copyInto(lastRailFreight)
+        railFreight.fill(0)
+        lastJourneys = HashMap(journeys)
+        journeys.clear()
         placed.fill(0)
         travel.fill(0)
         shipped.fill(0)
@@ -125,6 +184,7 @@ internal class Traffic(private val map: CityMap) {
         heapSize = 0
         dist[start] = 0
         from[start] = -1
+        boarded[start] = -1
         stamp[start] = search
         push(start, 0)
         while (heapSize > 0 && (w > 0 || s > 0 || f > 0)) {
@@ -151,9 +211,15 @@ internal class Traffic(private val map: CityMap) {
                 s -= t
                 carry(a, t)
             }
-            if (f > 0 && edge(a)) {
+            if (f > 0 && (edge(a) || outlet[a] >= 0)) {
                 shipped[start] += f
                 carry(a, f)
+                if (!edge(a)) {
+                    // Out through the yard.
+                    railFreight[a] += f
+                    val key = (stopTrack[outlet[a]].toLong() shl 32) or 0xffffffffL
+                    journeys[key] = (journeys[key] ?: 0) + f
+                }
                 f = 0
             }
             val x = a % map.width
@@ -170,16 +236,41 @@ internal class Traffic(private val map: CityMap) {
                 stamp[b] = search
                 dist[b] = nd
                 from[b] = a
+                boarded[b] = -1
                 push(b, nd)
+            }
+            // By train to the other stations on the line.
+            val here = stopHere[a]
+            if (here >= 0 && (w > 0 || s > 0)) {
+                val times = stopTimes[here]
+                for (k in times.indices) {
+                    val b = stopNode[k]
+                    if (times[k] < 0 || k == here || b < 0 || b == a) continue
+                    val nd = d + Balance.RAIL_WAIT + times[k]
+                    if (stamp[b] == search && nd >= dist[b]) continue
+                    stamp[b] = search
+                    dist[b] = nd
+                    from[b] = a
+                    boarded[b] = here
+                    alighted[b] = k
+                    push(b, nd)
+                }
             }
         }
     }
 
-    /** Adds [trips] to every tile on the way back from [end] to where the search began. */
+    /** Adds [trips] to every tile on the way back from [end] to where the search began, and to the trains they took. */
     private fun carry(end: Int, trips: Int) {
         var at = end
         while (at >= 0) {
             volume[at] += trips
+            val on = boarded[at]
+            if (on >= 0) {
+                riders[at] += trips
+                riders[stopNode[on]] += trips
+                val key = (stopTrack[on].toLong() shl 32) or (stopTrack[alighted[at]].toLong() and 0xffffffffL)
+                journeys[key] = (journeys[key] ?: 0) + trips
+            }
             at = from[at]
         }
     }
@@ -188,7 +279,7 @@ internal class Traffic(private val map: CityMap) {
     private fun timeToCross(b: Int, road: RoadType): Int {
         val load = max(lastVolume[b], volume[b]) * 32 / road.capacity
         val slow = min(2 * 1024, load * load / 2)
-        return road.time + road.time * slow / 1024
+        return road.time + road.time * slow / 1024 + if (map.rail[b] != Rail.NONE) Balance.CROSSING_DELAY else 0
     }
 
     private fun edge(a: Int): Boolean {
@@ -265,6 +356,24 @@ internal class Traffic(private val map: CityMap) {
         freightStuck.fill(false)
         repeat(r.count()) { freightStuck[tile(r)] = true }
         workersSent = r.int(); workersPlaced = r.int()
+    }
+
+    /** Since save version 3. */
+    internal fun writeRail(w: SaveWriter) {
+        for (a in arrayOf(riders, lastRiders, railFreight, lastRailFreight)) sparse(w, a)
+        for (m in listOf(journeys, lastJourneys)) {
+            w.count(m.size)
+            for ((k, v) in m.entries.sortedBy { it.key }) { w.long(k); w.int(v) }
+        }
+    }
+
+    internal fun readRail(r: SaveReader) {
+        for (a in arrayOf(riders, lastRiders, railFreight, lastRailFreight)) sparse(r, a)
+        journeys.clear()
+        repeat(r.count()) { journeys[r.long()] = r.int() }
+        val last = HashMap<Long, Int>()
+        repeat(r.count()) { last[r.long()] = r.int() }
+        lastJourneys = last
     }
 
     private fun tile(r: SaveReader): Int = r.int().also { if (it !in 0 until map.size) throw SaveError("traffic off the map") }

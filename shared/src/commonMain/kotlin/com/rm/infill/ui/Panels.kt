@@ -60,6 +60,15 @@ import com.rm.infill.res.jobs
 import com.rm.infill.res.no_power
 import com.rm.infill.res.residents
 import com.rm.infill.res.inspect_bridge
+import com.rm.infill.res.inspect_crossing
+import com.rm.infill.res.inspect_linked
+import com.rm.infill.res.inspect_not_linked
+import com.rm.infill.res.inspect_no_road
+import com.rm.infill.res.inspect_track
+import com.rm.infill.res.riders
+import com.rm.infill.res.loads_by_train
+import com.rm.infill.res.station
+import com.rm.infill.res.freight_yard
 import com.rm.infill.res.inspect_commute
 import com.rm.infill.res.inspect_no_commute
 import com.rm.infill.res.inspect_traffic
@@ -72,6 +81,7 @@ import com.rm.infill.res.inspect_zone_industrial
 import com.rm.infill.res.inspect_zone_residential
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.Power
+import com.rm.infill.sim.Rail
 import com.rm.infill.sim.RoadType
 import com.rm.infill.sim.Terrain
 import com.rm.infill.sim.Zone
@@ -142,6 +152,12 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 add(stringResource(if (map.powered[i]) Res.string.has_power else Res.string.no_power))
             }
             if (building.burning > 0) add(stringResource(Res.string.on_fire))
+            if (t.railway) {
+                if (t.station) add(pluralStringResource(Res.plurals.riders, city.riders(building), city.riders(building)))
+                else add(pluralStringResource(Res.plurals.loads_by_train, city.freightSent(building), city.freightSent(building)))
+                add(stringResource(if (city.railLinked(building)) Res.string.inspect_linked else Res.string.inspect_not_linked))
+                if (!city.reachable(building)) add(stringResource(Res.string.inspect_no_road))
+            }
             when (val commute = map.commute[i].toInt() and 0xff) {
                 0 -> {}
                 255 -> add(stringResource(Res.string.inspect_no_commute))
@@ -153,7 +169,9 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
             add(
                 stringResource(
                     when {
+                        road != null && map.rail[i] != Rail.NONE -> Res.string.inspect_crossing
                         road != null -> roadName(road)
+                        map.rail[i] != Rail.NONE -> Res.string.inspect_track
                         map.power[i] != Power.NONE -> Res.string.inspect_power_line
                         map.terrain[i] == Terrain.WATER -> Res.string.inspect_water
                         map.terrain[i] == Terrain.TREES -> Res.string.inspect_trees
@@ -161,6 +179,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                     },
                 ),
             )
+            if (map.rail[i] != Rail.NONE && map.terrain[i] == Terrain.WATER) add(stringResource(Res.string.inspect_bridge))
             if (road != null) {
                 if (map.terrain[i] == Terrain.WATER) add(stringResource(Res.string.inspect_bridge))
                 add(stringResource(Res.string.inspect_traffic, level(map.congestion[i].toInt() and 0xff)))
@@ -219,6 +238,8 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.POLICE_STATION -> Res.string.police_station
     BuildingType.FIRE_STATION -> Res.string.fire_station
     BuildingType.PARK -> Res.string.park
+    BuildingType.STATION, BuildingType.STATION_NS -> Res.string.station
+    BuildingType.FREIGHT_YARD, BuildingType.FREIGHT_YARD_NS -> Res.string.freight_yard
 }
 
 /** A short message that goes away by itself. If it's about a place, tapping it goes there. */

@@ -24,6 +24,12 @@ sealed interface Action {
         override fun hashCode() = tiles.contentHashCode()
     }
 
+    /** Railway track along [tiles], given as map indices in order. */
+    data class BuildRail(val tiles: IntArray) : Action {
+        override fun equals(other: Any?) = other is BuildRail && tiles.contentEquals(other.tiles)
+        override fun hashCode() = tiles.contentHashCode()
+    }
+
     /** A building the player places, like a power station, with its top left corner at [x], [y]. */
     data class PlaceBuilding(val type: BuildingType, val x: Int, val y: Int) : Action
 
@@ -49,7 +55,7 @@ sealed interface Action {
 }
 
 /** Why an action, an undo or a redo can't go ahead. */
-enum class Problem { NotEnoughMoney, NothingToDo, Blocked, TownBuiltThere }
+enum class Problem { NotEnoughMoney, NothingToDo, Blocked, TownBuiltThere, NeedsTrack }
 
 /**
  * What an action would do: its [cost], the tiles it [changes] and the ones it
@@ -74,6 +80,10 @@ object Prices {
     const val POLICE_STATION = 1_500L
     const val FIRE_STATION = 1_800L
     const val PARK = 60L
+    const val RAIL = 40L
+    const val REMOVE_RAIL = 3L
+    const val STATION = 1_200L
+    const val FREIGHT_YARD = 2_500L
 
     /** What it costs to put up a building the player places. */
     fun of(type: BuildingType): Long = when (type) {
@@ -81,6 +91,8 @@ object Prices {
         BuildingType.POLICE_STATION -> POLICE_STATION
         BuildingType.FIRE_STATION -> FIRE_STATION
         BuildingType.PARK -> PARK
+        BuildingType.STATION, BuildingType.STATION_NS -> STATION
+        BuildingType.FREIGHT_YARD, BuildingType.FREIGHT_YARD_NS -> FREIGHT_YARD
         else -> 0L
     }
 }

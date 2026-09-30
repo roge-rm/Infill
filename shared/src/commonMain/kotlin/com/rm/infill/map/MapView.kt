@@ -89,7 +89,8 @@ fun MapView(
     var weatherTime by remember { mutableFloatStateOf(0f) }
     val fires = game.city.burningNow > 0
     val traffic = graphics.vehicles > 0 && game.city.stats.population > 0
-    val animate = running && (fires || traffic || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
+    val trains = graphics.trains > 0 && game.city.trainRoutes.isNotEmpty()
+    val animate = running && (fires || traffic || trains || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
     val overlayImage = remember(overlay, game.revision) { overlayImage(overlay, map) }
     LaunchedEffect(animate) {
         if (!animate) return@LaunchedEffect
@@ -184,10 +185,12 @@ fun MapView(
                 )
             }
         }
-        if (traffic) drawVehicles(map, camera, game.city.year, weatherTime, graphics.vehicles)
+        val stopped = if (trains) drawTrains(game.city.trainRoutes, map, camera, weatherTime, graphics.trains, graphics.smoke) else emptySet()
+        if (traffic) drawVehicles(map, camera, game.city.year, weatherTime, graphics.vehicles, stopped)
         if (fires) drawFires(map, camera, weather, weatherTime)
         drawWeather(weather, camera, clouds, weatherTime, sun.strength, graphics)
-        if (tint != Color.White) drawRect(tint, blendMode = BlendMode.Multiply)
+        // Modulate rather than Multiply: the same for an opaque tint, and Android before 10 has only this one.
+        if (tint != Color.White) drawRect(tint, blendMode = BlendMode.Modulate)
         overlayImage?.let { drawOverlay(it, map, camera, overlay) }
         if (preview != null) drawPreview(preview, map, camera, measurer, costText)
         else if (gestures.toolActive && hoverX >= 0) drawHover(hoverX, hoverY, camera)

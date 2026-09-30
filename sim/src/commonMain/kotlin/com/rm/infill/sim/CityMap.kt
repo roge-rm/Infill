@@ -16,6 +16,9 @@ class CityMap(val width: Int, val height: Int) {
     val zone = ByteArray(size)
     val power = ByteArray(size)
 
+    /** Railway track ([Rail]). A tile with road and track is a level crossing. */
+    val rail = ByteArray(size)
+
     /** The id of the building on each tile, 0 for none. */
     val building = IntArray(size)
 
@@ -61,6 +64,9 @@ class CityMap(val width: Int, val height: Int) {
      */
     val commute = ByteArray(size)
 
+    /** How busy each track tile was last month with trains' passengers and freight: 128 is a train's worth a day, 255 two. */
+    val railBusy = ByteArray(size)
+
     /** Whether each tile has power, worked out whenever power lines or buildings change. */
     val powered = BooleanArray(size)
 
@@ -77,13 +83,15 @@ class CityMap(val width: Int, val height: Int) {
     /** Everything on a tile that the player or the town can change, packed into one number for undo. */
     fun tileState(i: Int): Long =
         (terrain[i].toLong() and 0xff) or ((road[i].toLong() and 0xff) shl 8) or ((zone[i].toLong() and 0xff) shl 16) or
-            ((power[i].toLong() and 0xff) shl 24) or ((roadHeading[i].toLong() and 0x0f) shl 28) or (building[i].toLong() shl 32)
+            ((power[i].toLong() and 0x03) shl 24) or ((rail[i].toLong() and 0x03) shl 26) or
+            ((roadHeading[i].toLong() and 0x0f) shl 28) or (building[i].toLong() shl 32)
 
     fun setTileState(i: Int, state: Long) {
         terrain[i] = state.toByte()
         road[i] = (state shr 8).toByte()
         zone[i] = (state shr 16).toByte()
-        power[i] = ((state shr 24) and 0x0f).toByte()
+        power[i] = ((state shr 24) and 0x03).toByte()
+        rail[i] = ((state shr 26) and 0x03).toByte()
         roadHeading[i] = ((state shr 28) and 0x0f).toByte()
         building[i] = (state ushr 32).toInt()
     }
@@ -93,7 +101,7 @@ class CityMap(val width: Int, val height: Int) {
         var h = FNV_OFFSET
         h = mix(h, width.toLong())
         h = mix(h, height.toLong())
-        for (layer in arrayOf(terrain, road, roadHeading, zone, power, grime, fire)) for (b in layer) h = mix(h, b.toLong())
+        for (layer in arrayOf(terrain, road, roadHeading, zone, power, rail, grime, fire)) for (b in layer) h = mix(h, b.toLong())
         for (b in building) h = mix(mix(h, b.toLong()), (b ushr 8).toLong())
         return h
     }

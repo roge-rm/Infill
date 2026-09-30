@@ -9,6 +9,10 @@ import com.rm.infill.res.police_station
 import com.rm.infill.res.fire_station
 import com.rm.infill.res.park
 import com.rm.infill.res.tool_road
+import com.rm.infill.res.tool_rail
+import com.rm.infill.res.rail_track
+import com.rm.infill.res.station
+import com.rm.infill.res.freight_yard
 import com.rm.infill.res.power_line
 import com.rm.infill.res.coal_plant
 import com.rm.infill.res.tool_zone
@@ -28,6 +32,7 @@ import com.rm.infill.sim.Action
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Plan
+import com.rm.infill.sim.Rail
 import com.rm.infill.sim.RoadType
 import com.rm.infill.sim.Zone
 import org.jetbrains.compose.resources.StringResource
@@ -37,6 +42,7 @@ enum class Tool(val title: StringResource) {
     Inspect(Res.string.tool_inspect),
     Bulldoze(Res.string.tool_bulldoze),
     Road(Res.string.tool_road),
+    Rail(Res.string.tool_rail),
     Zone(Res.string.tool_zone),
     Power(Res.string.tool_power),
     Services(Res.string.tool_services),
@@ -47,6 +53,23 @@ enum class ServiceKind(val title: StringResource, val type: BuildingType) {
     Police(Res.string.police_station, BuildingType.POLICE_STATION),
     Fire(Res.string.fire_station, BuildingType.FIRE_STATION),
     Park(Res.string.park, BuildingType.PARK),
+}
+
+/** What the rail tool puts down. Track is dragged; stations and yards go where the finger ends up. */
+enum class RailKind(val title: StringResource) {
+    Track(Res.string.rail_track),
+    Station(Res.string.station),
+    Yard(Res.string.freight_yard),
+}
+
+/**
+ * A station or yard with its top left on [x], [y], lying whichever way has
+ * track alongside, east to west if neither does.
+ */
+fun railBuilding(map: CityMap, eastWest: BuildingType, northSouth: BuildingType, x: Int, y: Int): BuildingType = when {
+    Rail.trackSide(map, eastWest, x, y) != 0 -> eastWest
+    Rail.trackSide(map, northSouth, x, y) != 0 -> northSouth
+    else -> eastWest
 }
 
 /** What the power tool puts down. */
@@ -96,7 +119,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
         return copy(x1 = x, y1 = y, acrossFirst = across)
     }
 
-    fun action(tool: Tool, zone: ZoneKind, power: PowerKind, service: ServiceKind, road: RoadType, map: CityMap): Action? = when (tool) {
+    fun action(tool: Tool, zone: ZoneKind, power: PowerKind, service: ServiceKind, road: RoadType, rail: RailKind, map: CityMap): Action? = when (tool) {
         Tool.Services -> if (service == ServiceKind.Park) Action.PlaceParks(x0, y0, x1, y1)
         else Action.PlaceBuilding(service.type, x1, y1)
         Tool.Inspect -> null
@@ -108,6 +131,11 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             } else {
                 Action.BuildRoad(Action.roadPath(map, x0, y0, x1, y1, across), road)
             }
+        }
+        Tool.Rail -> when (rail) {
+            RailKind.Track -> Action.BuildRail(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
+            RailKind.Station -> Action.PlaceBuilding(railBuilding(map, BuildingType.STATION, BuildingType.STATION_NS, x1, y1), x1, y1)
+            RailKind.Yard -> Action.PlaceBuilding(railBuilding(map, BuildingType.FREIGHT_YARD, BuildingType.FREIGHT_YARD_NS, x1, y1), x1, y1)
         }
         Tool.Zone -> Action.PlaceZone(x0, y0, x1, y1, zone.zone)
         Tool.Bulldoze -> Action.Bulldoze(x0, y0, x1, y1)

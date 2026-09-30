@@ -14,9 +14,10 @@ import kotlin.math.min
  * Carts and, as the years go on, more and more cars along the straight runs
  * of road. A road has more of them the busier it was last month, and they go
  * slower. They keep to the right, and fill both lanes of a one-way road.
- * [most] is how many there can be in a lane on one tile.
+ * [most] is how many there can be in a lane on one tile. At the level
+ * [crossings] a train is on, the road is clear and traffic waits either side.
  */
-internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, time: Float, most: Int) {
+internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, time: Float, most: Int, crossings: Set<Int> = emptySet()) {
     val t = camera.tilePx
     if (most == 0 || t < MIN_TILE_PX) return
     val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -30,7 +31,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
     fun road(x: Int, y: Int) = map.inside(x, y) && map.road[map.index(x, y)].toInt() != 0
     for (y in y0..y1) for (x in x0..x1) {
         val i = map.index(x, y)
-        if (map.road[i].toInt() == 0) continue
+        if (map.road[i].toInt() == 0 || i in crossings) continue
         val busy = map.congestion[i].toInt() and 0xff
         if (busy == 0) continue
         val across = road(x - 1, y) || road(x + 1, y)
@@ -52,8 +53,12 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                 val seed = x * 7919 + y * 104729 + lane * 31 + k * 977
                 // A quiet road only has something on it now and then.
                 if (k == 0 && unit(seed) * 128f > busy + 16) continue
-                val along = (time * speed + (k + unit(seed * 3) * 0.5f) / slots) % 1f
                 val forward = dir == Heading.EAST.toInt() || dir == Heading.SOUTH.toInt()
+                // Waiting at a crossing just ahead, queued up to it.
+                val ax = x + Heading.DX[dir]
+                val ay = y + Heading.DY[dir]
+                val waiting = crossings.isNotEmpty() && map.inside(ax, ay) && map.index(ax, ay) in crossings
+                val along = if (waiting) 0.8f - k * 0.3f else (time * speed + (k + unit(seed * 3) * 0.5f) / slots) % 1f
                 val u = if (forward) along else 1f - along
                 val cx = if (across) x + u else x + side
                 val cy = if (across) y + side else y + u

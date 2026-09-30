@@ -70,6 +70,7 @@ import com.rm.infill.res.tax_residential
 import com.rm.infill.res.taxes
 import com.rm.infill.res.upkeep_power
 import com.rm.infill.res.upkeep_roads
+import com.rm.infill.res.upkeep_rail
 import com.rm.infill.sim.Series
 import com.rm.infill.ui.theme.Infill
 import org.jetbrains.compose.resources.StringResource
@@ -140,6 +141,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
             MoneyLine(Res.string.tax_commercial, s.commercialIncome)
             MoneyLine(Res.string.tax_industrial, s.industrialIncome)
             MoneyLine(Res.string.upkeep_roads, -s.roadUpkeep)
+            if (s.railUpkeep > 0) MoneyLine(Res.string.upkeep_rail, -s.railUpkeep)
             MoneyLine(Res.string.upkeep_power, -s.powerUpkeep)
             MoneyLine(Res.string.police_station, -s.policeUpkeep)
             MoneyLine(Res.string.fire_station, -s.fireUpkeep)

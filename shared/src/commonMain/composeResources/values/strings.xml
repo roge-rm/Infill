@@ -5,6 +5,17 @@
     <string name="tool_inspect">Inspect</string>
     <string name="tool_bulldoze">Bulldoze</string>
     <string name="tool_road">Road</string>
+    <string name="tool_rail">Rail</string>
+    <string name="rail_track">Track</string>
+    <string name="station">Station</string>
+    <string name="freight_yard">Freight yard</string>
+    <string name="inspect_track">Railway track</string>
+    <string name="inspect_crossing">Level crossing</string>
+    <string name="inspect_linked">Trains to and from outside</string>
+    <string name="inspect_not_linked">No line to the edge of the map</string>
+    <string name="inspect_no_road">No road reaches it</string>
+    <string name="needs_track">It has to go beside the track</string>
+    <string name="upkeep_rail">Railways</string>
     <string name="tool_zone">Zone</string>
     <string name="tool_power">Power</string>
     <string name="tool_services">Services</string>
@@ -59,6 +70,14 @@
     <string name="building_mill">Mill</string>
     <string name="building_warehouse">Warehouse</string>
     <string name="building_factory">Factory</string>
+    <plurals name="riders">
+        <item quantity="one">%1$d passenger last month</item>
+        <item quantity="other">%1$d passengers last month</item>
+    </plurals>
+    <plurals name="loads_by_train">
+        <item quantity="one">%1$d load by train last month</item>
+        <item quantity="other">%1$d loads by train last month</item>
+    </plurals>
     <plurals name="residents">
         <item quantity="one">%1$d resident</item>
         <item quantity="other">%1$d residents</item>
@@ -80,6 +99,7 @@
     <string name="overlay_police">Police</string>
     <string name="overlay_fire">Fire cover</string>
     <string name="overlay_traffic">Traffic</string>
+    <string name="overlay_rail">Railway</string>
     <string name="low">Low</string>
     <string name="high">High</string>
 

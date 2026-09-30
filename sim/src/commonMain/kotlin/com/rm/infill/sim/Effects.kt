@@ -36,6 +36,11 @@ internal class SummedArea(private val width: Int, private val height: Int, value
  * and fire stations reach, what land is worth, and where crime is.
  */
 internal object Effects {
+    private val STATION = BuildingType.STATION.ordinal
+    private val STATION_NS = BuildingType.STATION_NS.ordinal
+    private val YARD = BuildingType.FREIGHT_YARD.ordinal
+    private val YARD_NS = BuildingType.FREIGHT_YARD_NS.ordinal
+
     /** Cover from each station, strongest at it and fading to nothing at its reach. */
     fun cover(map: CityMap, stations: List<Building>, reach: Int, out: ByteArray) {
         out.fill(0)
@@ -59,8 +64,9 @@ internal object Effects {
 
     /**
      * Land value, 0 to 255: water, trees and parks nearby, being near the shops
-     * and on a road, and police and fire cover raise it; pollution, crime,
-     * industry next door and busy roads lower it.
+     * and on a road, a station nearby, and police and fire cover raise it;
+     * pollution, crime, industry next door, busy roads, track and freight
+     * yards lower it.
      */
     fun landValue(map: CityMap, buildingTypes: (Int) -> BuildingType?, nearRoad: BooleanArray, out: ByteArray) {
         val w = map.width
@@ -71,6 +77,12 @@ internal object Effects {
         val shops = SummedArea(w, h) { buildingTypes(it)?.let { t -> if (t.zone == Zone.COMMERCIAL) t.capacity else 0 } ?: 0 }
         val industry = SummedArea(w, h) { if (buildingTypes(it)?.zone == Zone.INDUSTRIAL) 1 else 0 }
         val traffic = SummedArea(w, h) { map.congestion[it].toInt() and 0xff }
+        // The railway, if there is one, read straight off the map.
+        val railway = map.rail.any { it != Rail.NONE }
+        fun typeOn(i: Int) = map.buildingType[i].toInt() - 1
+        val stations = if (railway) SummedArea(w, h) { val t = typeOn(it); if (t == STATION || t == STATION_NS) 1 else 0 } else null
+        val yards = if (railway) SummedArea(w, h) { val t = typeOn(it); if (t == YARD || t == YARD_NS) 1 else 0 } else null
+        val track = if (railway) SummedArea(w, h) { if (map.rail[it] != Rail.NONE) 1 else 0 } else null
         for (y in 0 until h) for (x in 0 until w) {
             val i = y * w + x
             if (map.terrain[i] == Terrain.WATER) {
@@ -87,8 +99,13 @@ internal object Effects {
             v -= (map.pollution[i].toInt() and 0xff) / 2
             v -= (map.crime[i].toInt() and 0xff) / 3
             if (industry.around(x, y, 2) > 0 && buildingTypes(i)?.zone != Zone.INDUSTRIAL) v -= 15
-            // The noise of busy roads.
+            // The noise of busy roads, trains and yards, and a station within a walk.
             v -= min(20, traffic.around(x, y, 1) / 48)
+            if (stations != null && track != null && yards != null) {
+                if (stations.around(x, y, 5) > 0) v += 12
+                if (track.around(x, y, 1) > 0) v -= 6
+                if (yards.around(x, y, 2) > 0 && buildingTypes(i)?.zone != Zone.INDUSTRIAL) v -= 10
+            }
             out[i] = v.coerceIn(0, 255).toByte()
         }
     }

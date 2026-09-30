@@ -5,6 +5,7 @@ import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Heading
 import com.rm.infill.sim.Power
+import com.rm.infill.sim.Rail
 import com.rm.infill.sim.Road
 import com.rm.infill.sim.RoadType
 import com.rm.infill.sim.Terrain
@@ -217,11 +218,16 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             val i = map.index(tx, ty)
             val grime = map.grimeLevel(i)
             val road = RoadType.of(map.road[i])
+            val rail = map.rail[i] != Rail.NONE
             if (map.terrain[i] == Terrain.WATER) {
                 surface.copy(base + Atlas.WATER + h % Atlas.WATER_COUNT, dx, dy)
                 if (grime > 0) surface.fill(dx, dy, s, s, MURK, MURK_ALPHA[grime])
                 shores(surface, base, tx, ty, dx, dy)
-                if (road != null) {
+                if (rail) {
+                    val mask = railMask(tx, ty)
+                    surface.blend(base + Atlas.TRESTLE + if (mask and 5 != 0 && mask and 10 == 0 || mask == 0) 0 else 1, dx, dy)
+                    surface.blend(base + Atlas.TRACK + mask, dx, dy)
+                } else if (road != null) {
                     val mask = roadMask(tx, ty)
                     val timber = road == RoadType.DIRT || road == RoadType.GRAVEL || road == RoadType.LANE
                     // One-way bridges run the way the traffic does; the rest the way the road goes on.
@@ -238,6 +244,13 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 val zone = map.zone[i]
                 if (zone != Zone.NONE && map.building[i] == 0) zoneTint(surface, zone, tx, ty, dx, dy, s, level)
                 if (road != null) roadTile(surface, base, road, i, tx, ty, roadMask(tx, ty), dx, dy, level)
+                if (rail && road != null) {
+                    // A level crossing, drawn over the road the way the track runs.
+                    val mask = railMask(tx, ty)
+                    surface.blend(base + Atlas.CROSSING + if (mask and 10 != 0 && mask and 5 == 0) 1 else 0, dx, dy)
+                } else if (rail) {
+                    surface.blend(base + Atlas.TRACK + railMask(tx, ty), dx, dy)
+                }
             }
         }
 
@@ -319,6 +332,13 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
      */
     private fun buildingSprite(x: Int, y: Int): Int {
         val type = map.buildingType[map.index(x, y)].toInt() - 1
+        val t = BuildingType.entries[type]
+        if (t.railway) {
+            // The pair of looks for the side the track is on, south or east being the second pair.
+            val side = Rail.trackSide(map, t, x, y)
+            val far = side == Heading.SOUTH.toInt() || side == Heading.EAST.toInt()
+            return BuildingSprites.sprite(type, (if (far) 2 else 0) + (map.buildingVariant[map.index(x, y)].toInt() and 0xff) % 2)
+        }
         return BuildingSprites.sprite(type, shownVariant(x, y, type, BuildingSprites.variants(type)))
     }
 
@@ -422,6 +442,17 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         RoadType.LANE -> Atlas.ROAD_LANE
         RoadType.STREET, RoadType.ONE_WAY_STREET -> Atlas.ROAD_STREET
         RoadType.AVENUE, RoadType.ONE_WAY_AVENUE, RoadType.BOULEVARD -> Atlas.ROAD_AVENUE
+    }
+
+    /** Which neighbours are track: north 1, east 2, south 4, west 8. */
+    private fun railMask(x: Int, y: Int): Int {
+        fun track(tx: Int, ty: Int) = map.inside(tx, ty) && map.rail[map.index(tx, ty)] != Rail.NONE
+        var m = 0
+        if (track(x, y - 1)) m = m or 1
+        if (track(x + 1, y)) m = m or 2
+        if (track(x, y + 1)) m = m or 4
+        if (track(x - 1, y)) m = m or 8
+        return m
     }
 
     /** Which neighbours are road: north 1, east 2, south 4, west 8. */

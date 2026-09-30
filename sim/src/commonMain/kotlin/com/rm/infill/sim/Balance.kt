@@ -92,6 +92,25 @@ object Balance {
     /** What it costs a works' appeal when its freight can't get out. */
     const val FREIGHT_STUCK = 15
 
+    /** Monthly upkeep of a tile of track, a station and a freight yard. */
+    const val RAIL_UPKEEP = 0.6
+    const val STATION_UPKEEP = 25.0
+    const val YARD_UPKEEP = 40.0
+
+    /** Seconds for a train to cross a tile, and the wait for one at a station. */
+    const val RAIL_TIME = 6
+    const val RAIL_WAIT = 300
+
+    /** Seconds a road trip loses at a level crossing. */
+    const val CROSSING_DELAY = 20
+
+    /** Passengers or loads a day that make a train's worth, for how busy a line looks. */
+    const val TRAIN_LOAD = 8
+
+    /** The outside market with a freight yard on a line to the edge, and settlers with a station on one. */
+    const val RAIL_EXPORTS = 1.3
+    const val RAIL_SETTLERS = 1.5
+
     /** How far a lot can be from a road and still grow, in tiles. */
     const val ROAD_REACH = 2
 

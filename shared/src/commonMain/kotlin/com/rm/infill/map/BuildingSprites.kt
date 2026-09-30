@@ -26,6 +26,11 @@ internal object BuildingSprites {
                 BuildingType.POLICE_STATION -> Atlas.POLICE_STATION to Atlas.POLICE_STATION_COUNT
                 BuildingType.FIRE_STATION -> Atlas.FIRE_STATION to Atlas.FIRE_STATION_COUNT
                 BuildingType.PARK -> Atlas.PARK to Atlas.PARK_COUNT
+                // Two looks for each side the track can be on.
+                BuildingType.STATION -> Atlas.STATION_EW to Atlas.STATION_EW_COUNT
+                BuildingType.STATION_NS -> Atlas.STATION_NS to Atlas.STATION_NS_COUNT
+                BuildingType.FREIGHT_YARD -> Atlas.YARD_EW to Atlas.YARD_EW_COUNT
+                BuildingType.FREIGHT_YARD_NS -> Atlas.YARD_NS to Atlas.YARD_NS_COUNT
             }
             first[t.ordinal] = f
             count[t.ordinal] = n

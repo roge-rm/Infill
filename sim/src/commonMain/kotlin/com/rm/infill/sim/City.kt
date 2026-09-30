@@ -98,7 +98,9 @@ class City(
                     val bridge = if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
                     when {
                         m.building[i] != 0 -> blocked += i
-                        bridge > 1 && (!type.bridges || layout.turns[k]) -> blocked += i
+                        bridge > 1 && (!type.bridges || layout.turns[k] || m.rail[i] != Rail.NONE) -> blocked += i
+                        // A road meets track only straight across it, as a level crossing.
+                        m.rail[i] != Rail.NONE && (layout.turns[k] || !across(i, run, m.rail)) -> blocked += i
                         old == null -> {
                             changes += i
                             cost += type.price * bridge + clearing(i)
@@ -113,10 +115,31 @@ class City(
                     }
                 }
             }
+            is Action.BuildRail -> {
+                val path = action.tiles.filter { inMap(it) }
+                val (runs, turns) = runsOf(path)
+                for (k in path.indices) {
+                    val i = path[k]
+                    val water = m.terrain[i] == Terrain.WATER
+                    when {
+                        m.building[i] != 0 -> blocked += i
+                        m.rail[i] != Rail.NONE -> {}
+                        // Over water on a bridge of its own, straight across.
+                        water && (turns[k] || m.road[i] != Road.NONE) -> blocked += i
+                        // Across a road only straight over it, as a level crossing.
+                        m.road[i] != Road.NONE && (turns[k] || !across(i, runs[k].toInt(), m.road)) -> blocked += i
+                        m.power[i] != Power.NONE -> blocked += i
+                        else -> {
+                            changes += i
+                            cost += Prices.RAIL * (if (water) Prices.BRIDGE else 1) + clearing(i)
+                        }
+                    }
+                }
+            }
             is Action.BuildPowerLine -> for (i in action.tiles) {
                 when {
                     !inMap(i) -> {}
-                    m.terrain[i] == Terrain.WATER || m.building[i] != 0 || m.zone[i] != Zone.NONE -> blocked += i
+                    m.terrain[i] == Terrain.WATER || m.building[i] != 0 || m.zone[i] != Zone.NONE || m.rail[i] != Rail.NONE -> blocked += i
                     m.power[i] != Power.NONE -> {}
                     else -> {
                         changes += i
@@ -126,7 +149,7 @@ class City(
             }
             is Action.PlaceZone -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
                 when {
-                    m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE -> blocked += i
+                    m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE || m.rail[i] != Rail.NONE -> blocked += i
                     m.zone[i] == action.zone -> {}
                     m.building[i] != 0 -> blocked += i
                     else -> {
@@ -140,7 +163,7 @@ class City(
                 var ok = action.x >= 0 && action.y >= 0 && action.x + t.width <= m.width && action.y + t.height <= m.height
                 if (ok) forRect(action.x, action.y, action.x + t.width - 1, action.y + t.height - 1) { i ->
                     if (m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
-                        m.zone[i] != Zone.NONE || m.building[i] != 0
+                        m.zone[i] != Zone.NONE || m.building[i] != 0 || m.rail[i] != Rail.NONE
                     ) {
                         blocked += i
                         ok = false
@@ -157,7 +180,7 @@ class City(
             }
             is Action.PlaceParks -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
                 if (m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
-                    m.zone[i] != Zone.NONE || m.building[i] != 0
+                    m.zone[i] != Zone.NONE || m.building[i] != 0 || m.rail[i] != Rail.NONE
                 ) {
                     blocked += i
                 } else {
@@ -182,6 +205,7 @@ class City(
                     var c = 0L
                     if (m.road[i] != Road.NONE) c += Prices.REMOVE_ROAD * if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
                     if (m.power[i] != Power.NONE) c += Prices.REMOVE_LINE
+                    if (m.rail[i] != Rail.NONE) c += Prices.REMOVE_RAIL * if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
                     if (m.terrain[i] == Terrain.TREES) c += Prices.CLEAR_TREES
                     if (c > 0 || m.zone[i] != Zone.NONE) {
                         changes += i
@@ -192,6 +216,7 @@ class City(
         }
         val problem = when {
             action is Action.PlaceBuilding && blocked.isNotEmpty() -> Problem.Blocked
+            action is Action.PlaceBuilding && action.type.railway && Rail.trackSide(m, action.type, action.x, action.y) == 0 -> Problem.NeedsTrack
             changes.isEmpty() -> Problem.NothingToDo
             cost > funds -> Problem.NotEnoughMoney
             else -> null
@@ -253,6 +278,36 @@ class City(
         return RoadLayout(tiles.toIntArray(), runs.toByteArray(), headings.toByteArray(), turns.toBooleanArray())
     }
 
+    /**
+     * The way a drawn path runs through each tile, and whether it turns there.
+     * One tile on its own runs nowhere in particular.
+     */
+    private fun runsOf(path: List<Int>): Pair<ByteArray, BooleanArray> {
+        val w = map.width
+        fun step(k: Int): Byte {
+            if (path.size < 2) return Heading.BOTH
+            val a = path[max(0, k - 1)]
+            val b = path[max(1, k)]
+            return Heading.of(b % w - a % w, b / w - a / w)
+        }
+        val runs = ByteArray(path.size) { step(it) }
+        val turns = BooleanArray(path.size) { it + 1 < path.size && step(it + 1) != runs[it] }
+        return runs to turns
+    }
+
+    /**
+     * Whether something running [run] through tile [i] goes straight across
+     * what's already there in [layer]: nothing of it before or after along the
+     * way it runs.
+     */
+    private fun across(i: Int, run: Int, layer: ByteArray): Boolean {
+        if (run == 0) return false
+        val x = i % map.width
+        val y = i / map.width
+        fun has(dx: Int, dy: Int) = map.inside(x + dx, y + dy) && layer[map.index(x + dx, y + dy)].toInt() != 0
+        return !has(Heading.DX[run], Heading.DY[run]) && !has(-Heading.DX[run], -Heading.DY[run])
+    }
+
     /** Whether two headings run at right angles. */
     private fun across(a: Int, b: Int) = a != 0 && b != 0 && (a + b) % 2 == 1
 
@@ -305,6 +360,11 @@ class City(
                     clearTrees(i)
                 }
             }
+            is Action.BuildRail -> for (i in plan.changes) {
+                m.rail[i] = Rail.TRACK
+                m.zone[i] = Zone.NONE
+                clearTrees(i)
+            }
             is Action.BuildPowerLine -> for (i in plan.changes) {
                 m.power[i] = Power.LINE
                 clearTrees(i)
@@ -322,6 +382,7 @@ class City(
                 buildings[m.building[i]]?.let { removed += it; removeBuilding(it) }
                 m.road[i] = Road.NONE
                 m.roadHeading[i] = Heading.BOTH
+                m.rail[i] = Rail.NONE
                 m.zone[i] = Zone.NONE
                 m.power[i] = Power.NONE
                 clearTrees(i)
@@ -332,6 +393,7 @@ class City(
         if (undoable.size > MAX_UNDO) undoable.removeFirst()
         redoable.clear()
         networksChanged()
+        railChanged = true
         zonesChanged = true
         return plan
     }
@@ -356,6 +418,7 @@ class City(
         funds += e.cost
         redoable.addLast(e)
         networksChanged()
+        railChanged = true
         zonesChanged = true
         return Plan(-e.cost, e.tiles, IntArray(0), null)
     }
@@ -376,6 +439,7 @@ class City(
         funds -= e.cost
         undoable.addLast(e)
         networksChanged()
+        railChanged = true
         zonesChanged = true
         return Plan(e.cost, e.tiles, IntArray(0), null)
     }
@@ -465,6 +529,90 @@ class City(
         record()
     }
 
+    // ---- railway ----------------------------------------------------------------
+
+    private val railway = RailNetwork(map)
+    private var railChanged = true
+
+    /** A passenger station on a line to the edge, and a freight yard on one. */
+    private var railPassengers = false
+    private var railFreight = false
+
+    /** The lines trains ran last month, for drawing them: the track, and what they carried. */
+    var trainRoutes: List<TrainRoute> = emptyList()
+        private set
+
+    private fun updateRail() {
+        railway.update(buildings.values.filter { it.type.railway })
+        val stops = railway.buildings
+        val passengers = BooleanArray(stops.size) { stops[it].type.station }
+        val freightOut = BooleanArray(stops.size) { stops[it].type.yard && railway.linked(it) }
+        railPassengers = stops.indices.any { passengers[it] && railway.linked(it) }
+        railFreight = freightOut.any { it }
+        val times = Array(stops.size) { railway.times[it].copyOf() }
+        traffic.setRail(IntArray(stops.size) { accessOf(stops[it]) }, railway.stops.copyOf(), times, passengers, freightOut)
+    }
+
+    /**
+     * How busy the track was last month, and the lines trains ran: each
+     * journey's path along the track, between two stops or from a yard to the
+     * nearest edge. Stations on a line to the edge also get a train in from
+     * outside, busy or not.
+     */
+    private fun updateTrains() {
+        val busy = IntArray(map.size)
+        val routes = ArrayList<TrainRoute>()
+        val byStart = traffic.lastJourneys.entries.sortedBy { it.key }.groupBy { (it.key ushr 32).toInt() }
+        val linkedStations = railway.stops.indices.filter { railway.buildings[it].type.station && railway.linked(it) }
+        val starts = (byStart.keys + linkedStations.map { railway.stops[it] }).distinct().sorted()
+        for (start in starts) {
+            if (start !in 0 until map.size || map.rail[start] != Rail.TRACK) continue
+            val steps = railway.steps(start)
+            fun toEdge(): Int {
+                var best = -1
+                for (i in 0 until map.size) {
+                    if (steps[i] < 0) continue
+                    val x = i % map.width
+                    val y = i / map.width
+                    if ((x == 0 || y == 0 || x == map.width - 1 || y == map.height - 1) && (best < 0 || steps[i] < steps[best])) best = i
+                }
+                return best
+            }
+            val journeys = byStart[start].orEmpty()
+            for ((key, trips) in journeys) {
+                val endTile = (key and 0xffffffffL).toInt()
+                val freight = endTile == -1
+                val end = if (freight) toEdge() else endTile
+                if (end < 0 || end !in 0 until map.size || steps[end] < 0) continue
+                val path = railway.pathBack(steps, end)
+                for (i in path) busy[i] += trips
+                routes += TrainRoute(path.reversedArray(), !freight, trips)
+            }
+            if (map.rail[start] == Rail.TRACK && linkedStations.any { railway.stops[it] == start }) {
+                val end = toEdge()
+                if (end >= 0) routes += TrainRoute(railway.pathBack(steps, end).reversedArray(), true, 0)
+            }
+        }
+        val train = Balance.TRAIN_LOAD * 30
+        for (i in 0 until map.size) map.railBusy[i] = min(255, busy[i] * 128 / train).toByte()
+        trainRoutes = routes
+    }
+
+    /** Whether a road comes near enough to a building to reach it. */
+    fun reachable(b: Building): Boolean {
+        if (networksDirty) updateNetworks()
+        return accessOf(b) >= 0
+    }
+
+    /** Passengers who boarded or left at a station last month, freight a yard sent, and whether its line reaches the edge. */
+    fun riders(b: Building): Int = accessOf(b).let { if (it < 0) 0 else traffic.lastRiders[it] }
+    fun freightSent(b: Building): Int = accessOf(b).let { if (it < 0) 0 else traffic.lastRailFreight[it] }
+    fun railLinked(b: Building): Boolean {
+        if (networksDirty) updateNetworks()
+        val k = railway.buildings.indexOfFirst { it.id == b.id }
+        return k >= 0 && railway.linked(k)
+    }
+
     // ---- traffic ----------------------------------------------------------------
 
     private val traffic = Traffic(map)
@@ -510,6 +658,7 @@ class City(
             }
         }
         traffic.newMonth(workersAt, shoppersAt, freightAt, jobsAt, shopsAt, year * 12 + month)
+        updateTrains()
 
         val s = stats
         if (traffic.workersSent > 0) {
@@ -672,6 +821,11 @@ class City(
             }
         }
         for (i in 0 until m.size) nearRoad[i] = access[i] >= 0
+        // Only the player changes track, stations and roads, so the railway waits for them.
+        if (railChanged) {
+            railChanged = false
+            updateRail()
+        }
         // Power spreads from the power stations along lines, through buildings and
         // across zoned land, so a line along the back of a zone powers all of it.
         val powered = m.powered
@@ -953,11 +1107,12 @@ class City(
         val s = stats
         val years = year - START_YEAR
         val market = (Balance.EXPORT_BASE + Balance.EXPORT_PER_RESIDENT * s.population) *
-            (1 + Balance.EXPORT_GROWTH * years) * (if (connected) 1.0 else Balance.UNCONNECTED_EXPORTS)
+            (1 + Balance.EXPORT_GROWTH * years) * (if (connected) 1.0 else Balance.UNCONNECTED_EXPORTS) *
+            (if (railFreight) Balance.RAIL_EXPORTS else 1.0)
         val jobs = s.shopJobs + s.industryJobs + s.otherJobs
         s.industryDemand = taxed(market - s.industryJobs, industrialTax)
         s.commercialDemand = taxed(s.population / Balance.RESIDENTS_PER_SHOP_JOB - s.shopJobs, commercialTax)
-        val settlers = Balance.SETTLERS + Balance.SETTLERS_PER_RESIDENT * s.population
+        val settlers = (Balance.SETTLERS + Balance.SETTLERS_PER_RESIDENT * s.population) * (if (railPassengers) Balance.RAIL_SETTLERS else 1.0)
         s.residentialDemand = taxed(jobs / Balance.LABOUR_SHARE + settlers - s.population, residentialTax)
         quota[Zone.RESIDENTIAL.toInt()] = cap(s.residentialDemand, s.population)
         quota[Zone.COMMERCIAL.toInt()] = cap(s.commercialDemand, s.shopJobs)
@@ -989,6 +1144,8 @@ class City(
         var fire = 0
         var parks = 0
         var plants = 0
+        var stations = 0
+        var yards = 0
         for (b in buildings.values) {
             val worth = 0.5 + (map.landValue[map.index(b.x, b.y)].toInt() and 0xff) / 200.0
             when {
@@ -999,6 +1156,8 @@ class City(
                 b.type == BuildingType.FIRE_STATION -> fire++
                 b.type == BuildingType.PARK -> parks++
                 b.type == BuildingType.COAL_PLANT -> plants++
+                b.type.station -> stations++
+                b.type.yard -> yards++
             }
         }
         s.residentialIncome = (homes * residentialTax * Balance.RESIDENT_TAX).roundToLong()
@@ -1006,18 +1165,22 @@ class City(
         s.industrialIncome = (works * industrialTax * Balance.JOB_TAX).roundToLong()
         var roads = 0.0
         var lines = 0
+        var track = 0.0
         for (i in 0 until map.size) {
+            val bridge = if (map.terrain[i] == Terrain.WATER) Balance.BRIDGE_UPKEEP else 1.0
             val road = RoadType.of(map.road[i])
-            if (road != null) roads += road.upkeep * if (map.terrain[i] == Terrain.WATER) Balance.BRIDGE_UPKEEP else 1.0
+            if (road != null) roads += road.upkeep * bridge
             if (map.power[i] != Power.NONE) lines++
+            if (map.rail[i] != Rail.NONE) track += Balance.RAIL_UPKEEP * bridge
         }
         s.roadUpkeep = (roads + lines * Balance.LINE_UPKEEP).roundToLong()
+        s.railUpkeep = (track + stations * Balance.STATION_UPKEEP + yards * Balance.YARD_UPKEEP).roundToLong()
         s.powerUpkeep = (plants * Balance.PLANT_UPKEEP).roundToLong()
         s.policeUpkeep = (police * Balance.POLICE_UPKEEP * policeFunding / 100).roundToLong()
         s.fireUpkeep = (fire * Balance.FIRE_UPKEEP * fireFunding / 100).roundToLong()
         s.parkUpkeep = (parks * Balance.PARK_UPKEEP * parkFunding / 100).roundToLong()
         s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome
-        s.upkeep = s.roadUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep
+        s.upkeep = s.roadUpkeep + s.railUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep
         funds += s.income - s.upkeep
     }
 
@@ -1090,6 +1253,16 @@ class City(
         w.layer(map.roadHeading); w.layer(map.congestion); w.layer(map.commute)
         w.int(stats.commute)
         traffic.writeTo(w)
+        // Since version 3.
+        w.layer(map.rail); w.layer(map.railBusy)
+        w.long(stats.railUpkeep)
+        traffic.writeRail(w)
+        w.count(trainRoutes.size)
+        for (t in trainRoutes) {
+            w.count(t.tiles.size)
+            for (i in t.tiles) w.int(i)
+            w.bool(t.passengers); w.int(t.load)
+        }
     }
 
     companion object {
@@ -1145,6 +1318,16 @@ class City(
                 s.commute = r.int()
                 c.traffic.readFrom(r)
             }
+            if (version >= 3) {
+                r.layer(m.rail); r.layer(m.railBusy)
+                s.railUpkeep = r.long()
+                c.traffic.readRail(r)
+                c.trainRoutes = List(r.count()) {
+                    val tiles = IntArray(r.count()) { r.int() }
+                    if (tiles.any { it !in 0 until m.size }) throw SaveError("a train runs off the map")
+                    TrainRoute(tiles, r.bool(), r.int())
+                }
+            }
             c.networksChanged()
             return c
         }
@@ -1192,6 +1375,7 @@ class Stats {
     var income = 0L
 
     var roadUpkeep = 0L
+    var railUpkeep = 0L
     var powerUpkeep = 0L
     var policeUpkeep = 0L
     var fireUpkeep = 0L
@@ -1205,6 +1389,9 @@ class Stats {
 
     val jobs get() = shopJobs + industryJobs + otherJobs
 }
+
+/** A line a train ran last month: the track from end to end, and whether it carried passengers or freight, and how many. */
+class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int)
 
 enum class EventKind { FireStarted, FireSaved, BuildingLost }
 

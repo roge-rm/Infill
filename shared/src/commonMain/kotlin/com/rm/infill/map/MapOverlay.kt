@@ -41,8 +41,11 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
         is Action.BuildPowerLine -> for (i in a.tiles) {
             drawRect(if (i in p.blocked) BLOCKED else LINE_FILL, at(i), tile)
         }
+        is Action.BuildRail -> for (i in a.tiles) {
+            drawRect(if (i in p.blocked) BLOCKED else RAIL_FILL, at(i), tile)
+        }
         is Action.PlaceBuilding -> {
-            val ok = p.plan.problem != Problem.Blocked
+            val ok = p.plan.problem != Problem.Blocked && p.plan.problem != Problem.NeedsTrack
             rect(a.x, a.y, a.x + a.type.width - 1, a.y + a.type.height - 1, camera, if (ok) PLACE_FILL else BLOCKED, if (ok) PLACE_EDGE else BULLDOZE_EDGE)
         }
     }
@@ -81,6 +84,7 @@ private fun DrawScope.rect(x0: Int, y0: Int, x1: Int, y1: Int, camera: Camera, f
 
 private val ROAD_FILL = Color(0x66FFFFFF)
 private val ROAD_DRAG = Color(0x26FFFFFF)
+private val RAIL_FILL = Color(0x668E7CC3)
 private val BLOCKED = Color(0x80E53935)
 private val BULLDOZE_FILL = Color(0x40E53935)
 private val BULLDOZE_EDGE = Color(0xE6E53935)

@@ -31,6 +31,14 @@ class Graphics(val level: GraphicsLevel) {
         GraphicsLevel.High -> 3
     }
 
+    /** How many trains can run on each line at once, and whether they smoke. */
+    val trains = when (level) {
+        GraphicsLevel.Low -> 0
+        GraphicsLevel.Medium -> 1
+        GraphicsLevel.High -> 2
+    }
+    val smoke = level == GraphicsLevel.High
+
     /** The sharpest atlas used: 0 is 32 px a tile, 1 is 16. */
     val sharpest = if (level == GraphicsLevel.Low) 1 else 0
 
