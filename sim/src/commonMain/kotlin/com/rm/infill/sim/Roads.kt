@@ -18,15 +18,17 @@ enum class RoadType(
     val width: Int = 1,
     val year: Int = 1900,
     val bridges: Boolean = true,
+    /** How many years its surface is expected to last. */
+    val life: Int = 25,
 ) {
-    DIRT(1, 10, 0.4, 40, 300),
-    GRAVEL(2, 16, 0.5, 30, 440),
-    LANE(3, 6, 0.2, 45, 120, bridges = false),
+    DIRT(1, 10, 0.4, 40, 300, life = 10),
+    GRAVEL(2, 16, 0.5, 30, 440, life = 15),
+    LANE(3, 6, 0.2, 45, 120, bridges = false, life = 15),
     STREET(4, 30, 0.8, 20, 800),
     ONE_WAY_STREET(5, 30, 0.8, 18, 900, oneWay = true),
     AVENUE(6, 60, 1.6, 15, 1600, year = 1910),
     ONE_WAY_AVENUE(7, 60, 1.6, 13, 1800, oneWay = true, year = 1910),
-    BOULEVARD(8, 45, 1.0, 12, 1400, oneWay = true, width = 2, year = 1920),
+    BOULEVARD(8, 45, 1.0, 12, 1400, oneWay = true, width = 2, year = 1920, life = 30),
     ;
 
     companion object {

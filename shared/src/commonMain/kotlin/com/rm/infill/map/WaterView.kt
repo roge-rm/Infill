@@ -4,7 +4,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.lerp
+import com.rm.infill.sim.Ageing
+import com.rm.infill.sim.Broken
 import com.rm.infill.sim.CityMap
+import com.rm.infill.sim.Material
+import com.rm.infill.sim.Pipe
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
@@ -14,18 +19,60 @@ import kotlin.math.min
  * What's under the ground, for laying pipes: the map dimmed, the water mains
  * in blue, the sewers in brown and the storm drains in grey, each a little to
  * one side of the others, and a dot on each tile that has mains water or is on
- * the sewer.
+ * the sewer. Pipes go rusty as they wear towards their expected life, and red
+ * where they've broken.
  */
-internal fun DrawScope.drawUnderground(map: CityMap, camera: Camera) {
+internal fun DrawScope.drawUnderground(map: CityMap, camera: Camera, now: Int) {
     drawRect(VEIL)
     val t = camera.tilePx
     forVisibleTiles(map, camera) { x, y, i ->
         val corner = camera.tileToScreen(x.toFloat(), y.toFloat(), size)
         if (map.watered[i]) drawRect(WATERED, Offset(corner.x + t * 0.1f, corner.y + t * 0.1f), Size(t * 0.14f, t * 0.14f))
         if (map.sewered[i]) drawRect(SEWERED, Offset(corner.x + t * 0.76f, corner.y + t * 0.76f), Size(t * 0.14f, t * 0.14f))
-        pipe(map, map.waterPipe, x, y, corner, t, -0.18f, WATER_MAIN)
-        pipe(map, map.sewerPipe, x, y, corner, t, 0f, SEWER)
-        pipe(map, map.stormPipe, x, y, corner, t, 0.18f, STORM_DRAIN)
+        pipe(map, map.waterPipe, x, y, corner, t, -0.18f, aged(WATER_MAIN, map, i, Pipe.WATER, map.waterPipe, map.waterLaid, Broken.WATER, now))
+        pipe(map, map.sewerPipe, x, y, corner, t, 0f, aged(SEWER, map, i, Pipe.SEWER, map.sewerPipe, map.sewerLaid, Broken.SEWER, now))
+        pipe(map, map.stormPipe, x, y, corner, t, 0.18f, aged(STORM_DRAIN, map, i, Pipe.STORM, map.stormPipe, map.stormLaid, Broken.STORM, now))
+    }
+}
+
+/** A pipe's colour, rusting towards its expected life, red if it's out of use. */
+private fun aged(colour: Color, map: CityMap, i: Int, kind: Pipe, layer: ByteArray, laid: ShortArray, bit: Int, now: Int): Color {
+    if (map.out(i, bit)) return BROKEN
+    val material = Material.of(kind, layer[i]) ?: return colour
+    val wear = (Ageing.wear(now - laid[i], material.life) / 100f).coerceIn(0f, 1f)
+    return lerp(colour, RUST, wear * 0.8f)
+}
+
+/**
+ * Where the road's shut, barriers across it and the hole the crews have dug;
+ * where it's broken up, potholes; where works are waiting to start, a cone.
+ */
+internal fun DrawScope.drawWorks(map: CityMap, camera: Camera) {
+    val t = camera.tilePx
+    if (t < MIN_WORKS_PX) return
+    forVisibleTiles(map, camera) { x, y, i ->
+        if (map.broken[i].toInt() == 0) return@forVisibleTiles
+        val c = camera.tileToScreen(x.toFloat(), y.toFloat(), size)
+        when {
+            map.closed(i) || map.out(i, Broken.RAIL) -> {
+                drawRect(DUG, Offset(c.x + t * 0.3f, c.y + t * 0.3f), Size(t * 0.4f, t * 0.4f))
+                for (edge in listOf(0.12f, 0.8f)) {
+                    val y0 = c.y + t * edge
+                    var k = 0
+                    var xx = c.x + t * 0.1f
+                    val w = t * 0.8f / 5
+                    while (k < 5) {
+                        drawRect(if (k % 2 == 0) BARRIER else Color.White, Offset(xx, y0), Size(w, t * 0.08f))
+                        xx += w
+                        k++
+                    }
+                }
+            }
+            map.potholed(i) -> for ((px, py) in listOf(0.3f to 0.35f, 0.62f to 0.55f, 0.4f to 0.7f)) {
+                drawOval(POTHOLE, Offset(c.x + t * px, c.y + t * py), Size(t * 0.14f, t * 0.09f))
+            }
+            else -> drawCircle(BARRIER, t * 0.07f, Offset(c.x + t * 0.85f, c.y + t * 0.2f))
+        }
     }
 }
 
@@ -71,3 +118,11 @@ private val STORM_DRAIN = Color(0xFFB8BCC2)
 private val WATERED = Color(0xFF7CC4F2)
 private val SEWERED = Color(0xFFC9A06A)
 private val FLOODWATER = Color(0xFF3F6E9E)
+private val RUST = Color(0xFFA8823C)
+private val BROKEN = Color(0xFFFF2A2A)
+private val DUG = Color(0xFF5A4430)
+private val BARRIER = Color(0xFFE8792A)
+private val POTHOLE = Color(0xCC2A2622)
+
+/** Below this many pixels a tile, works and potholes aren't drawn. */
+private const val MIN_WORKS_PX = 10f

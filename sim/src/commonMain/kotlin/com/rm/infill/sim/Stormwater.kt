@@ -46,6 +46,8 @@ object Stormwater {
         BuildingType.WELL_FIELD -> 10
         BuildingType.WATER_TOWER -> 40
         BuildingType.OUTFALL, BuildingType.STORM_OUTFALL -> 20
+        BuildingType.SEWAGE_WORKS -> 55
+        BuildingType.TREATMENT_PLANT -> 65
         BuildingType.STORM_POND -> 0
     }
 

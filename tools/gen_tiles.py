@@ -2248,6 +2248,68 @@ def site_large(look, phase):
     return b
 
 
+# Sewage works: round settling tanks and a pump house on 2 by 2 tiles from the
+# Streetcar city; a treatment plant of long tanks and a works building on 3 by
+# 2 from Renewal.
+
+SETTLING = [c("#6f6a52"), c("#7a745a"), c("#655f48")]
+AERATION = [c("#7d8a6a"), c("#889574"), c("#728060")]
+
+
+def round_tank(b, look, cx, cy, r, cols):
+    d = b.d
+    gx, gy = b.ground(cx, cy)
+    d.ellipse([gx - r - 1, gy - r - 1, gx + r + 1, gy + r + 1], CONCRETE, OUTLINE)
+    d.ellipse([gx - r + 1, gy - r + 1, gx + r - 1, gy + r - 1], c("#dfe7ee") if look == "snow" else cols[0])
+    d.ellipse([gx - r // 2, gy - r // 2, gx + r // 2, gy + r // 2], c("#d6dde3") if look == "snow" else cols[1])
+    # The scraper arm across it.
+    d.line([gx - r + 1, gy, gx + r - 1, gy], c("#4a4f55"))
+
+
+def sewage_works(look, v):
+    """Two round settling tanks and a small brick pump house, fenced, by the water."""
+    b = Building(2, 2, height=STOREY + 10)
+    d = b.d
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(62, 62)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else c("#9a9a88"))
+    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#6b5a44"))
+    round_tank(b, look, 18, 18, 12, SETTLING)
+    round_tank(b, look, 46, 18, 12, SETTLING)
+    roof, wall = b.box(8, 40, 34, 56, STOREY + 2)
+    brick(d, wall, c("#9a5a42"))
+    windows(d, wall, 1, sill=TRIM, every=6, skip_door=True)
+    door(d, wall)
+    d.rectangle(wall, outline=OUTLINE)
+    gable_ew(d, roof, SHINGLE[2], look)
+    return b
+
+
+def treatment_plant(look, v):
+    """Long aeration tanks, two round clarifiers and a concrete works building on 3 by 2 tiles."""
+    b = Building(3, 2, height=2 * STOREY + 6)
+    d = b.d
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(94, 62)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else c("#a4a494"))
+    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#6b6f74"))
+    for k in range(3):
+        tx0, ty0 = b.ground(6, 6 + k * 12)
+        d.rectangle([tx0, ty0, tx0 + 50, ty0 + 9], CONCRETE, OUTLINE)
+        d.rectangle([tx0 + 2, ty0 + 2, tx0 + 48, ty0 + 7], c("#dfe7ee") if look == "snow" else AERATION[k % 3])
+        if look != "snow":
+            for xx in range(tx0 + 4, tx0 + 48, 5):
+                d.point((xx, ty0 + 4), c("#c4cfb4"))
+    round_tank(b, look, 74, 16, 11, SETTLING)
+    round_tank(b, look, 74, 42, 11, SETTLING)
+    roof, wall = b.box(6, 44, 46, 58, 2 * STOREY + 2)
+    d.rectangle(wall, c("#c8c4b8"))
+    windows(d, wall, 2, glass=c("#4a5866"), every=5, width=3)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(8400), [("vent", 6, 3), ("vent", 30, 4)], parapet=c("#d8d4c8"))
+    return b
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -2261,6 +2323,7 @@ BUILDINGS = [
     ("row_houses", row_houses, 3), ("apartments", apartments, 3), ("apartment_court", apartment_court, 2),
     ("main_street", main_street, 4), ("office_block", office_block, 3), ("department_store", department_store, 2),
     ("works", works, 2), ("site_small", site_small, 2), ("site_large", site_large, 2),
+    ("sewage_works", sewage_works, 1), ("treatment_plant", treatment_plant, 1),
 ]
 
 

@@ -65,6 +65,11 @@ import com.rm.infill.res.needs_water
 import com.rm.infill.res.event_flooding
 import com.rm.infill.res.event_river_flood
 import com.rm.infill.res.event_sickness
+import com.rm.infill.res.event_main_burst
+import com.rm.infill.res.event_sewer_collapsed
+import com.rm.infill.res.event_track_broken
+import com.rm.infill.res.event_broke_down
+import com.rm.infill.ui.waterKindsIn
 import com.rm.infill.res.road_only
 import com.rm.infill.res.road_with_pipes
 import com.rm.infill.res.nothing_to_undo
@@ -86,6 +91,8 @@ import com.rm.infill.sim.RoadType
 import com.rm.infill.ui.ServiceKind
 import com.rm.infill.ui.servicesIn
 import com.rm.infill.ui.PeopleWindow
+import com.rm.infill.ui.EraWindow
+import com.rm.infill.sim.Era
 import com.rm.infill.ui.BudgetWindow
 import com.rm.infill.ui.GraphsWindow
 import com.rm.infill.ui.buildingName
@@ -287,6 +294,7 @@ private fun GameScreen(
         var budgetOpen by remember { mutableStateOf(false) }
         var graphsOpen by remember { mutableStateOf(false) }
         var peopleOpen by remember { mutableStateOf(false) }
+        var eraShown by remember { mutableStateOf<Era?>(null) }
         var paused by remember { mutableStateOf(true) }
         val keys = remember { KeyInput() }
         keys.bindings = settings.keys
@@ -347,6 +355,12 @@ private fun GameScreen(
                 dayProgress = progress
                 val monthBefore = city.month
                 game.tick(days) { e ->
+                    if (e.kind == EventKind.EraArrived) {
+                        // A new era stops the clock and says what it brings.
+                        eraShown = e.era
+                        paused = true
+                        return@tick
+                    }
                     message = when (e.kind) {
                         EventKind.FireStarted -> Message(Res.string.event_fire, e.type?.let { buildingName(it) }, e.x, e.y)
                         EventKind.BuildingLost -> Message(Res.string.event_lost, e.type?.let { buildingName(it) }, e.x, e.y)
@@ -354,6 +368,11 @@ private fun GameScreen(
                         EventKind.Flooding -> Message(Res.string.event_flooding, x = e.x, y = e.y)
                         EventKind.RiverFlood -> Message(Res.string.event_river_flood, x = e.x, y = e.y)
                         EventKind.Sickness -> Message(Res.string.event_sickness, x = e.x, y = e.y)
+                        EventKind.MainBurst -> Message(Res.string.event_main_burst, x = e.x, y = e.y)
+                        EventKind.SewerCollapsed -> Message(Res.string.event_sewer_collapsed, x = e.x, y = e.y)
+                        EventKind.TrackBroken -> Message(Res.string.event_track_broken, x = e.x, y = e.y)
+                        EventKind.BrokeDown -> Message(Res.string.event_broke_down, e.type?.let { buildingName(it) }, e.x, e.y)
+                        EventKind.EraArrived -> null
                     }
                 }
                 if (city.month != monthBefore) onNewMonth()
@@ -384,14 +403,17 @@ private fun GameScreen(
             // Picking the zone tool again moves on to the next kind of zone.
             if (t == Tool.Zone && tool == Tool.Zone) zoneKind = ZoneKind.entries[(zoneKind.ordinal + 1) % ZoneKind.entries.size]
             if (t == Tool.Road && tool == Tool.Road) {
-                val roads = roadsIn(city.year)
+                val roads = roadsIn(city)
                 roadKind = roads[(roads.indexOf(roadKind) + 1) % roads.size]
             }
             if (t == Tool.Rail && tool == Tool.Rail) railKind = RailKind.entries[(railKind.ordinal + 1) % RailKind.entries.size]
-            if (t == Tool.Water && tool == Tool.Water) waterKind = WaterKind.entries[(waterKind.ordinal + 1) % WaterKind.entries.size]
+            if (t == Tool.Water && tool == Tool.Water) {
+                val kinds = waterKindsIn(city)
+                waterKind = kinds[(kinds.indexOf(waterKind) + 1) % kinds.size]
+            }
             if (t == Tool.Power && tool == Tool.Power) powerKind = PowerKind.entries[(powerKind.ordinal + 1) % PowerKind.entries.size]
             if (t == Tool.Services && tool == Tool.Services) {
-                val services = servicesIn(city.year)
+                val services = servicesIn(city)
                 serviceKind = services[(services.indexOf(serviceKind) + 1) % services.size]
             }
             tool = t
@@ -424,7 +446,7 @@ private fun GameScreen(
         // Esc and the back button: let go of a drag, close what's open, put the tool down, then the menu.
         fun back() {
             when {
-                budgetOpen || graphsOpen || peopleOpen -> { budgetOpen = false; graphsOpen = false; peopleOpen = false }
+                budgetOpen || graphsOpen || peopleOpen || eraShown != null -> { budgetOpen = false; graphsOpen = false; peopleOpen = false; eraShown = null }
                 drag != null -> drag = null
                 choosingOverlay -> choosingOverlay = false
                 inspected != null -> inspected = null
@@ -530,7 +552,7 @@ private fun GameScreen(
             StatusStrip(
                 game, onMenu, paused, { paused = !paused }, speed, { speed = (speed + 1) % SPEEDS.size },
                 overlay != Overlay.None || choosingOverlay, { choosingOverlay = !choosingOverlay },
-                { budgetOpen = true }, { peopleOpen = true },
+                { budgetOpen = true }, { peopleOpen = true }, { eraShown = city.era },
                 Sky.sun(sunStep, month).strength == 0f, layout.compact || layout.narrow,
                 twoLines = twoLines, onUndo = ::undo, onRedo = ::redo,
                 Modifier
@@ -578,13 +600,13 @@ private fun GameScreen(
                     OptionPicker(ZoneKind.entries, zoneKind, { it.title }, { zoneColour(it.zone) }, { zoneKind = it }, compactTools)
                 }
                 if (tool == Tool.Road) {
-                    OptionPicker(roadsIn(city.year), roadKind, { roadName(it) }, { roadColour(it) }, { roadKind = it }, compactTools)
+                    OptionPicker(roadsIn(city), roadKind, { roadName(it) }, { roadColour(it) }, { roadKind = it }, compactTools)
                 }
                 if (tool == Tool.Road) {
                     OptionPicker(listOf(false, true), roadPipes, { if (it) Res.string.road_with_pipes else Res.string.road_only }, { null }, { roadPipes = it }, compactTools)
                 }
                 if (tool == Tool.Water) {
-                    OptionPicker(WaterKind.entries, waterKind, { it.title }, { null }, { waterKind = it }, compactTools)
+                    OptionPicker(waterKindsIn(city), waterKind, { it.title }, { null }, { waterKind = it }, compactTools)
                 }
                 if (tool == Tool.Rail) {
                     OptionPicker(RailKind.entries, railKind, { it.title }, { null }, { railKind = it }, compactTools)
@@ -593,7 +615,7 @@ private fun GameScreen(
                     OptionPicker(PowerKind.entries, powerKind, { it.title }, { null }, { powerKind = it }, compactTools)
                 }
                 if (tool == Tool.Services) {
-                    OptionPicker(servicesIn(city.year), serviceKind, { it.title }, { null }, { serviceKind = it }, compactTools)
+                    OptionPicker(servicesIn(city), serviceKind, { it.title }, { null }, { serviceKind = it }, compactTools)
                 }
                 // The map views stay up while one is showing, so its name is on screen.
                 if (choosingOverlay || overlay != Overlay.None) {
@@ -625,6 +647,7 @@ private fun GameScreen(
             }
             if (budgetOpen) BudgetWindow(game) { budgetOpen = false }
             if (graphsOpen) GraphsWindow(game) { graphsOpen = false }
+            eraShown?.let { EraWindow(game, it) { eraShown = null } }
             if (peopleOpen) PeopleWindow(game, { peopleOpen = false; graphsOpen = true }) { peopleOpen = false }
         }
     }

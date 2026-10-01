@@ -32,16 +32,12 @@
     <string name="inspect_well">A well</string>
     <string name="inspect_sewer">On the sewer</string>
     <string name="inspect_septic">A septic tank</string>
-    <string name="inspect_under_main">A water main underneath</string>
-    <string name="inspect_under_sewer">A sewer underneath</string>
-    <string name="inspect_under_drain">A storm drain underneath</string>
     <string name="inspect_flooded">Flooded</string>
     <string name="inspect_foul">Sewage in the water</string>
     <string name="upkeep_water">Water and drains</string>
     <string name="rail_track">Track</string>
     <string name="station">Station</string>
     <string name="freight_yard">Freight yard</string>
-    <string name="inspect_track">Railway track</string>
     <string name="inspect_crossing">Level crossing</string>
     <string name="inspect_linked">Trains to and from outside</string>
     <string name="inspect_not_linked">No line to the edge of the map</string>
@@ -186,6 +182,83 @@
         <item quantity="one">Going up, a day to go</item>
         <item quantity="other">Going up, %1$d days to go</item>
     </plurals>
+    <string name="era_township">Township</string>
+    <string name="era_streetcar">Streetcar city</string>
+    <string name="era_motor">Motor age</string>
+    <string name="era_renewal">Renewal</string>
+    <string name="era_infill">Infill</string>
+    <string name="era_future">Future</string>
+    <string name="era_township_line">Dirt roads, wells and septic tanks, and power for those who can get it.</string>
+    <string name="era_streetcar_line">Paved streets, mains water and sewers are the coming thing, and the town grows up as well as out.</string>
+    <string name="era_motor_line">The car is here. Homes without mains water, the sewer and power fall behind, and the well off look to the edge of town.</string>
+    <string name="era_renewal_line">The old core is tired and the factories are closing. What to clear and what to keep?</string>
+    <string name="era_infill_line">The town has run out of room to spread. It grows up and in.</string>
+    <string name="era_future_line">What comes next.</string>
+    <string name="era_brings">New</string>
+    <string name="era_next">Next: %1$s, not before %2$d</string>
+    <string name="goal_people">%1$s people</string>
+    <string name="goal_mains_or_station">Mains water or a railway station</string>
+    <string name="goal_on_mains">%1$d% of people on mains water</string>
+    <string name="goal_on_sewer">%1$d% of people on the sewer</string>
+    <string name="goal_powered">%1$d% of buildings with power</string>
+    <string name="goal_downtown">High density shops or offices</string>
+    <string name="goal_high_school">A high school</string>
+    <string name="goal_land_built">%1$d% of the land by the roads built on</string>
+    <string name="goal_met">✓</string>
+    <string name="goal_not_met">–</string>
+    <string name="material_cast_iron">Cast iron main</string>
+    <string name="material_wood">Wooden main</string>
+    <string name="material_ductile_iron">Ductile iron main</string>
+    <string name="material_plastic_main">Plastic main</string>
+    <string name="material_brick">Brick sewer</string>
+    <string name="material_concrete_sewer">Concrete sewer</string>
+    <string name="material_plastic_sewer">Plastic sewer</string>
+    <string name="material_clay_drain">Clay storm drain</string>
+    <string name="material_concrete_drain">Concrete storm drain</string>
+    <string name="material_plastic_drain">Plastic storm drain</string>
+    <string name="laid_in">%1$s, laid %2$d</string>
+    <string name="laid">Laid %1$d</string>
+    <string name="built_in">Built %1$d</string>
+    <string name="track">Track</string>
+    <plurals name="mend_main">
+        <item quantity="one">The main burst, a day to mend</item>
+        <item quantity="other">The main burst, %1$d days to mend</item>
+    </plurals>
+    <plurals name="mend_sewer">
+        <item quantity="one">The sewer gave way, a day to mend</item>
+        <item quantity="other">The sewer gave way, %1$d days to mend</item>
+    </plurals>
+    <plurals name="mend_drain">
+        <item quantity="one">The storm drain gave way, a day to mend</item>
+        <item quantity="other">The storm drain gave way, %1$d days to mend</item>
+    </plurals>
+    <plurals name="mend_road">
+        <item quantity="one">Broken up, a day to mend</item>
+        <item quantity="other">Broken up, %1$d days to mend</item>
+    </plurals>
+    <plurals name="mend_track">
+        <item quantity="one">Broken track, a day to mend</item>
+        <item quantity="other">Broken track, %1$d days to mend</item>
+    </plurals>
+    <plurals name="works_on">
+        <item quantity="one">Being relaid, a day to go</item>
+        <item quantity="other">Being relaid, %1$d days to go</item>
+    </plurals>
+    <string name="works_waiting">Waiting to be relaid</string>
+    <plurals name="broken_down">
+        <item quantity="one">Broken down, a day to mend</item>
+        <item quantity="other">Broken down, %1$d days to mend</item>
+    </plurals>
+    <string name="event_main_burst">A water main burst</string>
+    <string name="event_sewer_collapsed">A sewer gave way</string>
+    <string name="event_track_broken">The track broke</string>
+    <string name="event_broke_down">The %1$s broke down</string>
+    <string name="upkeep_repairs">Repairs</string>
+    <string name="overlay_age">Age</string>
+    <string name="sewage_works">Sewage works</string>
+    <string name="treatment_plant">Treatment plant</string>
+    <string name="brownfield">Brownfield, to be cleaned up</string>
+    <string name="heritage">Heritage</string>
     <string name="has_power">Has power</string>
     <string name="no_power">No power</string>
     <string name="inspect_power_line">Power line</string>

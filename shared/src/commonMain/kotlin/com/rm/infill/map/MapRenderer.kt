@@ -244,6 +244,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             } else {
                 surface.copy(base + Atlas.GRASS + h % Atlas.GRASS_COUNT, dx, dy)
                 if (grime > 0) soot(surface, grime, h, dx, dy, s, level)
+                if (map.brownfield[i].toInt() != 0) brownfield(surface, h, dx, dy, s, level)
                 val zone = map.zone[i]
                 if (zone != Zone.NONE && map.building[i] == 0) zoneTint(surface, zone, map.density[i], tx, ty, dx, dy, s, level)
                 if (road != null) roadTile(surface, base, road, i, tx, ty, roadMask(tx, ty), dx, dy, level)
@@ -415,6 +416,17 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             val px = ((h ushr (k * 3)) + k * 7) % (s - patch + 1)
             val py = ((h ushr (k * 2 + 1)) + k * 11) % (s - patch + 1)
             surface.fill(dx + px, dy + py, patch, patch, DIRT, 150)
+        }
+    }
+
+    /** Fouled works land: dark, bare, rust-stained ground. */
+    private fun brownfield(surface: BakeSurface, h: Int, dx: Int, dy: Int, s: Int, atlasLevel: Int) {
+        surface.fill(dx, dy, s, s, SOOT, 170)
+        val patch = max(1, 6 shr atlasLevel)
+        for (k in 0 until 6) {
+            val px = ((h ushr (k * 3)) + k * 5) % (s - patch + 1)
+            val py = ((h ushr (k * 2 + 1)) + k * 9) % (s - patch + 1)
+            surface.fill(dx + px, dy + py, patch, patch, if (k % 2 == 0) RUST else DIRT, 170)
         }
     }
 
@@ -668,6 +680,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         private val SEWAGE_ALPHA = intArrayOf(0, 55, 95, 135)
         private val MURK_ALPHA = intArrayOf(0, 45, 85, 125)
         private const val DIRT = 0x6E5E48
+        private const val RUST = 0x8A4A2A
 
         /** How many rows below a chunk have sprites tall enough to reach into it. */
         const val SPRITE_ROWS = 3

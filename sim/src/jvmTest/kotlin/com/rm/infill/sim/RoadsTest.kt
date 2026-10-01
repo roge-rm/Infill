@@ -6,7 +6,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class RoadsTest {
-    private fun city(size: Int = 32) = City(1, size, size, TerrainOptions(water = 0, trees = 0, river = false))
+    private fun city(size: Int = 32) = City(1, size, size, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true }
 
     private fun City.road(x0: Int, y0: Int, x1: Int, y1: Int, type: RoadType = RoadType.DIRT, acrossFirst: Boolean = true): Plan =
         apply(Action.BuildRoad(Action.roadPath(map, x0, y0, x1, y1, acrossFirst), type))

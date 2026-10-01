@@ -117,6 +117,8 @@ object Balance {
     const val WELL_UPKEEP = 10.0
     const val TOWER_UPKEEP = 8.0
     const val OUTFALL_UPKEEP = 5.0
+    const val SEWAGE_WORKS_UPKEEP = 40.0
+    const val TREATMENT_UPKEEP = 120.0
 
     /** People a pumping station and a well field supply, residents and workers alike. */
     const val PUMP_SUPPLY = 3_000
@@ -289,6 +291,80 @@ object Balance {
 
     /** Share of a skill's jobs going unfilled from which businesses wanting it can't grow, in percent. */
     const val SKILL_SHORT = 25
+
+    // Wear: the chance in millionths a month that something fails at its expected life, and at most.
+    const val FAIL_AT_LIFE = 400
+    const val FAIL_MOST = 20_000
+
+    /** How long track lasts, in years. */
+    const val TRACK_LIFE = 35
+
+    // Days to mend a failure, and what it costs.
+    const val MEND_MAIN = 4
+    const val MEND_SEWER = 7
+    const val MEND_DRAIN = 5
+    const val MEND_ROAD = 3
+    const val MEND_TRACK = 4
+    const val MEND_PLANT = 21
+    const val REPAIR_MAIN = 120L
+    const val REPAIR_SEWER = 200L
+    const val REPAIR_DRAIN = 120L
+    const val REPAIR_ROAD = 30L
+    const val REPAIR_TRACK = 90L
+
+    /** A patch puts back a tenth of a thing's life; it doesn't make it new. */
+    const val PATCH_SHARE = 10
+
+    /** How deep a burst main floods the street, and how much grime a broken sewer leaves round it. */
+    const val BURST_FLOOD = 200
+    const val SEWER_GRIME = 60
+
+    /** How much a broken road surface slows the traffic over it. */
+    const val POTHOLE_SLOW = 3
+
+    /** Days the crews spend relaying a tile, and how many tiles of a programme they start a day. */
+    const val WORKS_DAYS = 6
+    const val WORKS_PER_DAY = 3
+
+    /** Relaying a worn road costs this much of a new one, in percent, and the pipes under it this much of theirs. */
+    const val RENEW_ROAD = 60
+    const val PIPES_WITH_ROAD = 50
+
+    /** Worn this far through its life, something can be relaid. */
+    const val RENEWABLE_WEAR = 40
+
+    // From HERITAGE_FROM, solid old buildings put up before HERITAGE_BEFORE are sought after instead of shabby.
+    const val HERITAGE_FROM = 1970
+    const val HERITAGE_BEFORE = 1930
+    const val HERITAGE_APPEAL = 10
+
+    /** From this year, works that close leave brownfield, which costs this a tile to clean and takes this off land value round it. */
+    const val BROWNFIELD_FROM = 1960
+    const val BROWNFIELD_VALUE = 25
+
+    /** Homes past this many years lose appeal, up to WORN_APPEAL at twice that. */
+    const val WORN_YEARS = 40
+    const val WORN_APPEAL = 10
+
+    // Eras' milestones.
+    const val STREETCAR_PEOPLE = 1_500
+    const val MOTOR_PEOPLE = 8_000
+    const val MOTOR_SERVED = 60
+    const val MOTOR_POWERED = 75
+    const val RENEWAL_PEOPLE = 25_000
+    const val INFILL_LAND = 75
+
+    // What homes expect as the years go by: mains water, the sewer and power go
+    // from a draw to expected, and going without counts against a home.
+    const val MAINS_FADES = 1915
+    const val MAINS_EXPECTED_BY = 1945
+    const val MAINS_EXPECTED = 14
+    const val SEWER_FADES = 1920
+    const val SEWER_EXPECTED_BY = 1955
+    const val SEWER_EXPECTED = 12
+    const val POWER_FADES = 1920
+    const val POWER_EXPECTED_BY = 1950
+    const val POWER_EXPECTED = 10
 
     // Land value for people and jobs within ACTIVITY_REACH tiles: a point for every ACTIVITY_PER_VALUE of them, up to ACTIVITY_VALUE.
     const val ACTIVITY_REACH = 6

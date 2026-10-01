@@ -90,6 +90,7 @@ fun StatusStrip(
     onOverlay: () -> Unit,
     onBudget: () -> Unit,
     onPeople: () -> Unit,
+    onEra: () -> Unit,
     night: Boolean,
     compact: Boolean,
     twoLines: Boolean,
@@ -121,6 +122,7 @@ fun StatusStrip(
         Text(
             stringResource(Res.string.date, months.getOrElse(city.month) { "" }, city.year),
             color = c.text, fontSize = textSize, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onEra).padding(2.dp),
         )
     }
     val readings = @Composable {

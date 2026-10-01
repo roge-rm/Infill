@@ -27,6 +27,64 @@ class CityMap(val width: Int, val height: Int) {
     val sewerPipe = ByteArray(size)
     val stormPipe = ByteArray(size)
 
+    /**
+     * When each tile's road, water main, sewer, storm drain and track were laid,
+     * in months from January 1900 ([Ageing.monthOf]).
+     */
+    val roadLaid = ShortArray(size)
+    val waterLaid = ShortArray(size)
+    val sewerLaid = ShortArray(size)
+    val stormLaid = ShortArray(size)
+    val railLaid = ShortArray(size)
+
+    /** Land left fouled where works closed down, 1 where it is: nothing's built on it until it's cleaned up. */
+    val brownfield = ByteArray(size)
+
+    /** What's broken on each tile ([Broken]), and the days left until it's mended or the works there are done. */
+    val broken = ByteArray(size)
+    val mending = ByteArray(size)
+
+    fun mendingDays(i: Int): Int = mending[i].toInt() and 0xff
+
+    /** Whether the crews are at it on tile [i]: mending a failure, or at works that have reached it rather than waiting their turn. */
+    fun underRepair(i: Int): Boolean = (broken[i].toInt() and Broken.WORKS) == 0 || mendingDays(i) <= Balance.WORKS_DAYS
+
+    /** Whether tile [i]'s pipe or track marked [bit] is out of use. */
+    fun out(i: Int, bit: Int): Boolean = (broken[i].toInt() and bit) != 0 && underRepair(i)
+
+    /** Whether the road on tile [i] is shut: dug up for a pipe, or being relaid. */
+    fun closed(i: Int): Boolean {
+        val b = broken[i].toInt()
+        if (b == 0 || !underRepair(i)) return false
+        return (b and Broken.DUG) != 0 || ((b and Broken.WORKS) != 0 && (b and Broken.ROAD) != 0)
+    }
+
+    /** Whether the road on tile [i] has broken up, which slows everything on it. */
+    fun potholed(i: Int): Boolean = (broken[i].toInt() and (Broken.ROAD or Broken.WORKS)) == Broken.ROAD
+
+    /** When everything on tile [i] was laid, packed into one number for undo, twelve bits each. */
+    fun tileLaid(i: Int): Long {
+        var v = 0L
+        for (a in arrayOf(roadLaid, waterLaid, sewerLaid, stormLaid, railLaid)) v = (v shl 12) or (a[i].toLong() and 0xfff)
+        return v
+    }
+
+    fun setTileLaid(i: Int, packed: Long) {
+        var v = packed
+        for (a in arrayOf(railLaid, stormLaid, sewerLaid, waterLaid, roadLaid)) {
+            a[i] = (v and 0xfff).toShort()
+            v = v shr 12
+        }
+    }
+
+    /** What's broken on tile [i] and the days to mend it, packed for undo. */
+    fun tileFix(i: Int): Int = (broken[i].toInt() and 0xff) or (mendingDays(i) shl 8)
+
+    fun setTileFix(i: Int, v: Int) {
+        broken[i] = (v and 0xff).toByte()
+        mending[i] = (v shr 8).toByte()
+    }
+
     /** Embankments along the water, 1 where there's one. A swollen river can't get past them. */
     val bank = ByteArray(size)
 
@@ -121,9 +179,10 @@ class CityMap(val width: Int, val height: Int) {
     fun tileState(i: Int): Long =
         (terrain[i].toLong() and 0x0f) or ((road[i].toLong() and 0x0f) shl 4) or ((zone[i].toLong() and 0x07) shl 8) or
             ((power[i].toLong() and 0x03) shl 11) or ((rail[i].toLong() and 0x03) shl 13) or
-            ((roadHeading[i].toLong() and 0x0f) shl 15) or ((waterPipe[i].toLong() and 0x01) shl 19) or
-            ((sewerPipe[i].toLong() and 0x01) shl 20) or ((stormPipe[i].toLong() and 0x01) shl 21) or
-            ((bank[i].toLong() and 0x01) shl 22) or ((density[i].toLong() and 0x03) shl 23) or (building[i].toLong() shl 32)
+            ((roadHeading[i].toLong() and 0x0f) shl 15) or ((waterPipe[i].toLong() and 0x07) shl 19) or
+            ((sewerPipe[i].toLong() and 0x03) shl 22) or ((stormPipe[i].toLong() and 0x03) shl 24) or
+            ((bank[i].toLong() and 0x01) shl 26) or ((density[i].toLong() and 0x03) shl 27) or
+            ((brownfield[i].toLong() and 0x01) shl 29) or (building[i].toLong() shl 32)
 
     fun setTileState(i: Int, state: Long) {
         terrain[i] = (state and 0x0f).toByte()
@@ -132,11 +191,12 @@ class CityMap(val width: Int, val height: Int) {
         power[i] = ((state shr 11) and 0x03).toByte()
         rail[i] = ((state shr 13) and 0x03).toByte()
         roadHeading[i] = ((state shr 15) and 0x0f).toByte()
-        waterPipe[i] = ((state shr 19) and 0x01).toByte()
-        sewerPipe[i] = ((state shr 20) and 0x01).toByte()
-        stormPipe[i] = ((state shr 21) and 0x01).toByte()
-        bank[i] = ((state shr 22) and 0x01).toByte()
-        density[i] = ((state shr 23) and 0x03).toByte()
+        waterPipe[i] = ((state shr 19) and 0x07).toByte()
+        sewerPipe[i] = ((state shr 22) and 0x03).toByte()
+        stormPipe[i] = ((state shr 24) and 0x03).toByte()
+        bank[i] = ((state shr 26) and 0x01).toByte()
+        density[i] = ((state shr 27) and 0x03).toByte()
+        brownfield[i] = ((state shr 29) and 0x01).toByte()
         building[i] = (state ushr 32).toInt()
     }
 

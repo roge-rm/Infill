@@ -46,7 +46,12 @@ import com.rm.infill.res.road_street
 import androidx.compose.ui.graphics.Color
 import com.rm.infill.sim.Action
 import com.rm.infill.sim.BuildingType
+import com.rm.infill.sim.City
 import com.rm.infill.sim.CityMap
+import com.rm.infill.sim.Material
+import com.rm.infill.res.material_wood
+import com.rm.infill.res.sewage_works
+import com.rm.infill.res.treatment_plant
 import com.rm.infill.sim.Density
 import com.rm.infill.res.density_low
 import com.rm.infill.res.density_medium
@@ -71,18 +76,18 @@ enum class Tool(val title: StringResource) {
 }
 
 /** What the services tool puts down. Parks are dragged out; stations go where the finger ends up. */
-enum class ServiceKind(val title: StringResource, val type: BuildingType, val year: Int = 1900) {
+enum class ServiceKind(val title: StringResource, val type: BuildingType) {
     Police(Res.string.police_station, BuildingType.POLICE_STATION),
     Fire(Res.string.fire_station, BuildingType.FIRE_STATION),
     Park(Res.string.park, BuildingType.PARK),
     School(Res.string.school, BuildingType.SCHOOL),
-    HighSchool(Res.string.high_school, BuildingType.HIGH_SCHOOL, year = 1910),
+    HighSchool(Res.string.high_school, BuildingType.HIGH_SCHOOL),
     Clinic(Res.string.clinic, BuildingType.CLINIC),
     Hospital(Res.string.hospital, BuildingType.HOSPITAL),
 }
 
-/** The services that can be built in [year]. */
-fun servicesIn(year: Int): List<ServiceKind> = ServiceKind.entries.filter { it.year <= year }
+/** The services [city] can build in its era. */
+fun servicesIn(city: City): List<ServiceKind> = ServiceKind.entries.filter { city.allows(it.type) }
 
 /** What the rail tool puts down. Track is dragged; stations and yards go where the finger ends up. */
 enum class RailKind(val title: StringResource) {
@@ -105,19 +110,33 @@ fun railBuilding(map: CityMap, eastWest: BuildingType, northSouth: BuildingType,
  * What the water tool puts down: pipes are dragged, as is taking them up;
  * buildings go where the finger ends up.
  */
-enum class WaterKind(val title: StringResource, val pipe: Pipe? = null, val building: BuildingType? = null, val bank: Boolean = false) {
+enum class WaterKind(
+    val title: StringResource,
+    val pipe: Pipe? = null,
+    val building: BuildingType? = null,
+    val bank: Boolean = false,
+    /** A particular kind of pipe; otherwise the best the town lays now. */
+    val material: Material? = null,
+) {
     Main(Res.string.water_main, pipe = Pipe.WATER),
+    Wood(Res.string.material_wood, pipe = Pipe.WATER, material = Material.WOOD),
     Sewer(Res.string.sewer, pipe = Pipe.SEWER),
     Drain(Res.string.storm_drain, pipe = Pipe.STORM),
     Pump(Res.string.pumping_station, building = BuildingType.PUMPING_STATION),
     Wells(Res.string.well_field, building = BuildingType.WELL_FIELD),
     Tower(Res.string.water_tower, building = BuildingType.WATER_TOWER),
     Outfall(Res.string.sewer_outfall, building = BuildingType.OUTFALL),
+    Works(Res.string.sewage_works, building = BuildingType.SEWAGE_WORKS),
+    Treatment(Res.string.treatment_plant, building = BuildingType.TREATMENT_PLANT),
     Pond(Res.string.storm_pond, building = BuildingType.STORM_POND),
     StormOutfall(Res.string.storm_outfall, building = BuildingType.STORM_OUTFALL),
     Bank(Res.string.embankment, bank = true),
     Remove(Res.string.remove_pipes),
 }
+
+/** What the water tool offers [city] now: wooden mains only while they're still laid, sewage works once it has them. */
+fun waterKindsIn(city: City): List<WaterKind> =
+    WaterKind.entries.filter { (it.material == null || city.allows(it.material)) && (it.building == null || city.allows(it.building)) }
 
 /** What the power tool puts down. */
 enum class PowerKind(val title: StringResource) {
@@ -145,8 +164,8 @@ fun roadColour(t: RoadType): Color = when (t) {
     RoadType.AVENUE, RoadType.ONE_WAY_AVENUE, RoadType.BOULEVARD -> Color(0xFF6E6B65)
 }
 
-/** The roads that can be built in [year]. */
-fun roadsIn(year: Int): List<RoadType> = RoadType.entries.filter { it.year <= year }
+/** The roads [city] can build in its era. */
+fun roadsIn(city: City): List<RoadType> = RoadType.entries.filter { city.allows(it) }
 
 /** How dense a zone may build, in the order the picker shows them. */
 enum class DensityKind(val density: Byte, val title: StringResource) {
@@ -195,7 +214,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             RailKind.Yard -> Action.PlaceBuilding(railBuilding(map, BuildingType.FREIGHT_YARD, BuildingType.FREIGHT_YARD_NS, x1, y1), x1, y1)
         }
         Tool.Water -> when {
-            water.pipe != null -> Action.BuildPipe(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), water.pipe)
+            water.pipe != null -> Action.BuildPipe(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), water.pipe, water.material)
             water.building != null -> Action.PlaceBuilding(water.building, x1, y1)
             water.bank -> Action.BuildBank(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             else -> Action.RemovePipes(x0, y0, x1, y1)

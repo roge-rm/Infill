@@ -11,7 +11,7 @@ class SaveError(message: String) : Exception(message)
  * map's copy of each building) is worked out again on loading.
  */
 object SaveGame {
-    const val VERSION = 6
+    const val VERSION = 7
     private const val MAGIC = 0x494E464C // "INFL"
 
     fun write(city: City): ByteArray {
@@ -102,6 +102,19 @@ internal class SaveWriter {
         }
     }
 
+    /** A layer of small numbers as runs of the same value. */
+    fun shorts(a: ShortArray) {
+        count(a.size)
+        var i = 0
+        while (i < a.size) {
+            var run = 1
+            while (i + run < a.size && a[i + run] == a[i]) run++
+            count(run)
+            count(a[i].toInt() and 0xffff)
+            i += run
+        }
+    }
+
     fun bytes(): ByteArray = buf.copyOf(size)
 }
 
@@ -129,6 +142,18 @@ internal class SaveReader(private val buf: ByteArray) {
             if (b < 0x80) return v
             shift += 7
             if (shift > 28) throw SaveError("a number is too long")
+        }
+    }
+
+    fun shorts(a: ShortArray) {
+        if (count() != a.size) throw SaveError("a layer is the wrong size")
+        var i = 0
+        while (i < a.size) {
+            val run = count()
+            val v = count().toShort()
+            if (run <= 0 || i + run > a.size) throw SaveError("a layer runs off the end")
+            a.fill(v, i, i + run)
+            i += run
         }
     }
 

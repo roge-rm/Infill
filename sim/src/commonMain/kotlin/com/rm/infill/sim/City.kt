@@ -35,6 +35,10 @@ class City(
     var month: Int = 0
         private set
 
+    /** The town's era, which gates what it can build. Moves on in [newEra]. */
+    var era: Era = Era.TOWNSHIP
+        internal set
+
     /** 1 is the first of the month. */
     var day: Int = 1
         private set
@@ -96,26 +100,35 @@ class City(
                 for (k in layout.tiles.indices) {
                     val i = layout.tiles[k]
                     val road = roadCost(action.type, layout, k)
-                    if (road == BLOCKED) {
+                    // A road the town can't build yet is blocked all along.
+                    if (road == BLOCKED || !allows(action.type)) {
                         blocked += i
                         continue
                     }
-                    val pipes = if (action.pipes && m.terrain[i] != Terrain.WATER) pipeCost(i) else 0L
-                    if (road != NO_CHANGE || pipes > 0) {
+                    // Drawn over a worn road of its own kind, the road's relaid, and the worn pipes under it with it, for less.
+                    val renew = roadRenewable(action.type, layout, k)
+                    val relay = if (renew) action.type.price * Balance.RENEW_ROAD / 100 else 0L
+                    val pipes = if (action.pipes && m.terrain[i] != Terrain.WATER) pipeCost(i) + (if (renew) pipeRenewCost(i) else 0L) else 0L
+                    if (road != NO_CHANGE || pipes > 0 || renew) {
                         changes += i
-                        cost += (if (road == NO_CHANGE) 0 else road) + pipes
+                        cost += (if (road == NO_CHANGE) 0 else road) + pipes + relay
                     }
                 }
             }
-            is Action.BuildPipe -> for (i in action.tiles) {
-                when {
-                    !inMap(i) -> {}
-                    // Pipes go under everything but water.
-                    m.terrain[i] == Terrain.WATER -> blocked += i
-                    pipes(action.kind)[i].toInt() != 0 -> {}
-                    else -> {
-                        changes += i
-                        cost += action.kind.price
+            is Action.BuildPipe -> {
+                val material = action.material ?: best(action.kind)
+                for (i in action.tiles) {
+                    val there = pipes(action.kind)[i].toInt()
+                    when {
+                        !inMap(i) -> {}
+                        // Pipes go under everything but water.
+                        m.terrain[i] == Terrain.WATER || !allows(material) -> blocked += i
+                        // A pipe that's there stays unless it's worn or this is better.
+                        there != 0 && !relays(action.kind, i, material) -> {}
+                        else -> {
+                            changes += i
+                            cost += material.cost
+                        }
                     }
                 }
             }
@@ -127,7 +140,11 @@ class City(
                     val water = m.terrain[i] == Terrain.WATER
                     when {
                         m.building[i] != 0 || m.bank[i].toInt() != 0 -> blocked += i
-                        m.rail[i] != Rail.NONE -> {}
+                        m.rail[i] != Rail.NONE -> if (Ageing.wear(monthNow - m.railLaid[i], Balance.TRACK_LIFE) >= Balance.RENEWABLE_WEAR) {
+                            // Worn track is relaid.
+                            changes += i
+                            cost += Prices.RAIL * Balance.RENEW_ROAD / 100
+                        }
                         // Over water on a bridge of its own, straight across.
                         water && (turns[k] || m.road[i] != Road.NONE) -> blocked += i
                         // Across a road only straight over it, as a level crossing.
@@ -169,7 +186,7 @@ class City(
                 val t = action.type
                 var ok = action.x >= 0 && action.y >= 0 && action.x + t.width <= m.width && action.y + t.height <= m.height
                 if (ok) forRect(action.x, action.y, action.x + t.width - 1, action.y + t.height - 1) { i ->
-                    if (m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
+                    if (!allows(t) || m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
                         m.zone[i] != Zone.NONE || m.building[i] != 0 || m.rail[i] != Rail.NONE || m.bank[i].toInt() != 0
                     ) {
                         blocked += i
@@ -215,6 +232,7 @@ class City(
                     if (m.rail[i] != Rail.NONE) c += Prices.REMOVE_RAIL * if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
                     if (m.bank[i].toInt() != 0) c += Prices.REMOVE_BANK
                     if (m.terrain[i] == Terrain.TREES) c += Prices.CLEAR_TREES
+                    if (m.brownfield[i].toInt() != 0) c += Prices.CLEAN_UP
                     if (c > 0 || m.zone[i] != Zone.NONE) {
                         changes += i
                         cost += c
@@ -292,7 +310,52 @@ class City(
     }
 
     /** What it costs to put every kind of pipe under a tile, as far as they're not there already. */
-    private fun pipeCost(i: Int): Long = Pipe.entries.sumOf { if (pipes(it)[i].toInt() == 0) it.price else 0L }
+    private fun pipeCost(i: Int): Long = Pipe.entries.sumOf { if (pipes(it)[i].toInt() == 0) best(it).cost else 0L }
+
+    /** What it costs to relay the worn pipes under a road being relaid, which is less than on their own. */
+    private fun pipeRenewCost(i: Int): Long = Pipe.entries.sumOf { if (pipeRenewable(it, i)) best(it).cost * Balance.PIPES_WITH_ROAD / 100 else 0L }
+
+    /** When each tile's pipe of [kind] was laid. */
+    private fun laid(kind: Pipe): ShortArray = when (kind) {
+        Pipe.WATER -> map.waterLaid
+        Pipe.SEWER -> map.sewerLaid
+        Pipe.STORM -> map.stormLaid
+    }
+
+    /** The [Broken] bit for a kind of pipe. */
+    private fun bit(kind: Pipe): Int = when (kind) {
+        Pipe.WATER -> Broken.WATER
+        Pipe.SEWER -> Broken.SEWER
+        Pipe.STORM -> Broken.STORM
+    }
+
+    /** Months from January 1900 to now. */
+    val monthNow: Int get() = Ageing.monthOf(year, month)
+
+    /** The best of a kind of pipe the town lays now: the newest of its era, never wood. */
+    fun best(kind: Pipe): Material =
+        Material.entries.filter { it.pipe == kind && it.gone == null && year >= it.year && era >= Era.of(it.year) }.maxByOrNull { it.year }
+            ?: Material.entries.first { it.pipe == kind }
+
+    /** Whether the town can lay [material] yet, or still. */
+    fun allows(material: Material): Boolean =
+        everything || (year >= material.year && era >= Era.of(material.year) && (material.gone == null || era < material.gone))
+
+    /** Whether the pipe of [kind] on tile [i] would be relaid with [material]: it's worn, or that's a longer-lived pipe than it. */
+    private fun relays(kind: Pipe, i: Int, material: Material): Boolean {
+        val there = Material.of(kind, pipes(kind)[i]) ?: return true
+        return material.life > there.life || Ageing.wear(monthNow - laid(kind)[i], there.life) >= Balance.RENEWABLE_WEAR
+    }
+
+    /** Whether the pipe of [kind] on tile [i] would be relaid with the best the town has now. */
+    private fun pipeRenewable(kind: Pipe, i: Int): Boolean = pipes(kind)[i].toInt() != 0 && relays(kind, i, best(kind))
+
+    /** Whether drawing [type] over tile [k] of [layout] relays a worn road of the same kind. */
+    private fun roadRenewable(type: RoadType, layout: RoadLayout, k: Int): Boolean {
+        val i = layout.tiles[k]
+        return RoadType.of(map.road[i]) == type && roadCost(type, layout, k) == NO_CHANGE &&
+            Ageing.wear(monthNow - map.roadLaid[i], type.life) >= Balance.RENEWABLE_WEAR
+    }
 
     /**
      * The tiles a road goes on, the way it was drawn through each, the heading
@@ -400,6 +463,11 @@ class City(
         val cost: Long,
         val added: List<Building>,
         val removed: List<Building>,
+        /** When things on the tiles were laid, and what was broken there, before and after. */
+        val laidBefore: LongArray,
+        val laidAfter: LongArray,
+        val fixBefore: IntArray,
+        val fixAfter: IntArray,
     )
 
     private val undoable = ArrayDeque<Edit>()
@@ -414,6 +482,10 @@ class City(
         if (!plan.ok) return plan
         val m = map
         val before = LongArray(plan.changes.size) { m.tileState(plan.changes[it]) }
+        val laidBefore = LongArray(plan.changes.size) { m.tileLaid(plan.changes[it]) }
+        val fixBefore = IntArray(plan.changes.size) { m.tileFix(plan.changes[it]) }
+        val now = monthNow
+        var queued = 0
         val added = ArrayList<Building>()
         val removed = ArrayList<Building>()
         when (action) {
@@ -423,18 +495,47 @@ class City(
                 for (k in layout.tiles.indices) {
                     val i = layout.tiles[k]
                     if (i !in changing) continue
+                    val renewing = roadRenewable(action.type, layout, k)
                     if (roadCost(action.type, layout, k) != NO_CHANGE) {
                         m.road[i] = action.type.id
                         m.roadHeading[i] = layout.headings[k]
                         m.zone[i] = Zone.NONE
+                        m.roadLaid[i] = now.toShort()
                         clearTrees(i)
                     }
-                    if (action.pipes && m.terrain[i] != Terrain.WATER) for (kind in Pipe.entries) pipes(kind)[i] = 1
+                    var works = 0
+                    if (renewing) {
+                        m.roadLaid[i] = now.toShort()
+                        works = Broken.ROAD
+                    }
+                    if (action.pipes && m.terrain[i] != Terrain.WATER) for (kind in Pipe.entries) {
+                        val layer = pipes(kind)
+                        if (layer[i].toInt() == 0) {
+                            layer[i] = best(kind).id
+                            laid(kind)[i] = now.toShort()
+                        } else if (renewing && pipeRenewable(kind, i)) {
+                            layer[i] = best(kind).id
+                            laid(kind)[i] = now.toShort()
+                            works = works or bit(kind)
+                        }
+                    }
+                    if (works != 0) startWorks(i, works, queued++ / Balance.WORKS_PER_DAY)
                 }
             }
-            is Action.BuildPipe -> for (i in plan.changes) pipes(action.kind)[i] = 1
+            is Action.BuildPipe -> {
+                val material = action.material ?: best(action.kind)
+                val layer = pipes(action.kind)
+                for (i in plan.changes) {
+                    // Relaying an old pipe digs the street up; a new one goes in alongside, out of the way.
+                    if (layer[i].toInt() != 0) startWorks(i, bit(action.kind), queued++ / Balance.WORKS_PER_DAY)
+                    layer[i] = material.id
+                    laid(action.kind)[i] = now.toShort()
+                }
+            }
             is Action.BuildRail -> for (i in plan.changes) {
+                if (m.rail[i] != Rail.NONE) startWorks(i, Broken.RAIL, queued++ / Balance.WORKS_PER_DAY)
                 m.rail[i] = Rail.TRACK
+                m.railLaid[i] = now.toShort()
                 m.zone[i] = Zone.NONE
                 clearTrees(i)
             }
@@ -459,13 +560,23 @@ class City(
                 m.road[i] = Road.NONE
                 m.roadHeading[i] = Heading.BOTH
                 m.rail[i] = Rail.NONE
+                m.roadLaid[i] = 0
+                m.railLaid[i] = 0
+                m.brownfield[i] = 0
+                clearBroken(i, Broken.ROAD or Broken.RAIL)
                 m.bank[i] = 0
                 m.zone[i] = Zone.NONE
                 m.density[i] = Density.NONE
                 m.power[i] = Power.NONE
                 clearTrees(i)
             }
-            is Action.RemovePipes -> for (i in plan.changes) for (kind in Pipe.entries) pipes(kind)[i] = 0
+            is Action.RemovePipes -> for (i in plan.changes) {
+                for (kind in Pipe.entries) {
+                    pipes(kind)[i] = 0
+                    laid(kind)[i] = 0
+                }
+                clearBroken(i, Broken.DUG)
+            }
             is Action.BuildBank -> for (i in plan.changes) {
                 m.bank[i] = 1
                 m.zone[i] = Zone.NONE
@@ -473,7 +584,13 @@ class City(
             }
         }
         funds -= plan.cost
-        undoable.addLast(Edit(plan.changes, before, LongArray(plan.changes.size) { m.tileState(plan.changes[it]) }, plan.cost, added, removed))
+        undoable.addLast(
+            Edit(
+                plan.changes, before, LongArray(plan.changes.size) { m.tileState(plan.changes[it]) }, plan.cost, added, removed,
+                laidBefore, LongArray(plan.changes.size) { m.tileLaid(plan.changes[it]) },
+                fixBefore, IntArray(plan.changes.size) { m.tileFix(plan.changes[it]) },
+            ),
+        )
         if (undoable.size > MAX_UNDO) undoable.removeFirst()
         redoable.clear()
         networksChanged()
@@ -497,7 +614,12 @@ class City(
         undoable.removeLast()
         for (b in e.added) buildings.remove(b.id)
         for (b in e.removed) buildings[b.id] = b
-        for (k in e.tiles.indices) map.setTileState(e.tiles[k], e.before[k])
+        for (k in e.tiles.indices) {
+            map.setTileState(e.tiles[k], e.before[k])
+            map.setTileLaid(e.tiles[k], e.laidBefore[k])
+            map.setTileFix(e.tiles[k], e.fixBefore[k])
+            if (map.mendingDays(e.tiles[k]) > 0) mendingTiles += e.tiles[k] else mendingTiles -= e.tiles[k]
+        }
         restamp(e.tiles)
         funds += e.cost
         redoable.addLast(e)
@@ -518,7 +640,12 @@ class City(
         redoable.removeLast()
         for (b in e.removed) buildings.remove(b.id)
         for (b in e.added) buildings[b.id] = b
-        for (k in e.tiles.indices) map.setTileState(e.tiles[k], e.after[k])
+        for (k in e.tiles.indices) {
+            map.setTileState(e.tiles[k], e.after[k])
+            map.setTileLaid(e.tiles[k], e.laidAfter[k])
+            map.setTileFix(e.tiles[k], e.fixAfter[k])
+            if (map.mendingDays(e.tiles[k]) > 0) mendingTiles += e.tiles[k] else mendingTiles -= e.tiles[k]
+        }
         restamp(e.tiles)
         funds -= e.cost
         undoable.addLast(e)
@@ -535,6 +662,7 @@ class City(
     private fun addBuilding(type: BuildingType, x: Int, y: Int, variant: Int, underway: Int = 0): Building {
         val b = Building(nextId++, type, x, y, variant)
         b.underway = underway
+        b.built = monthNow
         if (underway > 0) sites += b.id
         buildings[b.id] = b
         stamp(b)
@@ -546,6 +674,7 @@ class City(
         b.people?.let { departures += it.size }
         buildings.remove(b.id)
         sites.remove(b.id)
+        outages.remove(b.id)
         forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { i ->
             map.building[i] = 0
             map.buildingType[i] = 0
@@ -602,6 +731,7 @@ class City(
         if (networksDirty) updateNetworks()
         for (b in buildings.values) b.age++
         burnDay()
+        mendDay()
         buildDay()
         growDay()
         traffic.sendDay(day, daysIn(month, year))
@@ -643,6 +773,7 @@ class City(
         updatePollution()
         updateGrime()
         updateServices()
+        wearOut()
         updatePeople()
         census()
         startTraffic()
@@ -659,6 +790,268 @@ class City(
         demand()
         money()
         record()
+        newEra()
+    }
+
+    // ---- wear and repairs --------------------------------------------------------------
+
+    /** Tiles with something broken being mended, or works on them. */
+    private val mendingTiles = LinkedHashSet<Int>()
+
+    /** Works the city runs that have broken down, by id. */
+    private val outages = LinkedHashSet<Int>()
+
+    /** What mending has cost so far this month. */
+    private var repairBill = 0L
+
+    /** Starts works relaying what [bits] marks on tile [i], once the crews get there in [wait] days. */
+    private fun startWorks(i: Int, bits: Int, wait: Int) {
+        val m = map
+        m.broken[i] = (m.broken[i].toInt() or bits or Broken.WORKS).toByte()
+        m.mending[i] = min(255, max(m.mendingDays(i), Balance.WORKS_DAYS + wait)).toByte()
+        mendingTiles += i
+    }
+
+    /** Clears what [bits] marks broken on tile [i], when what's broken has been taken away. */
+    private fun clearBroken(i: Int, bits: Int) {
+        val m = map
+        val left = m.broken[i].toInt() and bits.inv()
+        if (left and Broken.WORKS.inv() == 0) {
+            m.broken[i] = 0
+            m.mending[i] = 0
+            mendingTiles -= i
+        } else {
+            m.broken[i] = left.toByte()
+        }
+    }
+
+    /** A pipe layer with what's out of use taken out, or the layer itself if nothing is. */
+    private fun working(pipes: ByteArray, bit: Int): ByteArray {
+        if (mendingTiles.isEmpty()) return pipes
+        var copy: ByteArray? = null
+        for (i in mendingTiles) {
+            if (pipes[i].toInt() == 0 || !map.out(i, bit)) continue
+            val c = copy ?: pipes.copyOf().also { copy = it }
+            c[i] = 0
+        }
+        return copy ?: pipes
+    }
+
+    /** Whether something laid in [laid] and expected to last [life] years gives way this month. */
+    private fun givesWay(laid: Int, life: Int): Boolean {
+        val chance = Ageing.failChance(monthNow - laid, life)
+        return chance > 0 && rng.nextInt(1_000_000) < chance
+    }
+
+    /**
+     * A month's wear: anything old may give way. A burst main floods the street
+     * and cuts the water beyond it, a broken sewer fouls the street and cuts the
+     * homes beyond it off the sewer, and both shut the road while it's dug up.
+     * A broken road surface slows the traffic, broken track stops the trains, and
+     * a worn-out power station or waterworks breaks down for weeks. Crews mend
+     * each in days, for a bill.
+     */
+    private fun wearOut() {
+        val m = map
+        var burst = -1
+        var collapsed = -1
+        var track = -1
+        for (i in 0 until m.size) {
+            if (m.broken[i].toInt() != 0) continue
+            val water = Material.of(Pipe.WATER, m.waterPipe[i])
+            if (water != null && givesWay(m.waterLaid[i].toInt(), water.life)) {
+                fail(i, Broken.WATER, Balance.MEND_MAIN, Balance.REPAIR_MAIN)
+                m.flood[i] = max(m.flood[i].toInt() and 0xff, Balance.BURST_FLOOD).toByte()
+                floodsStanding = true
+                burst = i
+                continue
+            }
+            val sewer = Material.of(Pipe.SEWER, m.sewerPipe[i])
+            if (sewer != null && givesWay(m.sewerLaid[i].toInt(), sewer.life)) {
+                fail(i, Broken.SEWER, Balance.MEND_SEWER, Balance.REPAIR_SEWER)
+                around(i % m.width, i / m.width, 1) { j, _ -> m.grime[j] = min(255, (m.grime[j].toInt() and 0xff) + Balance.SEWER_GRIME).toByte() }
+                collapsed = i
+                continue
+            }
+            val storm = Material.of(Pipe.STORM, m.stormPipe[i])
+            if (storm != null && givesWay(m.stormLaid[i].toInt(), storm.life)) {
+                fail(i, Broken.STORM, Balance.MEND_DRAIN, Balance.REPAIR_DRAIN)
+                continue
+            }
+            val road = RoadType.of(m.road[i])
+            if (road != null && givesWay(m.roadLaid[i].toInt(), road.life)) {
+                fail(i, Broken.ROAD, Balance.MEND_ROAD, Balance.REPAIR_ROAD * (if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1))
+                continue
+            }
+            if (m.rail[i] != Rail.NONE && givesWay(m.railLaid[i].toInt(), Balance.TRACK_LIFE)) {
+                fail(i, Broken.RAIL, Balance.MEND_TRACK, Balance.REPAIR_TRACK)
+                railChanged = true
+                track = i
+            }
+        }
+        if (burst >= 0) events += CityEvent(EventKind.MainBurst, burst % m.width, burst / m.width, null)
+        if (collapsed >= 0) events += CityEvent(EventKind.SewerCollapsed, collapsed % m.width, collapsed / m.width, null)
+        if (track >= 0) events += CityEvent(EventKind.TrackBroken, track % m.width, track / m.width, null)
+        for (b in buildings.values.toList()) {
+            if (b.type.life == 0 || b.outage > 0 || b.underway > 0) continue
+            if (!givesWay(b.built, b.type.life)) continue
+            b.outage = Balance.MEND_PLANT
+            outages += b.id
+            repairBill += Prices.of(b.type) / 10
+            networksDirty = true
+            events += CityEvent(EventKind.BrokeDown, b.x, b.y, b.type)
+        }
+    }
+
+    /** Marks [bit] broken on tile [i] for [days], and adds the [cost] of mending it to the month's bill. */
+    private fun fail(i: Int, bit: Int, days: Int, cost: Long) {
+        map.broken[i] = (map.broken[i].toInt() or bit).toByte()
+        map.mending[i] = days.toByte()
+        mendingTiles += i
+        repairBill += cost
+        if (bit and (Broken.DUG or Broken.RAIL) != 0) networksDirty = true
+    }
+
+    /**
+     * A day's mending. A failure that's mended is patched, which puts back a
+     * little of its life but doesn't make it new. Works that are done leave what
+     * they relaid new; works that reach the next street dig it up.
+     */
+    private fun mendDay() {
+        val m = map
+        if (mendingTiles.isNotEmpty()) {
+            val done = ArrayList<Int>()
+            for (i in mendingTiles) {
+                val days = m.mendingDays(i) - 1
+                m.mending[i] = days.toByte()
+                // The crews reaching a tile take its pipes out of use and shut its road.
+                if (days == Balance.WORKS_DAYS && (m.broken[i].toInt() and Broken.WORKS) != 0) {
+                    networksDirty = true
+                    railChanged = true
+                }
+                if (days <= 0) done += i
+            }
+            for (i in done) {
+                val bits = m.broken[i].toInt()
+                if (bits and Broken.WORKS == 0) patch(i, bits)
+                m.broken[i] = 0
+                m.mending[i] = 0
+                mendingTiles -= i
+                if (bits and (Broken.DUG or Broken.RAIL or Broken.WORKS) != 0) {
+                    networksDirty = true
+                    railChanged = true
+                }
+            }
+        }
+        if (outages.isNotEmpty()) {
+            val done = ArrayList<Int>()
+            for (id in outages) {
+                val b = buildings[id]
+                if (b == null) {
+                    done += id
+                    continue
+                }
+                b.outage--
+                if (b.outage <= 0) {
+                    b.outage = 0
+                    b.built = min(monthNow, b.built + b.type.life * 12 * Balance.PATCH_SHARE / 100)
+                    done += id
+                    networksDirty = true
+                }
+            }
+            outages.removeAll(done.toSet())
+        }
+    }
+
+    /**
+     * How worn the most worn thing on tile [i] is, in percent of its expected
+     * life: its road, pipes, track or building. -1 if there's nothing there to wear.
+     */
+    fun wearAt(i: Int): Int {
+        val m = map
+        var most = -1
+        val now = monthNow
+        RoadType.of(m.road[i])?.let { most = max(most, Ageing.wear(now - m.roadLaid[i], it.life)) }
+        Material.of(Pipe.WATER, m.waterPipe[i])?.let { most = max(most, Ageing.wear(now - m.waterLaid[i], it.life)) }
+        Material.of(Pipe.SEWER, m.sewerPipe[i])?.let { most = max(most, Ageing.wear(now - m.sewerLaid[i], it.life)) }
+        Material.of(Pipe.STORM, m.stormPipe[i])?.let { most = max(most, Ageing.wear(now - m.stormLaid[i], it.life)) }
+        if (m.rail[i] != Rail.NONE) most = max(most, Ageing.wear(now - m.railLaid[i], Balance.TRACK_LIFE))
+        buildings[m.building[i]]?.let { b ->
+            val life = if (b.type.life > 0) b.type.life else Balance.WORN_YEARS * 2
+            if (b.underway == 0) most = max(most, Ageing.wear(now - b.built, life))
+        }
+        return most
+    }
+
+    /** Puts back a little of the life of what [bits] marks on tile [i]. */
+    private fun patch(i: Int, bits: Int) {
+        val m = map
+        fun younger(a: ShortArray, life: Int) {
+            a[i] = min(monthNow, a[i] + life * 12 * Balance.PATCH_SHARE / 100).toShort()
+        }
+        if (bits and Broken.WATER != 0) Material.of(Pipe.WATER, m.waterPipe[i])?.let { younger(m.waterLaid, it.life) }
+        if (bits and Broken.SEWER != 0) Material.of(Pipe.SEWER, m.sewerPipe[i])?.let { younger(m.sewerLaid, it.life) }
+        if (bits and Broken.STORM != 0) Material.of(Pipe.STORM, m.stormPipe[i])?.let { younger(m.stormLaid, it.life) }
+        if (bits and Broken.ROAD != 0) RoadType.of(m.road[i])?.let { younger(m.roadLaid, it.life) }
+        if (bits and Broken.RAIL != 0) younger(m.railLaid, Balance.TRACK_LIFE)
+    }
+
+    // ---- eras ----------------------------------------------------------------------
+
+    /** What the town needs for [e], against what it has as of the last census. */
+    fun goals(e: Era): List<Goal> {
+        val s = stats
+        return when (e) {
+            Era.TOWNSHIP -> emptyList()
+            Era.STREETCAR -> listOf(
+                Goal(GoalKind.People, s.population, Balance.STREETCAR_PEOPLE),
+                Goal(GoalKind.MainsOrStation, if (s.onMains > 0 || stationsBuilt > 0) 1 else 0, 1),
+            )
+            Era.MOTOR -> listOf(
+                Goal(GoalKind.People, s.population, Balance.MOTOR_PEOPLE),
+                Goal(GoalKind.OnMains, s.onMains, Balance.MOTOR_SERVED),
+                Goal(GoalKind.OnSewer, s.onSewer, Balance.MOTOR_SERVED),
+                Goal(GoalKind.Powered, s.powered, Balance.MOTOR_POWERED),
+            )
+            Era.RENEWAL -> listOf(
+                Goal(GoalKind.People, s.population, Balance.RENEWAL_PEOPLE),
+                Goal(GoalKind.Downtown, s.downtown, 1),
+                Goal(GoalKind.HighSchool, s.highSchools, 1),
+            )
+            Era.INFILL -> listOf(Goal(GoalKind.LandBuilt, s.landBuilt, Balance.INFILL_LAND))
+            // To decide.
+            Era.FUTURE -> emptyList()
+        }
+    }
+
+    /** Railway stations standing, for the Streetcar city's milestone. */
+    private val stationsBuilt get() = buildings.values.count { it.type.station }
+
+    /** Moves the town into its next era once the date has come and the milestone's met. */
+    private fun newEra() {
+        val next = era.next ?: return
+        if (year < next.year || goals(next).any { !it.met }) return
+        era = next
+        events += CityEvent(EventKind.EraArrived, -1, -1, null, next)
+    }
+
+    /** Whether the town can build [road] yet: the year has to have come, and the town to be in its era. */
+    fun allows(road: RoadType): Boolean = everything || (year >= road.year && era >= Era.of(road.year))
+
+    /** Whether the town can put down [type] yet, the same way. */
+    fun allows(type: BuildingType): Boolean = everything || (year >= type.year && era >= Era.of(type.year))
+
+    /** Lets anything be built whatever the year, for trying things out. Not saved. */
+    var everything = false
+
+    /**
+     * What a home makes of something it has or hasn't, as the years go by: a
+     * draw at first, fading to nothing by [expectedBy]; and going without it
+     * counts against a home more and more from [fadesFrom] to [expectedBy].
+     */
+    private fun amenity(have: Boolean, bonus: Int, fadesFrom: Int, expectedBy: Int, penalty: Int): Int {
+        val t = ((year - fadesFrom) * 100 / (expectedBy - fadesFrom)).coerceIn(0, 100)
+        return if (have) bonus * (100 - t) / 100 else -penalty * t / 100
     }
 
     // ---- railway ----------------------------------------------------------------
@@ -978,7 +1371,7 @@ class City(
         head = 0
         tail = 0
         for (b in buildings.values) {
-            if (b.type != BuildingType.COAL_PLANT || flooded(b)) continue
+            if (b.type != BuildingType.COAL_PLANT || flooded(b) || b.outage > 0) continue
             forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { i ->
                 if (!powered[i]) {
                     powered[i] = true
@@ -1031,14 +1424,16 @@ class City(
             return
         }
         val all = buildings.values.toList()
+        val waterPipes = working(m.waterPipe, Broken.WATER)
+        val sewerPipes = working(m.sewerPipe, Broken.SEWER)
 
         // Pressure: steps along the mains from a source, or from a tower the water reached.
         val nearTower = BooleanArray(m.size)
         val steps = IntArray(m.size) { -1 }
         val queue = ArrayDeque<Int>()
         for (b in all) {
-            if (b.type != BuildingType.WATER_TOWER && !b.type.waterSource) continue
-            forPipesNear(b, m.waterPipe) { i ->
+            if (b.type != BuildingType.WATER_TOWER && !b.type.waterSource || b.outage > 0) continue
+            forPipesNear(b, waterPipes) { i ->
                 if (b.type == BuildingType.WATER_TOWER) nearTower[i] = true
                 else if (steps[i] != 0) {
                     steps[i] = 0
@@ -1055,7 +1450,7 @@ class City(
                 val ny = y + DY[k]
                 if (!m.inside(nx, ny)) continue
                 val j = m.index(nx, ny)
-                if (m.waterPipe[j].toInt() == 0) continue
+                if (waterPipes[j].toInt() == 0) continue
                 val s = if (nearTower[j]) 0 else steps[i] + 1
                 if (s > Balance.PRESSURE_REACH || (steps[j] in 0..s)) continue
                 steps[j] = s
@@ -1064,13 +1459,13 @@ class City(
         }
 
         // Which network each main is on, and each network's supply.
-        val net = components(m.waterPipe)
+        val net = components(waterPipes)
         val supply = HashMap<Int, Int>()
         var total = 0
         for (b in all) {
             if (!b.type.waterSource) continue
             var n = -1
-            forPipesNear(b, m.waterPipe) { i -> if (n < 0) n = net[i] }
+            forPipesNear(b, waterPipes) { i -> if (n < 0) n = net[i] }
             if (n < 0) continue
             val s = sourceSupply(b)
             supply[n] = (supply[n] ?: 0) + s
@@ -1084,7 +1479,7 @@ class City(
             if (b.type.capacity == 0 && !b.type.waterSource) continue
             var best = -1
             var bestSteps = Int.MAX_VALUE
-            forPipesNear(b, m.waterPipe) { i -> if (steps[i] in 0 until bestSteps) { bestSteps = steps[i]; best = i } }
+            forPipesNear(b, waterPipes) { i -> if (steps[i] in 0 until bestSteps) { bestSteps = steps[i]; best = i } }
             if (best >= 0) taps += Tap(b, net[best], bestSteps)
         }
         taps.sortWith(compareBy<Tap>({ it.steps }, { it.b.id }))
@@ -1106,19 +1501,19 @@ class City(
         stats.waterShort = short
 
         // Sewers: a network with an outfall takes the sewage of every building on it.
-        val sewers = components(m.sewerPipe)
+        val sewers = components(sewerPipes)
         val outfalls = HashMap<Int, MutableList<Building>>()
         for (b in all) {
-            if (b.type != BuildingType.OUTFALL) continue
+            if (!b.type.outfall) continue
             var n = -1
-            forPipesNear(b, m.sewerPipe) { i -> if (n < 0) n = sewers[i] }
+            forPipesNear(b, sewerPipes) { i -> if (n < 0) n = sewers[i] }
             if (n >= 0) outfalls.getOrPut(n) { ArrayList() } += b
         }
         val flow = HashMap<Int, Int>()
         for (b in all) {
             if (b.type.capacity == 0) continue
             var n = -1
-            forPipesNear(b, m.sewerPipe) { i -> if (n < 0 && outfalls.containsKey(sewers[i])) n = sewers[i] }
+            forPipesNear(b, sewerPipes) { i -> if (n < 0 && outfalls.containsKey(sewers[i])) n = sewers[i] }
             if (n < 0) continue
             forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { m.sewered[it] = true }
             flow[n] = (flow[n] ?: 0) + b.type.capacity
@@ -1126,14 +1521,15 @@ class City(
         sewage.clear()
         for ((n, list) in outfalls) {
             val each = (flow[n] ?: 0) / list.size
-            for (b in list) sewage[m.index(b.x, b.y)] = each
+            // Works clean what they can; broken down, they let it all through.
+            for (b in list) sewage[m.index(b.x, b.y)] = if (b.outage > 0) each else each * b.type.fouls / 100
         }
     }
 
     /** What a source supplies: a pumping station less if its water is foul, a well field less if its ground is grimy. */
     private fun sourceSupply(b: Building): Int {
         val m = map
-        if (flooded(b)) return 0
+        if (flooded(b) || b.outage > 0) return 0
         return if (b.type == BuildingType.PUMPING_STATION) {
             var foul = 0
             for (ty in b.y - 1..b.y + b.type.height) for (tx in b.x - 1..b.x + b.type.width) {
@@ -1260,16 +1656,18 @@ class City(
         val hard = IntArray(m.size) { if (m.terrain[it] == Terrain.WATER) 0 else Stormwater.hardness(m, it) }
         val runoff = IntArray(m.size) { if (m.terrain[it] == Terrain.WATER) 0 else amount * hard[it] / 100 }
         val all = buildings.values.toList()
+        val stormPipes = working(m.stormPipe, Broken.STORM)
+        val sewerPipes = working(m.sewerPipe, Broken.SEWER)
 
         // Storm drains: what each network drains into, and how much room it has.
-        val drains = components(m.stormPipe)
+        val drains = components(stormPipes)
         val room = HashMap<Int, Int>()
         val ponds = all.filter { it.type == BuildingType.STORM_POND }
         val pondRoom = IntArray(ponds.size) { Balance.POND_HOLDS }
         for (b in all) {
             if (b.type != BuildingType.STORM_OUTFALL && b.type != BuildingType.STORM_POND) continue
             var n = -1
-            forPipesNear(b, m.stormPipe) { i -> if (n < 0) n = drains[i] }
+            forPipesNear(b, stormPipes) { i -> if (n < 0) n = drains[i] }
             if (n < 0) continue
             room[n] = if (b.type == BuildingType.STORM_OUTFALL) Int.MAX_VALUE else (room[n] ?: 0).let { if (it == Int.MAX_VALUE) it else it + Balance.POND_HOLDS }
         }
@@ -1279,7 +1677,7 @@ class City(
             val x = i % m.width
             val y = i / m.width
             var n = -1
-            forRect(x - r, y - r, x + r, y + r) { j -> if (n < 0 && m.stormPipe[j].toInt() != 0 && room.containsKey(drains[j])) n = drains[j] }
+            forRect(x - r, y - r, x + r, y + r) { j -> if (n < 0 && stormPipes[j].toInt() != 0 && room.containsKey(drains[j])) n = drains[j] }
             if (n < 0) continue
             val left = room.getValue(n)
             val take = min(left, runoff[i])
@@ -1298,11 +1696,11 @@ class City(
         // Combined sewers take their share, and overflow at the outfalls.
         var sewersOverflowed = false
         if (sewage.isNotEmpty()) {
-            val sewers = components(m.sewerPipe)
+            val sewers = components(sewerPipes)
             val outfallOf = HashMap<Int, Int>()
             for (b in all) {
-                if (b.type != BuildingType.OUTFALL) continue
-                forPipesNear(b, m.sewerPipe) { i -> outfallOf.getOrPut(sewers[i]) { m.index(b.x, b.y) } }
+                if (!b.type.outfall) continue
+                forPipesNear(b, sewerPipes) { i -> outfallOf.getOrPut(sewers[i]) { m.index(b.x, b.y) } }
             }
             val overflow = HashMap<Int, Int>()
             for (i in 0 until m.size) {
@@ -1310,7 +1708,7 @@ class City(
                 val x = i % m.width
                 val y = i / m.width
                 var at = -1
-                forRect(x - r, y - r, x + r, y + r) { j -> if (at < 0 && m.sewerPipe[j].toInt() != 0) outfallOf[sewers[j]]?.let { at = it } }
+                forRect(x - r, y - r, x + r, y + r) { j -> if (at < 0 && sewerPipes[j].toInt() != 0) outfallOf[sewers[j]]?.let { at = it } }
                 if (at < 0) continue
                 val take = runoff[i] * Balance.SEWER_TAKES / 100
                 runoff[i] -= take
@@ -1927,7 +2325,7 @@ class City(
      */
     private fun choices(b: Building?, i: Int, zone: Byte, pull: Int): List<BuildingType> {
         val rung = if (b == null) BuildingType.rung(zone, 1) else b.type.next
-        if (rung.isEmpty()) return rung
+        if (rung.isEmpty() || map.brownfield[i].toInt() != 0) return emptyList()
         val value = map.landValue[i].toInt() and 0xff
         return rung.filter { t ->
             t.density <= map.density[i] && t.year <= year && pull >= t.appeal &&
@@ -1953,7 +2351,7 @@ class City(
             if (ax < 0 || ay < 0 || ax + t.width > map.width || ay + t.height > map.height) continue
             var ok = true
             forRect(ax, ay, ax + t.width - 1, ay + t.height - 1) { j ->
-                if (map.zone[j] != t.zone || map.density[j] < t.density) ok = false
+                if (map.zone[j] != t.zone || map.density[j] < t.density || map.brownfield[j].toInt() != 0) ok = false
                 val there = buildings[map.building[j]]
                 if (there != null && (there.type.large || there.underway > 0 || there.burning > 0)) ok = false
             }
@@ -2015,6 +2413,7 @@ class City(
         for (b in done?.sortedBy { it.id } ?: return) {
             sites.remove(b.id)
             b.age = 0
+            b.built = monthNow
             stamp(b)
             fitHousehold(b)
             forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { townChanges += it }
@@ -2052,6 +2451,10 @@ class City(
         when {
             previous == null || b.underway > 0 -> {
                 removed = b.type.capacity
+                // Works closing for good leave their land fouled.
+                if (b.type.zone == Zone.INDUSTRIAL && b.underway == 0 && year >= Balance.BROWNFIELD_FROM) {
+                    forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { map.brownfield[it] = 1 }
+                }
                 removeBuilding(b)
                 networksChanged()
                 forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { townChanges += it }
@@ -2120,15 +2523,19 @@ class City(
                 around(x, y, 2) { j, _ -> if (buildings[m.building[j]]?.type?.zone == Zone.INDUSTRIAL) industry = true }
                 score += 35 + value / 3 - crime / 5 - pollution / 3 - if (industry) 10 else 0
                 score -= commutePenalty(m.commute[i].toInt() and 0xff)
-                // Mains water and the sewer are wanted; a well in grimy ground is not.
-                if (m.watered[i]) score += Balance.MAINS_APPEAL else if (m.grimeLevel(i) >= 2) score -= Balance.BAD_WELL
-                if (m.sewered[i]) score += Balance.SEWER_APPEAL
+                // Mains water and the sewer are a draw at first and expected later; a well in grimy ground is never wanted.
+                score += amenity(m.watered[i], Balance.MAINS_APPEAL, Balance.MAINS_FADES, Balance.MAINS_EXPECTED_BY, Balance.MAINS_EXPECTED)
+                if (!m.watered[i] && m.grimeLevel(i) >= 2) score -= Balance.BAD_WELL
+                score += amenity(m.sewered[i], Balance.SEWER_APPEAL, Balance.SEWER_FADES, Balance.SEWER_EXPECTED_BY, Balance.SEWER_EXPECTED)
+                score += amenity(m.powered[i], 0, Balance.POWER_FADES, Balance.POWER_EXPECTED_BY, Balance.POWER_EXPECTED)
                 // The well off ask more of a place; the poor put up with more.
                 val home = buildings[m.building[i]]?.people
                 when (home?.wealth ?: chooseWealth(i)) {
                     Wealth.WELL_OFF -> score += value / 6 - pollution / 4 - crime / 6
                     Wealth.POOR -> score += pollution / 6
                 }
+                // A home getting shabby with age, unless it's old enough to be heritage.
+                buildings[m.building[i]]?.let { score += ageAppeal(it) }
                 // People leave unhealthy homes.
                 if (home != null && !home.empty && home.health < Balance.UNHEALTHY) score -= (Balance.UNHEALTHY - home.health) / 2
             }
@@ -2139,6 +2546,7 @@ class City(
                     people += b?.people?.size ?: 0
                 }
                 score += 28 + value / 4 + min(people / 8, 30) - crime / 6 - pollution / 5
+                buildings[m.building[i]]?.let { score += ageAppeal(it) }
                 // Passing trade.
                 if (access[i] >= 0) score += min(Balance.PASSING_TRADE, traffic.lastVolume[access[i]] / Balance.TRIPS_PER_PASSING_POINT)
             }
@@ -2152,6 +2560,21 @@ class City(
         val stigma = if (zone == Zone.RESIDENTIAL) (m.floodMemory[i].toInt() and 0xff) / Balance.STIGMA_APPEAL else 0
         return score - floodPenalty(i) - stigma
     }
+
+    /**
+     * What a building's age does for it: past [Balance.WORN_YEARS] it gets
+     * shabby, but from [Balance.HERITAGE_FROM] a solid one put up before
+     * [Balance.HERITAGE_BEFORE] is heritage, and wanted for it.
+     */
+    private fun ageAppeal(b: Building): Int {
+        if (isHeritage(b)) return Balance.HERITAGE_APPEAL
+        val years = (monthNow - b.built) / 12
+        return if (years <= Balance.WORN_YEARS) 0 else -min(Balance.WORN_APPEAL, (years - Balance.WORN_YEARS) * Balance.WORN_APPEAL / Balance.WORN_YEARS)
+    }
+
+    /** Whether [b] counts as heritage now. */
+    fun isHeritage(b: Building): Boolean =
+        year >= Balance.HERITAGE_FROM && b.type.heritage && b.underway == 0 && 1900 + b.built / 12 < Balance.HERITAGE_BEFORE
 
     /** How much a long commute puts people off, from the commute layer's half minutes. */
     private fun commutePenalty(c: Int): Int = when (c) {
@@ -2264,6 +2687,35 @@ class City(
             }
         }
         s.population = residents
+        var onMains = 0
+        var onSewer = 0
+        var powered = 0
+        var buildingsCount = 0
+        s.downtown = 0
+        s.highSchools = 0
+        for (b in buildings.values) {
+            val i = map.index(b.x, b.y)
+            val people = b.people?.size ?: 0
+            if (map.watered[i]) onMains += people
+            if (map.sewered[i]) onSewer += people
+            if (b.type != BuildingType.PARK) {
+                buildingsCount++
+                if (map.powered[i]) powered++
+            }
+            if (b.type.zone == Zone.COMMERCIAL && b.type.density == Density.HIGH && b.underway == 0) s.downtown++
+            if (b.type == BuildingType.HIGH_SCHOOL) s.highSchools++
+        }
+        s.onMains = if (residents == 0) 0 else onMains * 100 / residents
+        s.onSewer = if (residents == 0) 0 else onSewer * 100 / residents
+        s.powered = if (buildingsCount == 0) 0 else powered * 100 / buildingsCount
+        var land = 0
+        var built = 0
+        for (i in 0 until map.size) {
+            if (!nearRoad[i] || map.terrain[i] == Terrain.WATER || map.road[i] != Road.NONE || map.rail[i] != Rail.NONE) continue
+            land++
+            if (map.building[i] != 0) built++
+        }
+        s.landBuilt = if (land == 0) 0 else built * 100 / land
         s.shopJobs = shopJobs
         s.industryJobs = industryJobs
         s.otherJobs = otherJobs
@@ -2303,7 +2755,7 @@ class City(
         val years = year - START_YEAR
         val market = (Balance.EXPORT_BASE + Balance.EXPORT_PER_RESIDENT * s.population) *
             (1 + Balance.EXPORT_GROWTH * years) * (if (connected) 1.0 else Balance.UNCONNECTED_EXPORTS) *
-            (if (railFreight) Balance.RAIL_EXPORTS else 1.0)
+            (if (railFreight) Balance.RAIL_EXPORTS else 1.0) * Economy.market(year, month) / 100.0
         val jobs = s.shopJobs + s.industryJobs + s.otherJobs
         // What's going up already counts against demand.
         val industryGap = market - s.industryJobs
@@ -2372,6 +2824,8 @@ class City(
                 BuildingType.WELL_FIELD -> Balance.WELL_UPKEEP
                 BuildingType.WATER_TOWER -> Balance.TOWER_UPKEEP
                 BuildingType.OUTFALL -> Balance.OUTFALL_UPKEEP
+                BuildingType.SEWAGE_WORKS -> Balance.SEWAGE_WORKS_UPKEEP
+                BuildingType.TREATMENT_PLANT -> Balance.TREATMENT_UPKEEP
                 BuildingType.STORM_POND -> Balance.POND_UPKEEP
                 BuildingType.STORM_OUTFALL -> Balance.STORM_OUTFALL_UPKEEP
                 else -> 0.0
@@ -2418,9 +2872,11 @@ class City(
         s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome
         s.floodCost = floodBill
         floodBill = 0
+        s.repairCost = repairBill
+        repairBill = 0
         s.schoolUpkeep = (schools * schoolFunding / 100).roundToLong()
         s.healthUpkeep = (care * healthFunding / 100).roundToLong()
-        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep
+        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost
         funds += s.income - s.upkeep
     }
 
@@ -2529,6 +2985,15 @@ class City(
         w.count(going.size)
         for (b in going) { w.int(b.id); w.int(b.underway) }
         for (v in intArrayOf(s.sites, s.homesComing, s.shopJobsComing, s.industryJobsComing)) w.int(v)
+        // Since version 7.
+        w.int(era.ordinal)
+        for (v in intArrayOf(s.onMains, s.onSewer, s.powered, s.downtown, s.highSchools, s.landBuilt)) w.int(v)
+        for (a in arrayOf(map.roadLaid, map.waterLaid, map.sewerLaid, map.stormLaid, map.railLaid)) w.shorts(a)
+        w.layer(map.broken); w.layer(map.mending)
+        w.count(buildings.size)
+        for (b in buildings.values) { w.int(b.id); w.int(b.built); w.int(b.outage) }
+        w.long(repairBill); w.long(s.repairCost)
+        w.layer(map.brownfield)
     }
 
     companion object {
@@ -2642,6 +3107,40 @@ class City(
             }
             // Worked out now rather than on the first day, so a city loaded paused shows its power and water.
             c.updateNetworks()
+            if (version >= 7) {
+                c.era = Era.entries.getOrNull(r.int()) ?: throw SaveError("an era this version doesn't know")
+                s.onMains = r.int(); s.onSewer = r.int(); s.powered = r.int(); s.downtown = r.int(); s.highSchools = r.int(); s.landBuilt = r.int()
+                for (a in arrayOf(m.roadLaid, m.waterLaid, m.sewerLaid, m.stormLaid, m.railLaid)) r.shorts(a)
+                r.layer(m.broken); r.layer(m.mending)
+                for (i in 0 until m.size) if (m.mendingDays(i) > 0) c.mendingTiles += i
+                repeat(r.count()) {
+                    val b = c.buildings[r.int()] ?: throw SaveError("the age of a building that isn't there")
+                    b.built = r.int()
+                    b.outage = r.int()
+                    if (b.outage > 0) c.outages += b.id
+                }
+                c.repairBill = r.long(); s.repairCost = r.long()
+                r.layer(m.brownfield)
+                c.updateNetworks()
+            } else {
+                // Before ageing nothing kept its age: count everything as laid half the town's life ago.
+                val guess = (c.monthNow / 2).toShort()
+                for (i in 0 until m.size) {
+                    if (m.road[i] != Road.NONE) m.roadLaid[i] = guess
+                    if (m.waterPipe[i].toInt() != 0) m.waterLaid[i] = guess
+                    if (m.sewerPipe[i].toInt() != 0) m.sewerLaid[i] = guess
+                    if (m.stormPipe[i].toInt() != 0) m.stormLaid[i] = guess
+                    if (m.rail[i] != Rail.NONE) m.railLaid[i] = guess
+                }
+                for (b in c.buildings.values) b.built = guess.toInt()
+                // Towns from before eras are in whichever era they've earned by now.
+                c.census()
+                while (true) {
+                    val next = c.era.next ?: break
+                    if (c.year < next.year || c.goals(next).any { !it.met }) break
+                    c.era = next
+                }
+            }
             return c
         }
 
@@ -2711,6 +3210,14 @@ class Stats {
     /** People looking for a home, in residents, before the empty homes take any. */
     var homeSeekers = 0
 
+    /** For the eras' milestones: percent of people on mains water and on the sewer, percent of buildings with power, high density shops and offices, high schools, and percent of the land along the roads built on. */
+    var onMains = 0
+    var onSewer = 0
+    var powered = 0
+    var downtown = 0
+    var highSchools = 0
+    var landBuilt = 0
+
     /** Buildings going up, and the room for people and jobs they'll bring. */
     var sites = 0
     var homesComing = 0
@@ -2767,6 +3274,9 @@ class Stats {
     var parkUpkeep = 0L
     var schoolUpkeep = 0L
     var healthUpkeep = 0L
+
+    /** Last month's mending of what broke. */
+    var repairCost = 0L
     var upkeep = 0L
 
     /** Averages: crime and pollution where there are buildings, land value over all the land. 0 to 255. */
@@ -2780,10 +3290,10 @@ class Stats {
 /** A line a train ran last month: the track from end to end, and whether it carried passengers or freight, and how many. */
 class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int)
 
-enum class EventKind { FireStarted, FireSaved, BuildingLost, Flooding, RiverFlood, Sickness }
+enum class EventKind { FireStarted, FireSaved, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, MainBurst, SewerCollapsed, TrackBroken, BrokeDown }
 
 /** Something that happened at [x], [y], to a building of [type] if it's about one. */
-class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType?)
+class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType?, val era: Era? = null)
 
 /** What the graphs can show. */
 enum class Series { Population, Jobs, Funds, Income, Upkeep, Crime, Pollution, LandValue }

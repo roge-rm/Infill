@@ -16,6 +16,7 @@ import kotlin.math.min
  * slower. They keep to the right, and fill both lanes of a one-way road.
  * [most] is how many there can be in a lane on one tile. At the level
  * [crossings] a train is on, the road is clear and traffic waits either side.
+ * A road shut for works has nothing on it.
  */
 internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, time: Float, most: Int, crossings: Set<Int> = emptySet()) {
     val t = camera.tilePx
@@ -31,7 +32,8 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
     fun road(x: Int, y: Int) = map.inside(x, y) && map.road[map.index(x, y)].toInt() != 0
     for (y in y0..y1) for (x in x0..x1) {
         val i = map.index(x, y)
-        if (map.road[i].toInt() == 0 || i in crossings) continue
+        // Nothing on a road that's dug up.
+        if (map.road[i].toInt() == 0 || i in crossings || map.closed(i)) continue
         val busy = map.congestion[i].toInt() and 0xff
         if (busy == 0) continue
         val across = road(x - 1, y) || road(x + 1, y)

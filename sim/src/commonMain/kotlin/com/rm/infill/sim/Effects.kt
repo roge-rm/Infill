@@ -79,6 +79,7 @@ internal object Effects {
         val industry = SummedArea(w, h) { if (buildingTypes(it)?.zone == Zone.INDUSTRIAL) 1 else 0 }
         val traffic = SummedArea(w, h) { map.congestion[it].toInt() and 0xff }
         val busy = SummedArea(w, h, activity)
+        val fouled = if (map.brownfield.any { it.toInt() != 0 }) SummedArea(w, h) { map.brownfield[it].toInt() } else null
         // The railway, if there is one, read straight off the map.
         val railway = map.rail.any { it != Rail.NONE }
         fun typeOn(i: Int) = map.buildingType[i].toInt() - 1
@@ -105,6 +106,8 @@ internal object Effects {
             v -= (map.pollution[i].toInt() and 0xff) / 2
             v -= (map.crime[i].toInt() and 0xff) / 3
             if (industry.around(x, y, 2) > 0 && buildingTypes(i)?.zone != Zone.INDUSTRIAL) v -= 15
+            // Nobody wants to live by a fouled works site.
+            if (fouled != null && fouled.around(x, y, 2) > 0) v -= Balance.BROWNFIELD_VALUE
             // Buyers remember floods.
             v -= (map.floodMemory[i].toInt() and 0xff) / Balance.STIGMA_VALUE
             // The noise of busy roads, trains and yards, and a station within a walk.

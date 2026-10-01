@@ -78,6 +78,35 @@ import com.rm.infill.res.high_school
 import com.rm.infill.res.clinic
 import com.rm.infill.res.hospital
 import com.rm.infill.sim.Education
+import com.rm.infill.sim.Broken
+import com.rm.infill.sim.Material
+import com.rm.infill.sim.Pipe
+import com.rm.infill.res.track
+import com.rm.infill.res.brownfield
+import com.rm.infill.res.heritage
+import com.rm.infill.res.sewage_works
+import com.rm.infill.res.treatment_plant
+import com.rm.infill.res.laid_in
+import com.rm.infill.res.laid
+import com.rm.infill.res.built_in
+import com.rm.infill.res.broken_down
+import com.rm.infill.res.works_on
+import com.rm.infill.res.works_waiting
+import com.rm.infill.res.mend_main
+import com.rm.infill.res.mend_sewer
+import com.rm.infill.res.mend_drain
+import com.rm.infill.res.mend_road
+import com.rm.infill.res.mend_track
+import com.rm.infill.res.material_cast_iron
+import com.rm.infill.res.material_wood
+import com.rm.infill.res.material_ductile_iron
+import com.rm.infill.res.material_plastic_main
+import com.rm.infill.res.material_brick
+import com.rm.infill.res.material_concrete_sewer
+import com.rm.infill.res.material_plastic_sewer
+import com.rm.infill.res.material_clay_drain
+import com.rm.infill.res.material_concrete_drain
+import com.rm.infill.res.material_plastic_drain
 import com.rm.infill.sim.Density
 import com.rm.infill.res.density_low
 import com.rm.infill.res.density_medium
@@ -96,7 +125,6 @@ import com.rm.infill.res.inspect_crossing
 import com.rm.infill.res.inspect_linked
 import com.rm.infill.res.inspect_not_linked
 import com.rm.infill.res.inspect_no_road
-import com.rm.infill.res.inspect_track
 import com.rm.infill.res.inspect_mains
 import com.rm.infill.res.inspect_well
 import com.rm.infill.res.inspect_sewer
@@ -108,9 +136,6 @@ import com.rm.infill.res.inspect_flooded_before
 import com.rm.infill.res.embankment
 import com.rm.infill.res.event_river_flood
 import com.rm.infill.res.inspect_river_high
-import com.rm.infill.res.inspect_under_main
-import com.rm.infill.res.inspect_under_sewer
-import com.rm.infill.res.inspect_under_drain
 import com.rm.infill.res.pumping_station
 import com.rm.infill.res.well_field
 import com.rm.infill.res.water_tower
@@ -231,6 +256,9 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 add(stringResource(if (map.powered[i]) Res.string.has_power else Res.string.no_power))
             }
             if (building.burning > 0) add(stringResource(Res.string.on_fire))
+            if (building.outage > 0) add(pluralStringResource(Res.plurals.broken_down, building.outage, building.outage))
+            if (building.underway == 0 && t != BuildingType.PARK) add(stringResource(Res.string.built_in, yearOf(building.built)))
+            if (city.isHeritage(building)) add(stringResource(Res.string.heritage))
             if (t.zone != Zone.NONE) {
                 add(stringResource(if (map.watered[i]) Res.string.inspect_mains else Res.string.inspect_well))
                 add(stringResource(if (map.sewered[i]) Res.string.inspect_sewer else Res.string.inspect_septic))
@@ -261,7 +289,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                         map.bank[i].toInt() != 0 -> Res.string.embankment
                         road != null && map.rail[i] != Rail.NONE -> Res.string.inspect_crossing
                         road != null -> roadName(road)
-                        map.rail[i] != Rail.NONE -> Res.string.inspect_track
+                        map.rail[i] != Rail.NONE -> Res.string.track
                         map.power[i] != Power.NONE -> Res.string.inspect_power_line
                         map.terrain[i] == Terrain.WATER -> Res.string.inspect_water
                         map.terrain[i] == Terrain.TREES -> Res.string.inspect_trees
@@ -279,9 +307,19 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
             }
             if ((map.flood[i].toInt() and 0xff) >= Balance.FLOODED) add(stringResource(Res.string.inspect_flooded))
             else if ((map.floodMemory[i].toInt() and 0xff) >= FLOODED_BEFORE) add(stringResource(Res.string.inspect_flooded_before))
-            if (map.waterPipe[i].toInt() != 0) add(stringResource(Res.string.inspect_under_main))
-            if (map.sewerPipe[i].toInt() != 0) add(stringResource(Res.string.inspect_under_sewer))
-            if (map.stormPipe[i].toInt() != 0) add(stringResource(Res.string.inspect_under_drain))
+            // When the road and track were laid, and what's underneath and when.
+            if (road != null && map.bank[i].toInt() == 0) {
+                // The road's name is the title already, unless it's a crossing.
+                if (map.rail[i] == Rail.NONE) add(stringResource(Res.string.laid, yearOf(map.roadLaid[i].toInt())))
+                else add(stringResource(Res.string.laid_in, stringResource(roadName(road)), yearOf(map.roadLaid[i].toInt())))
+            }
+            if (map.rail[i] != Rail.NONE) add(stringResource(Res.string.laid_in, stringResource(Res.string.track), yearOf(map.railLaid[i].toInt())))
+            for ((kind, layer, laid) in listOf(Triple(Pipe.WATER, map.waterPipe, map.waterLaid), Triple(Pipe.SEWER, map.sewerPipe, map.sewerLaid), Triple(Pipe.STORM, map.stormPipe, map.stormLaid))) {
+                val material = Material.of(kind, layer[i]) ?: continue
+                add(stringResource(Res.string.laid_in, stringResource(materialName(material)), yearOf(laid[i].toInt())))
+            }
+            brokenLine(map, i)?.let { add(it) }
+            if (map.brownfield[i].toInt() != 0) add(stringResource(Res.string.brownfield))
             if (road != null) {
                 if (map.terrain[i] == Terrain.WATER) add(stringResource(Res.string.inspect_bridge))
                 add(stringResource(Res.string.inspect_traffic, level(map.congestion[i].toInt() and 0xff)))
@@ -347,6 +385,8 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.WELL_FIELD -> Res.string.well_field
     BuildingType.WATER_TOWER -> Res.string.water_tower
     BuildingType.OUTFALL -> Res.string.sewer_outfall
+    BuildingType.SEWAGE_WORKS -> Res.string.sewage_works
+    BuildingType.TREATMENT_PLANT -> Res.string.treatment_plant
     BuildingType.STORM_POND -> Res.string.storm_pond
     BuildingType.STORM_OUTFALL -> Res.string.storm_outfall
     BuildingType.SCHOOL -> Res.string.school
@@ -367,6 +407,41 @@ fun densityName(density: Byte): StringResource? = when (density) {
     Density.MEDIUM -> Res.string.density_medium
     Density.HIGH -> Res.string.density_high
     else -> null
+}
+
+/** The year of a month counted from January 1900. */
+private fun yearOf(month: Int): Int = 1900 + month / 12
+
+fun materialName(m: Material): StringResource = when (m) {
+    Material.CAST_IRON -> Res.string.material_cast_iron
+    Material.WOOD -> Res.string.material_wood
+    Material.DUCTILE_IRON -> Res.string.material_ductile_iron
+    Material.PLASTIC_MAIN -> Res.string.material_plastic_main
+    Material.BRICK -> Res.string.material_brick
+    Material.CONCRETE_SEWER -> Res.string.material_concrete_sewer
+    Material.PLASTIC_SEWER -> Res.string.material_plastic_sewer
+    Material.CLAY_DRAIN -> Res.string.material_clay_drain
+    Material.CONCRETE_DRAIN -> Res.string.material_concrete_drain
+    Material.PLASTIC_DRAIN -> Res.string.material_plastic_drain
+}
+
+/** What's broken on a tile, or the works there, and how long it'll be. */
+@Composable
+private fun brokenLine(map: com.rm.infill.sim.CityMap, i: Int): String? {
+    val bits = map.broken[i].toInt()
+    if (bits == 0) return null
+    val days = map.mendingDays(i)
+    if (bits and Broken.WORKS != 0) {
+        return if (map.underRepair(i)) pluralStringResource(Res.plurals.works_on, days, days) else stringResource(Res.string.works_waiting)
+    }
+    val which = when {
+        bits and Broken.WATER != 0 -> Res.plurals.mend_main
+        bits and Broken.SEWER != 0 -> Res.plurals.mend_sewer
+        bits and Broken.STORM != 0 -> Res.plurals.mend_drain
+        bits and Broken.RAIL != 0 -> Res.plurals.mend_track
+        else -> Res.plurals.mend_road
+    }
+    return pluralStringResource(which, days, days)
 }
 
 fun wealthName(wealth: Int): StringResource = when (wealth) {

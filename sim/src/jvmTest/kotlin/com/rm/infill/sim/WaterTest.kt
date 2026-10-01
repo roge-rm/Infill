@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 class WaterTest {
     /** A city on grass with a river down column [river] if there is one. */
     private fun city(size: Int = 48, river: Int = -1): City {
-        val c = City(1, size, size, TerrainOptions(water = 0, trees = 0, river = false))
+        val c = City(1, size, size, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true }
         if (river >= 0) for (y in 0 until size) for (x in river..river + 2) c.map.terrain[c.map.index(x, y)] = Terrain.WATER
         val field = City::class.java.getDeclaredField("funds").apply { isAccessible = true }
         field.setLong(c, 1_000_000L)

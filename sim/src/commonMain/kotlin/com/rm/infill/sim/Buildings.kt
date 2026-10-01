@@ -31,6 +31,8 @@ enum class BuildingType(
     val appeal: Int = 0,
     val value: Int = 0,
     val buildDays: Int = 0,
+    /** For the works the city runs: how many years it's expected to go before it starts breaking down. */
+    val life: Int = 0,
 ) {
     COTTAGE(Zone.RESIDENTIAL, 1, 5, density = Density.LOW, buildDays = 20),
     HOUSE(Zone.RESIDENTIAL, 2, 9, density = Density.LOW, needs = 1, appeal = 55, buildDays = 30),
@@ -54,7 +56,7 @@ enum class BuildingType(
     FACTORY(Zone.INDUSTRIAL, 4, 30, pollution = 18, density = Density.MEDIUM, needs = 3, appeal = 62, buildDays = 90),
     WORKS(Zone.INDUSTRIAL, 5, 140, width = 2, height = 2, pollution = 40, density = Density.HIGH, needs = 3, appeal = 64, buildDays = 200),
 
-    COAL_PLANT(Zone.NONE, 0, 8, width = 2, height = 2, pollution = 30),
+    COAL_PLANT(Zone.NONE, 0, 8, width = 2, height = 2, pollution = 30, life = 35),
 
     POLICE_STATION(Zone.NONE, 0, 10, width = 2, height = 1),
     FIRE_STATION(Zone.NONE, 0, 12, width = 2, height = 2),
@@ -67,10 +69,14 @@ enum class BuildingType(
     FREIGHT_YARD_NS(Zone.NONE, 0, 20, width = 2, height = 3, pollution = 6),
 
     /** Water: a pumping station beside a river or lake, a well field anywhere, a tower, and an outfall for the sewers. */
-    PUMPING_STATION(Zone.NONE, 0, 6, width = 2, height = 2),
-    WELL_FIELD(Zone.NONE, 0, 2, width = 2, height = 2),
-    WATER_TOWER(Zone.NONE, 0, 0),
+    PUMPING_STATION(Zone.NONE, 0, 6, width = 2, height = 2, life = 40),
+    WELL_FIELD(Zone.NONE, 0, 2, width = 2, height = 2, life = 25),
+    WATER_TOWER(Zone.NONE, 0, 0, life = 50),
     OUTFALL(Zone.NONE, 0, 0),
+
+    /** Sewage works on the water: settling tanks from the Streetcar city, full treatment from Renewal. They take the place of an outfall. */
+    SEWAGE_WORKS(Zone.NONE, 0, 8, width = 2, height = 2, year = 1910, life = 50),
+    TREATMENT_PLANT(Zone.NONE, 0, 20, width = 3, height = 2, year = 1970, life = 50),
 
     /** Stormwater: a pond that holds it, and an outfall for the storm drains. */
     STORM_POND(Zone.NONE, 0, 0, width = 2, height = 2),
@@ -78,7 +84,7 @@ enum class BuildingType(
 
     /** Schooling and health: a school, a high school (from 1910), a doctor's clinic and a hospital. */
     SCHOOL(Zone.NONE, 0, 8, width = 2, height = 2),
-    HIGH_SCHOOL(Zone.NONE, 0, 16, width = 3, height = 2),
+    HIGH_SCHOOL(Zone.NONE, 0, 16, width = 3, height = 2, year = 1910),
     CLINIC(Zone.NONE, 0, 4),
     HOSPITAL(Zone.NONE, 0, 60, width = 3, height = 3),
     ;
@@ -106,7 +112,17 @@ enum class BuildingType(
     val needsSewer get() = needs >= 3
 
     /** Has to be beside water. */
-    val onWater get() = this == PUMPING_STATION || this == OUTFALL || this == STORM_OUTFALL
+    val onWater get() = this == PUMPING_STATION || outfall || this == STORM_OUTFALL
+
+    /** Where the sewers come out. */
+    val outfall get() = this == OUTFALL || this == SEWAGE_WORKS || this == TREATMENT_PLANT
+
+    /** How much of the sewage that comes out here fouls the water, in percent. */
+    val fouls: Int get() = when (this) {
+        SEWAGE_WORKS -> 50
+        TREATMENT_PLANT -> 10
+        else -> 100
+    }
 
     /** Where mains water comes from. */
     val waterSource get() = this == PUMPING_STATION || this == WELL_FIELD
@@ -119,6 +135,10 @@ enum class BuildingType(
 
     /** Takes more than one lot. */
     val large get() = width > 1 || height > 1
+
+    /** Built of brick or stone to last, so that once it's old enough it's valued as heritage. */
+    val heritage get() = this == LARGE_HOUSE || this == ROW_HOUSES || this == TENEMENT || this == APARTMENTS || this == APARTMENT_COURT ||
+        this == MAIN_STREET || this == BANK || this == HOTEL || this == OFFICE_BLOCK || this == DEPARTMENT_STORE
 
     companion object {
         private val rungs = HashMap<Int, List<BuildingType>>()
@@ -148,6 +168,12 @@ class Building(val id: Int, var type: BuildingType, val x: Int, val y: Int, val 
 
     /** Days left before it's built, 0 once it's standing. Nobody lives or works in it until then. */
     var underway = 0
+
+    /** When it was finished, in months from January 1900 ([Ageing.monthOf]). */
+    var built = 0
+
+    /** Days left of a breakdown, for the works the city runs: it does nothing until it's mended. */
+    var outage = 0
 }
 
 /** The power line on a tile, if any. */

@@ -61,8 +61,8 @@ internal class RailNetwork(private val map: CityMap) {
     var toEdge = IntArray(0)
         private set
 
-    /** Track under deep floodwater is closed until it drains. */
-    private fun deep(i: Int) = (map.flood[i].toInt() and 0xff) >= Balance.FLOOD_DAMAGE
+    /** Track under deep floodwater is closed until it drains, and broken track until it's mended. */
+    private fun deep(i: Int) = (map.flood[i].toInt() and 0xff) >= Balance.FLOOD_DAMAGE || map.out(i, Broken.RAIL)
 
     fun update(stations: List<Building>) {
         line.fill(-1)

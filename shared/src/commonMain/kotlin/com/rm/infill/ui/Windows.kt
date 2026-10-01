@@ -75,7 +75,38 @@ import com.rm.infill.res.upkeep_water
 import com.rm.infill.res.upkeep_flood
 import com.rm.infill.res.upkeep_schools
 import com.rm.infill.res.upkeep_health
+import com.rm.infill.res.upkeep_repairs
 import com.rm.infill.sim.Series
+import com.rm.infill.res.era_township
+import com.rm.infill.res.era_streetcar
+import com.rm.infill.res.era_motor
+import com.rm.infill.res.era_renewal
+import com.rm.infill.res.era_infill
+import com.rm.infill.res.era_future
+import com.rm.infill.res.era_township_line
+import com.rm.infill.res.era_streetcar_line
+import com.rm.infill.res.era_motor_line
+import com.rm.infill.res.era_renewal_line
+import com.rm.infill.res.era_infill_line
+import com.rm.infill.res.era_future_line
+import com.rm.infill.res.era_brings
+import com.rm.infill.res.era_next
+import com.rm.infill.res.goal_people
+import com.rm.infill.res.goal_mains_or_station
+import com.rm.infill.res.goal_on_mains
+import com.rm.infill.res.goal_on_sewer
+import com.rm.infill.res.goal_powered
+import com.rm.infill.res.goal_downtown
+import com.rm.infill.res.goal_high_school
+import com.rm.infill.res.goal_land_built
+import com.rm.infill.res.goal_met
+import com.rm.infill.res.goal_not_met
+import com.rm.infill.sim.Era
+import com.rm.infill.sim.Material
+import com.rm.infill.sim.Goal
+import com.rm.infill.sim.GoalKind
+import com.rm.infill.sim.RoadType
+import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.Wealth
 import androidx.compose.ui.text.style.TextAlign
 import com.rm.infill.res.people
@@ -180,6 +211,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
             MoneyLine(Res.string.park, -s.parkUpkeep)
             if (s.schoolUpkeep > 0) MoneyLine(Res.string.upkeep_schools, -s.schoolUpkeep)
             if (s.healthUpkeep > 0) MoneyLine(Res.string.upkeep_health, -s.healthUpkeep)
+            if (s.repairCost > 0) MoneyLine(Res.string.upkeep_repairs, -s.repairCost)
             Box(Modifier.fillMaxWidth().height(1.dp).background(c.chromeEdge))
             MoneyLine(Res.string.net, s.income - s.upkeep, bold = true)
         }
@@ -390,4 +422,79 @@ private fun CountLine(label: StringResource, value: String) {
         Text(stringResource(label), color = c.textDim, fontSize = 14.sp, modifier = Modifier.weight(1f))
         Text(value, color = c.text, fontSize = 14.sp)
     }
+}
+
+fun eraName(era: Era): StringResource = when (era) {
+    Era.TOWNSHIP -> Res.string.era_township
+    Era.STREETCAR -> Res.string.era_streetcar
+    Era.MOTOR -> Res.string.era_motor
+    Era.RENEWAL -> Res.string.era_renewal
+    Era.INFILL -> Res.string.era_infill
+    Era.FUTURE -> Res.string.era_future
+}
+
+private fun eraLine(era: Era): StringResource = when (era) {
+    Era.TOWNSHIP -> Res.string.era_township_line
+    Era.STREETCAR -> Res.string.era_streetcar_line
+    Era.MOTOR -> Res.string.era_motor_line
+    Era.RENEWAL -> Res.string.era_renewal_line
+    Era.INFILL -> Res.string.era_infill_line
+    Era.FUTURE -> Res.string.era_future_line
+}
+
+/**
+ * An era: what it's about, the roads and buildings it brings, and what the
+ * town needs for the next one against what it has.
+ */
+@Composable
+fun EraWindow(game: GameState, era: Era, onClose: () -> Unit) {
+    val c = Infill.colors
+    game.revision
+    val city = game.city
+    Window(eraName(era), onClose) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(stringResource(eraLine(era)), color = c.text, fontSize = 15.sp)
+            val roads = RoadType.entries.filter { Era.of(it.year) == era && era != Era.TOWNSHIP }.map { roadName(it) }
+            val buildings = BuildingType.entries.filter { Era.of(it.year) == era && era != Era.TOWNSHIP }.map { buildingName(it) } +
+                Material.entries.filter { Era.of(it.year) == era && era != Era.TOWNSHIP }.map { materialName(it) }
+            if (roads.isNotEmpty() || buildings.isNotEmpty()) {
+                Heading(Res.string.era_brings)
+                for (name in roads + buildings) Text(stringResource(name), color = c.text, fontSize = 14.sp)
+            }
+            // What the next era needs, from the one the town's in.
+            val next = city.era.next
+            if (next != null && era == city.era) {
+                Text(
+                    stringResource(Res.string.era_next, stringResource(eraName(next)), next.year),
+                    color = c.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp),
+                )
+                for (goal in city.goals(next)) {
+                    Row(Modifier.fillMaxWidth()) {
+                        Text(goalText(goal), color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                        Text(goalHave(goal), color = if (goal.met) Color(0xFF3FA85A) else c.textDim, fontSize = 14.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun goalText(goal: Goal): String = when (goal.kind) {
+    GoalKind.People -> stringResource(Res.string.goal_people, groupThousands(goal.need.toLong()))
+    GoalKind.MainsOrStation -> stringResource(Res.string.goal_mains_or_station)
+    GoalKind.OnMains -> stringResource(Res.string.goal_on_mains, goal.need)
+    GoalKind.OnSewer -> stringResource(Res.string.goal_on_sewer, goal.need)
+    GoalKind.Powered -> stringResource(Res.string.goal_powered, goal.need)
+    GoalKind.Downtown -> stringResource(Res.string.goal_downtown)
+    GoalKind.HighSchool -> stringResource(Res.string.goal_high_school)
+    GoalKind.LandBuilt -> stringResource(Res.string.goal_land_built, goal.need)
+}
+
+/** How far the town is towards a goal: a count, a share, or a tick. */
+@Composable
+private fun goalHave(goal: Goal): String = when (goal.kind) {
+    GoalKind.People -> groupThousands(goal.have.toLong())
+    GoalKind.OnMains, GoalKind.OnSewer, GoalKind.Powered, GoalKind.LandBuilt -> stringResource(Res.string.percent, goal.have)
+    else -> stringResource(if (goal.met) Res.string.goal_met else Res.string.goal_not_met)
 }

@@ -41,8 +41,8 @@ sealed interface Action {
     }
 
     /** A pipe of [kind] along [tiles], given as map indices in order. */
-    data class BuildPipe(val tiles: IntArray, val kind: Pipe) : Action {
-        override fun equals(other: Any?) = other is BuildPipe && kind == other.kind && tiles.contentEquals(other.tiles)
+    data class BuildPipe(val tiles: IntArray, val kind: Pipe, val material: Material? = null) : Action {
+        override fun equals(other: Any?) = other is BuildPipe && kind == other.kind && material == other.material && tiles.contentEquals(other.tiles)
         override fun hashCode() = tiles.contentHashCode() * 3 + kind.ordinal
     }
 
@@ -110,6 +110,9 @@ object Prices {
     const val WELL_FIELD = 900L
     const val WATER_TOWER = 700L
     const val OUTFALL = 400L
+    const val SEWAGE_WORKS = 3_000L
+    const val CLEAN_UP = 150L
+    const val TREATMENT_PLANT = 9_000L
     const val STORM_POND = 600L
     const val STORM_OUTFALL = 300L
     const val SCHOOL = 1_600L
@@ -129,6 +132,8 @@ object Prices {
         BuildingType.WELL_FIELD -> WELL_FIELD
         BuildingType.WATER_TOWER -> WATER_TOWER
         BuildingType.OUTFALL -> OUTFALL
+        BuildingType.SEWAGE_WORKS -> SEWAGE_WORKS
+        BuildingType.TREATMENT_PLANT -> TREATMENT_PLANT
         BuildingType.STORM_POND -> STORM_POND
         BuildingType.STORM_OUTFALL -> STORM_OUTFALL
         BuildingType.SCHOOL -> SCHOOL

@@ -21,6 +21,7 @@ import com.rm.infill.res.overlay_runoff
 import com.rm.infill.res.overlay_schooling
 import com.rm.infill.res.overlay_health
 import com.rm.infill.res.overlay_wealth
+import com.rm.infill.res.overlay_age
 import com.rm.infill.sim.Household
 import com.rm.infill.sim.Balance
 import com.rm.infill.sim.CityMap
@@ -47,13 +48,14 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Schooling(Res.string.overlay_schooling, Color(0xFFE8D6B0), Color(0xFF2E5FA8)),
     Health(Res.string.overlay_health, Color(0xFFC0392B), Color(0xFF3FA85A)),
     Wealth(Res.string.overlay_wealth, Color(0xFF8A6A4A), Color(0xFFE0B83A)),
+    Age(Res.string.overlay_age, Color(0xFF4CAF50), Color(0xFFC0392B)),
 }
 
 /**
  * The overlay as a bitmap of one pixel a tile, drawn smoothly over the map.
  * Land value covers all land; the rest show only where they are.
  */
-internal fun overlayImage(overlay: Overlay, map: CityMap, homeAt: (Int) -> Household?): ImageBitmap? {
+internal fun overlayImage(overlay: Overlay, map: CityMap, homeAt: (Int) -> Household?, wearAt: (Int) -> Int): ImageBitmap? {
     if (overlay == Overlay.None) return null
     val pixels = IntArray(map.size)
     for (i in 0 until map.size) {
@@ -102,11 +104,13 @@ internal fun overlayImage(overlay: Overlay, map: CityMap, homeAt: (Int) -> House
             }
             Overlay.Health -> (homeAt(i)?.takeIf { !it.empty } ?: continue).health * 255 / 100
             Overlay.Wealth -> (homeAt(i)?.takeIf { !it.empty } ?: continue).wealth * 127
+            // Green when new to red at its expected life and past it.
+            Overlay.Age -> wearAt(i).takeIf { it >= 0 }?.let { min(255, it * 255 / 100) } ?: continue
             Overlay.None -> 0
         }
         val everywhere = overlay == Overlay.LandValue || overlay == Overlay.Power || overlay == Overlay.Traffic ||
             overlay == Overlay.Railway || overlay == Overlay.Water || overlay == Overlay.Runoff ||
-            overlay == Overlay.Schooling || overlay == Overlay.Health || overlay == Overlay.Wealth
+            overlay == Overlay.Schooling || overlay == Overlay.Health || overlay == Overlay.Wealth || overlay == Overlay.Age
         if (!everywhere && v == 0) continue
         pixels[i] = mix(overlay.low, overlay.high, v / 255f)
     }
