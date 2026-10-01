@@ -60,6 +60,24 @@ import com.rm.infill.res.police_station
 import com.rm.infill.res.coal_plant
 import com.rm.infill.res.has_power
 import com.rm.infill.res.inspect_power_line
+import com.rm.infill.res.mend_power
+import com.rm.infill.sim.Generation
+import com.rm.infill.res.oil_plant
+import com.rm.infill.res.gas_plant
+import com.rm.infill.res.hydro_plant
+import com.rm.infill.res.nuclear_plant
+import com.rm.infill.res.substation
+import com.rm.infill.res.high_line
+import com.rm.infill.res.dump
+import com.rm.infill.res.incinerator
+import com.rm.infill.res.recycling
+import com.rm.infill.res.street_trees
+import com.rm.infill.res.station_output
+import com.rm.infill.res.station_drawing
+import com.rm.infill.res.megawatts
+import com.rm.infill.res.inspect_garbage
+import com.rm.infill.res.dump_fill
+import com.rm.infill.res.snowed_in
 import com.rm.infill.res.jobs
 import com.rm.infill.res.no_power
 import com.rm.infill.res.residents
@@ -273,9 +291,15 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 else -> add(pluralStringResource(Res.plurals.jobs, t.capacity, t.capacity))
             }
             if (t.zone != Zone.NONE) densityName(map.density[i])?.let { add(stringResource(it)) }
-            if (t.needsPower || t == BuildingType.COAL_PLANT || t == BuildingType.TRAM_DEPOT || t == BuildingType.SUBWAY_STATION) {
+            if (Generation.station(t)) {
+                // What it's making of what it could, in megawatts.
+                val made = megawatts(city.stationOutput(building))
+                add(stringResource(Res.string.station_output, stringResource(Res.string.megawatts, made), stringResource(Res.string.megawatts, megawatts(city.stationAvailable(building)))))
+            } else if (t.needsPower || t == BuildingType.TRAM_DEPOT || t == BuildingType.SUBWAY_STATION) {
                 add(stringResource(if (map.powered[i]) Res.string.has_power else Res.string.no_power))
             }
+            if (t == BuildingType.DUMP) add(stringResource(Res.string.dump_fill, (building.fill.toLong() * 100 / Balance.DUMP_ROOM).toInt()))
+            if (building.uncollected) add(stringResource(Res.string.inspect_garbage))
             if (building.burning > 0) add(stringResource(Res.string.on_fire))
             if (building.outage > 0) add(pluralStringResource(Res.plurals.broken_down, building.outage, building.outage))
             if (building.underway == 0 && t != BuildingType.PARK) add(stringResource(Res.string.built_in, yearOf(building.built)))
@@ -311,6 +335,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                         road != null && map.rail[i] != Rail.NONE -> Res.string.inspect_crossing
                         road != null -> roadName(road)
                         map.rail[i] != Rail.NONE -> Res.string.track
+                        map.power[i] == Power.HIGH -> Res.string.high_line
                         map.power[i] != Power.NONE -> Res.string.inspect_power_line
                         map.terrain[i] == Terrain.WATER -> Res.string.inspect_water
                         map.terrain[i] == Terrain.TREES -> Res.string.inspect_trees
@@ -361,6 +386,8 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                     if (city.subwayNetwork(i) < 0) ". " + stringResource(Res.string.no_service) else "")
             }
             if (map.brownfield[i].toInt() != 0) add(stringResource(Res.string.brownfield))
+            if (map.streetTrees[i].toInt() != 0) add(stringResource(Res.string.street_trees))
+            if (road != null && city.snowedIn > 0) add(stringResource(Res.string.snowed_in))
             if (road != null) {
                 if (map.terrain[i] == Terrain.WATER) add(stringResource(Res.string.inspect_bridge))
                 add(stringResource(Res.string.inspect_traffic, level(map.congestion[i].toInt() and 0xff)))
@@ -444,6 +471,14 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.OFFICE_BLOCK -> Res.string.building_office_block
     BuildingType.DEPARTMENT_STORE -> Res.string.building_department_store
     BuildingType.WORKS -> Res.string.building_works
+    BuildingType.OIL_PLANT -> Res.string.oil_plant
+    BuildingType.GAS_PLANT -> Res.string.gas_plant
+    BuildingType.HYDRO_PLANT -> Res.string.hydro_plant
+    BuildingType.NUCLEAR_PLANT -> Res.string.nuclear_plant
+    BuildingType.SUBSTATION -> Res.string.substation
+    BuildingType.DUMP -> Res.string.dump
+    BuildingType.INCINERATOR -> Res.string.incinerator
+    BuildingType.RECYCLING -> Res.string.recycling
 }
 
 fun densityName(density: Byte): StringResource? = when (density) {
@@ -451,6 +486,12 @@ fun densityName(density: Byte): StringResource? = when (density) {
     Density.MEDIUM -> Res.string.density_medium
     Density.HIGH -> Res.string.density_high
     else -> null
+}
+
+/** Watts as megawatts, to a tenth below ten. */
+private fun megawatts(w: Int): String {
+    val tenths = (w + 50_000) / 100_000
+    return if (tenths < 100) "${tenths / 10}.${tenths % 10}" else groupThousands((tenths / 10).toLong())
 }
 
 /** The year of a month counted from January 1900. */
@@ -486,6 +527,7 @@ private fun brokenLine(map: com.rm.infill.sim.CityMap, i: Int): String? {
         bits and Broken.TRAM != 0 -> Res.plurals.mend_tram
         bits and Broken.WIRE != 0 -> Res.plurals.mend_wire
         bits and Broken.SUBWAY != 0 -> Res.plurals.mend_tunnel
+        bits and Broken.POWER != 0 -> Res.plurals.mend_power
         else -> Res.plurals.mend_road
     }
     return pluralStringResource(which, days, days)

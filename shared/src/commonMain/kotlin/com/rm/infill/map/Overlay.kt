@@ -23,6 +23,8 @@ import com.rm.infill.res.overlay_health
 import com.rm.infill.res.overlay_wealth
 import com.rm.infill.res.overlay_age
 import com.rm.infill.res.overlay_transit
+import com.rm.infill.res.overlay_heat
+import com.rm.infill.res.overlay_garbage
 import com.rm.infill.sim.Household
 import com.rm.infill.sim.Balance
 import com.rm.infill.sim.CityMap
@@ -51,13 +53,17 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Wealth(Res.string.overlay_wealth, Color(0xFF8A6A4A), Color(0xFFE0B83A)),
     Age(Res.string.overlay_age, Color(0xFF4CAF50), Color(0xFFC0392B)),
     Transit(Res.string.overlay_transit, Color(0xFFD8E8F5), Color(0xFF2F5F9A)),
+    Heat(Res.string.overlay_heat, Color(0xFF6FA8C8), Color(0xFFD8402F)),
+    Garbage(Res.string.overlay_garbage, Color(0xFF4CAF50), Color(0xFF8A5A2A)),
 }
 
 /**
  * The overlay as a bitmap of one pixel a tile, drawn smoothly over the map.
  * Land value covers all land; the rest show only where they are.
  */
-internal fun overlayImage(overlay: Overlay, map: CityMap, homeAt: (Int) -> Household?, wearAt: (Int) -> Int, ridersAt: (Int) -> Int): ImageBitmap? {
+internal fun overlayImage(
+    overlay: Overlay, map: CityMap, homeAt: (Int) -> Household?, wearAt: (Int) -> Int, uncollectedAt: (Int) -> Boolean, ridersAt: (Int) -> Int,
+): ImageBitmap? {
     if (overlay == Overlay.None) return null
     val pixels = IntArray(map.size)
     for (i in 0 until map.size) {
@@ -110,11 +116,19 @@ internal fun overlayImage(overlay: Overlay, map: CityMap, homeAt: (Int) -> House
             Overlay.Age -> wearAt(i).takeIf { it >= 0 }?.let { min(255, it * 255 / 100) } ?: continue
             // Riders on the buses, trams and subway, pale when few and deep when many.
             Overlay.Transit -> ridersAt(i).takeIf { it > 0 }?.let { min(255, 40 + it / 8) } ?: continue
+            // Cool where it's green and wet, hot where it's paved and roofed.
+            Overlay.Heat -> map.heat[i].toInt() and 0xff
+            // Buildings: green where garbage is taken away, brown where it piles up.
+            Overlay.Garbage -> {
+                if (map.building[i] == 0) continue
+                if (uncollectedAt(i)) 255 else 0
+            }
             Overlay.None -> 0
         }
         val everywhere = overlay == Overlay.LandValue || overlay == Overlay.Power || overlay == Overlay.Traffic ||
             overlay == Overlay.Railway || overlay == Overlay.Water || overlay == Overlay.Runoff ||
-            overlay == Overlay.Schooling || overlay == Overlay.Health || overlay == Overlay.Wealth || overlay == Overlay.Age
+            overlay == Overlay.Schooling || overlay == Overlay.Health || overlay == Overlay.Wealth || overlay == Overlay.Age ||
+            overlay == Overlay.Heat || overlay == Overlay.Garbage
         if (!everywhere && v == 0) continue
         pixels[i] = mix(overlay.low, overlay.high, v / 255f)
     }

@@ -1,0 +1,307 @@
+package com.rm.infill.sim
+
+/** The power on a tile, if any: an ordinary line, or a high-voltage one (from the 1920s). */
+object Power {
+    const val NONE: Byte = 0
+    const val LINE: Byte = 1
+    const val HIGH: Byte = 2
+}
+
+/** What each kind of power station makes at most, in watts, and the smoke it gives off at full output. */
+object Generation {
+    fun capacity(t: BuildingType): Int = when (t) {
+        BuildingType.COAL_PLANT -> 10_000_000
+        BuildingType.OIL_PLANT -> 20_000_000
+        BuildingType.GAS_PLANT -> 50_000_000
+        BuildingType.HYDRO_PLANT -> 12_000_000
+        BuildingType.NUCLEAR_PLANT -> 300_000_000
+        else -> 0
+    }
+
+    fun fumes(t: BuildingType): Int = when (t) {
+        BuildingType.COAL_PLANT -> 40
+        BuildingType.OIL_PLANT -> 30
+        BuildingType.GAS_PLANT -> 12
+        else -> 0
+    }
+
+    /**
+     * What a station's fuel costs a month for each megawatt it makes. The grid
+     * runs the cheapest first: water costs nothing, uranium little, then coal,
+     * gas and oil.
+     */
+    fun fuel(t: BuildingType): Double = when (t) {
+        BuildingType.COAL_PLANT -> Balance.COAL_FUEL
+        BuildingType.OIL_PLANT -> Balance.OIL_FUEL
+        BuildingType.GAS_PLANT -> Balance.GAS_FUEL
+        BuildingType.NUCLEAR_PLANT -> Balance.NUCLEAR_FUEL
+        else -> 0.0
+    }
+
+    fun station(t: BuildingType): Boolean = capacity(t) > 0
+}
+
+/**
+ * How much power the town uses: each person and job draws more as the years
+ * bring electric light, then appliances, then air conditioning, and a little
+ * less again later as things grow efficient. The stations have to cover the
+ * evening peak, higher in winter and, once there's air conditioning, in summer.
+ */
+object Electricity {
+    private val years = intArrayOf(1900, 1920, 1950, 1970, 1990, 2010, 2030)
+    private val watts = intArrayOf(20, 80, 250, 500, 700, 750, 650)
+
+    /** Watts each person draws in [year], on average over the month. */
+    fun perPerson(year: Int): Int {
+        if (year <= years.first()) return watts.first()
+        for (k in 1 until years.size) {
+            if (year <= years[k]) return watts[k - 1] + (watts[k] - watts[k - 1]) * (year - years[k - 1]) / (years[k] - years[k - 1])
+        }
+        return watts.last()
+    }
+
+    /** What the peak is above the month's average, in percent: the evening, winter's dark, and summer's air conditioning from the 1960s. */
+    fun peak(year: Int, month: Int): Int {
+        val winter = if (month == 11 || month <= 1) 25 else if (month == 10 || month == 2) 10 else 0
+        val cooling = ((year - 1960) * 100 / 40).coerceIn(0, 100)
+        val summer = if (month in 5..7) 25 * cooling / 100 else 0
+        return 100 + Balance.EVENING_PEAK + winter + summer
+    }
+}
+
+/**
+ * The power grid, worked out again when the map or the month changes. Power
+ * spreads as it always has, along ordinary lines and through buildings and
+ * zoned land, into networks. Networks joined by high-voltage lines, through
+ * substations or a station beside the line, make one grid, each substation
+ * passing at most its rating. A grid runs its cheapest stations first. A
+ * network that isn't sent enough for its peak powers the buildings nearest
+ * where the power comes in first, and the rest go dark. The further a
+ * building is from where the power comes in, the more is lost on the way.
+ */
+internal class PowerGrid(private val map: CityMap) {
+    /** The ordinary network each tile's on, -1 if none. */
+    val network = IntArray(map.size) { -1 }
+
+    /** Last worked out: each station's output in watts, by building id. */
+    val output = HashMap<Int, Int>()
+
+    /** The whole grid's capacity, its peak demand, and what of that it couldn't meet, in watts. */
+    var capacity = 0L
+        private set
+    var demand = 0L
+        private set
+    var short = 0L
+        private set
+
+    private fun conducts(i: Int): Boolean =
+        (map.power[i] == Power.LINE && !map.out(i, Broken.POWER)) || map.building[i] != 0 || map.zone[i] != Zone.NONE
+
+    private fun high(i: Int): Boolean = map.power[i] == Power.HIGH && !map.out(i, Broken.POWER)
+
+    /**
+     * Works the grid out: [buildings] with what each draws at the month's
+     * average ([draw], in watts) and what each station can make now
+     * ([available]); [peak] in percent of the average. Sets [CityMap.powered].
+     */
+    fun update(buildings: Collection<Building>, draw: (Building) -> Int, available: (Building) -> Int, peak: Int) {
+        val m = map
+        val n = m.size
+        network.fill(-1)
+        output.clear()
+        val queue = IntArray(n)
+        var count = 0
+        for (start in 0 until n) {
+            if (network[start] >= 0 || !conducts(start)) continue
+            var head = 0
+            var tail = 0
+            queue[tail++] = start
+            network[start] = count
+            while (head < tail) {
+                val i = queue[head++]
+                val x = i % m.width
+                val y = i / m.width
+                for (k in 0 until 4) {
+                    val nx = x + DX[k]
+                    val ny = y + DY[k]
+                    if (!m.inside(nx, ny)) continue
+                    val j = m.index(nx, ny)
+                    if (network[j] >= 0 || !conducts(j)) continue
+                    network[j] = count
+                    queue[tail++] = j
+                }
+            }
+            count++
+        }
+
+        // Where the power comes in to each network: its stations and substations. Steps from them, for the losses.
+        val steps = IntArray(n) { -1 }
+        var head = 0
+        var tail = 0
+        val feeds = buildings.filter { b -> (Generation.station(b.type) || b.type == BuildingType.SUBSTATION) && b.underway == 0 }
+        for (b in feeds) for (y in b.y until b.y + b.type.height) for (x in b.x until b.x + b.type.width) {
+            val i = m.index(x, y)
+            if (steps[i] < 0) {
+                steps[i] = 0
+                queue[tail++] = i
+            }
+        }
+        while (head < tail) {
+            val i = queue[head++]
+            val x = i % m.width
+            val y = i / m.width
+            for (k in 0 until 4) {
+                val nx = x + DX[k]
+                val ny = y + DY[k]
+                if (!m.inside(nx, ny)) continue
+                val j = m.index(nx, ny)
+                if (steps[j] >= 0 || !conducts(j)) continue
+                steps[j] = steps[i] + 1
+                queue[tail++] = j
+            }
+        }
+
+        // Each network's supply and its peak demand, losses and all.
+        val supply = LongArray(count)
+        val need = LongArray(count)
+        val users = Array(count) { ArrayList<Pair<Building, Long>>() }
+        var totalCapacity = 0L
+        for (b in buildings) {
+            val i = m.index(b.x, b.y)
+            val c = network[i]
+            if (Generation.station(b.type)) {
+                val a = available(b).toLong()
+                totalCapacity += a
+                if (c >= 0) supply[c] += a
+            }
+            if (c < 0) continue
+            val w = draw(b).toLong() * peak / 100
+            if (w <= 0) continue
+            val lost = w * (1000 + Balance.LINE_LOSS * maxOf(0, steps[i])) / 1000
+            need[c] += lost
+            users[c] += b to lost
+        }
+
+        // High-voltage lines join networks into grids, through substations or a station beside the line.
+        val hv = IntArray(n) { -1 }
+        var hvCount = 0
+        for (start in 0 until n) {
+            if (hv[start] >= 0 || !high(start)) continue
+            head = 0
+            tail = 0
+            queue[tail++] = start
+            hv[start] = hvCount
+            while (head < tail) {
+                val i = queue[head++]
+                val x = i % m.width
+                val y = i / m.width
+                for (k in 0 until 4) {
+                    val nx = x + DX[k]
+                    val ny = y + DY[k]
+                    if (!m.inside(nx, ny)) continue
+                    val j = m.index(nx, ny)
+                    if (hv[j] >= 0 || !high(j)) continue
+                    hv[j] = hvCount
+                    queue[tail++] = j
+                }
+            }
+            hvCount++
+        }
+        // How much each network can pass to or from the high-voltage lines, and which grid it's in.
+        val link = LongArray(count)
+        val grid = IntArray(count + hvCount) { it }
+        fun root(a: Int): Int {
+            var r = a
+            while (grid[r] != r) r = grid[r]
+            var k = a
+            while (grid[k] != r) { val next = grid[k]; grid[k] = r; k = next }
+            return r
+        }
+        for (b in feeds) {
+            val c = network[m.index(b.x, b.y)]
+            if (c < 0) continue
+            val touched = HashSet<Int>()
+            for (y in b.y - 1..b.y + b.type.height) for (x in b.x - 1..b.x + b.type.width) {
+                if (!m.inside(x, y)) continue
+                val h = hv[m.index(x, y)]
+                if (h >= 0) touched += h
+            }
+            if (touched.isEmpty()) continue
+            val rating = if (b.type == BuildingType.SUBSTATION) Balance.SUBSTATION_RATING.toLong() else UNLIMITED
+            link[c] = minOf(UNLIMITED, link[c] + rating)
+            for (h in touched) grid[root(count + h)] = root(c)
+        }
+
+        // Each grid runs its cheapest stations first: a station meets its own
+        // network's need, then sends what's left to the rest of the grid, as far
+        // as the substations at each end can pass it.
+        val left = need.copyOf()
+        val linkLeft = link.copyOf()
+        val got = LongArray(count)
+        val members = HashMap<Int, MutableList<Int>>()
+        for (c in 0 until count) members.getOrPut(root(c)) { ArrayList() } += c
+        val stations = buildings.filter { Generation.station(it.type) && network[m.index(it.x, it.y)] >= 0 }
+            .sortedWith(compareBy<Building>({ Generation.fuel(it.type) }, { it.id }))
+        for (b in stations) {
+            val c = network[m.index(b.x, b.y)]
+            var a = available(b).toLong()
+            var made = minOf(a, left[c])
+            left[c] -= made
+            a -= made
+            if (a > 0 && linkLeft[c] > 0) for (d in members.getValue(root(c))) {
+                if (d == c || left[d] <= 0 || linkLeft[d] <= 0) continue
+                val t = minOf(a, left[d], linkLeft[c], linkLeft[d])
+                left[d] -= t
+                got[d] += t
+                linkLeft[c] -= t
+                linkLeft[d] -= t
+                a -= t
+                made += t
+                if (a <= 0 || linkLeft[c] <= 0) break
+            }
+            output[b.id] = made.toInt()
+        }
+
+        // Each network powers what it was sent, nearest the power first.
+        m.powered.fill(false)
+        val lit = BooleanArray(count)
+        var totalNeed = 0L
+        var totalShort = 0L
+        for (c in 0 until count) {
+            totalNeed += need[c]
+            // A network with power to hand is live, whether or not anything on it needs it yet.
+            lit[c] = supply[c] > 0 || got[c] > 0 || link[c] > 0 && members.getValue(root(c)).any { supply[it] > 0 }
+            if (!lit[c]) continue
+            var have = need[c] - left[c]
+            users[c].sortWith(compareBy<Pair<Building, Long>>({ steps[m.index(it.first.x, it.first.y)] }, { it.first.id }))
+            for ((b, w) in users[c]) {
+                if (w > have) {
+                    totalShort += w
+                    continue
+                }
+                have -= w
+                for (y in b.y until b.y + b.type.height) for (x in b.x until b.x + b.type.width) m.powered[m.index(x, y)] = true
+            }
+        }
+        // Lines, zoned land and buildings that draw nothing are powered with their network.
+        for (i in 0 until n) {
+            val c = network[i]
+            if (c >= 0 && lit[c] && m.building[i] == 0) m.powered[i] = true
+        }
+        for (b in buildings) {
+            val c = network[m.index(b.x, b.y)]
+            if (c >= 0 && lit[c] && draw(b) <= 0) {
+                for (y in b.y until b.y + b.type.height) for (x in b.x until b.x + b.type.width) m.powered[m.index(x, y)] = true
+            }
+        }
+        capacity = totalCapacity
+        demand = totalNeed
+        short = totalShort
+    }
+
+    private companion object {
+        const val UNLIMITED = Long.MAX_VALUE / 4
+        val DX = intArrayOf(0, 1, 0, -1)
+        val DY = intArrayOf(-1, 0, 1, 0)
+    }
+}

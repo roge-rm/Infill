@@ -51,6 +51,11 @@ import com.rm.infill.map.imageBitmapOf
 import com.rm.infill.platform.AUTOSAVE
 import com.rm.infill.platform.Settings
 import com.rm.infill.platform.ThemeChoice
+import com.rm.infill.res.disasters
+import com.rm.infill.res.disasters_off
+import com.rm.infill.res.disasters_fewer
+import com.rm.infill.res.disasters_normal
+import com.rm.infill.res.earthquakes
 import com.rm.infill.res.*
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.TownNames
@@ -152,6 +157,7 @@ fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions) -
     var water by remember { mutableStateOf(30) }
     var trees by remember { mutableStateOf(40) }
     var river by remember { mutableStateOf(true) }
+    var quakes by remember { mutableStateOf(false) }
     var preview by remember { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(seed, water, trees, river) {
         // A moment's wait, so holding a button doesn't make a map for every step.
@@ -192,8 +198,12 @@ fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions) -
             Text(stringResource(Res.string.river), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
             Chips(listOf(true, false), river, { stringResource(if (it) Res.string.yes else Res.string.no) }) { river = it }
         }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(Res.string.earthquakes), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            Chips(listOf(true, false), quakes, { stringResource(if (it) Res.string.yes else Res.string.no) }) { quakes = it }
+        }
         BigButton(stringResource(Res.string.start), primary = true) {
-            onStart(name.ifBlank { TownNames.make(seed) }, seed, TerrainOptions(water, trees, river))
+            onStart(name.ifBlank { TownNames.make(seed) }, seed, TerrainOptions(water, trees, river, quakes))
         }
         BigButton(stringResource(Res.string.back), onClick = onBack)
     }
@@ -355,6 +365,10 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
                         },
                     )
                 }) { settings.theme = it }
+                Text(stringResource(Res.string.disasters), color = c.textDim, fontSize = 13.sp)
+                Chips(listOf(0, 1, 2), settings.disasters, {
+                    stringResource(listOf(Res.string.disasters_off, Res.string.disasters_fewer, Res.string.disasters_normal)[it])
+                }) { settings.disasters = it }
                 Text(stringResource(Res.string.ui_size), color = c.textDim, fontSize = 13.sp)
                 Chips(Settings.SCALES, settings.uiScale, { "${(it * 100).toInt()}%" }) { settings.uiScale = it }
                 Text(stringResource(Res.string.keys), color = c.textDim, fontSize = 13.sp)

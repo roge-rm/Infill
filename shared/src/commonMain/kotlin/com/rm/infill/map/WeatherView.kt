@@ -26,6 +26,8 @@ data class WeatherLook(
     val windX: Float,
     val windY: Float,
     val wind: Float,
+    /** Smog hanging over the town, 0 to 255. */
+    val smog: Int = 0,
 ) {
     /** Anything that moves, so the map has to be drawn every frame while the game runs. */
     val moving get() = precipitation != Precipitation.None || cloud > CLOUD_SHADOWS_FROM || fog
@@ -40,10 +42,10 @@ data class WeatherLook(
         val CLEAR = WeatherLook(0, Precipitation.None, 0, false, 1f, 0f, 0.3f)
         const val CLOUD_SHADOWS_FROM = 25
 
-        fun of(cloud: Int, precipitation: Precipitation, intensity: Int, fog: Boolean, direction: Int, speed: Int): WeatherLook {
+        fun of(cloud: Int, precipitation: Precipitation, intensity: Int, fog: Boolean, direction: Int, speed: Int, smog: Int = 0): WeatherLook {
             // Direction is where the wind comes from, so it blows the other way.
             val a = (direction + 180) * PI.toFloat() / 180f
-            return WeatherLook(cloud, precipitation, intensity, fog, sin(a), -cos(a), speed / 100f)
+            return WeatherLook(cloud, precipitation, intensity, fog, sin(a), -cos(a), speed / 100f, smog)
         }
     }
 }
@@ -56,11 +58,14 @@ fun weatherTint(sky: Color, look: WeatherLook): Color {
     var grey = ((look.cloud - 40) / 60f).coerceIn(0f, 1f) * 0.45f
     if (look.precipitation != Precipitation.None) grey += look.intensity / 100f * 0.25f
     if (look.fog) grey += 0.1f
-    val overcast = lerp(Color.White, OVERCAST, grey.coerceIn(0f, 1f))
+    var overcast = lerp(Color.White, OVERCAST, grey.coerceIn(0f, 1f))
+    // Smog browns the light.
+    if (look.smog > 0) overcast = lerp(overcast, SMOG, (look.smog / 255f * 0.8f).coerceIn(0f, 0.5f))
     return Color(sky.red * overcast.red, sky.green * overcast.green, sky.blue * overcast.blue, 1f)
 }
 
 private val OVERCAST = Color(0xFFA9AFB9)
+private val SMOG = Color(0xFFB8A27A)
 
 /**
  * Cloud shadows: a soft, tiling noise in four densities, from a few scattered

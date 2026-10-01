@@ -37,6 +37,12 @@ sealed interface Action {
         override fun hashCode() = tiles.contentHashCode()
     }
 
+    /** Street trees along the roads on [tiles], given as map indices in order. */
+    data class PlantStreetTrees(val tiles: IntArray) : Action {
+        override fun equals(other: Any?) = other is PlantStreetTrees && tiles.contentEquals(other.tiles)
+        override fun hashCode() = tiles.contentHashCode()
+    }
+
     /** Subway tunnel under [tiles], given as map indices in order. */
     data class BuildSubway(val tiles: IntArray) : Action {
         override fun equals(other: Any?) = other is BuildSubway && tiles.contentEquals(other.tiles)
@@ -60,8 +66,8 @@ sealed interface Action {
     data class RemovePipes(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action
 
     /** A power line along [tiles], given as map indices in order. */
-    data class BuildPowerLine(val tiles: IntArray) : Action {
-        override fun equals(other: Any?) = other is BuildPowerLine && tiles.contentEquals(other.tiles)
+    data class BuildPowerLine(val tiles: IntArray, val high: Boolean = false) : Action {
+        override fun equals(other: Any?) = other is BuildPowerLine && high == other.high && tiles.contentEquals(other.tiles)
         override fun hashCode() = tiles.contentHashCode()
     }
 
@@ -142,6 +148,16 @@ object Prices {
     const val WATER_TOWER = 700L
     const val OUTFALL = 400L
     const val SEWAGE_WORKS = 3_000L
+    const val HIGH_LINE = 20L
+    const val STREET_TREE = 15L
+    const val OIL_PLANT = 6_000L
+    const val GAS_PLANT = 15_000L
+    const val HYDRO_PLANT = 10_000L
+    const val NUCLEAR_PLANT = 80_000L
+    const val SUBSTATION = 800L
+    const val DUMP = 1_500L
+    const val INCINERATOR = 5_000L
+    const val RECYCLING = 4_000L
     const val TRAM_TRACK = 25L
     const val WIRE = 15L
     const val TUNNEL = 300L
@@ -162,6 +178,14 @@ object Prices {
     /** What it costs to put up a building the player places. */
     fun of(type: BuildingType): Long = when (type) {
         BuildingType.COAL_PLANT -> COAL_PLANT
+        BuildingType.OIL_PLANT -> OIL_PLANT
+        BuildingType.GAS_PLANT -> GAS_PLANT
+        BuildingType.HYDRO_PLANT -> HYDRO_PLANT
+        BuildingType.NUCLEAR_PLANT -> NUCLEAR_PLANT
+        BuildingType.SUBSTATION -> SUBSTATION
+        BuildingType.DUMP -> DUMP
+        BuildingType.INCINERATOR -> INCINERATOR
+        BuildingType.RECYCLING -> RECYCLING
         BuildingType.POLICE_STATION -> POLICE_STATION
         BuildingType.FIRE_STATION -> FIRE_STATION
         BuildingType.PARK -> PARK

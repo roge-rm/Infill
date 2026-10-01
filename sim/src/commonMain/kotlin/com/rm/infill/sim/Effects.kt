@@ -79,6 +79,8 @@ internal object Effects {
         val industry = SummedArea(w, h) { if (buildingTypes(it)?.zone == Zone.INDUSTRIAL) 1 else 0 }
         val traffic = SummedArea(w, h) { map.congestion[it].toInt() and 0xff }
         val busy = SummedArea(w, h, activity)
+        val avenues = if (map.streetTrees.any { it.toInt() != 0 }) SummedArea(w, h) { map.streetTrees[it].toInt() } else null
+        val dumps = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.DUMP) 1 else 0 }
         val stops = if (map.stop.any { it.toInt() != 0 }) SummedArea(w, h) { if (map.stop[it].toInt() != 0) 1 else 0 } else null
         val subway = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.SUBWAY_STATION) 1 else 0 }
         val fouled = if (map.brownfield.any { it.toInt() != 0 }) SummedArea(w, h) { map.brownfield[it].toInt() } else null
@@ -108,6 +110,9 @@ internal object Effects {
             v -= (map.pollution[i].toInt() and 0xff) / 2
             v -= (map.crime[i].toInt() and 0xff) / 3
             if (industry.around(x, y, 2) > 0 && buildingTypes(i)?.zone != Zone.INDUSTRIAL) v -= 15
+            // A street with trees, and none of a dump's smell.
+            if (avenues != null && avenues.around(x, y, 1) > 0) v += Balance.STREET_TREE_VALUE
+            if (dumps.around(x, y, 4) > 0 && buildingTypes(i) != BuildingType.DUMP) v -= Balance.DUMP_VALUE
             // A tram or bus stop round the corner, and a subway station a walk away.
             if (stops != null && stops.around(x, y, Balance.STOP_REACH) > 0) v += Balance.STOP_VALUE
             if (subway.around(x, y, Balance.SUBWAY_REACH) > 0) v += Balance.SUBWAY_VALUE

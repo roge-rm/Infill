@@ -121,6 +121,9 @@ internal class Traffic(private val map: CityMap) {
     var lastJourneys: Map<Long, Int> = emptyMap()
         private set
 
+    /** Snowed in by a blizzard: nothing on the roads moves but people on foot, and the subway and trains. */
+    var snowedIn = false
+
     /** The buses, trams and subway, set by the city whenever they change. */
     var transit: TransitNetwork? = null
         private set
@@ -296,7 +299,7 @@ internal class Traffic(private val map: CityMap) {
         search++
         heapSize = 0
         if (w + s > 0) reach(state(WALK, start), 0, -1)
-        if (car) reach(state(CAR, start), 0, -1)
+        if (car && !snowedIn) reach(state(CAR, start), 0, -1)
         while (heapSize > 0 && (w > 0 || s > 0 || f > 0)) {
             val d = heapKeys[0]
             val st = pop()
@@ -373,13 +376,15 @@ internal class Traffic(private val map: CityMap) {
             }
         }
         if (net == null) return
+        val tunnel = tunnelBelow[a]
+        if (tunnel >= 0 && net.subway[tunnel] >= 0) reach(state(SUBWAY, tunnel), d + net.subwayWait[net.subway[tunnel]], st)
+        // In a blizzard nothing runs on the roads.
+        if (snowedIn) return
         val stops = map.stop[a].toInt()
         if (stops and Stop.TRAM != 0 && net.tram[a] >= 0) reach(state(TRAM, a), d + net.tramWait[net.tram[a]], st)
         // Under the wire the buses are trolleybuses; elsewhere they're diesel.
         if (stops and Stop.BUS != 0 && net.trolley[a] >= 0) reach(state(TROLLEY, a), d + net.trolleyWait[net.trolley[a]], st)
         else if (stops and Stop.BUS != 0 && net.bus[a] >= 0) reach(state(BUS, a), d + net.busWait[net.bus[a]], st)
-        val tunnel = tunnelBelow[a]
-        if (tunnel >= 0 && net.subway[tunnel] >= 0) reach(state(SUBWAY, tunnel), d + net.subwayWait[net.subway[tunnel]], st)
     }
 
     /** Driving: along the roads the way they run, slowed by traffic. */

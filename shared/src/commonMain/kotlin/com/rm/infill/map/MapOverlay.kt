@@ -43,6 +43,9 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
             rect(a.x0, a.y0, a.x1, a.y1, camera, PARK_FILL, PARK_EDGE)
             for (i in p.blocked) drawRect(BLOCKED, at(i), tile)
         }
+        is Action.PlantStreetTrees -> for (i in a.tiles) {
+            drawRect(if (i in p.blocked) BLOCKED else PARK_FILL, at(i), tile)
+        }
         is Action.BuildPowerLine -> for (i in a.tiles) {
             drawRect(if (i in p.blocked) BLOCKED else LINE_FILL, at(i), tile)
         }

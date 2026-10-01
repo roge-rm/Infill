@@ -92,7 +92,9 @@ class Weather(seed: Long, private val climate: Climate = Climate.TEMPERATE) {
         fog = !wet && windSpeed < 40 && cloud in 30..85 && temperature in -3..12 && rng.nextInt(100) < 15
 
         windDirection = (windDirection + rng.nextInt(41) - 20 + 360) % 360
-        windSpeed = (windSpeed + rng.nextInt(21) - 10).coerceIn(5, 90)
+        windSpeed = (windSpeed + rng.nextInt(21) - 10).coerceIn(5, 85)
+        // Now and then in autumn and winter, a gale.
+        if ((month >= 9 || month <= 2) && rng.nextInt(GALE_ODDS) == 0) windSpeed = GALE + rng.nextInt(10)
 
         // Snow lies when it falls below freezing, and melts with warmth, and faster in rain.
         if (precipitation == Precipitation.Snow) snowCover = min(100, snowCover + (intensity / 3 + 5) * days / 2 + 1)
@@ -119,6 +121,10 @@ class Weather(seed: Long, private val climate: Climate = Climate.TEMPERATE) {
 
     companion object {
         private const val WEATHER_SALT = 0x5eed_c10dL
+
+        /** Wind this strong is a gale; one autumn or winter spell in [GALE_ODDS] has one. */
+        const val GALE = 90
+        const val GALE_ODDS = 120
 
         /** One wet spell in this many is a cloudburst. */
         private const val CLOUDBURST = 20

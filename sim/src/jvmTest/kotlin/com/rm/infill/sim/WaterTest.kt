@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 class WaterTest {
     /** A city on grass with a river down column [river] if there is one. */
     private fun city(size: Int = 48, river: Int = -1): City {
-        val c = City(1, size, size, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true }
+        val c = City(1, size, size, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true; it.disasterLevel = 0 }
         if (river >= 0) for (y in 0 until size) for (x in river..river + 2) c.map.terrain[c.map.index(x, y)] = Terrain.WATER
         val field = City::class.java.getDeclaredField("funds").apply { isAccessible = true }
         field.setLong(c, 1_000_000L)
@@ -107,7 +107,7 @@ class WaterTest {
      * The growth test's town, with or without mains and sewers along its main
      * street. The sewer outfall is downstream of the pump, near it or far off.
      */
-    private fun town(water: Boolean, outfallNear: Boolean = false): City {
+    private fun town(water: Boolean, outfallNear: Boolean = false, outfallAbove: Boolean = false): City {
         val c = city(64, river = 61)
         val m = c.map
         c.apply(Action.BuildRoad(Action.roadPath(m, 0, 30, 60, 30, true), RoadType.STREET, pipes = water))
@@ -121,7 +121,11 @@ class WaterTest {
         if (water) {
             c.put(BuildingType.PUMPING_STATION, 59, 26)
             c.pipe(58, 27, 58, 30, acrossFirst = false)
-            if (outfallNear) {
+            if (outfallAbove) {
+                // Upstream of the pumps: the river runs from the top of the map down.
+                c.put(BuildingType.OUTFALL, 60, 20)
+                c.pipe(60, 21, 60, 29, Pipe.SEWER, acrossFirst = false)
+            } else if (outfallNear) {
                 c.put(BuildingType.OUTFALL, 60, 32)
                 c.pipe(60, 31, 60, 31, Pipe.SEWER)
             } else {
@@ -145,12 +149,21 @@ class WaterTest {
     }
 
     @Test
-    fun sewageFoulsTheRiverAndTheWaterDrawnFromIt() {
-        val c = town(water = true, outfallNear = true)
-        val near = c.i(61, 32)
-        assertTrue((c.map.foul[near].toInt() and 0xff) > 0, "the river by the outfall is clean")
-        // The pump is upstream only in name: it's within reach of the sewage, so it supplies less.
-        assertTrue(c.stats.waterSupply < Balance.PUMP_SUPPLY, "supply ${c.stats.waterSupply}")
+    fun sewageFoulsTheRiverDownstreamAndTheWaterDrawnFromIt() {
+        // Just below the pumps: the river's foul from there down, and the pumps draw clean water.
+        val below = town(water = true, outfallNear = true)
+        assertTrue((below.map.foul[below.i(61, 34)].toInt() and 0xff) > 0, "the river below the outfall is clean")
+        assertEquals(Balance.PUMP_SUPPLY, below.stats.waterSupply, "the pumps upstream")
+        // Above them: they draw what comes down the river, and supply less.
+        val above = town(water = true, outfallAbove = true)
+        assertTrue(above.stats.waterSupply < Balance.PUMP_SUPPLY, "supply ${above.stats.waterSupply}")
+    }
+
+    @Test
+    fun riversRunOneWay() {
+        val c = city(river = 20)
+        assertTrue(c.flowAt(c.i(21, 40)) > c.flowAt(c.i(21, 10)), "downstream is further from where it comes in")
+        assertEquals(-1, c.flowAt(c.i(5, 5)), "land")
     }
 
     @Test
@@ -263,6 +276,8 @@ class WaterTest {
         val original = town(water = true)
         original.rainfall(80, frozen = false)
         val loaded = SaveGame.read(SaveGame.write(original))
+        // The disaster setting is the player's, not the town's.
+        loaded.disasterLevel = original.disasterLevel
         for (layer in listOf<(City) -> ByteArray>({ it.map.waterPipe }, { it.map.sewerPipe }, { it.map.stormPipe }, { it.map.foul }, { it.map.flood }, { it.map.bank })) {
             assertTrue(layer(original).contentEquals(layer(loaded)))
         }

@@ -354,6 +354,7 @@
     <string name="event_fire">Fire: %1$s</string>
     <string name="event_lost">Burned down: %1$s</string>
     <string name="event_saved">Fire put out: %1$s</string>
+    <string name="event_fire_damage">Fire damage: %1$s</string>
 
     <string name="level_none">none</string>
     <string name="level_low">low</string>
@@ -441,4 +442,53 @@
         <item>Nov</item>
         <item>Dec</item>
     </string-array>
+    <!-- M14: power, environment and disasters -->
+    <string name="oil_plant">Oil power station</string>
+    <string name="gas_plant">Gas power station</string>
+    <string name="hydro_plant">Hydro station</string>
+    <string name="nuclear_plant">Nuclear power station</string>
+    <string name="substation">Substation</string>
+    <string name="high_line">High-voltage line</string>
+    <string name="dump">Dump</string>
+    <string name="incinerator">Incinerator</string>
+    <string name="recycling">Recycling depot</string>
+    <string name="street_trees">Street trees</string>
+    <string name="event_smog">Smog over the town</string>
+    <string name="event_gale">A gale brought down lines and trees</string>
+    <string name="event_blizzard">A blizzard: the roads are snowed in</string>
+    <string name="event_heat_wave">A heat wave</string>
+    <string name="event_industrial_accident">An accident at the %1$s</string>
+    <string name="event_nuclear_accident">A nuclear accident</string>
+    <string name="event_earthquake">An earthquake</string>
+    <string name="event_epidemic">An epidemic is going round</string>
+    <string name="event_epidemic_over">The epidemic is over</string>
+    <string name="station_output">Making %1$s of %2$s</string>
+    <string name="station_drawing">Using %1$s</string>
+    <string name="megawatts">%1$s MW</string>
+    <string name="inspect_garbage">Garbage piling up</string>
+    <string name="dump_fill">%1$d%% full</string>
+    <string name="emergency_repairs">Emergency repairs</string>
+    <string name="upkeep_garbage">Garbage and street trees</string>
+    <string name="upkeep_disasters">Clean-up</string>
+    <string name="power">Power</string>
+    <string name="power_capacity">Stations can make</string>
+    <string name="power_peak">Peak use</string>
+    <string name="power_short">Short</string>
+    <string name="garbage">Garbage</string>
+    <string name="garbage_taken">Taken away</string>
+    <string name="dump_room">Room in dumps</string>
+    <string name="tonnes">%1$s t</string>
+    <string name="smog">Smog</string>
+    <string name="disasters">Disasters</string>
+    <string name="disasters_off">Off</string>
+    <string name="disasters_fewer">Fewer</string>
+    <string name="disasters_normal">Normal</string>
+    <string name="earthquakes">Earthquakes</string>
+    <string name="overlay_heat">Heat</string>
+    <string name="overlay_garbage">Garbage</string>
+    <string name="snowed_in">Snowed in</string>
+    <plurals name="mend_power">
+        <item quantity="one">Line down, a day to mend</item>
+        <item quantity="other">Line down, %1$d days to mend</item>
+    </plurals>
 </resources>

@@ -45,6 +45,16 @@ class Settings(private val store: Platform) {
             store.setSetting(SCALE, v.toString())
         }
 
+    private var disastersState by mutableStateOf(store.setting(DISASTERS)?.toIntOrNull()?.coerceIn(0, 2) ?: 2)
+
+    /** How often disasters come: 0 never, 1 fewer, 2 normal. */
+    var disasters: Int
+        get() = disastersState
+        set(v) {
+            disastersState = v
+            store.setSetting(DISASTERS, v.toString())
+        }
+
     private var keysState by mutableStateOf(loadKeys())
 
     /** Which key does what. Kept as key codes, which differ between platforms, so they're kept per device. */
@@ -105,6 +115,7 @@ class Settings(private val store: Platform) {
         private const val GRAPHICS = "graphics"
         private const val THEME = "theme"
         private const val SCALE = "ui_scale"
+        private const val DISASTERS = "disasters"
         private const val KEYS = "keys"
 
         /** The actions there were when the keys were saved, so ones added since can have their defaults. */

@@ -4,7 +4,7 @@ package com.rm.infill.sim
  * How much of a new map is water and woods, from 0 to 100, and whether a river
  * runs across it.
  */
-data class TerrainOptions(val water: Int = 30, val trees: Int = 40, val river: Boolean = true)
+data class TerrainOptions(val water: Int = 30, val trees: Int = 40, val river: Boolean = true, val quakes: Boolean = false)
 
 /**
  * Makes the land for a new city: lakes where a noise field is lowest, a river

@@ -29,6 +29,35 @@ class ServicesTest {
     private fun City.run(years: Int) = repeat(years * 365) { tick() }
 
     @Test
+    fun lotsGrowThreeTilesFromARoad() {
+        val c = City(7, 64, 64, TerrainOptions(water = 0, trees = 0, river = false))
+        val m = c.map
+        c.apply(Action.BuildRoad(Action.roadPath(m, 0, 30, 60, 30, true)))
+        // Homes four rows deep north of the road, and work south of it.
+        c.apply(Action.PlaceZone(5, 26, 40, 29, Zone.RESIDENTIAL))
+        c.apply(Action.PlaceZone(5, 31, 18, 32, Zone.COMMERCIAL))
+        c.apply(Action.PlaceZone(24, 31, 40, 32, Zone.INDUSTRIAL))
+        c.run(3)
+        fun builtOn(y: Int) = (5..40).count { m.building[m.index(it, y)] != 0 }
+        assertTrue(builtOn(27) > 0, "the third row grows")
+        assertEquals(0, builtOn(26), "the fourth doesn't")
+    }
+
+    @Test
+    fun motorFireEnginesReachFurther() {
+        fun coverIn(year: Int): Int {
+            val c = City(1, 64, 64, TerrainOptions(water = 0, trees = 0, river = false))
+            City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, year)
+            c.apply(Action.PlaceBuilding(BuildingType.FIRE_STATION, 10, 10))
+            repeat(32) { c.tick() }
+            // 14 tiles east of the hall: past a horse-drawn engine's reach, within a motor one's.
+            return c.map.fireCover[c.map.index(25, 11)].toInt() and 0xff
+        }
+        assertEquals(0, coverIn(1905))
+        assertTrue(coverIn(1925) > 0)
+    }
+
+    @Test
     fun policeLowerCrime() {
         val without = town().also { it.run(6) }
         val with = town(police = true).also { it.run(6) }

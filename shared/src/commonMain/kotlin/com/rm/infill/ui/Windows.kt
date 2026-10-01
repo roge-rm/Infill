@@ -40,6 +40,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
+import com.rm.infill.res.emergency_repairs
+import com.rm.infill.res.upkeep_garbage
+import com.rm.infill.res.upkeep_disasters
+import com.rm.infill.res.power
+import com.rm.infill.res.power_capacity
+import com.rm.infill.res.power_peak
+import com.rm.infill.res.power_short
+import com.rm.infill.res.garbage
+import com.rm.infill.res.garbage_taken
+import com.rm.infill.res.dump_room
+import com.rm.infill.res.tonnes
+import com.rm.infill.res.smog
+import com.rm.infill.res.megawatts
 import com.rm.infill.res.Res
 import com.rm.infill.res.budget
 import com.rm.infill.res.done
@@ -211,6 +224,17 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
             Stepper(Res.string.park, city.parkFunding, 10) { game.setFunding(parks = (city.parkFunding + it).coerceIn(0, 100)) }
             Stepper(Res.string.upkeep_schools, city.schoolFunding, 10) { game.setFunding(schools = (city.schoolFunding + it).coerceIn(0, 100)) }
             Stepper(Res.string.upkeep_health, city.healthFunding, 10) { game.setFunding(health = (city.healthFunding + it).coerceIn(0, 100)) }
+            Stepper(Res.string.emergency_repairs, city.reliefFunding, 25) { game.setFunding(relief = (city.reliefFunding + it).coerceIn(50, 200)) }
+            Heading(Res.string.power)
+            @Composable
+            fun mw(kw: Long) = stringResource(Res.string.megawatts, groupThousands((kw + 500) / 1000))
+            CountLine(Res.string.power_capacity, mw(s.powerCapacity))
+            CountLine(Res.string.power_peak, mw(s.powerDemand))
+            if (s.powerShort > 0) CountLine(Res.string.power_short, mw(s.powerShort))
+            Heading(Res.string.garbage)
+            CountLine(Res.string.garbage_taken, stringResource(Res.string.percent, s.wasteCollected))
+            if (s.dumpRoom > 0) CountLine(Res.string.dump_room, stringResource(Res.string.tonnes, groupThousands(s.dumpRoom.toLong())))
+            if (s.smog > 0) CountLine(Res.string.smog, stringResource(Res.string.percent, s.smog * 100 / 255))
             Heading(Res.string.last_month)
             MoneyLine(Res.string.tax_residential, s.residentialIncome)
             MoneyLine(Res.string.tax_commercial, s.commercialIncome)
@@ -228,6 +252,8 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
             if (s.healthUpkeep > 0) MoneyLine(Res.string.upkeep_health, -s.healthUpkeep)
             if (s.repairCost > 0) MoneyLine(Res.string.upkeep_repairs, -s.repairCost)
             if (s.transitUpkeep > 0) MoneyLine(Res.string.upkeep_transit, -s.transitUpkeep)
+            if (s.environmentUpkeep > 0) MoneyLine(Res.string.upkeep_garbage, -s.environmentUpkeep)
+            if (s.disasterCost > 0) MoneyLine(Res.string.upkeep_disasters, -s.disasterCost)
             Box(Modifier.fillMaxWidth().height(1.dp).background(c.chromeEdge))
             MoneyLine(Res.string.net, s.income - s.upkeep, bold = true)
         }

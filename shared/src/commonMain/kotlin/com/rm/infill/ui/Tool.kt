@@ -31,6 +31,16 @@ import com.rm.infill.res.station
 import com.rm.infill.res.freight_yard
 import com.rm.infill.res.power_line
 import com.rm.infill.res.coal_plant
+import com.rm.infill.res.oil_plant
+import com.rm.infill.res.gas_plant
+import com.rm.infill.res.hydro_plant
+import com.rm.infill.res.nuclear_plant
+import com.rm.infill.res.substation
+import com.rm.infill.res.high_line
+import com.rm.infill.res.dump
+import com.rm.infill.res.incinerator
+import com.rm.infill.res.recycling
+import com.rm.infill.res.street_trees
 import com.rm.infill.res.tool_zone
 import com.rm.infill.res.zone_commercial
 import com.rm.infill.res.zone_industrial
@@ -116,19 +126,23 @@ enum class TransitKind(
 fun transitKindsIn(city: City): List<TransitKind> =
     TransitKind.entries.filter { k -> if (k.wire) city.allowsTrolleybuses() else (k.building ?: k.needs)?.let { city.allows(it) } ?: true }
 
-/** What the services tool puts down. Parks are dragged out; stations go where the finger ends up. */
-enum class ServiceKind(val title: StringResource, val type: BuildingType) {
+/** What the services tool puts down. Parks are dragged out, as are street trees along roads; stations go where the finger ends up. */
+enum class ServiceKind(val title: StringResource, val type: BuildingType?) {
     Police(Res.string.police_station, BuildingType.POLICE_STATION),
     Fire(Res.string.fire_station, BuildingType.FIRE_STATION),
     Park(Res.string.park, BuildingType.PARK),
+    StreetTrees(Res.string.street_trees, null),
     School(Res.string.school, BuildingType.SCHOOL),
     HighSchool(Res.string.high_school, BuildingType.HIGH_SCHOOL),
     Clinic(Res.string.clinic, BuildingType.CLINIC),
     Hospital(Res.string.hospital, BuildingType.HOSPITAL),
+    Dump(Res.string.dump, BuildingType.DUMP),
+    Incinerator(Res.string.incinerator, BuildingType.INCINERATOR),
+    Recycling(Res.string.recycling, BuildingType.RECYCLING),
 }
 
 /** The services [city] can build in its era. */
-fun servicesIn(city: City): List<ServiceKind> = ServiceKind.entries.filter { city.allows(it.type) }
+fun servicesIn(city: City): List<ServiceKind> = ServiceKind.entries.filter { it.type == null || city.allows(it.type) }
 
 /** What the rail tool puts down. Track is dragged; stations and yards go where the finger ends up. */
 enum class RailKind(val title: StringResource) {
@@ -185,11 +199,21 @@ enum class BulldozeKind(val title: StringResource) {
     Renew(Res.string.bulldoze_renew),
 }
 
-/** What the power tool puts down. */
-enum class PowerKind(val title: StringResource) {
+/** What the power tool puts down: lines are dragged, stations go where the finger ends up. */
+enum class PowerKind(val title: StringResource, val building: BuildingType? = null, val high: Boolean = false) {
     Line(Res.string.power_line),
-    Plant(Res.string.coal_plant),
+    High(Res.string.high_line, high = true),
+    Substation(Res.string.substation, BuildingType.SUBSTATION),
+    Coal(Res.string.coal_plant, BuildingType.COAL_PLANT),
+    Oil(Res.string.oil_plant, BuildingType.OIL_PLANT),
+    Gas(Res.string.gas_plant, BuildingType.GAS_PLANT),
+    Hydro(Res.string.hydro_plant, BuildingType.HYDRO_PLANT),
+    Nuclear(Res.string.nuclear_plant, BuildingType.NUCLEAR_PLANT),
 }
+
+/** What the power tool offers [city] in its era. */
+fun powerKindsIn(city: City): List<PowerKind> =
+    PowerKind.entries.filter { if (it.high) city.allowsHighLines() else it.building?.let { b -> city.allows(b) } ?: true }
 
 fun roadName(t: RoadType): StringResource = when (t) {
     RoadType.DIRT -> Res.string.road_dirt
@@ -251,8 +275,11 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             transit == TransitKind.Subway -> Action.BuildSubway(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             else -> Action.RemoveTransit(x0, y0, x1, y1)
         }
-        Tool.Services -> if (service == ServiceKind.Park) Action.PlaceParks(x0, y0, x1, y1)
-        else Action.PlaceBuilding(service.type, x1, y1)
+        Tool.Services -> when {
+            service == ServiceKind.Park -> Action.PlaceParks(x0, y0, x1, y1)
+            service.type == null -> Action.PlantStreetTrees(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
+            else -> Action.PlaceBuilding(service.type, x1, y1)
+        }
         Tool.Inspect -> null
         Tool.Road -> {
             val across = acrossFirst ?: true
@@ -276,11 +303,9 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
         }
         Tool.Zone -> Action.PlaceZone(x0, y0, x1, y1, zone.zone, density.density)
         Tool.Bulldoze -> if (bulldoze == BulldozeKind.Renew) Action.RenewArea(x0, y0, x1, y1) else Action.Bulldoze(x0, y0, x1, y1)
-        Tool.Power -> when (power) {
-            PowerKind.Line -> Action.BuildPowerLine(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
-            // A building goes where the finger ends up, with that tile its top left.
-            PowerKind.Plant -> Action.PlaceBuilding(BuildingType.COAL_PLANT, x1, y1)
-        }
+        // A building goes where the finger ends up, with that tile its top left.
+        Tool.Power -> power.building?.let { Action.PlaceBuilding(it, x1, y1) }
+            ?: Action.BuildPowerLine(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), power.high)
     }
 }
 

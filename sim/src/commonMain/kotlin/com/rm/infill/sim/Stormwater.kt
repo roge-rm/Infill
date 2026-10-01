@@ -13,7 +13,9 @@ object Stormwater {
             Terrain.DIRT -> BARE
             else -> GRASS
         }
-        return maxOf(building, road, track, if (building < 0 && road < 0 && track < 0) ground else -1)
+        // Street trees soak up some of the rain off the road.
+        val shaded = if (road >= 0 && map.streetTrees[i].toInt() != 0) road - Balance.STREET_TREE_SOAK else road
+        return maxOf(building, shaded, track, if (building < 0 && road < 0 && track < 0) ground else -1)
     }
 
     private fun building(t: BuildingType): Int = when (t) {
@@ -33,7 +35,12 @@ object Stormwater {
         BuildingType.MILL -> 80
         BuildingType.WAREHOUSE -> 90
         BuildingType.FACTORY, BuildingType.WORKS -> 95
-        BuildingType.COAL_PLANT -> 85
+        BuildingType.COAL_PLANT, BuildingType.OIL_PLANT, BuildingType.GAS_PLANT -> 85
+        BuildingType.HYDRO_PLANT -> 70
+        BuildingType.NUCLEAR_PLANT -> 80
+        BuildingType.SUBSTATION -> 50
+        BuildingType.DUMP -> 30
+        BuildingType.INCINERATOR, BuildingType.RECYCLING -> 85
         BuildingType.POLICE_STATION, BuildingType.FIRE_STATION -> 80
         // Schools and hospitals have their yards and lawns.
         BuildingType.SCHOOL, BuildingType.HIGH_SCHOOL -> 65

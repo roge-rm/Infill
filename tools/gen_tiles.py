@@ -2472,6 +2472,303 @@ def subway_station(look, v):
     return b
 
 
+# Power stations by era after coal: oil, gas, hydro and nuclear; then a
+# substation, and the garbage service: a dump, an incinerator and a recycling depot.
+
+def cylinder(b, look, cx, cy, r, h, col, top_col=None):
+    """A round tank or tower standing at tile pixel cx, cy: its south face, then its top."""
+    d = b.d
+    gx, gy = b.ground(cx, cy)
+    d.rectangle([gx - r, gy - h, gx + r, gy], col)
+    d.line([gx - r + 1, gy - h, gx - r + 1, gy], shade(col, 1.15))
+    d.line([gx + r - 2, gy - h, gx + r - 2, gy], shade(col, 0.8))
+    d.ellipse([gx - r, gy - r // 2, gx + r, gy + r // 2], shade(col, 0.85))
+    d.rectangle([gx - r, gy - h, gx + r, gy], outline=None)
+    d.line([gx - r, gy - h, gx - r, gy], OUTLINE)
+    d.line([gx + r, gy - h, gx + r, gy], OUTLINE)
+    top = SNOW_ROOF[0] if look == "snow" else (top_col or shade(col, 1.1))
+    d.ellipse([gx - r, gy - h - r // 2, gx + r, gy - h + r // 2], top, OUTLINE)
+    b.casters.append((1, cx - r, cy - r // 2, cx + r + 1, cy + r // 2 + 1, h))
+
+
+def plant_yard(b, look, x0, y0, x1, y1, col=c("#8e8a80")):
+    d = b.d
+    gx0, gy0 = b.ground(x0, y0)
+    gx1, gy1 = b.ground(x1, y1)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else col)
+    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#5f5a52"))
+
+
+def banded_chimney(b, look, x, y, height, col, band):
+    """A tall stack with bands near the top."""
+    chimney(b, x, y, height, col, look)
+    top = b.lift
+    for k in (3, 8):
+        b.d.rectangle([x - 2, y + top - height + k, x + 1, y + top - height + k + 1], band)
+
+
+def transformer(b, look, x, y):
+    d = b.d
+    gx, gy = b.ground(x, y)
+    d.rectangle([gx, gy - 6, gx + 6, gy], c("#5f666d"), OUTLINE)
+    for xx in range(gx + 1, gx + 6, 2):
+        d.line([xx, gy - 5, xx, gy - 1], c("#4a5056"))
+    d.rectangle([gx + 1, gy - 8, gx + 5, gy - 6], SNOW if look == "snow" else c("#767d84"))
+    for xx in (gx + 1, gx + 3, gx + 5):
+        d.point((xx, gy - 9), INSULATOR)
+    b.casters.append((1, x, y - 2, x + 7, y + 1, 8))
+
+
+def oil_plant(look, v):
+    """An oil-fired station on 2 by 2 tiles: a steel-clad hall, two round tanks of fuel oil, and one tall banded stack."""
+    b = Building(2, 2, height=50)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62)
+    cylinder(b, look, 14, 16, 10, 14, c("#c9c4b8"))
+    cylinder(b, look, 38, 14, 9, 12, c("#c9c4b8"))
+    roof, wall = b.box(4, 32, 44, 60, 2 * STOREY + 6)
+    d.rectangle(wall, c("#9aa6ae"))
+    for yy in range(wall[1] + 2, wall[3], 3):
+        d.line([wall[0] + 1, yy, wall[2] - 1, yy], c("#8a959c"))
+    windows(d, wall, 1, glass=c("#4a5866"), every=6, width=4, height=3)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(9100), [("vent", 6, 4), ("vent", 26, 4)], parapet=c("#7f8a90"))
+    banded_chimney(b, look, 54, 40, 50, c("#b8b2a6"), c("#b04030"))
+    return b
+
+
+def gas_plant(look, v):
+    """A gas turbine station on 2 by 2 tiles: a long pale hall, a bank of cooling fans and two slim stacks."""
+    b = Building(2, 2, height=40)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62, c("#a29e94"))
+    roof, wall = b.box(4, 4, 40, 22, STOREY)
+    d.rectangle(wall, c("#b8bcc0"), OUTLINE)
+    x0, y0, x1, y1 = roof
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#9ea4aa"), OUTLINE)
+    for k in range(4):
+        fx = x0 + 3 + k * 9
+        d.ellipse([fx, y0 + 3, fx + 6, y1 - 3], c("#3a3e44"))
+        d.line([fx + 3, y0 + 4, fx + 3, y1 - 4], c("#6a7076"))
+    roof, wall = b.box(4, 30, 52, 58, 2 * STOREY + 8)
+    d.rectangle(wall, c("#e2ddd0"))
+    d.rectangle([wall[0], wall[3] - 3, wall[2], wall[3]], c("#4f7a9a"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(9200), [("vent", 8, 6), ("vent", 30, 6)], parapet=c("#c8c2b4"))
+    for x in (48, 57):
+        chimney(b, x, 22, 40, c("#c4c8cc"), look)
+    transformer(b, look, 54, 60)
+    return b
+
+
+def hydro_plant(look, v):
+    """A hydro station on 2 by 2 tiles: a concrete powerhouse with tall windows, the penstocks running into it, and its transformers."""
+    b = Building(2, 2, height=3 * STOREY + 6)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62, c("#a8a49a"))
+    # The penstocks, from the water down to the turbines.
+    for x in (14, 30, 46):
+        gx, gy = b.ground(x, 2)
+        d.rectangle([gx - 3, gy, gx + 3, gy + 16], c("#5a6066"), OUTLINE)
+        d.line([gx - 1, gy + 1, gx - 1, gy + 15], c("#7d848a"))
+    roof, wall = b.box(4, 18, 60, 48, 3 * STOREY)
+    d.rectangle(wall, c("#c4beb0"))
+    x0, y0, x1, y1 = wall
+    for k in range(6):
+        wx = x0 + 4 + k * 9
+        d.rectangle([wx, y0 + 3, wx + 4, y1 - 3], c("#4a5866"))
+        d.arc([wx, y0 + 1, wx + 4, y0 + 5], 180, 360, c("#4a5866"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(9300), [("vent", 10, 8), ("vent", 40, 8)], parapet=c("#b4ae9f"))
+    transformer(b, look, 10, 58)
+    transformer(b, look, 22, 58)
+    return b
+
+
+def cooling_tower(b, look, cx, cy, r, h):
+    """A hyperbolic cooling tower: wide at the foot, waisted, flaring at the lip, with steam over the top."""
+    d = b.d
+    gx, gy = b.ground(cx, cy)
+    col = c("#c8c4bc") if look != "snow" else c("#d8dde2")
+    left, right = [], []
+    for k in range(h + 1):
+        t = k / h
+        w = r * (1 - 0.3 * math.sin(math.pi * min(1, t * 1.25)))
+        left.append((gx - w, gy - k))
+        right.append((gx + w, gy - k))
+    d.polygon(left + right[::-1], col)
+    d.line(left, OUTLINE)
+    d.line(right, OUTLINE)
+    for k in range(0, h, 2):
+        x, y = right[k]
+        d.point((x - 2, y), shade(col, 0.8))
+    lip = r * (1 - 0.3 * math.sin(math.pi * 1.0))
+    lip = r * 0.82
+    d.ellipse([gx - lip, gy - h - lip / 2, gx + lip, gy - h + lip / 2], shade(col, 1.05), OUTLINE)
+    d.ellipse([gx - lip + 3, gy - h - lip / 2 + 2, gx + lip - 3, gy - h + lip / 2 - 2], c("#4a4c50"))
+    # Steam: soft white puffs above the lip.
+    steam = Image.new("RGBA", b.img.size, (0, 0, 0, 0))
+    sd = ImageDraw.Draw(steam)
+    for k, (dx, dy, rr) in enumerate([(-3, -4, 7), (3, -8, 8), (-1, -13, 6)]):
+        sd.ellipse([gx + dx - rr, gy - h + dy - rr, gx + dx + rr, gy - h + dy + rr], (246, 248, 250, 225))
+    b.img.alpha_composite(steam)
+    b.casters.append((1, cx - r, cy - r // 2, cx + r + 1, cy + r // 2 + 1, h))
+
+
+def nuclear_plant(look, v):
+    """A nuclear station on 3 by 3 tiles: two cooling towers, the reactor's dome and a long turbine hall."""
+    b = Building(3, 3, height=60)
+    d = b.d
+    plant_yard(b, look, 1, 1, 94, 94, c("#a6a49c"))
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(94, 94)
+    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#d0ccc0"))
+    cooling_tower(b, look, 22, 34, 17, 56)
+    cooling_tower(b, look, 60, 30, 17, 56)
+    # The containment building: a cylinder under a dome.
+    gx, gy = b.ground(80, 70)
+    col = c("#d8d4c8")
+    d.rectangle([gx - 11, gy - 24, gx + 11, gy], col)
+    d.line([gx + 9, gy - 24, gx + 9, gy], shade(col, 0.8))
+    d.line([gx - 11, gy - 24, gx - 11, gy], OUTLINE)
+    d.line([gx + 11, gy - 24, gx + 11, gy], OUTLINE)
+    d.pieslice([gx - 11, gy - 35, gx + 11, gy - 13], 180, 360, SNOW_ROOF[0] if look == "snow" else c("#e6e2d8"), OUTLINE)
+    b.casters.append((1, 69, 64, 92, 76, 30))
+    roof, wall = b.box(6, 64, 66, 90, 3 * STOREY)
+    d.rectangle(wall, c("#b8bec4"))
+    for yy in range(wall[1] + 2, wall[3], 3):
+        d.line([wall[0] + 1, yy, wall[2] - 1, yy], c("#a8aeb4"))
+    d.rectangle([wall[0], wall[1], wall[2], wall[1] + 2], c("#4f7a9a"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(9400), [("vent", 8, 6), ("vent", 30, 6), ("vent", 50, 6)], parapet=c("#a8aeb4"))
+    return b
+
+
+def substation(look, v):
+    """A fenced yard of gravel with two transformers and a steel gantry the lines come in on."""
+    b = Building(height=16)
+    d = b.d
+    gx0, gy0 = b.ground(2, 2)
+    gx1, gy1 = b.ground(29, 29)
+    rng = random.Random(9500)
+    noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), [c("#9a968c"), c("#8c887e"), c("#a8a49a")] if look != "snow"
+               else [c("#e4ebf0"), c("#d5dfe6"), c("#f2f6f9")], rng)
+    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#6a6e72"))
+    for xx in range(gx0, gx1 + 1, 3):
+        d.point((xx, gy1 - 1), c("#6a6e72"))
+    # The gantry: two posts and a beam across the back.
+    for x in (6, 25):
+        gx, gy = b.ground(x, 10)
+        d.line([gx, gy, gx, gy - 14], STEEL_LEG)
+    gx, gy = b.ground(6, 10)
+    d.line([gx, gy - 14, gx + 19, gy - 14], STEEL_LEG)
+    for x in (10, 15, 20):
+        d.point((gx + x - 6, gy - 13), INSULATOR)
+    b.casters.append((1, 5, 9, 27, 11, 14))
+    transformer(b, look, 6, 24)
+    transformer(b, look, 18, 24)
+    return b
+
+
+GARBAGE = [c("#8a7a64"), c("#6f6656"), c("#9a8c74"), c("#7a705e")]
+LITTER = [c("#d8d4ca"), c("#c8c4b8"), c("#5a6a80"), c("#8a5a4a"), c("#4a4c50"), c("#202226")]
+
+
+def dump(look, v):
+    """A garbage dump on 3 by 3 tiles: a fence, mounds of refuse, a bulldozer working one and a shed by the gate."""
+    b = Building(3, 3, height=16)
+    d = b.d
+    rng = random.Random(9600 + v)
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(94, 94)
+    noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), [c("#7d7260"), c("#6e6454"), c("#8a7e6a")] if look != "snow"
+               else [c("#dfe5ea"), c("#cfd7de"), c("#eef2f5")], rng)
+    for xx in range(gx0, gx1 + 1, 4):
+        d.line([xx, gy0, xx, gy0 + 2], c("#5a5048"))
+        d.line([xx, gy1 - 2, xx, gy1], c("#5a5048"))
+    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#6b6258"))
+    # The mounds, back to front.
+    mounds = [(28, 26, 20), (66, 30, 22), (40, 58, 18), (74, 66, 14)]
+    for mx, my, r in mounds:
+        gx, gy = b.ground(mx, my)
+        for k, col in enumerate(GARBAGE):
+            w = r - k * 4
+            if w <= 2:
+                break
+            d.ellipse([gx - w, gy - w // 2 - k * 3, gx + w, gy + w // 2 - k * 3], SNOW_ROOF[min(2, k)] if look == "snow" else col)
+        for _ in range(r * 3):
+            a, dist = rng.random() * math.tau, rng.random() * r * 0.9
+            x = int(gx + math.cos(a) * dist)
+            y = int(gy + math.sin(a) * dist * 0.5 - (1 - dist / r) * 8)
+            if look != "snow" or rng.random() < 0.25:
+                d.point((x, y), rng.choice(LITTER))
+        b.casters.append((1, mx - r // 2, my - r // 4, mx + r // 2, my + r // 4, 8))
+    # A bulldozer on the front mound.
+    bx, by = b.ground(52, 80)
+    d.rectangle([bx, by - 5, bx + 9, by], c("#d8a030"), OUTLINE)
+    d.rectangle([bx + 2, by - 9, bx + 6, by - 5], c("#c89020"), OUTLINE)
+    d.line([bx - 2, by - 4, bx - 2, by], c("#3a3c40"))
+    # The shed by the gate.
+    roof, wall = b.box(8, 78, 26, 92, STOREY + 2)
+    siding(d, wall, c("#8a8478"))
+    door(d, wall)
+    d.rectangle(wall, outline=OUTLINE)
+    gable_ew(d, roof, c("#5b5f6b"), look)
+    return b
+
+
+def incinerator(look, v):
+    """An incinerator on 2 by 2 tiles: the tipping hall the trucks back into, the furnace house and a tall concrete stack."""
+    b = Building(2, 2, height=54)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62, c("#98948a"))
+    roof, wall = b.box(4, 6, 46, 30, 4 * STOREY)
+    d.rectangle(wall, c("#a8a296"))
+    windows(d, wall, 2, glass=c("#4a5866"), every=7, width=3, height=3)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(9700), [("vent", 8, 6), ("vent", 28, 8)], parapet=c("#948e82"))
+    roof, wall = b.box(4, 34, 40, 56, 2 * STOREY + 2)
+    d.rectangle(wall, c("#8a7a62"))
+    x0, y0, x1, y1 = wall
+    for k in range(3):
+        dx = x0 + 3 + k * 12
+        d.rectangle([dx, y1 - 9, dx + 8, y1], c("#4a4c50"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(9701), [("vent", 14, 6)], parapet=c("#7a6c56"))
+    banded_chimney(b, look, 54, 36, 54, c("#b4b0a8"), c("#8a8680"))
+    # A garbage truck at the hall.
+    tx, ty = b.ground(42, 54)
+    d.rectangle([tx, ty - 6, tx + 14, ty], c("#e8e4da"), OUTLINE)
+    d.rectangle([tx + 10, ty - 8, tx + 14, ty - 4], c("#3f6fa8"), OUTLINE)
+    return b
+
+
+def recycling(look, v):
+    """A recycling depot on 2 by 2 tiles: a green steel shed, bales stacked by kind and three skips."""
+    b = Building(2, 2, height=2 * STOREY + 6)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62, c("#9c988e"))
+    roof, wall = b.box(4, 4, 60, 30, 2 * STOREY + 2)
+    d.rectangle(wall, c("#4a7a5a"))
+    for xx in range(wall[0] + 2, wall[2], 3):
+        d.line([xx, wall[1] + 1, xx, wall[3] - 1], c("#3f6a4e"))
+    for k in range(3):
+        dx = wall[0] + 6 + k * 18
+        d.rectangle([dx, wall[3] - 8, dx + 10, wall[3]], c("#6a7076"))
+    d.rectangle(wall, outline=OUTLINE)
+    x0, y0, x1, y1 = roof
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#6a8a72"), OUTLINE)
+    # Bales: paper, cans, bottles.
+    for row, col in enumerate([c("#8aa4c8"), c("#b8bcc0"), c("#5a9a6a")]):
+        for k in range(4):
+            bx, by = b.ground(6 + k * 8, 38 + row * 7)
+            d.rectangle([bx, by - 4, bx + 6, by + 1], SNOW_ROOF[1] if look == "snow" and row == 0 else col, OUTLINE)
+    for k, col in enumerate([c("#3f6fa8"), c("#d8b84a"), c("#4a8a5a")]):
+        sx, sy = b.ground(44, 38 + k * 8)
+        d.polygon([(sx, sy - 4), (sx + 14, sy - 4), (sx + 12, sy + 2), (sx + 2, sy + 2)], col, OUTLINE)
+    return b
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -2487,6 +2784,8 @@ BUILDINGS = [
     ("works", works, 2), ("site_small", site_small, 2), ("site_large", site_large, 2),
     ("sewage_works", sewage_works, 1), ("treatment_plant", treatment_plant, 1),
     ("tram_depot", tram_depot, 1), ("bus_garage", bus_garage, 2), ("subway_station", subway_station, 1),
+    ("oil_plant", oil_plant, 1), ("gas_plant", gas_plant, 1), ("hydro_plant", hydro_plant, 1), ("nuclear_plant", nuclear_plant, 1),
+    ("substation", substation, 1), ("dump", dump, 2), ("incinerator", incinerator, 1), ("recycling", recycling, 1),
 ]
 
 
@@ -2553,6 +2852,64 @@ def power_line(look, mask):
         d.point((cx, top - 1), SNOW)
         d.point((cx + 1, top - 1), SNOW)
     return img, lift, [(0, cx, foot - lift, POLE_HEIGHT, 1, 0)]
+
+
+# High-voltage lines: a steel lattice pylon, taller, with three wires a side.
+PYLON = c("#7d848a")
+HV_WIRE = (40, 42, 46, 160)
+PYLON_HEIGHT = 22
+
+
+def hv_line(look, mask):
+    """North 1, east 2, south 4, west 8, like a power line."""
+    lift = lift_for(PYLON_HEIGHT + T // 2)
+    img = Image.new("RGBA", (T, T + lift), (0, 0, 0, 0))
+    wires = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    wd = ImageDraw.Draw(wires)
+    cx, foot = 15, 16 + lift
+    top = foot - PYLON_HEIGHT
+    half = T // 2 + 1
+    for gap in (-5, 0, 5):
+        for side, bit in ((1, 2), (-1, 8)):
+            if not mask & bit:
+                continue
+            pts = []
+            for k in range(half + 1):
+                u = k / T
+                pts.append((cx + side * k, top + 2 + gap + round(4 * SAG * u * (1 - u))))
+            wd.line(pts, HV_WIRE)
+    for dx in (-4, 0, 4):
+        if mask & 1: wd.line([cx + dx, top + 2, cx + dx, top + 2 - half], HV_WIRE)
+        if mask & 4: wd.line([cx + dx, top + 2, cx + dx, top + 2 + half], HV_WIRE)
+    img.alpha_composite(wires)
+    d = ImageDraw.Draw(img)
+    # The lattice: legs splayed at the foot, narrowing up, braced across.
+    d.line([cx - 3, foot, cx - 1, top], PYLON)
+    d.line([cx + 3, foot, cx + 1, top], shade(PYLON, 0.75))
+    for k in range(3, PYLON_HEIGHT, 4):
+        w = 3 - 2 * k / PYLON_HEIGHT
+        d.line([cx - w, foot - k, cx + w, foot - k + 3], PYLON)
+    if mask & 10:
+        d.line([cx, top - 3, cx, top + 7], PYLON)
+        for yy in (top - 3, top + 2, top + 7):
+            d.point((cx + 1, yy), INSULATOR)
+    else:
+        d.line([cx - 5, top + 2, cx + 5, top + 2], PYLON)
+        for xx in (cx - 4, cx, cx + 4):
+            d.point((xx, top + 3), INSULATOR)
+    if look == "snow":
+        d.point((cx, top - 1), SNOW)
+    return img, lift, [(0, cx, foot - lift, PYLON_HEIGHT, 2, 0)]
+
+
+def street_trees(look):
+    """Small trees along the kerbs, one at each corner of the tile."""
+    img = Image.new("RGBA", (T, SPRITE_H), (0, 0, 0, 0))
+    rng = random.Random(9800)
+    casters = []
+    for k, (x, y) in enumerate([(5, 6), (26, 6), (5, 29), (26, 29)]):
+        casters.append(deciduous(img, look, 1, x, LIFT + y, 5, rng))
+    return img, casters
 
 
 # ---- trees --------------------------------------------------------------------
@@ -2713,6 +3070,11 @@ def sprites_for(look):
     for mask in range(16):
         img, lift, casters = power_line(look, mask)
         out.append((f"power_line_{mask}", img, lift, casters))
+    for mask in range(16):
+        img, lift, casters = hv_line(look, mask)
+        out.append((f"hv_line_{mask}", img, lift, casters))
+    img, casters = street_trees(look)
+    out.append(("street_trees_0", img, LIFT, round_casters(casters)))
     sign = for_sale(look)
     out.append(("for_sale_0", sign.img, sign.lift, []))
     for mask in range(16):
@@ -2794,7 +3156,7 @@ def write_kotlin(names, flat, pos, size):
             lines.append('            "' + text[i:i + 2000] + '"')
         return "decode(\n" + " +\n".join(lines or ['            ""']) + ",\n        )"
 
-    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
+    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "street_trees", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
     # A sprite's name must start with exactly one group's, or the counts go wrong.
     for n in names:
         owners = [g for g in groups if n.startswith(g + "_")]

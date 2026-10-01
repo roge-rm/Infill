@@ -144,18 +144,18 @@ class TransitTest {
     }
 
     @Test
-    fun electricRidersMakeThePowerStationBurnMore() {
-        fun plantPollution(riders: Int): Int {
+    fun electricRidersMakeThePowerStationWorkHarder() {
+        fun plantOutput(riders: Int): Int {
             val c = city()
             c.apply(Action.BuildTram(Action.roadPath(c.map, 2, 16, 60, 16, true)))
             c.apply(Action.PlaceStop(2, 16, Stop.TRAM))
             c.apply(Action.PlaceStop(60, 16, Stop.TRAM))
             c.apply(Action.PlaceBuilding(BuildingType.TRAM_DEPOT, 30, 14))
             if (riders > 0) c.trips(riders)
-            City::class.java.getDeclaredMethod("updatePollution").apply { isAccessible = true }.invoke(c)
-            return c.map.pollution[c.i(31, 20)].toInt() and 0xff
+            City::class.java.getDeclaredMethod("updateNetworks").apply { isAccessible = true }.invoke(c)
+            return c.stationOutput(c.buildingAt(30, 19)!!)
         }
-        assertTrue(plantPollution(4_000) > plantPollution(0), "${plantPollution(4_000)} with riders, ${plantPollution(0)} without")
+        assertTrue(plantOutput(4_000) > plantOutput(0), "${plantOutput(4_000)} W with riders, ${plantOutput(0)} W without")
     }
 
     @Test

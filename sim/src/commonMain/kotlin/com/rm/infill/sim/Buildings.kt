@@ -56,7 +56,20 @@ enum class BuildingType(
     FACTORY(Zone.INDUSTRIAL, 4, 30, pollution = 18, density = Density.MEDIUM, needs = 3, appeal = 62, buildDays = 90),
     WORKS(Zone.INDUSTRIAL, 5, 140, width = 2, height = 2, pollution = 40, density = Density.HIGH, needs = 3, appeal = 64, buildDays = 200),
 
-    COAL_PLANT(Zone.NONE, 0, 8, width = 2, height = 2, pollution = 30, life = 35),
+    /** Power stations: their smoke follows their output, see [Generation]. Hydro goes beside a river. */
+    COAL_PLANT(Zone.NONE, 0, 8, width = 2, height = 2, life = 35),
+    OIL_PLANT(Zone.NONE, 0, 10, width = 2, height = 2, year = 1920, life = 35),
+    GAS_PLANT(Zone.NONE, 0, 8, width = 2, height = 2, year = 1960, life = 40),
+    HYDRO_PLANT(Zone.NONE, 0, 6, width = 2, height = 2, life = 70),
+    NUCLEAR_PLANT(Zone.NONE, 0, 40, width = 3, height = 3, year = 1970, life = 50),
+
+    /** Where a high-voltage line steps down to the streets' lines. */
+    SUBSTATION(Zone.NONE, 0, 0, year = 1920, life = 50),
+
+    /** Garbage: a dump that fills, an incinerator that burns it (from 1930), recycling that takes some (from 1975). */
+    DUMP(Zone.NONE, 0, 6, width = 3, height = 3),
+    INCINERATOR(Zone.NONE, 0, 12, width = 2, height = 2, year = 1930, life = 40),
+    RECYCLING(Zone.NONE, 0, 15, width = 2, height = 2, year = 1975),
 
     POLICE_STATION(Zone.NONE, 0, 10, width = 2, height = 1),
     FIRE_STATION(Zone.NONE, 0, 12, width = 2, height = 2),
@@ -117,7 +130,7 @@ enum class BuildingType(
     val needsSewer get() = needs >= 3
 
     /** Has to be beside water. */
-    val onWater get() = this == PUMPING_STATION || outfall || this == STORM_OUTFALL
+    val onWater get() = this == PUMPING_STATION || outfall || this == STORM_OUTFALL || this == HYDRO_PLANT
 
     /** Where the sewers come out. */
     val outfall get() = this == OUTFALL || this == SEWAGE_WORKS || this == TREATMENT_PLANT
@@ -179,10 +192,10 @@ class Building(val id: Int, var type: BuildingType, val x: Int, val y: Int, val 
 
     /** Days left of a breakdown, for the works the city runs: it does nothing until it's mended. */
     var outage = 0
-}
 
-/** The power line on a tile, if any. */
-object Power {
-    const val NONE: Byte = 0
-    const val LINE: Byte = 1
+    /** For a dump, what's in it, in kilograms. */
+    var fill = 0
+
+    /** Last month nobody took its garbage away. */
+    var uncollected = false
 }

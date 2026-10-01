@@ -75,6 +75,16 @@ import com.rm.infill.ui.BulldozeKind
 import com.rm.infill.res.event_tram_track_broken
 import com.rm.infill.res.event_wire_down
 import com.rm.infill.res.event_tunnel_shut
+import com.rm.infill.res.event_fire_damage
+import com.rm.infill.res.event_smog
+import com.rm.infill.res.event_gale
+import com.rm.infill.res.event_blizzard
+import com.rm.infill.res.event_heat_wave
+import com.rm.infill.res.event_industrial_accident
+import com.rm.infill.res.event_nuclear_accident
+import com.rm.infill.res.event_earthquake
+import com.rm.infill.res.event_epidemic
+import com.rm.infill.res.event_epidemic_over
 import com.rm.infill.ui.transitKindsIn
 import com.rm.infill.res.needs_tram_track
 import com.rm.infill.res.needs_tunnel
@@ -98,6 +108,7 @@ import com.rm.infill.ui.roadsIn
 import com.rm.infill.sim.RoadType
 import com.rm.infill.ui.ServiceKind
 import com.rm.infill.ui.servicesIn
+import com.rm.infill.ui.powerKindsIn
 import com.rm.infill.ui.PeopleWindow
 import com.rm.infill.ui.EraWindow
 import com.rm.infill.sim.Era
@@ -279,6 +290,8 @@ private fun GameScreen(
 ) {
     run {
         val city = game.city
+        // How often disasters come is the player's setting, not the town's.
+        city.disasterLevel = settings.disasters
         val density = LocalDensity.current.density
         val camera = remember(density) {
             Camera(city.map.width, city.map.height, MIN_TILE_DP * density, MAX_TILE_DP * density, START_TILE_DP * density)
@@ -329,7 +342,7 @@ private fun GameScreen(
         val w = city.weather
         var weatherOverride by remember { mutableIntStateOf(-1) }
         val weather = if (weatherOverride >= 0) DEV_WEATHER[weatherOverride]
-        else WeatherLook.of(w.cloud, w.precipitation, w.intensity, w.fog, w.windDirection, w.windSpeed)
+        else WeatherLook.of(w.cloud, w.precipitation, w.intensity, w.fog, w.windDirection, w.windSpeed, city.stats.smog)
         // Snow on the ground decides the winter look; a winter month without it is bare.
         val seasonal = Seasons.lookFor(city.month)
         val look = when {
@@ -375,6 +388,7 @@ private fun GameScreen(
                         EventKind.FireStarted -> Message(Res.string.event_fire, e.type?.let { buildingName(it) }, e.x, e.y)
                         EventKind.BuildingLost -> Message(Res.string.event_lost, e.type?.let { buildingName(it) }, e.x, e.y)
                         EventKind.FireSaved -> Message(Res.string.event_saved, e.type?.let { buildingName(it) }, e.x, e.y)
+                        EventKind.FireDamaged -> Message(Res.string.event_fire_damage, e.type?.let { buildingName(it) }, e.x, e.y)
                         EventKind.Flooding -> Message(Res.string.event_flooding, x = e.x, y = e.y)
                         EventKind.RiverFlood -> Message(Res.string.event_river_flood, x = e.x, y = e.y)
                         EventKind.Sickness -> Message(Res.string.event_sickness, x = e.x, y = e.y)
@@ -385,6 +399,15 @@ private fun GameScreen(
                         EventKind.TramTrackBroken -> Message(Res.string.event_tram_track_broken, x = e.x, y = e.y)
                         EventKind.WireDown -> Message(Res.string.event_wire_down, x = e.x, y = e.y)
                         EventKind.TunnelShut -> Message(Res.string.event_tunnel_shut, x = e.x, y = e.y)
+                        EventKind.Smog -> Message(Res.string.event_smog)
+                        EventKind.Gale -> Message(Res.string.event_gale, x = e.x, y = e.y)
+                        EventKind.Blizzard -> Message(Res.string.event_blizzard)
+                        EventKind.HeatWave -> Message(Res.string.event_heat_wave)
+                        EventKind.IndustrialAccident -> Message(Res.string.event_industrial_accident, e.type?.let { buildingName(it) }, e.x, e.y)
+                        EventKind.NuclearAccident -> Message(Res.string.event_nuclear_accident, x = e.x, y = e.y)
+                        EventKind.Earthquake -> Message(Res.string.event_earthquake, x = e.x, y = e.y)
+                        EventKind.Epidemic -> Message(Res.string.event_epidemic)
+                        EventKind.EpidemicOver -> Message(Res.string.event_epidemic_over)
                         EventKind.EraArrived -> null
                     }
                 }
@@ -426,7 +449,10 @@ private fun GameScreen(
                 val kinds = waterKindsIn(city)
                 waterKind = kinds[(kinds.indexOf(waterKind) + 1) % kinds.size]
             }
-            if (t == Tool.Power && tool == Tool.Power) powerKind = PowerKind.entries[(powerKind.ordinal + 1) % PowerKind.entries.size]
+            if (t == Tool.Power && tool == Tool.Power) {
+                val kinds = powerKindsIn(city)
+                powerKind = kinds[(kinds.indexOf(powerKind) + 1) % kinds.size]
+            }
             if (t == Tool.Bulldoze && tool == Tool.Bulldoze) bulldozeKind = BulldozeKind.entries[(bulldozeKind.ordinal + 1) % BulldozeKind.entries.size]
             if (t == Tool.Transit && tool == Tool.Transit) {
                 val kinds = transitKindsIn(city)
@@ -637,7 +663,7 @@ private fun GameScreen(
                     OptionPicker(RailKind.entries, railKind, { it.title }, { null }, { railKind = it }, compactTools)
                 }
                 if (tool == Tool.Power) {
-                    OptionPicker(PowerKind.entries, powerKind, { it.title }, { null }, { powerKind = it }, compactTools)
+                    OptionPicker(powerKindsIn(city), powerKind, { it.title }, { null }, { powerKind = it }, compactTools)
                 }
                 if (tool == Tool.Bulldoze) {
                     OptionPicker(BulldozeKind.entries, bulldozeKind, { it.title }, { null }, { bulldozeKind = it }, compactTools)

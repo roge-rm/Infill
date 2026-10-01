@@ -2,6 +2,7 @@ package com.rm.infill.map
 
 import androidx.compose.ui.graphics.ImageBitmap
 import com.rm.infill.sim.BuildingType
+import com.rm.infill.sim.Generation
 import com.rm.infill.sim.Density
 import com.rm.infill.sim.Stop
 import com.rm.infill.sim.CityMap
@@ -291,8 +292,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 // Trees in the worst of the grime lose their leaves.
                 val treeBase = if (map.grimeLevel(i) == 3 && r.look != Atlas.SNOW) Atlas.BARE * Atlas.PER_LOOK else base
                 surface.blend(treeBase + treeSprite(tx, ty), (tx - x0) * s, (ty - y0) * s)
-            } else if (map.power[i] != Power.NONE) {
-                surface.blend(base + Atlas.POWER_LINE + powerMask(tx, ty), (tx - x0) * s, (ty - y0) * s)
+            } else {
+                if (map.streetTrees[i].toInt() != 0) surface.blend(base + Atlas.STREET_TREES, (tx - x0) * s, (ty - y0) * s)
+                if (map.power[i] != Power.NONE) surface.blend(base + lineSprite(tx, ty), (tx - x0) * s, (ty - y0) * s)
             }
         }
         return surface.finish()
@@ -329,7 +331,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             return buildingSprite(ax, ay)
         }
         if (map.terrain[i] == Terrain.TREES) return treeSprite(tx, ty)
-        if (map.power[i] != Power.NONE) return Atlas.POWER_LINE + powerMask(tx, ty)
+        if (map.power[i] != Power.NONE) return lineSprite(tx, ty)
+        if (map.streetTrees[i].toInt() != 0) return Atlas.STREET_TREES
         return null
     }
 
@@ -393,20 +396,30 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         return by
     }
 
-    /** Which neighbours a power line's wires run to: other lines and power stations. */
-    private fun powerMask(x: Int, y: Int): Int {
+    /** A pole or a pylon, with its wires to the neighbours that carry the same kind of line. */
+    private fun lineSprite(x: Int, y: Int): Int {
+        val kind = map.power[map.index(x, y)]
+        return (if (kind == Power.HIGH) Atlas.HV_LINE else Atlas.POWER_LINE) + powerMask(x, y, kind)
+    }
+
+    /** Which neighbours a line's wires run to: lines of its kind, power stations and substations. */
+    private fun powerMask(x: Int, y: Int, kind: Byte): Int {
         var m = 0
-        if (carries(x, y - 1)) m = m or 1
-        if (carries(x + 1, y)) m = m or 2
-        if (carries(x, y + 1)) m = m or 4
-        if (carries(x - 1, y)) m = m or 8
+        if (carries(x, y - 1, kind)) m = m or 1
+        if (carries(x + 1, y, kind)) m = m or 2
+        if (carries(x, y + 1, kind)) m = m or 4
+        if (carries(x - 1, y, kind)) m = m or 8
         return m
     }
 
-    private fun carries(x: Int, y: Int): Boolean {
+    private fun carries(x: Int, y: Int, kind: Byte): Boolean {
         if (!map.inside(x, y)) return false
         val i = map.index(x, y)
-        return (map.power[i] != Power.NONE && map.building[i] == 0) || map.buildingType[i].toInt() == BuildingType.COAL_PLANT.ordinal + 1
+        if (map.building[i] == 0) return map.power[i] == kind
+        val type = map.buildingType[i].toInt() - 1
+        if (type < 0) return false
+        val t = BuildingType.entries[type]
+        return Generation.station(t) || t == BuildingType.SUBSTATION
     }
 
     /** Grime over the ground: a darker wash and, the worse it is, more bare dirt showing. */

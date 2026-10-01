@@ -53,6 +53,14 @@ internal object BuildingSprites {
                 BuildingType.BUS_GARAGE -> Atlas.BUS_GARAGE to Atlas.BUS_GARAGE_COUNT
                 BuildingType.SUBWAY_STATION -> Atlas.SUBWAY_STATION to Atlas.SUBWAY_STATION_COUNT
                 BuildingType.TREATMENT_PLANT -> Atlas.TREATMENT_PLANT to Atlas.TREATMENT_PLANT_COUNT
+                BuildingType.OIL_PLANT -> Atlas.OIL_PLANT to Atlas.OIL_PLANT_COUNT
+                BuildingType.GAS_PLANT -> Atlas.GAS_PLANT to Atlas.GAS_PLANT_COUNT
+                BuildingType.HYDRO_PLANT -> Atlas.HYDRO_PLANT to Atlas.HYDRO_PLANT_COUNT
+                BuildingType.NUCLEAR_PLANT -> Atlas.NUCLEAR_PLANT to Atlas.NUCLEAR_PLANT_COUNT
+                BuildingType.SUBSTATION -> Atlas.SUBSTATION to Atlas.SUBSTATION_COUNT
+                BuildingType.DUMP -> Atlas.DUMP to Atlas.DUMP_COUNT
+                BuildingType.INCINERATOR -> Atlas.INCINERATOR to Atlas.INCINERATOR_COUNT
+                BuildingType.RECYCLING -> Atlas.RECYCLING to Atlas.RECYCLING_COUNT
             }
             first[t.ordinal] = f
             count[t.ordinal] = n

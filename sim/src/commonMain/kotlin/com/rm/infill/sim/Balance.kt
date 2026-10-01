@@ -32,7 +32,110 @@ object Balance {
 
     /** Monthly upkeep. */
     const val LINE_UPKEEP = 0.1
-    const val PLANT_UPKEEP = 60.0
+    const val HIGH_LINE_UPKEEP = 0.3
+    // Power stations' upkeep a month, standing idle; fuel is on top, by what they make.
+    const val PLANT_UPKEEP = 25.0
+    const val OIL_PLANT_UPKEEP = 30.0
+    const val GAS_PLANT_UPKEEP = 40.0
+    const val HYDRO_PLANT_UPKEEP = 60.0
+    const val NUCLEAR_PLANT_UPKEEP = 500.0
+    // Fuel a month for each megawatt made, which sets the order the grid runs them in.
+    const val COAL_FUEL = 3.5
+    const val GAS_FUEL = 4.0
+    const val OIL_FUEL = 5.5
+    const val NUCLEAR_FUEL = 0.5
+    const val SUBSTATION_UPKEEP = 10.0
+
+    // Power: the evening peak above the day's average, in percent; what's lost per thousand for each tile
+    // along ordinary lines; what a substation passes, in watts; the year high-voltage lines come in;
+    // watts a month for each rider on electric transit; the least a station smokes, in percent of full.
+    const val EVENING_PEAK = 15
+    const val LINE_LOSS = 4
+    const val SUBSTATION_RATING = 20_000_000
+    const val HIGH_LINE_YEAR = 1920
+    const val TRACTION_W = 40
+    const val IDLE_FUMES = 25
+
+    // Rivers: how far sewage spreads upstream against the flow, and how much further downstream; works' waste, per job, by water.
+    const val UPSTREAM = 1
+    const val DOWNSTREAM_REACH = 2
+    const val WORKS_FOUL = 2
+
+    // Smog: how much of the town's pollution hangs in still air, more in the cold and fog; what it costs health and appeal.
+    const val SMOG_COLD = 150
+    const val SMOG_FOG = 130
+    const val SMOG_HEALTH = 6
+    const val SMOG_APPEAL = 8
+    const val SMOG_WARNING = 60
+
+    // Heat: green or water within reach of a tile cools it this much each; what a hot summer home loses in appeal.
+    const val HEAT_REACH = 2
+    const val GREEN_COOLS = 8
+    const val HEAT_APPEAL = 16
+    const val STREET_TREE_UPKEEP = 0.1
+    const val STREET_TREE_VALUE = 4
+    const val STREET_TREE_SOAK = 15
+
+    // Contaminated land: what living by brownfield or a dump costs health, and a dump's land value.
+    const val CONTAMINATED_HEALTH = 10
+    const val DUMP_HEALTH = 5
+    const val DUMP_VALUE = 30
+
+    // Garbage: a dump's room in kilograms, what an incinerator and a recycling centre take a month, how far they reach,
+    // recycling's share of what it's given, upkeep, and what going uncollected costs appeal, health and the street.
+    const val DUMP_ROOM = 30_000_000
+    const val INCINERATOR_TAKES = 600_000
+    const val RECYCLING_TAKES = 300_000
+    const val GARBAGE_REACH = 60
+    /** Below this many people, each home burns or buries its own garbage. */
+    const val GARBAGE_TOWN = 1500
+    const val RECYCLED = 30
+    const val DUMP_UPKEEP = 20.0
+    const val INCINERATOR_UPKEEP = 80.0
+    const val RECYCLING_UPKEEP = 60.0
+    const val INCINERATOR_FUMES = 25
+    const val UNCOLLECTED_APPEAL = 6
+    const val UNCOLLECTED_HEALTH = 6
+    const val UNCOLLECTED_GRIME = 12
+
+    // Disasters. Each chance is for normal; "fewer" halves it.
+    // Gales: the chance in a hundred each power line, wire, tree and street tree comes down; days and cost to mend a line.
+    const val GALE_DOWN = 3
+    const val MEND_LINE = 3
+    const val REPAIR_LINE = 20L
+    // Blizzards: snow this heavy in this much wind, and the days the roads are snowed in, a day less for each bus garage.
+    const val BLIZZARD = 85
+    const val BLIZZARD_DAYS = 4
+    const val BLIZZARD_WIND = 65
+    // Heat waves: this hot, and what a hot home loses in health; elderly deaths a month per thousand for each 10 of heat.
+    const val HEAT_WAVE = 30
+    const val HEAT_HEALTH = 10
+    const val HEAT_DEATHS = 2
+    const val HEAT_WAVE_PEAK = 15
+    const val HOT_HOME = 100
+    // Industrial accidents: the chance in a million each month for heavy works, and a nuclear station's.
+    const val ACCIDENT_PPM = 200
+    const val NUCLEAR_PPM = 5
+    const val NUCLEAR_WEAR_PPM = 200
+    const val NUCLEAR_REACH = 6
+    const val NUCLEAR_BILL = 500_000L
+    const val SPILL_FOUL = 200
+    // Earthquakes: the chance in a million each month, how far one reaches, and what it costs a building it damages.
+    const val QUAKE_PPM = 2_083
+    const val QUAKE_REACH = 14
+    const val QUAKE_BILL = 200L
+    const val MEND_QUAKE = 20
+    const val MEND_EXPLOSION = 45
+    const val BUILDING_CODES = 1935
+    // Epidemics: the chance in a million each month of one starting, deaths a month per thousand among children and the
+    // elderly in a stricken home, and what it costs its health.
+    const val EPIDEMIC_PPM = 1_500
+    const val EPIDEMIC_HEALTH = 25
+    const val EPIDEMIC_CHILD_DEATHS = 15
+    const val EPIDEMIC_ELDERLY_DEATHS = 60
+
+    /** How far land round a hydro station goes under its reservoir. */
+    const val RESERVOIR_REACH = 2
     const val POLICE_UPKEEP = 40.0
     const val FIRE_UPKEEP = 45.0
     const val PARK_UPKEEP = 0.5
@@ -40,6 +143,10 @@ object Balance {
     /** How far a fully funded station reaches, in tiles. Less money, less reach, down to 40% of it. */
     const val POLICE_REACH = 14
     const val FIRE_REACH = 12
+
+    /** Motor fire engines, from this year, reach further. */
+    const val MOTOR_FIRE_YEAR = 1915
+    const val MOTOR_FIRE_REACH = 18
 
     /** Chance in ten thousand each month that a building catches fire with no fire station near, in 1900. */
     const val FIRE_CHANCE = 10
@@ -132,7 +239,7 @@ object Balance {
     const val PRESSURE_REACH = 30
 
     /** How near a building has to be to a main or a sewer to be on it, in tiles: as far as a road reaches. */
-    const val PIPE_REACH = 2
+    const val PIPE_REACH = 3
 
     /** How far sewage spreads through the water from an outfall, in tiles, and how much there is for every hundred people. */
     const val FOUL_REACH = 20
@@ -443,7 +550,7 @@ object Balance {
     const val EMPTY_SHRINK = 30
 
     /** How far a lot can be from a road and still grow, in tiles. */
-    const val ROAD_REACH = 2
+    const val ROAD_REACH = 3
 
     /** How many lots are looked at for each thing that grows, picking the best. */
     const val CANDIDATES = 8

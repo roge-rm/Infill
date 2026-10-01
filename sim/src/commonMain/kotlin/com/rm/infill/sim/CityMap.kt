@@ -26,6 +26,12 @@ class CityMap(val width: Int, val height: Int) {
     val tram = ByteArray(size)
     val subway = ByteArray(size)
 
+    /** Street trees along a road, 1 where they've been planted. */
+    val streetTrees = ByteArray(size)
+
+    /** How hot each tile runs in summer, 0 to 255: paving and roofs warm it, green and water cool it. Worked out each month. */
+    val heat = ByteArray(size)
+
     /** Overhead wire for trolleybuses along a road, 1 where there's some. */
     val wire = ByteArray(size)
 
@@ -207,7 +213,7 @@ class CityMap(val width: Int, val height: Int) {
             ((roadHeading[i].toLong() and 0x0f) shl 15) or ((waterPipe[i].toLong() and 0x07) shl 19) or
             ((sewerPipe[i].toLong() and 0x03) shl 22) or ((stormPipe[i].toLong() and 0x03) shl 24) or
             ((bank[i].toLong() and 0x01) shl 26) or ((density[i].toLong() and 0x03) shl 27) or
-            ((brownfield[i].toLong() and 0x01) shl 29) or ((wire[i].toLong() and 0x01) shl 30) or ((building[i].toLong() and 0x0fffffff) shl 32) or
+            ((brownfield[i].toLong() and 0x01) shl 29) or ((wire[i].toLong() and 0x01) shl 30) or ((streetTrees[i].toLong() and 0x01) shl 31) or ((building[i].toLong() and 0x0fffffff) shl 32) or
             ((tram[i].toLong() and 0x01) shl 60) or ((subway[i].toLong() and 0x01) shl 61) or ((stop[i].toLong() and 0x03) shl 62)
 
     fun setTileState(i: Int, state: Long) {
@@ -224,6 +230,7 @@ class CityMap(val width: Int, val height: Int) {
         density[i] = ((state shr 27) and 0x03).toByte()
         brownfield[i] = ((state shr 29) and 0x01).toByte()
         wire[i] = ((state shr 30) and 0x01).toByte()
+        streetTrees[i] = ((state shr 31) and 0x01).toByte()
         building[i] = ((state ushr 32) and 0x0fffffff).toInt()
         tram[i] = ((state ushr 60) and 0x01).toByte()
         subway[i] = ((state ushr 61) and 0x01).toByte()
@@ -235,7 +242,7 @@ class CityMap(val width: Int, val height: Int) {
         var h = FNV_OFFSET
         h = mix(h, width.toLong())
         h = mix(h, height.toLong())
-        for (layer in arrayOf(terrain, road, roadHeading, zone, density, power, rail, tram, wire, subway, stop, waterPipe, sewerPipe, stormPipe, bank, grime, fire)) for (b in layer) h = mix(h, b.toLong())
+        for (layer in arrayOf(terrain, road, roadHeading, zone, density, power, rail, tram, wire, subway, stop, streetTrees, waterPipe, sewerPipe, stormPipe, bank, grime, fire)) for (b in layer) h = mix(h, b.toLong())
         for (b in building) h = mix(mix(h, b.toLong()), (b ushr 8).toLong())
         return h
     }

@@ -93,7 +93,7 @@ fun MapView(
     val trains = graphics.trains > 0 && game.city.trainRoutes.isNotEmpty()
     val animate = running && (fires || traffic || trains || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
     val overlayImage = remember(overlay, game.revision) {
-        overlayImage(overlay, map, { game.city.building(map.building[it])?.people }, { game.city.wearAt(it) }) {
+        overlayImage(overlay, map, { game.city.building(map.building[it])?.people }, { game.city.wearAt(it) }, { game.city.building(map.building[it])?.uncollected == true }) {
             game.city.tramRiders(it) + game.city.busRiders(it) + game.city.trolleyRiders(it) + game.city.subwayRiders(it)
         }
     }
