@@ -1,5 +1,6 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.tool_districts
 import com.rm.infill.res.tram_line
 import com.rm.infill.res.bus_line
 import com.rm.infill.res.bus_lane
@@ -45,6 +46,7 @@ import com.rm.infill.res.freight_yard
 import com.rm.infill.res.power_line
 import com.rm.infill.res.coal_plant
 import com.rm.infill.res.oil_plant
+import com.rm.infill.res.scrubbers
 import com.rm.infill.res.gas_plant
 import com.rm.infill.res.hydro_plant
 import com.rm.infill.res.nuclear_plant
@@ -72,6 +74,7 @@ import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.City
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Junction
+import com.rm.infill.sim.NEW_DISTRICT
 import com.rm.infill.sim.Stop
 import com.rm.infill.res.tool_transit
 import com.rm.infill.res.tram_track
@@ -112,7 +115,11 @@ enum class Tool(val title: StringResource) {
     Services(Res.string.tool_services),
     Transit(Res.string.tool_transit),
     Traffic(Res.string.tool_traffic),
+    Districts(Res.string.tool_districts),
 }
+
+/** The districts tool's choice that opens the list rather than painting. */
+const val DISTRICT_LIST = -2
 
 /** What the traffic tool sets at the crossings dragged over. */
 enum class JunctionKind(val title: StringResource, val control: Byte) {
@@ -245,7 +252,7 @@ enum class BulldozeKind(val title: StringResource) {
 }
 
 /** What the power tool puts down: lines are dragged, stations go where the finger ends up. */
-enum class PowerKind(val title: StringResource, val building: BuildingType? = null, val high: Boolean = false) {
+enum class PowerKind(val title: StringResource, val building: BuildingType? = null, val high: Boolean = false, val scrubbers: Boolean = false) {
     Line(Res.string.power_line),
     High(Res.string.high_line, high = true),
     Substation(Res.string.substation, BuildingType.SUBSTATION),
@@ -254,11 +261,19 @@ enum class PowerKind(val title: StringResource, val building: BuildingType? = nu
     Gas(Res.string.gas_plant, BuildingType.GAS_PLANT),
     Hydro(Res.string.hydro_plant, BuildingType.HYDRO_PLANT),
     Nuclear(Res.string.nuclear_plant, BuildingType.NUCLEAR_PLANT),
+    /** Fitted to the coal or oil station tapped. */
+    Scrubbers(Res.string.scrubbers, scrubbers = true),
 }
 
 /** What the power tool offers [city] in its era. */
 fun powerKindsIn(city: City): List<PowerKind> =
-    PowerKind.entries.filter { if (it.high) city.allowsHighLines() else it.building?.let { b -> city.allows(b) } ?: true }
+    PowerKind.entries.filter {
+        when {
+            it.high -> city.allowsHighLines()
+            it.scrubbers -> city.allowsScrubbers()
+            else -> it.building?.let { b -> city.allows(b) } ?: true
+        }
+    }
 
 fun roadName(t: RoadType): StringResource = when (t) {
     RoadType.DIRT -> Res.string.road_dirt
@@ -313,7 +328,9 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
     fun action(
         tool: Tool, zone: ZoneKind, density: DensityKind, bulldoze: BulldozeKind, power: PowerKind, service: ServiceKind, road: RoadType, roadPipes: Boolean,
         rail: RailKind, water: WaterKind, transit: TransitKind, map: CityMap, junction: JunctionKind = JunctionKind.Lights,
+        district: Int = NEW_DISTRICT,
     ): Action? = when (tool) {
+        Tool.Districts -> if (district == DISTRICT_LIST) null else Action.PaintDistrict(x0, y0, x1, y1, district)
         Tool.Traffic -> Action.SetJunction(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), junction.control)
         Tool.Transit -> when {
             transit.building != null -> Action.PlaceBuilding(transit.building, x1, y1)
@@ -355,7 +372,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
         Tool.Zone -> Action.PlaceZone(x0, y0, x1, y1, zone.zone, if (zone == ZoneKind.Farmland) Density.LOW else density.density)
         Tool.Bulldoze -> if (bulldoze == BulldozeKind.Renew) Action.RenewArea(x0, y0, x1, y1) else Action.Bulldoze(x0, y0, x1, y1)
         // A building goes where the finger ends up, with that tile its top left.
-        Tool.Power -> power.building?.let { Action.PlaceBuilding(it, x1, y1) }
+        Tool.Power -> if (power.scrubbers) Action.FitScrubbers(x1, y1) else power.building?.let { Action.PlaceBuilding(it, x1, y1) }
             ?: Action.BuildPowerLine(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), power.high)
     }
 }

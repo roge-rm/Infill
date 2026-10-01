@@ -622,6 +622,33 @@ object Balance {
     // Traffic flow: the flow at which shops and offices are neither helped nor hurt, and at most how much;
     // fumes from crawling traffic, in percent more at most, and more for each second spent waiting at a crossing.
     const val FLOW_PAR = 85
+    // Green against pollution: what each tile of park or woods within reach takes off, a street tree half that,
+    // in percent, and at most; how much of what crosses a belt of park or woods gets through; scrubbers on a
+    // coal or oil station, from when, what they cost and keep, and the share of smoke they let out.
+    const val GREEN_SINK = 4
+    const val GREEN_SINK_MOST = 50
+    const val GREEN_SINK_REACH = 2
+    const val BELT_PASSES = 40
+    const val SCRUBBER_YEAR = 1970
+    const val SCRUBBER_PRICE = 5_000L
+    const val SCRUBBER_UPKEEP = 25.0
+    const val SCRUBBED_SHARE = 30
+    // Districts: how much a point of tax off puts on a lot's appeal, how far a district's tax may move from the
+    // town's, and how much limited parking cuts driving, in percent.
+    const val DISTRICT_TAX_APPEAL = 2
+    const val DISTRICT_TAX_RANGE = 5
+    const val PARKING_CUT = 35
+    // Free fares: how many seconds shorter a free ride feels to someone choosing how to go. No heavy trucks:
+    // how many times slower a truck finds a street it's kept off. Pollution limit: the share works give off,
+    // and the appeal it costs them. Rent control: the share of rent, and so tax, homes bring in.
+    const val FREE_FARE_PULL = 240
+    const val TRUCK_BAN_SLOW = 6
+    const val CLEAN_WORKS_SHARE = 40
+    const val CLEAN_WORKS_APPEAL = 8
+    const val RENT_CONTROL_TAX = 75
+    const val MAX_DISTRICTS = 40
+    /** The highest rung of industry a district with no heavy industry lets in. */
+    const val LIGHT_INDUSTRY = 2
     /** The flow the Renewal era asks for. */
     const val RENEWAL_FLOW = 75
     const val FLOW_APPEAL = 8

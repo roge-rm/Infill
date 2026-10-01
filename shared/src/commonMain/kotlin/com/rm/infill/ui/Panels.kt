@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
 import com.rm.infill.map.MapRenderer
+import com.rm.infill.res.inspect_district
+import com.rm.infill.res.inspect_scrubbed
 import com.rm.infill.res.inspect_line_load
 import com.rm.infill.res.inspect_line_overloaded
 import com.rm.infill.res.inspect_lines
@@ -293,6 +295,32 @@ fun <T> OptionPicker(
     }
 }
 
+/** Like [OptionPicker], for choices named at run time. */
+@Composable
+fun <T> NamedPicker(options: List<T>, selected: T, label: @Composable (T) -> String, dot: (T) -> Color?, onSelect: (T) -> Unit, compact: Boolean) {
+    val c = Infill.colors
+    ChromeBox {
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            for (option in options) {
+                val on = option == selected
+                Row(
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (on) c.accent else c.button)
+                        .semantics(mergeDescendants = true) { this.selected = on }
+                        .clickable(role = Role.Tab) { onSelect(option) }
+                        .padding(horizontal = 10.dp, vertical = if (compact) 6.dp else 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    dot(option)?.let { Box(Modifier.size(10.dp).clip(CircleShape).background(it)) }
+                    Text(label(option), color = if (on) c.onAccent else c.text, fontSize = if (compact) 12.sp else 13.sp, maxLines = 1, softWrap = false)
+                }
+            }
+        }
+    }
+}
+
 /** What's on a tile. */
 @Composable
 fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier: Modifier = Modifier) {
@@ -303,6 +331,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
     val building = city.buildingAt(x, y)
     val i = map.index(x, y)
     val lines = buildList {
+        val district = city.districtAt(i)
         if (building != null) {
             val t = building.type
             add(stringResource(buildingName(t)))
@@ -345,6 +374,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
             } else if (t.needsPower || t == BuildingType.TRAM_DEPOT || t == BuildingType.SUBWAY_STATION) {
                 add(stringResource(if (map.powered[i]) Res.string.has_power else Res.string.no_power))
             }
+            if (building.scrubbed) add(stringResource(Res.string.inspect_scrubbed))
             if (t == BuildingType.DUMP) add(stringResource(Res.string.dump_fill, (building.fill.toLong() * 100 / Balance.DUMP_ROOM).toInt()))
             // What it makes, from what, and how much of that's the town's.
             val kind = building.worksKind
@@ -494,6 +524,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
             }
             densityName(map.density[i])?.let { add(stringResource(it)) }
         }
+        district?.let { add(stringResource(Res.string.inspect_district, it.name)) }
     }
     val value = level(map.landValue[i].toInt() and 0xff)
     val crime = level(map.crime[i].toInt() and 0xff)
@@ -680,7 +711,7 @@ fun MessageChip(text: String, onClick: (() -> Unit)?, modifier: Modifier = Modif
 
 /** A 0 to 255 level as a word. */
 @Composable
-private fun level(v: Int): String = stringResource(
+internal fun level(v: Int): String = stringResource(
     when {
         v < 8 -> Res.string.level_none
         v < 70 -> Res.string.level_low

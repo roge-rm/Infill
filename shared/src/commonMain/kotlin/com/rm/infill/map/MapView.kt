@@ -78,6 +78,8 @@ fun MapView(
     underground: Boolean = false,
     /** The map tile being inspected, for the views that follow one road; -1 if none. */
     focus: Int = -1,
+    /** Districts to draw over the map, by id and name, while they're being painted. */
+    districts: List<Pair<Int, String>> = emptyList(),
     /** Transit lines to draw over the map, by id and the tiles each runs over; 0 for one being planned. */
     lines: List<Pair<Int, IntArray>> = emptyList(),
     modifier: Modifier = Modifier,
@@ -220,6 +222,7 @@ fun MapView(
         if (tint != Color.White) drawRect(tint, blendMode = BlendMode.Modulate)
         if (underground) drawUnderground(map, camera, game.city.monthNow)
         overlayImage?.let { drawOverlay(it, map, camera, overlay) }
+        if (districts.isNotEmpty()) drawDistricts(districts, map, camera, measurer)
         if (lines.isNotEmpty()) drawLines(lines, map, camera)
         if (preview != null) drawPreview(preview, map, camera, measurer, costText)
         else if (gestures.toolActive && hoverX >= 0) drawHover(hoverX, hoverY, camera)

@@ -160,6 +160,30 @@ class City(
                     }
                 }
             }
+            is Action.FitScrubbers -> buildings[if (m.inside(action.x, action.y)) m.building[m.index(action.x, action.y)] else 0]?.let { b ->
+                when {
+                    b.type != BuildingType.COAL_PLANT && b.type != BuildingType.OIL_PLANT -> blocked += m.index(action.x, action.y)
+                    !everything && year < Balance.SCRUBBER_YEAR -> blocked += m.index(action.x, action.y)
+                    b.scrubbed -> {}
+                    else -> {
+                        changes += m.index(b.x, b.y)
+                        cost += Balance.SCRUBBER_PRICE
+                    }
+                }
+            }
+            is Action.PaintDistrict -> {
+                val id = if (action.id == NEW_DISTRICT) nextDistrictId else action.id
+                val ok = action.id == 0 || action.id == NEW_DISTRICT && districts.size < Balance.MAX_DISTRICTS ||
+                    districts.any { it.id == action.id }
+                if (ok) forRect(action.x0, action.y0, action.x1, action.y1) { i ->
+                    if (m.terrain[i] != Terrain.WATER && m.district[i].toInt() and 0xff != id) changes += i
+                }
+            }
+            is Action.SetDistrict -> districts.firstOrNull { it.id == action.id }?.let { changes += 0 }
+            is Action.RemoveDistrict -> districts.firstOrNull { it.id == action.id }?.let { d ->
+                changes += 0
+                for (i in 0 until m.size) if (m.district[i].toInt() and 0xff == d.id) changes += i
+            }
             is Action.AddLine -> {
                 val kind = if (action.tram) Stop.TRAM else Stop.BUS
                 val stops = action.stops.filter { inMap(it) && m.stop[it].toInt() and kind != 0 }
@@ -662,6 +686,11 @@ class City(
         /** The transit lines before and after. */
         val linesBefore: List<TransitLine>,
         val linesAfter: List<TransitLine>,
+        val districtsBefore: List<District>,
+        val districtsAfter: List<District>,
+        /** The stations with scrubbers before and after. */
+        val scrubbedBefore: Set<Int>,
+        val scrubbedAfter: Set<Int>,
     )
 
     private val undoable = ArrayDeque<Edit>()
@@ -680,6 +709,8 @@ class City(
         val transitBefore = LongArray(plan.changes.size) { m.tileTransitLaid(plan.changes[it]) }
         val fixBefore = IntArray(plan.changes.size) { m.tileFix(plan.changes[it]) }
         val linesBefore = lines.map { it.copy() }
+        val districtsBefore = districts.map { it.copy() }
+        val scrubbedBefore = buildings.values.filter { it.scrubbed }.map { it.id }.toSet()
         val now = monthNow
         var queued = 0
         val added = ArrayList<Building>()
@@ -734,6 +765,29 @@ class City(
                 m.tramLaid[i] = now.toShort()
             }
             is Action.PlantStreetTrees -> for (i in plan.changes) m.streetTrees[i] = 1
+            is Action.FitScrubbers -> buildings[m.building[plan.changes[0]]]?.scrubbed = true
+            is Action.PaintDistrict -> {
+                var id = action.id
+                if (id == NEW_DISTRICT) {
+                    id = nextDistrictId++
+                    districts += District(id, TownNames.make(seed * 31 + id))
+                }
+                for (i in plan.changes) m.district[i] = id.toByte()
+                // A district painted out of all its tiles is gone.
+                if (action.id == 0) {
+                    val left = HashSet<Int>()
+                    for (i in 0 until m.size) left += m.district[i].toInt() and 0xff
+                    districts.removeAll { it.id !in left }
+                }
+            }
+            is Action.SetDistrict -> {
+                val k = districts.indexOfFirst { it.id == action.id }
+                if (k >= 0) districts[k] = action.to.copy()
+            }
+            is Action.RemoveDistrict -> {
+                for (i in plan.changes) if (m.district[i].toInt() and 0xff == action.id) m.district[i] = 0
+                districts.removeAll { it.id == action.id }
+            }
             is Action.AddLine -> lines += TransitLine(nextLineId++, action.tram, action.stops.copyOf(), action.vehicles)
             is Action.SetVehicles -> lines.firstOrNull { it.id == action.id }?.vehicles = action.vehicles
             is Action.RemoveLine -> lines.removeAll { it.id == action.id }
@@ -856,6 +910,8 @@ class City(
                 transitBefore, LongArray(plan.changes.size) { m.tileTransitLaid(plan.changes[it]) },
                 fixBefore, IntArray(plan.changes.size) { m.tileFix(plan.changes[it]) },
                 linesBefore, lines.map { it.copy() },
+                districtsBefore, districts.map { it.copy() },
+                scrubbedBefore, buildings.values.filter { it.scrubbed }.map { it.id }.toSet(),
             ),
         )
         if (undoable.size > MAX_UNDO) undoable.removeFirst()
@@ -864,6 +920,7 @@ class City(
         railChanged = true
         zonesChanged = true
         updateJunctions()
+        if (action is Action.PaintDistrict || action is Action.SetDistrict || action is Action.RemoveDistrict) districtTraffic()
         // Lines show and run at once.
         if (action is Action.AddLine || action is Action.SetVehicles || action is Action.RemoveLine) updateTransit()
         return plan
@@ -895,6 +952,9 @@ class City(
         updateJunctions()
         lines.clear()
         lines += e.linesBefore.map { it.copy() }
+        districts.clear()
+        districts += e.districtsBefore.map { it.copy() }
+        for (b in buildings.values) b.scrubbed = b.id in e.scrubbedBefore
         updateTransit()
         funds += e.cost
         redoable.addLast(e)
@@ -926,6 +986,9 @@ class City(
         updateJunctions()
         lines.clear()
         lines += e.linesAfter.map { it.copy() }
+        districts.clear()
+        districts += e.districtsAfter.map { it.copy() }
+        for (b in buildings.values) b.scrubbed = b.id in e.scrubbedAfter
         updateTransit()
         funds -= e.cost
         undoable.addLast(e)
@@ -1980,6 +2043,29 @@ class City(
         return node >= 0 && traffic.lastUnmet.any { it[node] > 0 } && traffic.freightStuck[node]
     }
 
+    /** Tells the traffic which stops ride free and which streets keep trucks off, from the districts. */
+    private fun districtTraffic() {
+        val free = BooleanArray(map.size)
+        val banned = BooleanArray(map.size)
+        if (districts.any { it.freeFares || it.noTrucks }) for (i in 0 until map.size) {
+            val d = districtAt(i) ?: continue
+            if (d.freeFares) free[i] = true
+            if (d.noTrucks) banned[i] = true
+        }
+        traffic.freeStop = free
+        traffic.noTrucks = banned
+    }
+
+    /** Whether the town can fit scrubbers to its stations yet. */
+    fun allowsScrubbers(): Boolean = everything || year >= Balance.SCRUBBER_YEAR
+
+    /** How dense lot [i] may build: its zone's density, no higher than its district allows. */
+    private fun heightAt(i: Int): Byte {
+        val limit = districtAt(i)?.height ?: Density.NONE
+        val zoned = map.density[i]
+        return if (limit == Density.NONE || limit >= zoned) zoned else limit
+    }
+
     /** What a station burns that the town can make, and how many loads a month for each megawatt. */
     private fun burns(b: Building): Pair<Good, Int>? = when (b.type) {
         BuildingType.COAL_PLANT -> Good.COAL to Balance.COAL_PER_MW
@@ -2154,7 +2240,8 @@ class City(
             when (b.type.zone) {
                 Zone.RESIDENTIAL -> {
                     val wealth = b.people?.wealth ?: Wealth.MIDDLE
-                    val share = Cars.share(year, wealth)
+                    // Where parking's limited, fewer drive.
+                    val share = Cars.share(year, wealth) * (if (districtAt(node)?.parking == true || districtAt(map.index(b.x, b.y))?.parking == true) 100 - Balance.PARKING_CUT else 100) / 100
                     val workers = b.people?.workers() ?: 0
                     val shoppers = (b.people?.size ?: 0) * Demography.SPENDING_BY_WEALTH[wealth] / 100 / Balance.RESIDENTS_PER_SHOPPER
                     workersAt[node] += workers
@@ -2201,6 +2288,7 @@ class City(
         )
         settleGoods()
         updateJunctions()
+        districtTraffic()
         // The waits follow last month's riders.
         updateTransit()
         traffic.lastModes.copyInto(stats.byMode)
@@ -2492,6 +2580,45 @@ class City(
         }
         transit.update(lines, depots, garages, poweredGarages, stations) { mode, net -> traffic.ridersOn(mode, net) }
         traffic.useTransit(transit)
+    }
+
+    /** The districts, in the order they were made. */
+    val districts = ArrayList<District>()
+    private var nextDistrictId = 1
+
+    /** The district tile [i] is in, or null. */
+    fun districtAt(i: Int): District? {
+        val id = map.district[i].toInt() and 0xff
+        return if (id == 0) null else districts.firstOrNull { it.id == id }
+    }
+
+    /** What [b] pays in tax, in percent: the town's rate for its zone, moved by its district's. */
+    private fun taxOf(b: Building, base: Int): Int {
+        val d = districtAt(map.index(b.x, b.y)) ?: return base
+        return (base + d.tax[District.taxIndex(b.type.zone)]).coerceIn(0, 20)
+    }
+
+    /** A district's figures, counted now. */
+    fun districtFigures(id: Int): DistrictFigures {
+        var people = 0
+        var jobs = 0
+        var value = 0L
+        var crime = 0L
+        var pollution = 0L
+        var tiles = 0
+        val seen = HashSet<Int>()
+        for (i in 0 until map.size) {
+            if (map.district[i].toInt() and 0xff != id) continue
+            tiles++
+            value += map.landValue[i].toInt() and 0xff
+            crime += map.crime[i].toInt() and 0xff
+            pollution += map.pollution[i].toInt() and 0xff
+            val b = buildings[map.building[i]] ?: continue
+            if (!seen.add(b.id) || b.underway > 0) continue
+            if (b.people != null) people += b.people!!.size else jobs += b.type.capacity
+        }
+        val n = maxOf(1, tiles)
+        return DistrictFigures(people, jobs, (value / n).toInt(), (crime / n).toInt(), (pollution / n).toInt(), tiles)
     }
 
     /** The planned transit lines, in the order they were made. */
@@ -3153,6 +3280,10 @@ class City(
      */
     private fun chooseWealth(i: Int): Int {
         val value = map.landValue[i].toInt() and 0xff
+        // Rent control keeps homes within reach of the poor and the middling, however dear the land.
+        if (districtAt(i)?.rentControl == true) {
+            return if (wealthGap[Wealth.POOR] >= wealthGap[Wealth.MIDDLE]) Wealth.POOR else Wealth.MIDDLE
+        }
         val allowed = when {
             value < Balance.POOR_BELOW -> intArrayOf(Wealth.POOR, Wealth.MIDDLE)
             value >= Balance.WELL_OFF_FROM -> intArrayOf(Wealth.MIDDLE, Wealth.WELL_OFF)
@@ -3495,6 +3626,8 @@ class City(
             if (!nearRoad[i]) return@repeat
             val b = buildings[map.building[i]]
             if (b != null && (b.age < Balance.REBUILD_DAYS || b.underway > 0 || b.burning > 0)) return@repeat
+            // A protected district keeps its heritage.
+            if (b != null && districtAt(i)?.heritage == true && isHeritage(b)) return@repeat
             // No one to build on to an empty home.
             if (b?.people?.empty == true) return@repeat
             val pull = attraction(i, zone)
@@ -3541,7 +3674,9 @@ class City(
         if (rung.isEmpty() || map.brownfield[i].toInt() != 0) return emptyList()
         val value = map.landValue[i].toInt() and 0xff
         return rung.filter { t ->
-            t.density <= map.density[i] && t.year <= year && pull >= t.appeal &&
+            t.density <= heightAt(i) && t.year <= year && pull >= t.appeal &&
+                // No heavy industry where the district won't have it.
+                (t.zone != Zone.INDUSTRIAL || t.stage <= Balance.LIGHT_INDUSTRY || districtAt(i)?.lightIndustry != true) &&
                 // Industry and farms go where they're let; homes and shops go up where the land's dear enough to pay for them.
                 (zone == Zone.INDUSTRIAL || zone == Zone.FARMLAND || value >= t.value) &&
                 // Farms, woodlots and mines by what's under the lot.
@@ -3801,6 +3936,11 @@ class City(
             }
         }
         val stigma = if (zone == Zone.RESIDENTIAL) (m.floodMemory[i].toInt() and 0xff) / Balance.STIGMA_APPEAL else 0
+        // A district's lower taxes draw, its higher ones put off; works find a pollution limit dear.
+        districtAt(i)?.let {
+            score -= it.tax[District.taxIndex(zone)] * Balance.DISTRICT_TAX_APPEAL
+            if (it.cleanWorks && zone == Zone.INDUSTRIAL) score -= Balance.CLEAN_WORKS_APPEAL
+        }
         return score - floodPenalty(i) - stigma
     }
 
@@ -3829,6 +3969,27 @@ class City(
     /** Appeal a lot loses while it stands in floodwater. */
     private fun floodPenalty(i: Int): Int = if ((map.flood[i].toInt() and 0xff) >= Balance.FLOODED) Balance.FLOOD_APPEAL else 0
 
+    /** How much a tile soaks up pollution: 2 for park or woods, 1 for street trees. */
+    private fun greenWeight(i: Int): Int = when {
+        map.terrain[i] == Terrain.TREES || map.buildingType[i].toInt() - 1 == BuildingType.PARK.ordinal -> 2
+        map.streetTrees[i].toInt() != 0 -> 1
+        else -> 0
+    }
+
+    /** [amount] of pollution from ([sx], [sy]) reaching tile [j]: less of it if a belt of park or woods lies between. */
+    private fun pastBelt(sx: Int, sy: Int, j: Int, amount: Int): Int {
+        val tx = j % map.width
+        val ty = j / map.width
+        val steps = max(abs(tx - sx), abs(ty - sy))
+        for (k in 1 until steps) {
+            val x = sx + (tx - sx) * k / steps
+            val y = sy + (ty - sy) * k / steps
+            val i = map.index(x, y)
+            if (map.terrain[i] == Terrain.TREES || map.buildingType[i].toInt() - 1 == BuildingType.PARK.ordinal) return amount * Balance.BELT_PASSES / 100
+        }
+        return amount
+    }
+
     private inline fun around(x: Int, y: Int, r: Int, each: (Int, Int) -> Unit) {
         for (dy in -r..r) for (dx in -r..r) {
             val d = abs(dx) + abs(dy)
@@ -3852,12 +4013,16 @@ class City(
                 Balance.INCINERATOR_FUMES * maxOf(Balance.IDLE_FUMES, (incinerated[b.id] ?: 0) * 100 / Balance.INCINERATOR_TAKES) / 100
             } else if (Generation.fumes(b.type) > 0 && b.outage == 0) {
                 val load = (stationOutput(b).toLong() * 100 / Generation.capacity(b.type)).toInt()
-                Generation.fumes(b.type) * maxOf(Balance.IDLE_FUMES, load) / 100
+                // Scrubbers let out only some of it.
+                Generation.fumes(b.type) * maxOf(Balance.IDLE_FUMES, load) / 100 * (if (b.scrubbed) Balance.SCRUBBED_SHARE else 100) / 100
+            } else if ((b.type.zone == Zone.INDUSTRIAL || b.type.zone == Zone.FARMLAND) && districtAt(m.index(b.x, b.y))?.cleanWorks == true) {
+                // Works under a pollution limit give off less.
+                b.type.pollution * Balance.CLEAN_WORKS_SHARE / 100
             } else b.type.pollution
             if (p == 0 || b.underway > 0) continue
             val cx = b.x + b.type.width / 2
             val cy = b.y + b.type.height / 2
-            around(cx, cy, POLLUTION_REACH) { j, d -> field[j] += p * 4 * (POLLUTION_REACH + 1 - d) / (POLLUTION_REACH + 1) }
+            around(cx, cy, POLLUTION_REACH) { j, d -> field[j] += pastBelt(cx, cy, j, p * 4 * (POLLUTION_REACH + 1 - d) / (POLLUTION_REACH + 1)) }
         }
         // Fumes from last month's traffic, along the road and a little either side. Buses count for several cars.
         val fumes = Fumes.level(year)
@@ -3868,9 +4033,17 @@ class City(
             val idling = 100 + min(Balance.IDLE_MOST, (m.congestion[i].toInt() and 0xff) * Balance.IDLE_MOST / 255) + traffic.junctionWait(i, RoadType.of(m.road[i])!!) * Balance.IDLE_PER_WAIT
             val p = vehicles * fumes / 100 * Balance.FUMES_PER_HUNDRED / 100 * idling / 100
             if (p == 0) continue
-            around(i % m.width, i / m.width, Balance.FUMES_REACH) { j, d -> field[j] += p * (Balance.FUMES_REACH + 1 - d) / (Balance.FUMES_REACH + 1) }
+            around(i % m.width, i / m.width, Balance.FUMES_REACH) { j, d -> field[j] += pastBelt(i % m.width, i / m.width, j, p * (Balance.FUMES_REACH + 1 - d) / (Balance.FUMES_REACH + 1)) }
         }
-        for (i in 0 until m.size) m.pollution[i] = min(255, field[i]).toByte()
+        // Parks, woods and street trees nearby take some of it up.
+        val sink = SummedArea(m.width, m.height) { j -> greenWeight(j) }
+        val r = Balance.GREEN_SINK_REACH
+        for (i in 0 until m.size) {
+            if (field[i] == 0) continue
+            val taken = min(Balance.GREEN_SINK_MOST, sink.around(i % m.width, i / m.width, r) * Balance.GREEN_SINK / 2)
+            m.pollution[i] = min(255, field[i] * (100 - taken) / 100).toByte()
+        }
+        for (i in 0 until m.size) if (field[i] == 0) m.pollution[i] = 0
     }
 
     /**
@@ -4122,14 +4295,15 @@ class City(
             b.closedDays = 0
             val worth = (0.5 + (map.landValue[map.index(b.x, b.y)].toInt() and 0xff) / 200.0) * open
             when {
-                b.type.zone == Zone.RESIDENTIAL -> homes += b.type.capacity * worth * Demography.TAX_BY_WEALTH[b.people?.wealth ?: Wealth.MIDDLE] / 100.0
-                b.type.office -> offices += b.type.capacity * worth
+                b.type.zone == Zone.RESIDENTIAL -> homes += b.type.capacity * worth * Demography.TAX_BY_WEALTH[b.people?.wealth ?: Wealth.MIDDLE] / 100.0 * taxOf(b, residentialTax) *
+                    (if (districtAt(map.index(b.x, b.y))?.rentControl == true) Balance.RENT_CONTROL_TAX / 100.0 else 1.0)
+                b.type.office -> offices += b.type.capacity * worth * taxOf(b, commercialTax)
                 b.type.zone == Zone.COMMERCIAL -> {
                     // A shop that has to bring in what it sells makes less, and one that can't get stock makes little.
                     val margin = if (shortOfStock(b)) Balance.NO_STOCK else 100 - (100 - b.local) * Balance.IMPORT_DRAG / 100
-                    shops += b.type.capacity * worth * margin / 100.0
+                    shops += b.type.capacity * worth * margin / 100.0 * taxOf(b, commercialTax)
                 }
-                b.type.zone == Zone.INDUSTRIAL || b.type.zone == Zone.FARMLAND -> works += b.type.capacity * worth
+                b.type.zone == Zone.INDUSTRIAL || b.type.zone == Zone.FARMLAND -> works += b.type.capacity * worth * taxOf(b, industrialTax)
                 b.type == BuildingType.POLICE_STATION -> police++
                 b.type == BuildingType.FIRE_STATION -> fire++
                 b.type == BuildingType.PARK -> parks++
@@ -4140,15 +4314,16 @@ class City(
                     BuildingType.NUCLEAR_PLANT -> Balance.NUCLEAR_PLANT_UPKEEP
                     BuildingType.SUBSTATION -> Balance.SUBSTATION_UPKEEP
                     else -> Balance.PLANT_UPKEEP
-                } + fuelCost(b)
+                } + fuelCost(b) + if (b.scrubbed) Balance.SCRUBBER_UPKEEP else 0.0
                 b.type.station -> stations++
                 b.type.yard -> yards++
             }
         }
-        s.residentialIncome = (homes * residentialTax * Balance.RESIDENT_TAX).roundToLong()
-        s.commercialIncome = (shops * commercialTax * Balance.JOB_TAX).roundToLong()
-        s.officeIncome = (offices * commercialTax * Balance.JOB_TAX * Balance.OFFICE_TAX).roundToLong()
-        s.industrialIncome = (works * industrialTax * Balance.JOB_TAX).roundToLong()
+        // Each building's tax is in its total already, its district's rate and all.
+        s.residentialIncome = (homes * Balance.RESIDENT_TAX).roundToLong()
+        s.commercialIncome = (shops * Balance.JOB_TAX).roundToLong()
+        s.officeIncome = (offices * Balance.JOB_TAX * Balance.OFFICE_TAX).roundToLong()
+        s.industrialIncome = (works * Balance.JOB_TAX).roundToLong()
         var roads = 0.0
         var lines = 0
         var highLines = 0
@@ -4171,7 +4346,8 @@ class City(
         s.policeUpkeep = (police * Balance.POLICE_UPKEEP * policeFunding / 100).roundToLong()
         s.fireUpkeep = (fire * Balance.FIRE_UPKEEP * fireFunding / 100).roundToLong()
         s.parkUpkeep = (parks * Balance.PARK_UPKEEP * parkFunding / 100).roundToLong()
-        s.fareIncome = (traffic.boardings() * Balance.FARE).roundToLong()
+        // Rides from stops with free fares bring in nothing.
+        s.fareIncome = (max(0, traffic.boardings() - traffic.lastFreeBoardings) * Balance.FARE).roundToLong()
         s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.officeIncome + s.fareIncome
         var tramTiles = 0
         var wires = 0
@@ -4378,6 +4554,15 @@ class City(
             w.count(line.stops.size)
             for (t in line.stops) w.int(t)
         }
+        // Since version 15.
+        w.layer(map.district)
+        w.int(nextDistrictId)
+        w.count(districts.size)
+        for (d in districts) d.writeTo(w)
+        // Since version 17.
+        val scrubbed = buildings.values.filter { it.scrubbed }
+        w.count(scrubbed.size)
+        for (b in scrubbed) w.int(b.id)
     }
 
     companion object {
@@ -4567,6 +4752,15 @@ class City(
                         c.lines += TransitLine(id, tram, stops, vehicles)
                     }
                     c.updateTransit()
+                }
+                if (version >= 15) {
+                    r.layer(m.district)
+                    c.nextDistrictId = r.int()
+                    repeat(r.count()) { c.districts += District.readFrom(r, version) }
+                    c.districtTraffic()
+                }
+                if (version >= 17) {
+                    repeat(r.count()) { c.buildings[r.int()]?.scrubbed = true }
                 }
                 c.updateNetworks()
             } else {

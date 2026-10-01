@@ -76,6 +76,9 @@ import com.rm.infill.res.event_tram_track_broken
 import com.rm.infill.res.event_wire_down
 import com.rm.infill.res.event_tunnel_shut
 import com.rm.infill.res.no_route
+import com.rm.infill.res.new_district
+import com.rm.infill.res.erase_district
+import com.rm.infill.res.districts
 import com.rm.infill.res.event_fire_damage
 import com.rm.infill.res.event_smog
 import com.rm.infill.res.event_dump_full
@@ -111,6 +114,11 @@ import com.rm.infill.sim.RoadType
 import com.rm.infill.ui.ServiceKind
 import com.rm.infill.ui.servicesIn
 import com.rm.infill.ui.powerKindsIn
+import com.rm.infill.sim.NEW_DISTRICT
+import com.rm.infill.ui.lineColour
+import com.rm.infill.ui.DISTRICT_LIST
+import com.rm.infill.ui.NamedPicker
+import com.rm.infill.ui.DistrictsWindow
 import com.rm.infill.sim.Action
 import com.rm.infill.sim.Stop
 import com.rm.infill.ui.LinesWindow
@@ -317,6 +325,9 @@ private fun GameScreen(
         // The stops of a line being planned, in order, and whether the list of lines is open.
         var lineDraft by remember { mutableStateOf(listOf<Int>()) }
         var linesOpen by remember { mutableStateOf(false) }
+        // Which district the districts tool paints into: a new one, none (erase), or one by id.
+        var districtChoice by remember { mutableIntStateOf(NEW_DISTRICT) }
+        var districtsOpen by remember { mutableStateOf(false) }
         var roadPipes by remember { mutableStateOf(false) }
         var speed by remember { mutableIntStateOf(1) }
         var drag by remember { mutableStateOf<ToolDrag?>(null) }
@@ -438,7 +449,7 @@ private fun GameScreen(
         // What the drag would do, worked out again as it moves.
         val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, game.revision) {
             drag?.let { d ->
-                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
+                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
             }
         }
         val costText = preview?.let {
@@ -514,8 +525,8 @@ private fun GameScreen(
         // Esc and the back button: let go of a drag, close what's open, put the tool down, then the menu.
         fun back() {
             when {
-                budgetOpen || graphsOpen || peopleOpen || linesOpen || eraShown != null -> {
-                    budgetOpen = false; graphsOpen = false; peopleOpen = false; linesOpen = false; eraShown = null
+                budgetOpen || graphsOpen || peopleOpen || linesOpen || districtsOpen || eraShown != null -> {
+                    budgetOpen = false; graphsOpen = false; peopleOpen = false; linesOpen = false; districtsOpen = false; eraShown = null
                 }
                 drag != null -> drag = null
                 choosingOverlay -> choosingOverlay = false
@@ -541,8 +552,14 @@ private fun GameScreen(
                     val kind = if (transitKind.line == 2) Stop.TRAM else Stop.BUS
                     if (city.map.stop[i].toInt() and kind != 0 && lineDraft.lastOrNull() != i) lineDraft = lineDraft + i
                 }
-                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind)
-                if (action != null) tell(game.apply(action).problem)
+                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice)
+                if (action != null) {
+                    val made = action is Action.PaintDistrict && action.id == NEW_DISTRICT
+                    val plan = game.apply(action)
+                    tell(plan.problem)
+                    // Once made, go on painting into the new district.
+                    if (made && plan.ok) city.districts.lastOrNull()?.let { districtChoice = it.id }
+                }
             },
             onToolCancel = { drag = null },
             onTap = { x, y -> if (tool == Tool.Inspect) inspected = x to y },
@@ -570,7 +587,7 @@ private fun GameScreen(
             }
         }
         // The keys come back to the map whenever a window or panel over it closes, which takes the focus with it.
-        val anyOpen = windowOpen || budgetOpen || graphsOpen || peopleOpen || linesOpen || eraShown != null || inspected != null
+        val anyOpen = windowOpen || budgetOpen || graphsOpen || peopleOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
         LaunchedEffect(anyOpen) { if (!anyOpen) focus.requestFocus() }
 
         BoxWithConstraints(
@@ -592,6 +609,7 @@ private fun GameScreen(
                             KeyAction.ToolServices -> pick(Tool.Services)
                             KeyAction.ToolTransit -> pick(Tool.Transit)
                             KeyAction.ToolTraffic -> pick(Tool.Traffic)
+                            KeyAction.ToolDistricts -> pick(Tool.Districts)
                             KeyAction.Budget -> budgetOpen = !budgetOpen
                             KeyAction.Graphs -> graphsOpen = !graphsOpen
                             KeyAction.People -> peopleOpen = !peopleOpen
@@ -622,6 +640,7 @@ private fun GameScreen(
                 game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, graphics, gestures, preview, costText, overlay,
                 underground = tool == Tool.Water || (tool == Tool.Transit && (transitKind == TransitKind.Subway || transitKind == TransitKind.Station)),
                 focus = inspected?.let { (x, y) -> city.map.index(x, y) } ?: -1,
+                districts = if (tool != Tool.Districts) emptyList() else { game.revision; city.districts.map { it.id to it.name } },
                 lines = if (tool != Tool.Transit) emptyList() else {
                     game.revision
                     val drawn = city.lines.mapNotNull { line -> city.lineState(line.id)?.takeIf { it.route.isNotEmpty() }?.let { line.id to it.route } }
@@ -707,6 +726,20 @@ private fun GameScreen(
                 if (tool == Tool.Bulldoze) {
                     OptionPicker(BulldozeKind.entries, bulldozeKind, { it.title }, { null }, { bulldozeKind = it }, compactTools)
                 }
+                if (tool == Tool.Districts) {
+                    game.revision
+                    // A district chosen that's since gone falls back to making a new one.
+                    if (districtChoice > 0 && city.districts.none { it.id == districtChoice }) districtChoice = NEW_DISTRICT
+                    val choices = listOf(NEW_DISTRICT, 0) + city.districts.map { it.id } + DISTRICT_LIST
+                    NamedPicker(choices, districtChoice, { id ->
+                        when (id) {
+                            NEW_DISTRICT -> stringResource(Res.string.new_district)
+                            0 -> stringResource(Res.string.erase_district)
+                            DISTRICT_LIST -> stringResource(Res.string.districts)
+                            else -> city.districts.firstOrNull { it.id == id }?.name ?: ""
+                        }
+                    }, { id -> if (id > 0) lineColour(id) else null }, { if (it == DISTRICT_LIST) districtsOpen = true else districtChoice = it }, compactTools)
+                }
                 if (tool == Tool.Traffic) {
                     OptionPicker(junctionKindsIn(city), junctionKind, { it.title }, { null }, { junctionKind = it }, compactTools)
                 }
@@ -759,6 +792,7 @@ private fun GameScreen(
             }
             if (budgetOpen) BudgetWindow(game) { budgetOpen = false }
             if (linesOpen) LinesWindow(game) { linesOpen = false }
+            if (districtsOpen) DistrictsWindow(game) { districtsOpen = false }
             if (graphsOpen) GraphsWindow(game) { graphsOpen = false }
             eraShown?.let { EraWindow(game, it) { eraShown = null } }
             if (peopleOpen) PeopleWindow(game, { peopleOpen = false; graphsOpen = true }) { peopleOpen = false }

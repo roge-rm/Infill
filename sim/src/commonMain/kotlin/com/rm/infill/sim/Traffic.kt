@@ -158,6 +158,18 @@ internal class Traffic(private val map: CityMap) {
     private var routes = IntList()
     private var lastRoutes = IntList()
 
+    /** Set by the city from its districts: stops boarded free, and streets heavy trucks are kept off. */
+    var freeStop = BooleanArray(map.size)
+    var noTrucks = BooleanArray(map.size)
+
+    /** Boardings this month and last at stops boarded free, which bring in no fares. */
+    private var freeBoardings = 0
+    var lastFreeBoardings = 0
+        private set
+
+    /** Whether the search now is a truck's, which keeps off [noTrucks] streets where it can. */
+    private var truck = false
+
     /** Snowed in by a blizzard: nothing on the roads moves but people on foot, and the subway and trains. */
     var snowedIn = false
 
@@ -247,6 +259,8 @@ internal class Traffic(private val map: CityMap) {
         }
         modes.copyInto(lastModes)
         modes.fill(0)
+        lastFreeBoardings = freeBoardings
+        freeBoardings = 0
         lastFlow = if (tookSeconds <= 0) 100 else (freeSeconds * 100 / tookSeconds).toInt().coerceIn(0, 100)
         freeSeconds = 0
         tookSeconds = 0
@@ -341,7 +355,13 @@ internal class Traffic(private val map: CityMap) {
                 c += cargo[g]
             }
             if (w + s > 0) send(origins[k], w, s, 0, car = false, null)
-            if (wCar + sCar + f + c > 0) send(origins[k], wCar, sCar, f, car = true, if (c > 0) cargo else null)
+            if (wCar + sCar > 0) send(origins[k], wCar, sCar, 0, car = true, null)
+            // Freight goes by truck, on its own way round.
+            if (f + c > 0) {
+                truck = true
+                send(origins[k], 0, 0, f, car = true, if (c > 0) cargo else null)
+                truck = false
+            }
         }
     }
 
@@ -508,10 +528,11 @@ internal class Traffic(private val map: CityMap) {
         if (tunnel >= 0 && net.subway[tunnel] >= 0) reach(state(SUBWAY, tunnel), d + net.subwayWait[net.subway[tunnel]], st)
         // In a blizzard nothing runs on the roads.
         if (snowedIn) return
-        // On at a stop a line calls at, after the wait for its next one.
-        if (net.tramStop[a] >= 0) reach(state(TRAM, a), d + net.tramStop[a], st)
-        if (net.trolleyStop[a] >= 0) reach(state(TROLLEY, a), d + net.trolleyStop[a], st)
-        if (net.busStop[a] >= 0) reach(state(BUS, a), d + net.busStop[a], st)
+        // On at a stop a line calls at, after the wait for its next one; a free ride is worth some of the wait.
+        val free = if (freeStop[a]) Balance.FREE_FARE_PULL else 0
+        if (net.tramStop[a] >= 0) reach(state(TRAM, a), d + max(0, net.tramStop[a] - free), st)
+        if (net.trolleyStop[a] >= 0) reach(state(TROLLEY, a), d + max(0, net.trolleyStop[a] - free), st)
+        if (net.busStop[a] >= 0) reach(state(BUS, a), d + max(0, net.busStop[a] - free), st)
     }
 
     /** Driving: along the roads the way they run, slowed by traffic. */
@@ -529,7 +550,9 @@ internal class Traffic(private val map: CityMap) {
             // As does digging it up.
             if (map.closed(b)) continue
             if (!canMove(map, a, b, h)) continue
-            reach(state(CAR, b), d + timeToCross(b, road), st)
+            // A truck keeps off streets it's banned from unless there's no other way.
+            val time = timeToCross(b, road)
+            reach(state(CAR, b), d + if (truck && noTrucks[b]) time * Balance.TRUCK_BAN_SLOW else time, st)
         }
     }
 
@@ -678,6 +701,7 @@ internal class Traffic(private val map: CityMap) {
                             TRAM -> Mode.TRAM
                             else -> Mode.SUBWAY
                         }
+                        if (rideLayer != SUBWAY && freeStop[rideTile]) freeBoardings += trips
                         if (network >= 0) {
                             val key = m.ordinal * 65536 + network
                             networkRiders[key] = (networkRiders[key] ?: 0) + trips

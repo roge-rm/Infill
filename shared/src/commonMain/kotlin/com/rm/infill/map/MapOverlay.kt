@@ -48,6 +48,8 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
         }
         // Lines are drawn as they're planned.
         is Action.AddLine, is Action.SetVehicles, is Action.RemoveLine -> {}
+        is Action.PaintDistrict -> rect(a.x0, a.y0, a.x1, a.y1, camera, PARK_FILL, PARK_EDGE)
+        is Action.SetDistrict, is Action.RemoveDistrict, is Action.FitScrubbers -> {}
         is Action.SetJunction -> {
             for (i in a.tiles) drawRect(ROAD_DRAG, at(i), tile)
             for (i in p.plan.changes) drawRect(LINE_FILL, at(i), tile)
@@ -159,5 +161,43 @@ internal fun DrawScope.drawLines(lines: List<Pair<Int, IntArray>>, map: CityMap,
         }
         drawPath(path, Color.Black.copy(alpha = 0.35f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = maxOf(3f, t * 0.16f), join = androidx.compose.ui.graphics.StrokeJoin.Round))
         drawPath(path, colour, style = androidx.compose.ui.graphics.drawscope.Stroke(width = maxOf(2f, t * 0.1f), join = androidx.compose.ui.graphics.StrokeJoin.Round))
+    }
+}
+
+/** Each district washed in its colour, edged where it ends, and its name across its middle. */
+internal fun DrawScope.drawDistricts(districts: List<Pair<Int, String>>, map: CityMap, camera: Camera, measurer: TextMeasurer) {
+    val t = camera.tilePx
+    val tile = Size(t, t)
+    val sumX = HashMap<Int, Long>()
+    val sumY = HashMap<Int, Long>()
+    val count = HashMap<Int, Int>()
+    val topLeft = camera.screenToTile(Offset.Zero, size)
+    val bottomRight = camera.screenToTile(Offset(size.width, size.height), size)
+    for (i in 0 until map.size) {
+        val id = map.district[i].toInt() and 0xff
+        if (id == 0) continue
+        val x = i % map.width
+        val y = i / map.width
+        sumX[id] = (sumX[id] ?: 0) + x
+        sumY[id] = (sumY[id] ?: 0) + y
+        count[id] = (count[id] ?: 0) + 1
+        if (x < topLeft.x - 1 || x > bottomRight.x + 1 || y < topLeft.y - 1 || y > bottomRight.y + 1) continue
+        val colour = com.rm.infill.ui.lineColour(id)
+        val at = camera.tileToScreen(x.toFloat(), y.toFloat(), size)
+        drawRect(colour.copy(alpha = 0.22f), at, tile)
+        val w = maxOf(1.5f, t * 0.08f)
+        fun other(dx: Int, dy: Int) = !map.inside(x + dx, y + dy) || (map.district[map.index(x + dx, y + dy)].toInt() and 0xff) != id
+        if (other(0, -1)) drawRect(colour, at, Size(t, w))
+        if (other(0, 1)) drawRect(colour, Offset(at.x, at.y + t - w), Size(t, w))
+        if (other(-1, 0)) drawRect(colour, at, Size(w, t))
+        if (other(1, 0)) drawRect(colour, Offset(at.x + t - w, at.y), Size(w, t))
+    }
+    for ((id, name) in districts) {
+        val n = count[id] ?: continue
+        val centre = camera.tileToScreen(sumX.getValue(id).toFloat() / n + 0.5f, sumY.getValue(id).toFloat() / n + 0.5f, size)
+        val text = measurer.measure(name, androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = androidx.compose.ui.unit.TextUnit(14f, androidx.compose.ui.unit.TextUnitType.Sp), fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold))
+        val box = Offset(centre.x - text.size.width / 2f, centre.y - text.size.height / 2f)
+        drawRoundRect(com.rm.infill.ui.lineColour(id).copy(alpha = 0.85f), Offset(box.x - 8f, box.y - 4f), Size(text.size.width + 16f, text.size.height + 8f), androidx.compose.ui.geometry.CornerRadius(8f))
+        drawText(text, topLeft = box)
     }
 }

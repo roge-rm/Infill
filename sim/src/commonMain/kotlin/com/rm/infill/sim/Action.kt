@@ -61,6 +61,18 @@ sealed interface Action {
         override fun hashCode() = tiles.contentHashCode()
     }
 
+    /** Paints the rectangle into district [id]: 0 takes it out of any, [NEW_DISTRICT] makes a new one. */
+    data class PaintDistrict(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val id: Int) : Action
+
+    /** District [id]'s policies set to [to], a copy with its changes. */
+    data class SetDistrict(val id: Int, val to: District) : Action
+
+    /** District [id] taken off the map. */
+    data class RemoveDistrict(val id: Int) : Action
+
+    /** Scrubbers fitted to the coal or oil station on [x], [y]. */
+    data class FitScrubbers(val x: Int, val y: Int) : Action
+
     /** Street trees along the roads on [tiles], given as map indices in order. */
     data class PlantStreetTrees(val tiles: IntArray) : Action {
         override fun equals(other: Any?) = other is PlantStreetTrees && tiles.contentEquals(other.tiles)
@@ -135,6 +147,9 @@ sealed interface Action {
 enum class Pipe(val price: Long) { WATER(15), SEWER(20), STORM(18) }
 
 /** Why an action, an undo or a redo can't go ahead. */
+/** The id a [Action.PaintDistrict] gives to make a new district. */
+const val NEW_DISTRICT = -1
+
 enum class Problem { NotEnoughMoney, NothingToDo, Blocked, TownBuiltThere, NeedsTrack, NeedsWater, NeedsTramTrack, NeedsTunnel, NoRoute }
 
 /**

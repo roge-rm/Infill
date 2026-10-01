@@ -1,5 +1,6 @@
 package com.rm.infill.ui
 
+import com.rm.infill.sim.Density
 import org.jetbrains.compose.resources.pluralStringResource
 import com.rm.infill.sim.Action
 import androidx.compose.foundation.Canvas
@@ -42,6 +43,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
+import com.rm.infill.res.free_fares
+import com.rm.infill.res.no_trucks
+import com.rm.infill.res.clean_works
+import com.rm.infill.res.rent_control
+import com.rm.infill.res.districts
+import com.rm.infill.res.no_districts
+import com.rm.infill.res.district_figures
+import com.rm.infill.res.district_value
+import com.rm.infill.res.district_taxes
+import com.rm.infill.res.tax_homes
+import com.rm.infill.res.tax_shops
+import com.rm.infill.res.tax_works
+import com.rm.infill.res.height_limit
+import com.rm.infill.res.height_none
+import com.rm.infill.res.keep_heritage
+import com.rm.infill.res.limit_parking
+import com.rm.infill.res.no_heavy_industry
+import com.rm.infill.res.yes
+import com.rm.infill.res.no
 import com.rm.infill.res.tram_line
 import com.rm.infill.res.bus_line
 import com.rm.infill.res.trolley_line
@@ -665,5 +685,69 @@ fun LinesWindow(game: GameState, onClose: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+/** Every district: its figures, and its policies to set. */
+@Composable
+fun DistrictsWindow(game: GameState, onClose: () -> Unit) {
+    val c = Infill.colors
+    game.revision
+    val city = game.city
+    Window(Res.string.districts, onClose) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (city.districts.isEmpty()) Text(stringResource(Res.string.no_districts), color = c.textDim, fontSize = 14.sp)
+            for (d in city.districts) {
+                fun set(change: (com.rm.infill.sim.District) -> Unit) {
+                    game.apply(Action.SetDistrict(d.id, d.copy().also(change)))
+                }
+                val f = city.districtFigures(d.id)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(lineColour(d.id)))
+                        Text(d.name, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        TextButton(stringResource(Res.string.remove), false) { game.apply(Action.RemoveDistrict(d.id)) }
+                    }
+                    Text(stringResource(Res.string.district_figures, groupThousands(f.people.toLong()), groupThousands(f.jobs.toLong())), color = c.textDim, fontSize = 13.sp)
+                    Text(
+                        stringResource(Res.string.district_value, level(f.landValue), level(f.crime), level(f.pollution)),
+                        color = c.textDim, fontSize = 13.sp,
+                    )
+                    Heading(Res.string.district_taxes)
+                    for ((k, label) in listOf(Res.string.tax_homes, Res.string.tax_shops, Res.string.tax_works).withIndex()) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(label), color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                            val range = com.rm.infill.sim.Balance.DISTRICT_TAX_RANGE
+                            StepButton("−", stringResource(Res.string.less)) { set { it.tax[k] = (it.tax[k] - 1).coerceAtLeast(-range) } }
+                            Text(
+                                if (d.tax[k] > 0) "+${d.tax[k]}" else if (d.tax[k] < 0) "−${-d.tax[k]}" else "0", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.widthIn(min = 40.dp).padding(horizontal = 6.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                            StepButton("+", stringResource(Res.string.more)) { set { it.tax[k] = (it.tax[k] + 1).coerceAtMost(range) } }
+                        }
+                    }
+                    Heading(Res.string.height_limit)
+                    Chips(listOf(Density.NONE, Density.LOW, Density.MEDIUM), d.height, {
+                        stringResource(if (it == Density.NONE) Res.string.height_none else densityName(it)!!)
+                    }) { h -> set { it.height = h } }
+                    Toggle(Res.string.keep_heritage, d.heritage) { v -> set { it.heritage = v } }
+                    Toggle(Res.string.limit_parking, d.parking) { v -> set { it.parking = v } }
+                    Toggle(Res.string.no_heavy_industry, d.lightIndustry) { v -> set { it.lightIndustry = v } }
+                    Toggle(Res.string.clean_works, d.cleanWorks) { v -> set { it.cleanWorks = v } }
+                    Toggle(Res.string.no_trucks, d.noTrucks) { v -> set { it.noTrucks = v } }
+                    Toggle(Res.string.free_fares, d.freeFares) { v -> set { it.freeFares = v } }
+                    Toggle(Res.string.rent_control, d.rentControl) { v -> set { it.rentControl = v } }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Toggle(label: StringResource, on: Boolean, change: (Boolean) -> Unit) {
+    val c = Infill.colors
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(label), color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        Chips(listOf(true, false), on, { stringResource(if (it) Res.string.yes else Res.string.no) }, change)
     }
 }

@@ -125,4 +125,56 @@ class EnvironmentTest {
         repeat(6) { c.month(); c.takeEvents { if (it.kind == EventKind.DumpFull) told++ } }
         assertEquals(1, told, "said once")
     }
+
+    /** The pollution at ([x], [y]) next month from a coal station at (20, 30), with [around] done to the land first. */
+    private fun smokeAt(x: Int, y: Int, around: (City) -> Unit = {}): Int {
+        val c = city()
+        c.apply(Action.PlaceBuilding(BuildingType.COAL_PLANT, 20, 30))
+        around(c)
+        c.month()
+        return c.map.pollution[c.i(x, y)].toInt() and 0xff
+    }
+
+    @Test
+    fun parksAndWoodsSoakUpPollution() {
+        val bare = smokeAt(23, 31)
+        val green = smokeAt(23, 31) { c -> c.apply(Action.PlaceParks(23, 29, 25, 33)) }
+        assertTrue(bare > 0)
+        assertTrue(green < bare, "$green beside a park, $bare without")
+        assertTrue(green >= bare * (100 - Balance.GREEN_SINK_MOST) / 100, "never more than half")
+    }
+
+    @Test
+    fun aGreenBeltBlocksPollution() {
+        // Across a belt of woods, from the station to the far side.
+        val open = smokeAt(24, 31)
+        val belt = smokeAt(24, 31) { c -> for (y in 25..36) c.map.terrain[c.i(22, y)] = Terrain.TREES }
+        assertTrue(belt < open * 60 / 100, "$belt past the belt, $open in the open")
+    }
+
+    @Test
+    fun scrubbersCleanAStationsSmoke() {
+        val raw = smokeAt(20, 30)
+        val c = city(year = 1975)
+        c.apply(Action.PlaceBuilding(BuildingType.COAL_PLANT, 20, 30))
+        val funds = c.funds
+        assertTrue(c.apply(Action.FitScrubbers(21, 31)).ok)
+        assertEquals(funds - Balance.SCRUBBER_PRICE, c.funds)
+        assertTrue(c.buildingAt(20, 30)!!.scrubbed)
+        c.undo()
+        assertTrue(!c.buildingAt(20, 30)!!.scrubbed)
+        c.redo()
+        assertTrue(c.buildingAt(20, 30)!!.scrubbed)
+        c.month()
+        val clean = c.map.pollution[c.i(20, 30)].toInt() and 0xff
+        assertTrue(clean < raw / 2, "$clean scrubbed, $raw not")
+        // Fitted once, and kept in a save.
+        assertEquals(Problem.NothingToDo, c.plan(Action.FitScrubbers(20, 30)).problem)
+        assertTrue(SaveGame.read(SaveGame.write(c)).buildingAt(20, 30)!!.scrubbed)
+        // Not before the 1970s, and only for coal and oil.
+        val early = City(3, 64, 64, TerrainOptions(water = 0, trees = 0, river = false))
+        City::class.java.getDeclaredField("funds").apply { isAccessible = true }.setLong(early, 100_000L)
+        early.apply(Action.PlaceBuilding(BuildingType.COAL_PLANT, 20, 30))
+        assertTrue(!early.plan(Action.FitScrubbers(20, 30)).ok)
+    }
 }

@@ -216,6 +216,9 @@ class Building(val id: Int, var type: BuildingType, val x: Int, val y: Int, val 
     /** Last month nobody took its garbage away. */
     var uncollected = false
 
+    /** For a coal or oil station, scrubbers fitted to clean its smoke. */
+    var scrubbed = false
+
     /** For a works on industrial land, what it makes: a [WorksKind]'s ordinal, or -1. */
     var kind = -1
 

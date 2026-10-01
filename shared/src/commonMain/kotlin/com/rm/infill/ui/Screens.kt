@@ -51,6 +51,7 @@ import com.rm.infill.map.imageBitmapOf
 import com.rm.infill.platform.AUTOSAVE
 import com.rm.infill.platform.Settings
 import com.rm.infill.platform.ThemeChoice
+import com.rm.infill.res.tool_districts
 import com.rm.infill.res.tool_traffic
 import com.rm.infill.res.disasters
 import com.rm.infill.res.disasters_off
@@ -318,6 +319,7 @@ private val ACTION_NAMES: Map<KeyAction, StringResource> = mapOf(
     KeyAction.ToolServices to Res.string.tool_services,
     KeyAction.ToolTransit to Res.string.tool_transit,
     KeyAction.ToolTraffic to Res.string.tool_traffic,
+    KeyAction.ToolDistricts to Res.string.tool_districts,
     KeyAction.Pause to Res.string.pause,
     KeyAction.Budget to Res.string.budget,
     KeyAction.Graphs to Res.string.graphs,

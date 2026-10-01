@@ -574,4 +574,27 @@
     <string name="overlay_line_load">Line load</string>
     <string name="inspect_line_load">Carrying %1$s MW at the peak</string>
     <string name="inspect_line_overloaded">Carrying %1$s MW at the peak, overloaded</string>
+    <string name="tool_districts">Districts</string>
+    <string name="new_district">New district</string>
+    <string name="erase_district">Erase</string>
+    <string name="districts">Districts</string>
+    <string name="no_districts">No districts yet</string>
+    <string name="district_figures">%1$s people, %2$s jobs</string>
+    <string name="district_value">Land value %1$s, crime %2$s, pollution %3$s</string>
+    <string name="district_taxes">Taxes against the town's</string>
+    <string name="tax_homes">Homes</string>
+    <string name="tax_shops">Shops and offices</string>
+    <string name="tax_works">Works</string>
+    <string name="height_limit">Height limit</string>
+    <string name="height_none">None</string>
+    <string name="keep_heritage">Keep heritage</string>
+    <string name="limit_parking">Limit parking</string>
+    <string name="no_heavy_industry">No heavy industry</string>
+    <string name="free_fares">Free fares</string>
+    <string name="scrubbers">Scrubbers</string>
+    <string name="inspect_scrubbed">Scrubbers fitted</string>
+    <string name="no_trucks">No heavy trucks</string>
+    <string name="clean_works">Pollution limit on works</string>
+    <string name="rent_control">Rent control</string>
+    <string name="inspect_district">District: %1$s</string>
 </resources>

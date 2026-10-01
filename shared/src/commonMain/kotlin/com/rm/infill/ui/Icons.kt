@@ -34,6 +34,7 @@ fun ToolIcon(tool: Tool, colour: Color, modifier: Modifier = Modifier) {
             Tool.Services -> civic(u, colour)
             Tool.Transit -> tram(u, colour)
             Tool.Traffic -> lights(u, colour)
+            Tool.Districts -> districtIcon(u, colour)
         }
     }
 }
@@ -235,6 +236,15 @@ private fun DrawScope.tram(u: Float, c: Color) {
     drawRect(c.copy(alpha = 0.35f), Offset(7 * u, 8 * u), Size(10 * u, 5 * u))
     drawCircle(c, 1.6f * u, Offset(8 * u, 21 * u))
     drawCircle(c, 1.6f * u, Offset(16 * u, 21 * u))
+}
+
+private fun DrawScope.districtIcon(u: Float, c: Color) {
+    // A map pin over a dashed boundary.
+    drawRect(c, Offset(3 * u, 9 * u), Size(18 * u, 12 * u), style = Stroke(1.6f * u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3 * u, 2 * u))))
+    drawCircle(c, 4 * u, Offset(12 * u, 7 * u))
+    val tip = Path().apply { moveTo(8.5f * u, 8.5f * u); lineTo(12 * u, 15 * u); lineTo(15.5f * u, 8.5f * u); close() }
+    drawPath(tip, c)
+    drawCircle(c.copy(alpha = 0.35f), 1.6f * u, Offset(12 * u, 7 * u))
 }
 
 private fun DrawScope.lights(u: Float, c: Color) {
