@@ -265,6 +265,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                     control == Junction.INTERCHANGE -> surface.blend(base + Atlas.JUNCTION + 2, dx, dy)
                     else -> surface.blend(base + Atlas.JUNCTION + control - Junction.STOP, dx, dy)
                 }
+                if (road != null && map.lane[i].toInt() != 0) lanes(surface, tx, ty, dx, dy, s)
                 if (road != null) transitOn(surface, base, i, tx, ty, dx, dy)
                 if (map.bank[i].toInt() != 0) embankment(surface, tx, ty, dx, dy, s, r.look == Atlas.SNOW)
                 if (rail && road != null) {
@@ -528,6 +529,24 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         return m
     }
 
+    /** A bus and tram lane: a red band along each kerb, the way the road runs, left off at crossings. */
+    private fun lanes(surface: BakeSurface, tx: Int, ty: Int, dx: Int, dy: Int, s: Int) {
+        val mask = roadMask(tx, ty)
+        val across = mask and 10 != 0 && mask and 5 == 0
+        val down = mask and 5 != 0 && mask and 10 == 0
+        if (!across && !down) return
+        val a = s * 22 / 100
+        val b = s * 66 / 100
+        val w = maxOf(1, s * 16 / 100)
+        if (across) {
+            surface.fill(dx, dy + a, s, w, LANE, LANE_ALPHA)
+            surface.fill(dx, dy + b, s, w, LANE, LANE_ALPHA)
+        } else {
+            surface.fill(dx + a, dy, w, s, LANE, LANE_ALPHA)
+            surface.fill(dx + b, dy, w, s, LANE, LANE_ALPHA)
+        }
+    }
+
     /** Tram track set in the street, and the stops at its kerb. */
     private fun transitOn(surface: BakeSurface, base: Int, i: Int, tx: Int, ty: Int, dx: Int, dy: Int) {
         if (map.tram[i].toInt() != 0) surface.blend(base + Atlas.TRAMWAY + tramMask(tx, ty), dx, dy)
@@ -716,6 +735,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
 
     companion object {
         /** Residential, commercial and industrial, as RGB: the edge and dots, and the pale wash over the ground. */
+        private const val LANE = 0xB8443A
+        private const val LANE_ALPHA = 190
         val ZONE_COLOURS = intArrayOf(0, 0x4CC23A, 0x3C78D7, 0xDCAA28, 0xA6703C, 0x9B5CC8)
         private val ZONE_WASHES = intArrayOf(0, 0xDDF7B8, 0xC4DAFF, 0xFFE9A6, 0xEBD7B4, 0xE6D4F2)
         private const val ZONE_WASH = 95

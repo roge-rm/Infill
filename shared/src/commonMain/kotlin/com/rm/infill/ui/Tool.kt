@@ -1,5 +1,9 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.tram_line
+import com.rm.infill.res.bus_line
+import com.rm.infill.res.bus_lane
+import com.rm.infill.res.lines
 import com.rm.infill.res.tool_traffic
 import com.rm.infill.res.junction_auto
 import com.rm.infill.res.junction_free
@@ -141,6 +145,12 @@ enum class TransitKind(
     val needs: BuildingType? = null,
     /** Overhead wire for trolleybuses, which has its own year. */
     val wire: Boolean = false,
+    /** A lane kept for buses and trams, dragged along a road. */
+    val lane: Boolean = false,
+    /** A line planned by tapping its stops in order: 1 for buses, 2 for trams. */
+    val line: Int = 0,
+    /** Opens the list of lines. */
+    val list: Boolean = false,
 ) {
     TramTrack(Res.string.tram_track),
     TramStop(Res.string.tram_stop, stop = Stop.TRAM),
@@ -150,6 +160,10 @@ enum class TransitKind(
     Wire(Res.string.trolley_wire, wire = true),
     Subway(Res.string.subway, needs = BuildingType.SUBWAY_STATION),
     Station(Res.string.subway_station, building = BuildingType.SUBWAY_STATION),
+    TramLine(Res.string.tram_line, line = 2),
+    BusLine(Res.string.bus_line, needs = BuildingType.BUS_GARAGE, line = 1),
+    Lane(Res.string.bus_lane, lane = true),
+    Lines(Res.string.lines, list = true),
     Remove(Res.string.remove_transit),
 }
 
@@ -306,6 +320,9 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             transit.stop != 0 -> Action.PlaceStop(x1, y1, transit.stop)
             transit == TransitKind.TramTrack -> Action.BuildTram(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             transit.wire -> Action.BuildWire(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
+            transit.lane -> Action.BuildLane(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
+            // Lines are made a stop at a time, and the list is a window.
+            transit.line != 0 || transit.list -> null
             transit == TransitKind.Subway -> Action.BuildSubway(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             else -> Action.RemoveTransit(x0, y0, x1, y1)
         }

@@ -59,21 +59,48 @@ object Fumes {
  * stations. The more depots or garages for the size of a network, the
  * shorter the wait, and crowding lengthens it again.
  */
+/**
+ * A planned transit line: buses or trams calling at [stops] in that order
+ * and back again, run by [vehicles] of them. A bus line under trolleybus
+ * wire the whole way runs trolleybuses.
+ */
+class TransitLine(val id: Int, val tram: Boolean, val stops: IntArray, var vehicles: Int) {
+    fun copy() = TransitLine(id, tram, stops.copyOf(), vehicles)
+}
+
+/** How a line is doing, as last worked out: whether it runs, as what, its round trip and wait, and the tiles it runs over. */
+class LineState(val mode: Mode, val running: Boolean, val roundTrip: Int, val wait: Int, val vehicles: Int, val route: IntArray)
+
 internal class TransitNetwork(private val map: CityMap) {
-    /** Each tile's tram network, bus network and subway network, -1 for none with a service. */
+    /**
+     * For each tile, a line of that kind running over it, -1 for none; and
+     * for the subway, the network. For drawing and inspect, and for whether
+     * a stop has a service.
+     */
     val tram = IntArray(map.size) { -1 }
     val bus = IntArray(map.size) { -1 }
     val trolley = IntArray(map.size) { -1 }
     val subway = IntArray(map.size) { -1 }
 
-    /** The wait to board, in seconds, by network. */
-    var tramWait = IntArray(0)
-        private set
-    var busWait = IntArray(0)
-        private set
-    var trolleyWait = IntArray(0)
-        private set
+    /** Which ways the lines of each kind run out of each tile: a bit for each heading. */
+    val tramDirs = ByteArray(map.size)
+    val busDirs = ByteArray(map.size)
+    val trolleyDirs = ByteArray(map.size)
+
+    /** At each stop, the shortest wait for a line of each kind calling there and that line's id, or -1. */
+    val tramStop = IntArray(map.size) { -1 }
+    val busStop = IntArray(map.size) { -1 }
+    val trolleyStop = IntArray(map.size) { -1 }
+    val tramStopLine = IntArray(map.size) { -1 }
+    val busStopLine = IntArray(map.size) { -1 }
+    val trolleyStopLine = IntArray(map.size) { -1 }
+
+    /** The subway's wait to board, by network. */
     var subwayWait = IntArray(0)
+        private set
+
+    /** Each line's state, by id. */
+    var lines: Map<Int, LineState> = emptyMap()
         private set
 
     /** Where the subway's stations are: the road tile each is reached from, and the tunnel under it. */
@@ -83,28 +110,79 @@ internal class TransitNetwork(private val map: CityMap) {
         private set
 
     /** Whether anything runs at all, so the trip search can skip what doesn't. */
-    val any get() = tramWait.isNotEmpty() || busWait.isNotEmpty() || trolleyWait.isNotEmpty() || subwayWait.isNotEmpty()
+    var any = false
+        private set
 
     /**
-     * Works the networks out again: [depots] and [garages] are the road or
-     * track tiles each depot or garage is joined at, [poweredGarages] those of
-     * garages with power, for trolleybuses, [stations] the road tile
-     * and tunnel tile of each powered subway station. [riders] is last month's
-     * riders by network kind and number, for crowding.
+     * Works the lines and networks out again: [lines] as planned, [depots]
+     * and [garages] the track or road tiles each depot or garage is joined
+     * at, [poweredGarages] those with power for trolleybuses, [stations] the
+     * road and tunnel tile of each powered subway station. [riders] is last
+     * month's riders by mode and line or network, for crowding.
      */
-    fun update(depots: List<Int>, garages: List<Int>, poweredGarages: List<Int>, stations: List<Pair<Int, Int>>, riders: (Int, Int) -> Int) {
-        tramWait = run {
-            val (count, tiles, served) = networks(tram, depots) { map.tram[it].toInt() != 0 && !map.out(it, Broken.TRAM) }
-            IntArray(count) { wait(Balance.TRAM_WAIT, tiles[it], served[it], Balance.TRACK_PER_DEPOT, riders(Mode.TRAM.ordinal, it), Balance.TRAM_CAPACITY) }
+    fun update(
+        lines: List<TransitLine>, depots: List<Int>, garages: List<Int>, poweredGarages: List<Int>, stations: List<Pair<Int, Int>>,
+        riders: (Int, Int) -> Int,
+    ) {
+        // Where a depot or garage can send its vehicles: the track, roads and wire joined to it.
+        val tramHome = IntArray(map.size)
+        val busHome = IntArray(map.size)
+        val wireHome = IntArray(map.size)
+        networks(tramHome, depots) { map.tram[it].toInt() != 0 && !map.out(it, Broken.TRAM) }
+        networks(busHome, garages) { map.road[it] != Road.NONE }
+        networks(wireHome, poweredGarages) { map.wire[it].toInt() != 0 && !map.out(it, Broken.WIRE) }
+
+        for (a in arrayOf(tram, bus, trolley, tramStop, busStop, trolleyStop, tramStopLine, busStopLine, trolleyStopLine)) a.fill(-1)
+        for (a in arrayOf(tramDirs, busDirs, trolleyDirs)) a.fill(0)
+
+        // How many each depot and garage can keep, shared out if the lines ask for more.
+        val tramRoom = depots.distinct().size * Balance.DEPOT_HOLDS
+        val busRoom = garages.distinct().size * Balance.GARAGE_HOLDS
+        val tramAsked = lines.filter { it.tram }.sumOf { it.vehicles }
+        val busAsked = lines.filter { !it.tram }.sumOf { it.vehicles }
+
+        val states = HashMap<Int, LineState>()
+        for (line in lines.sortedBy { it.id }) {
+            val stops = line.stops.filter { it in 0 until map.size && map.stop[it].toInt() and (if (line.tram) Stop.TRAM else Stop.BUS) != 0 }
+            val route = if (stops.size >= 2) route(stops, line.tram) else null
+            val home = if (line.tram) tramHome else busHome
+            val wired = !line.tram && route != null && route.all { map.wire[it].toInt() != 0 && !map.out(it, Broken.WIRE) } && wireHome[stops[0]] >= 0
+            val mode = if (line.tram) Mode.TRAM else if (wired) Mode.TROLLEY else Mode.BUS
+            val room = if (line.tram) tramRoom else busRoom
+            val asked = if (line.tram) tramAsked else busAsked
+            val vehicles = if (asked <= room) line.vehicles else line.vehicles * room / maxOf(1, asked)
+            if (route == null || home[stops[0]] < 0 || vehicles <= 0) {
+                states[line.id] = LineState(mode, false, 0, 0, vehicles, route ?: IntArray(0))
+                continue
+            }
+            var trip = 0
+            for (t in route) {
+                trip += if (line.tram) Balance.TRAM_TIME else (RoadType.of(map.road[t])?.time ?: Balance.WALK_TIME) + Balance.BUS_STOPPING
+            }
+            val headway = trip / vehicles
+            val perVehicle = if (line.tram) Balance.TRAM_VEHICLE_RIDERS else Balance.BUS_VEHICLE_RIDERS
+            val crowd = riders(mode.ordinal, line.id) / maxOf(1, vehicles * perVehicle)
+            val wait = maxOf(Balance.SHORTEST_WAIT, headway / 2 * (1 + minOf(crowd, 3)))
+            states[line.id] = LineState(mode, true, trip, wait, vehicles, route)
+            val (onTile, dirs, atStop, stopLine) = when (mode) {
+                Mode.TRAM -> Quad(tram, tramDirs, tramStop, tramStopLine)
+                Mode.TROLLEY -> Quad(trolley, trolleyDirs, trolleyStop, trolleyStopLine)
+                else -> Quad(bus, busDirs, busStop, busStopLine)
+            }
+            for (k in route.indices) {
+                val a = route[k]
+                if (onTile[a] < 0) onTile[a] = line.id
+                val b = route[(k + 1) % route.size]
+                val h = Heading.of(b % map.width - a % map.width, b / map.width - a / map.width).toInt()
+                if (h in 1..4) dirs[a] = (dirs[a].toInt() or (1 shl h)).toByte()
+            }
+            for (s in stops) if (atStop[s] < 0 || wait < atStop[s]) {
+                atStop[s] = wait
+                stopLine[s] = line.id
+            }
         }
-        busWait = run {
-            val (count, tiles, served) = networks(bus, garages) { map.road[it] != Road.NONE }
-            IntArray(count) { wait(Balance.BUS_WAIT, tiles[it], served[it], Balance.ROAD_PER_GARAGE, riders(Mode.BUS.ordinal, it), Balance.BUS_CAPACITY) }
-        }
-        trolleyWait = run {
-            val (count, tiles, served) = networks(trolley, poweredGarages) { map.wire[it].toInt() != 0 && !map.out(it, Broken.WIRE) }
-            IntArray(count) { wait(Balance.BUS_WAIT, tiles[it], served[it], Balance.ROAD_PER_GARAGE, riders(Mode.TROLLEY.ordinal, it), Balance.BUS_CAPACITY) }
-        }
+        this.lines = states
+
         val ends = stations.filter { map.subway[it.second].toInt() != 0 }
         subwayWait = run {
             val (count, tiles, served) = networks(subway, ends.map { it.second }) { map.subway[it].toInt() != 0 && !map.out(it, Broken.SUBWAY) }
@@ -112,6 +190,63 @@ internal class TransitNetwork(private val map: CityMap) {
         }
         stationRoad = IntArray(ends.size) { ends[it].first }
         stationTunnel = IntArray(ends.size) { ends[it].second }
+        any = states.values.any { it.running } || subwayWait.isNotEmpty()
+    }
+
+    private data class Quad(val a: IntArray, val b: ByteArray, val c: IntArray, val d: IntArray)
+
+    /**
+     * The tiles a line runs over, from its first stop through each in turn to
+     * the last and back again, the quickest way along track for trams and
+     * along the roads the way they run for buses; null if a leg can't be made.
+     */
+    fun route(stops: List<Int>, tram: Boolean): IntArray? {
+        val out = ArrayList<Int>()
+        val order = stops + stops.dropLast(1).reversed()
+        for (k in 0 until order.size - 1) {
+            val leg = leg(order[k], order[k + 1], tram) ?: return null
+            // Each leg starts where the last ended.
+            for (j in 0 until leg.size - 1) out += leg[j]
+        }
+        return out.toIntArray()
+    }
+
+    /** The shortest way from tile [a] to [b] for a tram or bus, [a] first and [b] last, or null. */
+    private fun leg(a: Int, b: Int, tram: Boolean): IntArray? {
+        if (a == b) return intArrayOf(a)
+        val from = IntArray(map.size) { -2 }
+        val queue = IntArray(map.size)
+        var head = 0
+        var tail = 0
+        queue[tail++] = a
+        from[a] = -1
+        while (head < tail) {
+            val i = queue[head++]
+            if (i == b) break
+            val x = i % map.width
+            val y = i / map.width
+            for (h in 1..4) {
+                val nx = x + Heading.DX[h]
+                val ny = y + Heading.DY[h]
+                if (!map.inside(nx, ny)) continue
+                val j = map.index(nx, ny)
+                if (from[j] != -2) continue
+                val ok = if (tram) map.tram[j].toInt() != 0 && !map.out(j, Broken.TRAM)
+                else map.road[j] != Road.NONE && !map.closed(j) && Traffic.canMove(map, i, j, h)
+                if (!ok) continue
+                from[j] = i
+                queue[tail++] = j
+            }
+        }
+        if (from[b] == -2) return null
+        val path = ArrayList<Int>()
+        var i = b
+        while (i != -1) {
+            path += i
+            i = from[i]
+        }
+        path.reverse()
+        return path.toIntArray()
     }
 
     /** The wait: [base] for a well served network, longer the more [tiles] each of its [served] serves, and longer when [riders] crowd its [capacity]. */

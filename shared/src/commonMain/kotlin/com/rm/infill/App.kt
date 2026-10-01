@@ -75,6 +75,7 @@ import com.rm.infill.ui.BulldozeKind
 import com.rm.infill.res.event_tram_track_broken
 import com.rm.infill.res.event_wire_down
 import com.rm.infill.res.event_tunnel_shut
+import com.rm.infill.res.no_route
 import com.rm.infill.res.event_fire_damage
 import com.rm.infill.res.event_smog
 import com.rm.infill.res.event_gale
@@ -109,6 +110,10 @@ import com.rm.infill.sim.RoadType
 import com.rm.infill.ui.ServiceKind
 import com.rm.infill.ui.servicesIn
 import com.rm.infill.ui.powerKindsIn
+import com.rm.infill.sim.Action
+import com.rm.infill.sim.Stop
+import com.rm.infill.ui.LinesWindow
+import com.rm.infill.ui.LineDraftBar
 import com.rm.infill.ui.JunctionKind
 import com.rm.infill.ui.junctionKindsIn
 import com.rm.infill.ui.PeopleWindow
@@ -308,6 +313,9 @@ private fun GameScreen(
         var waterKind by remember { mutableStateOf(WaterKind.Main) }
         var transitKind by remember { mutableStateOf(TransitKind.TramTrack) }
         var junctionKind by remember { mutableStateOf(JunctionKind.Lights) }
+        // The stops of a line being planned, in order, and whether the list of lines is open.
+        var lineDraft by remember { mutableStateOf(listOf<Int>()) }
+        var linesOpen by remember { mutableStateOf(false) }
         var roadPipes by remember { mutableStateOf(false) }
         var speed by remember { mutableIntStateOf(1) }
         var drag by remember { mutableStateOf<ToolDrag?>(null) }
@@ -462,8 +470,10 @@ private fun GameScreen(
                 junctionKind = kinds[(kinds.indexOf(junctionKind) + 1) % kinds.size]
             }
             if (t == Tool.Transit && tool == Tool.Transit) {
-                val kinds = transitKindsIn(city)
+                // The list of lines is a window, not something to put down: the key steps past it.
+                val kinds = transitKindsIn(city).filter { !it.list }
                 transitKind = kinds[(kinds.indexOf(transitKind) + 1) % kinds.size]
+                lineDraft = emptyList()
             }
             if (t == Tool.Services && tool == Tool.Services) {
                 val services = servicesIn(city)
@@ -483,6 +493,7 @@ private fun GameScreen(
                 Problem.NeedsWater -> Message(Res.string.needs_water)
                 Problem.NeedsTramTrack -> Message(Res.string.needs_tram_track)
                 Problem.NeedsTunnel -> Message(Res.string.needs_tunnel)
+                Problem.NoRoute -> Message(Res.string.no_route)
                 else -> message
             }
         }
@@ -501,7 +512,9 @@ private fun GameScreen(
         // Esc and the back button: let go of a drag, close what's open, put the tool down, then the menu.
         fun back() {
             when {
-                budgetOpen || graphsOpen || peopleOpen || eraShown != null -> { budgetOpen = false; graphsOpen = false; peopleOpen = false; eraShown = null }
+                budgetOpen || graphsOpen || peopleOpen || linesOpen || eraShown != null -> {
+                    budgetOpen = false; graphsOpen = false; peopleOpen = false; linesOpen = false; eraShown = null
+                }
                 drag != null -> drag = null
                 choosingOverlay -> choosingOverlay = false
                 inspected != null -> inspected = null
@@ -520,6 +533,12 @@ private fun GameScreen(
             onToolUp = {
                 val d = drag
                 drag = null
+                // Planning a line: each stop of its kind tapped joins it, in order.
+                if (d != null && tool == Tool.Transit && transitKind.line != 0) {
+                    val i = city.map.index(d.x1, d.y1)
+                    val kind = if (transitKind.line == 2) Stop.TRAM else Stop.BUS
+                    if (city.map.stop[i].toInt() and kind != 0 && lineDraft.lastOrNull() != i) lineDraft = lineDraft + i
+                }
                 val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind)
                 if (action != null) tell(game.apply(action).problem)
             },
@@ -549,7 +568,7 @@ private fun GameScreen(
             }
         }
         // The keys come back to the map whenever a window or panel over it closes, which takes the focus with it.
-        val anyOpen = windowOpen || budgetOpen || graphsOpen || peopleOpen || eraShown != null || inspected != null
+        val anyOpen = windowOpen || budgetOpen || graphsOpen || peopleOpen || linesOpen || eraShown != null || inspected != null
         LaunchedEffect(anyOpen) { if (!anyOpen) focus.requestFocus() }
 
         BoxWithConstraints(
@@ -601,6 +620,12 @@ private fun GameScreen(
                 game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, graphics, gestures, preview, costText, overlay,
                 underground = tool == Tool.Water || (tool == Tool.Transit && (transitKind == TransitKind.Subway || transitKind == TransitKind.Station)),
                 focus = inspected?.let { (x, y) -> city.map.index(x, y) } ?: -1,
+                lines = if (tool != Tool.Transit) emptyList() else {
+                    game.revision
+                    val drawn = city.lines.mapNotNull { line -> city.lineState(line.id)?.takeIf { it.route.isNotEmpty() }?.let { line.id to it.route } }
+                    val draft = city.routeFor(lineDraft, transitKind.line == 2)
+                    if (draft != null) drawn + (0 to draft) else drawn
+                },
                 modifier = Modifier.fillMaxSize(),
             )
 
@@ -683,8 +708,21 @@ private fun GameScreen(
                 if (tool == Tool.Traffic) {
                     OptionPicker(junctionKindsIn(city), junctionKind, { it.title }, { null }, { junctionKind = it }, compactTools)
                 }
+                if (tool == Tool.Transit && transitKind.line != 0) {
+                    val tram = transitKind.line == 2
+                    LineDraftBar(lineDraft.size, tram, { lineDraft = emptyList() }) {
+                        tell(game.apply(Action.AddLine(tram, lineDraft.toIntArray(), city.suggestedVehicles(lineDraft, tram))).problem)
+                        lineDraft = emptyList()
+                    }
+                }
                 if (tool == Tool.Transit) {
-                    OptionPicker(transitKindsIn(city), transitKind, { it.title }, { null }, { transitKind = it }, compactTools)
+                    OptionPicker(transitKindsIn(city), transitKind, { it.title }, { null }, {
+                        if (it.list) linesOpen = true
+                        else {
+                            if (it != transitKind) lineDraft = emptyList()
+                            transitKind = it
+                        }
+                    }, compactTools)
                 }
                 if (tool == Tool.Services) {
                     OptionPicker(servicesIn(city), serviceKind, { it.title }, { null }, { serviceKind = it }, compactTools)
@@ -718,6 +756,7 @@ private fun GameScreen(
                 )
             }
             if (budgetOpen) BudgetWindow(game) { budgetOpen = false }
+            if (linesOpen) LinesWindow(game) { linesOpen = false }
             if (graphsOpen) GraphsWindow(game) { graphsOpen = false }
             eraShown?.let { EraWindow(game, it) { eraShown = null } }
             if (peopleOpen) PeopleWindow(game, { peopleOpen = false; graphsOpen = true }) { peopleOpen = false }

@@ -43,6 +43,24 @@ sealed interface Action {
         override fun hashCode() = tiles.contentHashCode() * 31 + control
     }
 
+    /** A new line for trams or buses calling at [stops], map indices in order, run by [vehicles]. */
+    data class AddLine(val tram: Boolean, val stops: IntArray, val vehicles: Int) : Action {
+        override fun equals(other: Any?) = other is AddLine && tram == other.tram && vehicles == other.vehicles && stops.contentEquals(other.stops)
+        override fun hashCode() = stops.contentHashCode() * 31 + vehicles
+    }
+
+    /** Line [id] run by [vehicles]; bought if more, the rest sold back if fewer. */
+    data class SetVehicles(val id: Int, val vehicles: Int) : Action
+
+    /** Line [id] taken off, its vehicles sold. */
+    data class RemoveLine(val id: Int) : Action
+
+    /** A lane kept for buses and trams along the roads on [tiles], map indices in order. */
+    data class BuildLane(val tiles: IntArray) : Action {
+        override fun equals(other: Any?) = other is BuildLane && tiles.contentEquals(other.tiles)
+        override fun hashCode() = tiles.contentHashCode()
+    }
+
     /** Street trees along the roads on [tiles], given as map indices in order. */
     data class PlantStreetTrees(val tiles: IntArray) : Action {
         override fun equals(other: Any?) = other is PlantStreetTrees && tiles.contentEquals(other.tiles)
@@ -117,7 +135,7 @@ sealed interface Action {
 enum class Pipe(val price: Long) { WATER(15), SEWER(20), STORM(18) }
 
 /** Why an action, an undo or a redo can't go ahead. */
-enum class Problem { NotEnoughMoney, NothingToDo, Blocked, TownBuiltThere, NeedsTrack, NeedsWater, NeedsTramTrack, NeedsTunnel }
+enum class Problem { NotEnoughMoney, NothingToDo, Blocked, TownBuiltThere, NeedsTrack, NeedsWater, NeedsTramTrack, NeedsTunnel, NoRoute }
 
 /**
  * What an action would do: its [cost], the tiles it [changes] and the ones it

@@ -93,6 +93,7 @@ class City(
         val changes = ArrayList<Int>()
         val blocked = ArrayList<Int>()
         var cost = 0L
+        var noRoute = false
         val m = map
         when (action) {
             is Action.BuildRoad -> {
@@ -159,6 +160,38 @@ class City(
                     }
                 }
             }
+            is Action.AddLine -> {
+                val kind = if (action.tram) Stop.TRAM else Stop.BUS
+                val stops = action.stops.filter { inMap(it) && m.stop[it].toInt() and kind != 0 }
+                if (stops.size >= 2 && stops.size == action.stops.size) {
+                    changes += stops.distinct()
+                    cost += vehiclePrice(action.tram) * action.vehicles
+                    if (transit.route(stops, action.tram) == null) noRoute = true
+                }
+            }
+            is Action.SetVehicles -> lines.firstOrNull { it.id == action.id }?.let { line ->
+                if (action.vehicles != line.vehicles && action.vehicles >= 1) {
+                    changes += line.stops[0]
+                    // Buying more costs; selling some brings in half.
+                    val more = (action.vehicles - line.vehicles).toLong()
+                    cost += vehiclePrice(line.tram) * if (more > 0) more else more / 2
+                }
+            }
+            is Action.RemoveLine -> lines.firstOrNull { it.id == action.id }?.let { line ->
+                changes += line.stops[0]
+                cost -= vehiclePrice(line.tram) * line.vehicles / 2
+            }
+            is Action.BuildLane -> for (i in action.tiles) {
+                when {
+                    !inMap(i) -> {}
+                    m.road[i] == Road.NONE -> blocked += i
+                    m.lane[i].toInt() != 0 -> {}
+                    else -> {
+                        changes += i
+                        cost += Balance.LANE_PRICE
+                    }
+                }
+            }
             is Action.PlantStreetTrees -> for (i in action.tiles) {
                 when {
                     !inMap(i) -> {}
@@ -221,7 +254,7 @@ class City(
                 }
             }
             is Action.RemoveTransit -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
-                if (m.tram[i].toInt() != 0 || m.wire[i].toInt() != 0 || m.stop[i].toInt() != 0 || m.subway[i].toInt() != 0) {
+                if (m.tram[i].toInt() != 0 || m.wire[i].toInt() != 0 || m.stop[i].toInt() != 0 || m.subway[i].toInt() != 0 || m.lane[i].toInt() != 0) {
                     changes += i
                     cost += Prices.REMOVE_TRANSIT
                 }
@@ -368,6 +401,7 @@ class City(
             action is Action.PlaceBuilding && action.type == BuildingType.SUBWAY_STATION && m.inside(action.x, action.y) &&
                 m.subway[m.index(action.x, action.y)].toInt() == 0 -> Problem.NeedsTunnel
             changes.isEmpty() -> Problem.NothingToDo
+            noRoute -> Problem.NoRoute
             cost > funds -> Problem.NotEnoughMoney
             else -> null
         }
@@ -625,6 +659,9 @@ class City(
         val transitAfter: LongArray,
         val fixBefore: IntArray,
         val fixAfter: IntArray,
+        /** The transit lines before and after. */
+        val linesBefore: List<TransitLine>,
+        val linesAfter: List<TransitLine>,
     )
 
     private val undoable = ArrayDeque<Edit>()
@@ -642,6 +679,7 @@ class City(
         val laidBefore = LongArray(plan.changes.size) { m.tileLaid(plan.changes[it]) }
         val transitBefore = LongArray(plan.changes.size) { m.tileTransitLaid(plan.changes[it]) }
         val fixBefore = IntArray(plan.changes.size) { m.tileFix(plan.changes[it]) }
+        val linesBefore = lines.map { it.copy() }
         val now = monthNow
         var queued = 0
         val added = ArrayList<Building>()
@@ -696,6 +734,10 @@ class City(
                 m.tramLaid[i] = now.toShort()
             }
             is Action.PlantStreetTrees -> for (i in plan.changes) m.streetTrees[i] = 1
+            is Action.AddLine -> lines += TransitLine(nextLineId++, action.tram, action.stops.copyOf(), action.vehicles)
+            is Action.SetVehicles -> lines.firstOrNull { it.id == action.id }?.vehicles = action.vehicles
+            is Action.RemoveLine -> lines.removeAll { it.id == action.id }
+            is Action.BuildLane -> for (i in plan.changes) m.lane[i] = 1
             is Action.SetJunction -> for (i in plan.changes) m.junction[i] = action.control
             is Action.BuildWire -> for (i in plan.changes) {
                 if (m.wire[i].toInt() != 0) startWorks(i, Broken.WIRE, queued++ / Balance.WORKS_PER_DAY)
@@ -724,6 +766,7 @@ class City(
                 startWorks(i, bits, queued++ / Balance.WORKS_PER_DAY)
             }
             is Action.RemoveTransit -> for (i in plan.changes) {
+                m.lane[i] = 0
                 m.tram[i] = 0
                 m.wire[i] = 0
                 m.stop[i] = 0
@@ -778,6 +821,7 @@ class City(
                 // The tram track, wire, stops, street trees and the crossing's control go with the road.
                 m.streetTrees[i] = 0
                 m.junction[i] = Junction.AUTO
+                m.lane[i] = 0
                 m.tram[i] = 0
                 m.wire[i] = 0
                 m.tramLaid[i] = 0
@@ -811,6 +855,7 @@ class City(
                 laidBefore, LongArray(plan.changes.size) { m.tileLaid(plan.changes[it]) },
                 transitBefore, LongArray(plan.changes.size) { m.tileTransitLaid(plan.changes[it]) },
                 fixBefore, IntArray(plan.changes.size) { m.tileFix(plan.changes[it]) },
+                linesBefore, lines.map { it.copy() },
             ),
         )
         if (undoable.size > MAX_UNDO) undoable.removeFirst()
@@ -819,6 +864,8 @@ class City(
         railChanged = true
         zonesChanged = true
         updateJunctions()
+        // Lines show and run at once.
+        if (action is Action.AddLine || action is Action.SetVehicles || action is Action.RemoveLine) updateTransit()
         return plan
     }
 
@@ -846,6 +893,9 @@ class City(
         }
         restamp(e.tiles)
         updateJunctions()
+        lines.clear()
+        lines += e.linesBefore.map { it.copy() }
+        updateTransit()
         funds += e.cost
         redoable.addLast(e)
         networksChanged()
@@ -874,6 +924,9 @@ class City(
         }
         restamp(e.tiles)
         updateJunctions()
+        lines.clear()
+        lines += e.linesAfter.map { it.copy() }
+        updateTransit()
         funds -= e.cost
         undoable.addLast(e)
         networksChanged()
@@ -2426,8 +2479,58 @@ class City(
                 else -> {}
             }
         }
-        transit.update(depots, garages, poweredGarages, stations) { mode, net -> traffic.ridersOn(mode, net) }
+        transit.update(lines, depots, garages, poweredGarages, stations) { mode, net -> traffic.ridersOn(mode, net) }
         traffic.useTransit(transit)
+    }
+
+    /** The planned transit lines, in the order they were made. */
+    val lines = ArrayList<TransitLine>()
+    private var nextLineId = 1
+
+    /** How line [id] is doing, as last worked out, or null if there's no such line. */
+    fun lineState(id: Int): LineState? = transit.lines[id]
+
+    /** Last month's riders boarding line [id]. */
+    fun lineRiders(id: Int): Int = transit.lines[id]?.let { traffic.ridersOn(it.mode.ordinal, id) } ?: 0
+
+    /** The lines calling at the stop on tile [i]. */
+    fun linesAt(i: Int): List<TransitLine> = lines.filter { i in it.stops }
+
+    /** The tiles a line through [stops] would run over, or null if it can't be made. For drawing one as it's planned. */
+    fun routeFor(stops: List<Int>, tram: Boolean): IntArray? = if (stops.size < 2) null else transit.route(stops, tram)
+
+    private fun vehiclePrice(tram: Boolean) = if (tram) Balance.TRAM_PRICE else Balance.BUS_PRICE
+
+    /** Enough vehicles for a line through [stops] to come every few minutes. */
+    fun suggestedVehicles(stops: List<Int>, tram: Boolean): Int {
+        val route = routeFor(stops, tram) ?: return 2
+        var trip = 0
+        for (t in route) trip += if (tram) Balance.TRAM_TIME else (RoadType.of(map.road[t])?.time ?: Balance.WALK_TIME) + Balance.BUS_STOPPING
+        return (trip / (Balance.AIMED_WAIT * 2)).coerceIn(2, if (tram) Balance.DEPOT_HOLDS else Balance.GARAGE_HOLDS)
+    }
+
+    /**
+     * Lines for a town planned before there were lines: its stops, a few at
+     * a time, nearest to nearest along the track or roads.
+     */
+    private fun autoLines() {
+        for (tram in listOf(true, false)) {
+            val kind = if (tram) Stop.TRAM else Stop.BUS
+            val stops = (0 until map.size).filter { map.stop[it].toInt() and kind != 0 }.toMutableList()
+            while (stops.isNotEmpty()) {
+                var at = stops.removeAt(0)
+                val run = arrayListOf(at)
+                while (run.size < Balance.AUTO_LINE_STOPS && stops.isNotEmpty()) {
+                    val here = at
+                    val next = stops.minByOrNull { kotlin.math.abs(it % map.width - here % map.width) + kotlin.math.abs(it / map.width - here / map.width) }!!
+                    if (transit.route(listOf(here, next), tram) == null) break
+                    stops.remove(next)
+                    run += next
+                    at = next
+                }
+                if (run.size >= 2) lines += TransitLine(nextLineId++, tram, run.toIntArray(), maxOf(2, run.size / 2))
+            }
+        }
     }
 
     /** Which tram, bus and subway network each tile's on, -1 for none with a service. For drawing and inspect. */
@@ -4083,7 +4186,12 @@ class City(
             BuildingType.SUBWAY_STATION -> Balance.SUBWAY_STATION_UPKEEP
             else -> 0.0
         }
-        s.transitUpkeep = (tramTiles * Balance.TRAM_TRACK_UPKEEP + wires * Balance.WIRE_UPKEEP + tunnels * Balance.TUNNEL_UPKEEP + stops * Balance.STOP_UPKEEP + transitWorks).roundToLong()
+        var vehicles = 0.0
+        for (line in this.lines) vehicles += line.vehicles * if (line.tram) Balance.TRAM_VEHICLE_UPKEEP else Balance.BUS_VEHICLE_UPKEEP
+        var lanes = 0
+        for (i in 0 until map.size) lanes += map.lane[i]
+        s.transitUpkeep = (tramTiles * Balance.TRAM_TRACK_UPKEEP + wires * Balance.WIRE_UPKEEP + tunnels * Balance.TUNNEL_UPKEEP + stops * Balance.STOP_UPKEEP +
+            transitWorks + vehicles + lanes * Balance.LANE_UPKEEP).roundToLong()
         s.floodCost = floodBill
         floodBill = 0
         s.repairCost = repairBill
@@ -4247,6 +4355,15 @@ class City(
         w.layer(map.junction); w.layer(map.control)
         // Since version 13.
         traffic.writeFlow(w); w.int(s.flow)
+        // Since version 14.
+        w.layer(map.lane)
+        w.int(nextLineId)
+        w.count(lines.size)
+        for (line in lines) {
+            w.int(line.id); w.bool(line.tram); w.int(line.vehicles)
+            w.count(line.stops.size)
+            for (t in line.stops) w.int(t)
+        }
     }
 
     companion object {
@@ -4425,6 +4542,18 @@ class City(
                 if (version >= 13) {
                     c.traffic.readFlow(r); s.flow = r.int()
                 }
+                if (version >= 14) {
+                    r.layer(m.lane)
+                    c.nextLineId = r.int()
+                    repeat(r.count()) {
+                        val id = r.int()
+                        val tram = r.bool()
+                        val vehicles = r.int()
+                        val stops = IntArray(r.count()) { r.int() }
+                        c.lines += TransitLine(id, tram, stops, vehicles)
+                    }
+                    c.updateTransit()
+                }
                 c.updateNetworks()
             } else {
                 // Before ageing nothing kept its age: count everything as laid half the town's life ago.
@@ -4444,6 +4573,11 @@ class City(
                     if (c.year < next.year || c.goals(next).any { !it.met }) break
                     c.era = next
                 }
+            }
+            if (version < 14) {
+                // Before lines: the stops the depots and garages served, made into lines.
+                c.autoLines()
+                c.updateTransit()
             }
             if (version < 10) {
                 // Before goods: seams in the ground away from the town, and its works making a bit of everything.

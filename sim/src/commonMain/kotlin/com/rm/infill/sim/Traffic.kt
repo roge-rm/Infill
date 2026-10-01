@@ -237,7 +237,7 @@ internal class Traffic(private val map: CityMap) {
         volume.fill(0)
         for (i in 0 until map.size) {
             val road = RoadType.of(map.road[i])
-            map.congestion[i] = if (road == null) 0 else min(255, (lastVolume[i] + (busVolume[i] + trolleyVolume[i]) / BUS_RIDERS) * 128 / road.capacity).toByte()
+            map.congestion[i] = if (road == null) 0 else min(255, (lastVolume[i] + (busVolume[i] + trolleyVolume[i]) / BUS_RIDERS) * 128 / capacity(i, road)).toByte()
         }
         footfall.copyInto(lastFootfall)
         footfall.fill(0)
@@ -508,11 +508,10 @@ internal class Traffic(private val map: CityMap) {
         if (tunnel >= 0 && net.subway[tunnel] >= 0) reach(state(SUBWAY, tunnel), d + net.subwayWait[net.subway[tunnel]], st)
         // In a blizzard nothing runs on the roads.
         if (snowedIn) return
-        val stops = map.stop[a].toInt()
-        if (stops and Stop.TRAM != 0 && net.tram[a] >= 0) reach(state(TRAM, a), d + net.tramWait[net.tram[a]], st)
-        // Under the wire the buses are trolleybuses; elsewhere they're diesel.
-        if (stops and Stop.BUS != 0 && net.trolley[a] >= 0) reach(state(TROLLEY, a), d + net.trolleyWait[net.trolley[a]], st)
-        else if (stops and Stop.BUS != 0 && net.bus[a] >= 0) reach(state(BUS, a), d + net.busWait[net.bus[a]], st)
+        // On at a stop a line calls at, after the wait for its next one.
+        if (net.tramStop[a] >= 0) reach(state(TRAM, a), d + net.tramStop[a], st)
+        if (net.trolleyStop[a] >= 0) reach(state(TROLLEY, a), d + net.trolleyStop[a], st)
+        if (net.busStop[a] >= 0) reach(state(BUS, a), d + net.busStop[a], st)
     }
 
     /** Driving: along the roads the way they run, slowed by traffic. */
@@ -534,9 +533,9 @@ internal class Traffic(private val map: CityMap) {
         }
     }
 
-    /** On a diesel bus: along its network's roads with the traffic, a stop's time added, never under the wire; off again at a bus stop. */
+    /** On a bus: along its line with the traffic, or past it in a bus lane, a stop's time added; off again at a stop it calls at. */
     private fun busFrom(a: Int, d: Int, st: Int, net: TransitNetwork) {
-        if (map.stop[a].toInt() and Stop.BUS != 0) reach(state(WALK, a), d, st)
+        if (net.busStop[a] >= 0) reach(state(WALK, a), d, st)
         val x = a % map.width
         val y = a / map.width
         for (h in 1..4) {
@@ -544,17 +543,16 @@ internal class Traffic(private val map: CityMap) {
             val ny = y + Heading.DY[h]
             if (!map.inside(nx, ny)) continue
             val b = ny * map.width + nx
-            if (net.bus[b] != net.bus[a] || net.trolley[b] >= 0) continue
+            if (net.busDirs[a].toInt() and (1 shl h) == 0) continue
             val road = RoadType.of(map.road[b]) ?: continue
             if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE || map.closed(b)) continue
-            if (!canMove(map, a, b, h)) continue
-            reach(state(BUS, b), d + timeToCross(b, road) + Balance.BUS_STOPPING, st)
+            reach(state(BUS, b), d + busTime(b, road) + Balance.BUS_STOPPING, st)
         }
     }
 
-    /** On a trolleybus: along its wire with the traffic, a stop's time added; off again at a bus stop. */
+    /** On a trolleybus: along its line under the wire with the traffic, or past it in a bus lane; off again at a stop it calls at. */
     private fun trolleyFrom(a: Int, d: Int, st: Int, net: TransitNetwork) {
-        if (map.stop[a].toInt() and Stop.BUS != 0) reach(state(WALK, a), d, st)
+        if (net.trolleyStop[a] >= 0) reach(state(WALK, a), d, st)
         val x = a % map.width
         val y = a / map.width
         for (h in 1..4) {
@@ -562,17 +560,16 @@ internal class Traffic(private val map: CityMap) {
             val ny = y + Heading.DY[h]
             if (!map.inside(nx, ny)) continue
             val b = ny * map.width + nx
-            if (net.trolley[b] != net.trolley[a]) continue
+            if (net.trolleyDirs[a].toInt() and (1 shl h) == 0) continue
             val road = RoadType.of(map.road[b]) ?: continue
             if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE || map.closed(b)) continue
-            if (!canMove(map, a, b, h)) continue
-            reach(state(TROLLEY, b), d + timeToCross(b, road) + Balance.BUS_STOPPING, st)
+            reach(state(TROLLEY, b), d + busTime(b, road) + Balance.BUS_STOPPING, st)
         }
     }
 
-    /** On a tram: along its track, held up a little by busy streets; off again at a tram stop. */
+    /** On a tram: along its line, held up by busy streets unless it has a lane of its own; off again at a stop it calls at. */
     private fun tramFrom(a: Int, d: Int, st: Int, net: TransitNetwork) {
-        if (map.stop[a].toInt() and Stop.TRAM != 0) reach(state(WALK, a), d, st)
+        if (net.tramStop[a] >= 0) reach(state(WALK, a), d, st)
         val x = a % map.width
         val y = a / map.width
         for (h in 1..4) {
@@ -580,11 +577,12 @@ internal class Traffic(private val map: CityMap) {
             val ny = y + Heading.DY[h]
             if (!map.inside(nx, ny)) continue
             val b = ny * map.width + nx
-            if (net.tram[b] != net.tram[a]) continue
+            if (net.tramDirs[a].toInt() and (1 shl h) == 0) continue
             if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE || map.closed(b)) continue
-            val busy = (map.congestion[b].toInt() and 0xff) * Balance.TRAM_TIME / 512
-            // Trams in the street wait at the crossings with the rest.
-            val wait = RoadType.of(map.road[b])?.let { junctionWait(b, it) } ?: 0
+            val lane = map.lane[b].toInt() != 0
+            val busy = if (lane) 0 else (map.congestion[b].toInt() and 0xff) * Balance.TRAM_TIME / 512
+            // Trams in the street wait at the crossings with the rest, but for a moment where they have a lane.
+            val wait = RoadType.of(map.road[b])?.let { if (lane) minOf(junctionWait(b, it), Balance.LANE_JUNCTION) else junctionWait(b, it) } ?: 0
             reach(state(TRAM, b), d + Balance.TRAM_TIME + busy + wait, st)
         }
     }
@@ -667,10 +665,11 @@ internal class Traffic(private val map: CityMap) {
                     val road = if (rideLayer == SUBWAY) stationAbove[rideTile] else rideTile
                     if (road >= 0) stopRiders[road] += trips
                     if (pl == WALK) transit?.let { net ->
+                        // Counted against the line they boarded, or the subway network.
                         val network = when (rideLayer) {
-                            BUS -> net.bus[rideTile]
-                            TROLLEY -> net.trolley[rideTile]
-                            TRAM -> net.tram[rideTile]
+                            BUS -> net.busStopLine[rideTile]
+                            TROLLEY -> net.trolleyStopLine[rideTile]
+                            TRAM -> net.tramStopLine[rideTile]
                             else -> net.subway[rideTile]
                         }
                         val m = when (rideLayer) {
@@ -708,10 +707,19 @@ internal class Traffic(private val map: CityMap) {
         return if ((map.flood[b].toInt() and 0xff) >= Balance.FLOODED) time * Balance.FLOOD_SLOW else time
     }
 
+    /** Seconds for a bus to cross a tile: past the traffic in a lane of its own, with a moment at a crossing, or with the rest. */
+    private fun busTime(b: Int, road: RoadType): Int {
+        if (map.lane[b].toInt() == 0) return timeToCross(b, road)
+        return road.time + minOf(junctionWait(b, road), Balance.LANE_JUNCTION)
+    }
+
+    /** How many vehicles a month a road tile takes before it fills: less where a lane's given over to buses and trams. */
+    fun capacity(b: Int, road: RoadType): Int = if (map.lane[b].toInt() != 0) road.capacity * Balance.LANE_CAR_SHARE / 100 else road.capacity
+
     /** Seconds to cross a tile: its road's time when clear, half as long again at capacity, up to three times, and slower still flooded. */
     private fun timeToCross(b: Int, road: RoadType): Int {
         val buses = max(lastBusVolume[b], busVolume[b]) + max(lastTrolleyVolume[b], trolleyVolume[b])
-        val load = (max(lastVolume[b], volume[b]) + buses / BUS_RIDERS) * 32 / road.capacity
+        val load = (max(lastVolume[b], volume[b]) + buses / BUS_RIDERS) * 32 / capacity(b, road)
         val slow = min(2 * 1024, load * load / 2)
         val time = road.time + road.time * slow / 1024 + (if (map.rail[b] != Rail.NONE) Balance.CROSSING_DELAY else 0) + junctionWait(b, road)
         // Wading through floodwater, or picking a way round the potholes.

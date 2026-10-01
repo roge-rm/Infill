@@ -43,6 +43,11 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
             rect(a.x0, a.y0, a.x1, a.y1, camera, PARK_FILL, PARK_EDGE)
             for (i in p.blocked) drawRect(BLOCKED, at(i), tile)
         }
+        is Action.BuildLane -> for (i in a.tiles) {
+            drawRect(if (i in p.blocked) BLOCKED else RAIL_FILL, at(i), tile)
+        }
+        // Lines are drawn as they're planned.
+        is Action.AddLine, is Action.SetVehicles, is Action.RemoveLine -> {}
         is Action.SetJunction -> {
             for (i in a.tiles) drawRect(ROAD_DRAG, at(i), tile)
             for (i in p.plan.changes) drawRect(LINE_FILL, at(i), tile)
@@ -135,3 +140,24 @@ private val PARK_EDGE = Color(0xE66AAE4A)
 private val PLACE_FILL = Color(0x4DFFFFFF)
 private val PLACE_EDGE = Color(0xE6FFFFFF)
 private val LABEL = Color(0xD91C1F24)
+
+/**
+ * Transit lines along the tiles they run over, each in its colour and a
+ * little to one side so lines sharing a street both show; a line being
+ * planned (id 0) in white.
+ */
+internal fun DrawScope.drawLines(lines: List<Pair<Int, IntArray>>, map: CityMap, camera: Camera) {
+    val t = camera.tilePx
+    for ((id, route) in lines) {
+        if (route.size < 2) continue
+        val colour = if (id == 0) Color.White else com.rm.infill.ui.lineColour(id)
+        val shift = if (id == 0) 0f else ((id % 3) - 1) * 0.14f
+        val path = androidx.compose.ui.graphics.Path()
+        for ((k, i) in route.withIndex()) {
+            val p = camera.tileToScreen(i % map.width + 0.5f + shift, i / map.width + 0.5f + shift, size)
+            if (k == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
+        }
+        drawPath(path, Color.Black.copy(alpha = 0.35f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = maxOf(3f, t * 0.16f), join = androidx.compose.ui.graphics.StrokeJoin.Round))
+        drawPath(path, colour, style = androidx.compose.ui.graphics.drawscope.Stroke(width = maxOf(2f, t * 0.1f), join = androidx.compose.ui.graphics.StrokeJoin.Round))
+    }
+}

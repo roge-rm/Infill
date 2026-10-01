@@ -1,5 +1,7 @@
 package com.rm.infill.ui
 
+import org.jetbrains.compose.resources.pluralStringResource
+import com.rm.infill.sim.Action
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,6 +42,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
+import com.rm.infill.res.tram_line
+import com.rm.infill.res.bus_line
+import com.rm.infill.res.trolley_line
+import com.rm.infill.res.line_stops
+import com.rm.infill.res.clear
+import com.rm.infill.res.make_line
+import com.rm.infill.res.lines
+import com.rm.infill.res.no_lines
+import com.rm.infill.res.line_name
+import com.rm.infill.res.remove
+import com.rm.infill.res.line_info
+import com.rm.infill.res.line_riders
+import com.rm.infill.res.line_not_running
+import com.rm.infill.res.line_vehicles
 import com.rm.infill.res.traffic_flow
 import com.rm.infill.res.income_offices
 import com.rm.infill.res.trade
@@ -563,4 +579,88 @@ private fun goalHave(goal: Goal): String = when (goal.kind) {
     GoalKind.OnMains, GoalKind.OnSewer, GoalKind.Powered, GoalKind.LandBuilt, GoalKind.KeptUp, GoalKind.GreenTrips ->
         stringResource(Res.string.percent, goal.have)
     else -> stringResource(if (goal.met) Res.string.goal_met else Res.string.goal_not_met)
+}
+
+/** A line's colour on the map and in the list, by its id. */
+fun lineColour(id: Int): Color = LINE_COLOURS[id.mod(LINE_COLOURS.size)]
+
+private val LINE_COLOURS = listOf(
+    Color(0xFFD8302F), Color(0xFF2F6FD8), Color(0xFF2FA85A), Color(0xFFE09A1F), Color(0xFF8E44AD),
+    Color(0xFF16A2A2), Color(0xFFD84B9A), Color(0xFF6B4A2E),
+)
+
+/** While a line's being planned: how many stops it has so far, and making it or starting again. */
+@Composable
+fun LineDraftBar(stops: Int, tram: Boolean, onClear: () -> Unit, onMake: () -> Unit) {
+    val c = Infill.colors
+    ChromeBox {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                stringResource(if (tram) Res.string.tram_line else Res.string.bus_line) + ", " + pluralStringResource(Res.plurals.line_stops, stops, stops),
+                color = c.text, fontSize = 14.sp,
+            )
+            if (stops > 0) TextButton(stringResource(Res.string.clear), false, onClear)
+            if (stops >= 2) TextButton(stringResource(Res.string.make_line), true, onMake)
+        }
+    }
+}
+
+@Composable
+private fun TextButton(text: String, primary: Boolean, onClick: () -> Unit) {
+    val c = Infill.colors
+    Text(
+        text, color = if (primary) c.onAccent else c.text, fontSize = 14.sp,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (primary) c.accent else c.button)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    )
+}
+
+/** Every line: what runs on it, how it's doing, its vehicles to add or take off, and taking it off altogether. */
+@Composable
+fun LinesWindow(game: GameState, onClose: () -> Unit) {
+    val c = Infill.colors
+    game.revision
+    val city = game.city
+    Window(Res.string.lines, onClose) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (city.lines.isEmpty()) Text(stringResource(Res.string.no_lines), color = c.textDim, fontSize = 14.sp)
+            var buses = 0
+            var trams = 0
+            for (line in city.lines) {
+                val state = city.lineState(line.id)
+                val number = if (line.tram) ++trams else ++buses
+                val kind = when {
+                    line.tram -> Res.string.tram_line
+                    state?.mode == com.rm.infill.sim.Mode.TROLLEY -> Res.string.trolley_line
+                    else -> Res.string.bus_line
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(lineColour(line.id)))
+                        Text(stringResource(Res.string.line_name, stringResource(kind), number), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        TextButton(stringResource(Res.string.remove), false) { game.apply(Action.RemoveLine(line.id)) }
+                    }
+                    if (state != null && state.running) {
+                        Text(stringResource(Res.string.line_info, line.stops.size, state.roundTrip / 60, maxOf(1, state.wait / 60)), color = c.textDim, fontSize = 13.sp)
+                        val riders = city.lineRiders(line.id)
+                        Text(pluralStringResource(Res.plurals.line_riders, riders, groupThousands(riders.toLong())), color = c.textDim, fontSize = 13.sp)
+                    } else {
+                        Text(stringResource(Res.string.line_not_running), color = c.textDim, fontSize = 13.sp)
+                    }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(Res.string.line_vehicles), color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                        StepButton("−", stringResource(Res.string.less)) { if (line.vehicles > 1) game.apply(Action.SetVehicles(line.id, line.vehicles - 1)) }
+                        Text(
+                            "${line.vehicles}", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.widthIn(min = 40.dp).padding(horizontal = 6.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                        StepButton("+", stringResource(Res.string.more)) { game.apply(Action.SetVehicles(line.id, line.vehicles + 1)) }
+                    }
+                }
+            }
+        }
+    }
 }

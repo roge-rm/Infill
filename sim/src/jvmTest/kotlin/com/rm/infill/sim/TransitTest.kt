@@ -21,6 +21,10 @@ class TransitTest {
 
     private fun City.i(x: Int, y: Int) = map.index(x, y)
 
+    /** A line along the street calling at the stops at [xs], in order. */
+    private fun City.line(tram: Boolean, vararg xs: Int, vehicles: Int = 3) =
+        apply(Action.AddLine(tram, IntArray(xs.size) { i(xs[it], 16) }, vehicles))
+
     /** Trips from the west end of the street to the east, everyone on foot or by what runs. */
     private fun City.trips(workers: Int, cars: Int = 0): Traffic {
         val t = City::class.java.getDeclaredField("traffic").apply { isAccessible = true }.get(this) as Traffic
@@ -62,6 +66,7 @@ class TransitTest {
         assertTrue(c.apply(Action.BuildTram(Action.roadPath(c.map, 2, 16, 60, 16, true))).ok)
         assertTrue(c.apply(Action.PlaceStop(2, 16, Stop.TRAM)).ok)
         assertTrue(c.apply(Action.PlaceStop(60, 16, Stop.TRAM)).ok)
+        assertTrue(c.line(true, 2, 60).ok)
         // No depot, no trams.
         assertEquals(50, c.trips(50).lastModes[Mode.WALK.ordinal])
         assertTrue(c.apply(Action.PlaceBuilding(BuildingType.TRAM_DEPOT, 30, 14)).ok, "a depot beside the track")
@@ -78,6 +83,7 @@ class TransitTest {
         c.apply(Action.BuildTram(Action.roadPath(c.map, 2, 16, 60, 16, true)))
         c.apply(Action.PlaceStop(2, 16, Stop.TRAM))
         c.apply(Action.PlaceStop(60, 16, Stop.TRAM))
+        c.line(true, 2, 60)
         c.apply(Action.PlaceBuilding(BuildingType.TRAM_DEPOT, 50, 14))
         // Far from the power station, and nothing to carry the power there.
         assertFalse(c.map.powered[c.i(50, 14)])
@@ -90,6 +96,7 @@ class TransitTest {
         c.apply(Action.BuildTram(Action.roadPath(c.map, 2, 16, 60, 16, true)))
         c.apply(Action.PlaceStop(2, 16, Stop.TRAM))
         c.apply(Action.PlaceStop(60, 16, Stop.TRAM))
+        c.line(true, 2, 60)
         c.apply(Action.PlaceBuilding(BuildingType.TRAM_DEPOT, 30, 14))
         assertEquals(50, c.trips(50).lastModes[Mode.TRAM.ordinal])
         val fail = City::class.java.declaredMethods.first { it.name == "fail" }.apply { isAccessible = true }
@@ -114,6 +121,7 @@ class TransitTest {
         val c = city(1930)
         c.apply(Action.PlaceStop(2, 16, Stop.BUS))
         c.apply(Action.PlaceStop(60, 16, Stop.BUS))
+        c.line(false, 2, 60)
         c.apply(Action.PlaceBuilding(BuildingType.BUS_GARAGE, 40, 17))
         val t = c.trips(50)
         assertEquals(50, t.lastModes[Mode.BUS.ordinal])
@@ -125,6 +133,7 @@ class TransitTest {
         val c = city(1930)
         c.apply(Action.PlaceStop(2, 16, Stop.BUS))
         c.apply(Action.PlaceStop(60, 16, Stop.BUS))
+        c.line(false, 2, 60)
         // Beside the power line, so it has power.
         assertTrue(c.apply(Action.PlaceBuilding(BuildingType.BUS_GARAGE, 32, 17)).ok)
         assertEquals(50, c.trips(50).lastModes[Mode.BUS.ordinal], "diesel buses without wire")
@@ -150,6 +159,7 @@ class TransitTest {
             c.apply(Action.BuildTram(Action.roadPath(c.map, 2, 16, 60, 16, true)))
             c.apply(Action.PlaceStop(2, 16, Stop.TRAM))
             c.apply(Action.PlaceStop(60, 16, Stop.TRAM))
+            c.line(true, 2, 60)
             c.apply(Action.PlaceBuilding(BuildingType.TRAM_DEPOT, 30, 14))
             if (riders > 0) c.trips(riders)
             City::class.java.getDeclaredMethod("updateNetworks").apply { isAccessible = true }.invoke(c)
@@ -185,6 +195,7 @@ class TransitTest {
         c.apply(Action.PlaceBuilding(BuildingType.TRAM_DEPOT, 30, 14))
         // A stop by the depot and the power station, where the first jobs are.
         c.apply(Action.PlaceStop(31, 16, Stop.TRAM))
+        c.line(true, 2, 31, 60)
         c.apply(Action.PlaceZone(0, 15, 6, 15, Zone.RESIDENTIAL))
         c.apply(Action.PlaceZone(56, 17, 63, 18, Zone.INDUSTRIAL))
         repeat(3 * 365) { c.tick() }
@@ -237,5 +248,102 @@ class TransitTest {
         // Bulldozing the street takes its track with it.
         loaded.apply(Action.Bulldoze(30, 16, 30, 16))
         assertEquals(0, loaded.map.tram[c.i(30, 16)].toInt())
+    }
+
+    @Test
+    fun stopsNeedALineToBeServed() {
+        val c = city(1930)
+        c.apply(Action.PlaceStop(2, 16, Stop.BUS))
+        c.apply(Action.PlaceStop(60, 16, Stop.BUS))
+        c.apply(Action.PlaceBuilding(BuildingType.BUS_GARAGE, 40, 17))
+        // A garage and stops, but no line: everyone walks.
+        assertEquals(50, c.trips(50).lastModes[Mode.WALK.ordinal])
+        assertTrue(c.line(false, 2, 60).ok)
+        assertEquals(50, c.trips(50).lastModes[Mode.BUS.ordinal])
+        // A line needs stops of its kind, and a way between them.
+        assertFalse(c.plan(Action.AddLine(true, intArrayOf(c.i(2, 16), c.i(60, 16)), 2)).ok, "no tram stops")
+        // A road of its own, not joined to the street.
+        c.apply(Action.BuildRoad(Action.roadPath(c.map, 8, 10, 12, 10, true), RoadType.STREET))
+        c.apply(Action.PlaceStop(10, 10, Stop.BUS))
+        assertEquals(Problem.NoRoute, c.plan(Action.AddLine(false, intArrayOf(c.i(2, 16), c.i(10, 10)), 2)).problem)
+    }
+
+    @Test
+    fun moreVehiclesMeanShorterWaits() {
+        fun wait(vehicles: Int): Int {
+            val c = city(1930)
+            c.apply(Action.PlaceStop(2, 16, Stop.BUS))
+            c.apply(Action.PlaceStop(60, 16, Stop.BUS))
+            c.apply(Action.PlaceBuilding(BuildingType.BUS_GARAGE, 40, 17))
+            c.line(false, 2, 60, vehicles = vehicles)
+            City::class.java.getDeclaredMethod("updateNetworks").apply { isAccessible = true }.invoke(c)
+            return c.lineState(c.lines[0].id)!!.wait
+        }
+        assertTrue(wait(6) < wait(2), "6 buses ${wait(6)} s, 2 buses ${wait(2)} s")
+    }
+
+    @Test
+    fun aGarageKeepsOnlySoManyBuses() {
+        val c = city(1930)
+        c.apply(Action.PlaceStop(2, 16, Stop.BUS))
+        c.apply(Action.PlaceStop(60, 16, Stop.BUS))
+        c.apply(Action.PlaceBuilding(BuildingType.BUS_GARAGE, 40, 17))
+        c.line(false, 2, 60, vehicles = Balance.GARAGE_HOLDS * 2)
+        City::class.java.getDeclaredMethod("updateNetworks").apply { isAccessible = true }.invoke(c)
+        assertEquals(Balance.GARAGE_HOLDS, c.lineState(c.lines[0].id)!!.vehicles)
+    }
+
+    @Test
+    fun aBusLaneTakesTheBusesPastTheTraffic() {
+        fun busTrip(lane: Boolean): Int {
+            val c = city(1960)
+            c.apply(Action.PlaceStop(2, 16, Stop.BUS))
+            c.apply(Action.PlaceStop(60, 16, Stop.BUS))
+            c.apply(Action.PlaceBuilding(BuildingType.BUS_GARAGE, 40, 17))
+            c.line(false, 2, 60, vehicles = 10)
+            if (lane) assertTrue(c.apply(Action.BuildLane(Action.roadPath(c.map, 0, 16, 63, 16, true))).ok)
+            // A jam of cars along the street, then the bus riders.
+            repeat(2) { c.trips(3_000, 3_000) }
+            val t = c.trips(20)
+            return t.commute[c.i(2, 16)]
+        }
+        assertTrue(busTrip(lane = true) < busTrip(lane = false), "with a lane ${busTrip(true)} s, without ${busTrip(false)} s")
+    }
+
+    @Test
+    fun linesUndoAndSurviveASave() {
+        val c = city(1930)
+        c.apply(Action.PlaceStop(2, 16, Stop.BUS))
+        c.apply(Action.PlaceStop(60, 16, Stop.BUS))
+        c.apply(Action.PlaceBuilding(BuildingType.BUS_GARAGE, 40, 17))
+        val funds = c.funds
+        c.line(false, 2, 60, vehicles = 4)
+        assertEquals(funds - 4 * Balance.BUS_PRICE, c.funds)
+        val id = c.lines[0].id
+        assertTrue(c.apply(Action.SetVehicles(id, 6)).ok)
+        assertEquals(6, c.lines[0].vehicles)
+        c.undo()
+        assertEquals(4, c.lines[0].vehicles)
+        c.apply(Action.BuildLane(Action.roadPath(c.map, 10, 16, 20, 16, true)))
+        val loaded = SaveGame.read(SaveGame.write(c))
+        assertEquals(1, loaded.lines.size)
+        assertEquals(4, loaded.lines[0].vehicles)
+        assertTrue(loaded.lines[0].stops.contentEquals(c.lines[0].stops))
+        assertEquals(1, loaded.map.lane[c.i(15, 16)].toInt())
+        assertTrue(c.apply(Action.RemoveLine(id)).ok)
+        assertTrue(c.lines.isEmpty())
+        c.undo()
+        assertEquals(1, c.lines.size)
+    }
+
+    @Test
+    fun anOldTownsStopsBecomeLines() {
+        val c = city(1930)
+        for (x in listOf(2, 20, 40, 60)) c.apply(Action.PlaceStop(x, 16, Stop.BUS))
+        c.apply(Action.PlaceBuilding(BuildingType.BUS_GARAGE, 40, 17))
+        City::class.java.getDeclaredMethod("autoLines").apply { isAccessible = true }.invoke(c)
+        assertEquals(1, c.lines.size)
+        assertEquals(4, c.lines[0].stops.size)
+        assertEquals(50, c.trips(50).lastModes[Mode.BUS.ordinal])
     }
 }

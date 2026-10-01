@@ -479,6 +479,26 @@ object Balance {
     const val ROAD_PER_GARAGE = 300
     const val TUNNEL_PER_STATION = 15
     const val TRAM_CAPACITY = 3_000
+    // Lines: how many trams a depot keeps and buses a garage; riders a vehicle carries a month before it's crowded;
+    // the shortest wait at a stop; what a vehicle costs to buy and keep a month.
+    const val DEPOT_HOLDS = 12
+    /** Stops a line made for a town from before lines takes at most. */
+    const val AUTO_LINE_STOPS = 8
+    const val GARAGE_HOLDS = 20
+    const val TRAM_VEHICLE_RIDERS = 1_200
+    const val BUS_VEHICLE_RIDERS = 700
+    const val SHORTEST_WAIT = 30
+    /** The wait a new line is given vehicles for, in seconds. */
+    const val AIMED_WAIT = 300
+    const val TRAM_PRICE = 4_000L
+    const val BUS_PRICE = 1_500L
+    const val TRAM_VEHICLE_UPKEEP = 30.0
+    const val BUS_VEHICLE_UPKEEP = 20.0
+    // Bus and tram lanes: what they cost a tile, the share of the road left for cars, and the wait at a crossing for what uses them.
+    const val LANE_PRICE = 60L
+    const val LANE_UPKEEP = 0.2
+    const val LANE_CAR_SHARE = 60
+    const val LANE_JUNCTION = 3
     const val BUS_CAPACITY = 2_500
     const val SUBWAY_CAPACITY = 5_000
 

@@ -32,6 +32,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
 import com.rm.infill.map.MapRenderer
+import com.rm.infill.res.inspect_lines
+import com.rm.infill.res.inspect_bus_lane
+import com.rm.infill.res.line_name
+import com.rm.infill.res.tram_line
+import com.rm.infill.res.bus_line
 import com.rm.infill.res.inspect_junction
 import com.rm.infill.res.building_offices
 import com.rm.infill.res.building_office_building
@@ -439,6 +444,18 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 add(stringResource(Res.string.bus_stop) + if (!served) ". " + stringResource(Res.string.no_service) else "")
             }
             if (stops != 0) city.stopRiders(i).let { add(pluralStringResource(Res.plurals.stop_riders, it, it)) }
+            if (stops != 0) {
+                val calling = city.linesAt(i)
+                if (calling.isNotEmpty()) {
+                    // Numbered as in the list of lines.
+                    val names = calling.map { line ->
+                        val number = city.lines.filter { it.tram == line.tram }.indexOf(line) + 1
+                        stringResource(Res.string.line_name, stringResource(if (line.tram) Res.string.tram_line else Res.string.bus_line), number)
+                    }
+                    add(stringResource(Res.string.inspect_lines, names.joinToString(", ")))
+                }
+            }
+            if (map.lane[i].toInt() != 0) add(stringResource(Res.string.inspect_bus_lane))
             if (map.subway[i].toInt() != 0) {
                 add(stringResource(Res.string.laid_in, stringResource(Res.string.subway), yearOf(map.subwayLaid[i].toInt())) +
                     if (city.subwayNetwork(i) < 0) ". " + stringResource(Res.string.no_service) else "")

@@ -545,4 +545,28 @@
     <string name="traffic_flow">Traffic flowing</string>
     <string name="overlay_trips">Trips</string>
     <string name="overlay_reach">Reach</string>
+    <string name="bus_lane">Bus and tram lane</string>
+    <string name="bus_line">Bus line</string>
+    <string name="tram_line">Tram line</string>
+    <string name="trolley_line">Trolleybus line</string>
+    <string name="lines">Lines</string>
+    <string name="make_line">Make the line</string>
+    <string name="clear">Clear</string>
+    <string name="line_name">%1$s %2$d</string>
+    <string name="line_info">%1$d stops, round trip %2$d min, a %3$d min wait</string>
+    <string name="line_not_running">Not running: no depot or garage reaches it</string>
+    <string name="line_vehicles">Vehicles</string>
+    <string name="remove">Remove</string>
+    <string name="no_lines">No lines yet</string>
+    <string name="no_route">No way between those stops</string>
+    <string name="inspect_lines">Lines: %1$s</string>
+    <string name="inspect_bus_lane">Bus and tram lane</string>
+    <plurals name="line_stops">
+        <item quantity="one">%1$d stop</item>
+        <item quantity="other">%1$d stops</item>
+    </plurals>
+    <plurals name="line_riders">
+        <item quantity="one">%1$d rider last month</item>
+        <item quantity="other">%1$s riders last month</item>
+    </plurals>
 </resources>
