@@ -32,6 +32,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
 import com.rm.infill.map.MapRenderer
+import com.rm.infill.res.building_farm
+import com.rm.infill.res.building_woodlot
+import com.rm.infill.res.building_mine
+import com.rm.infill.res.building_colliery
+import com.rm.infill.res.good_food
+import com.rm.infill.res.good_timber
+import com.rm.infill.res.good_ore
+import com.rm.infill.res.good_coal
+import com.rm.infill.res.good_lumber
+import com.rm.infill.res.good_metal
+import com.rm.infill.res.good_goods
+import com.rm.infill.res.and_also
+import com.rm.infill.res.inspect_makes
+import com.rm.infill.res.inspect_makes_from
+import com.rm.infill.res.inspect_local_needs
+import com.rm.infill.res.inspect_local_sold
+import com.rm.infill.res.inspect_coal_local
+import com.rm.infill.res.inspect_zone_farmland
+import com.rm.infill.res.inspect_fertile
+import com.rm.infill.res.inspect_ore
+import com.rm.infill.res.inspect_coal_seam
 import com.rm.infill.res.Res
 import com.rm.infill.res.building_bank
 import com.rm.infill.res.building_cottage
@@ -195,6 +216,9 @@ import com.rm.infill.res.inspect_zone_residential
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.Power
 import com.rm.infill.sim.Balance
+import com.rm.infill.sim.Resource
+import com.rm.infill.sim.Land
+import com.rm.infill.sim.Good
 import com.rm.infill.sim.Rail
 import com.rm.infill.sim.RoadType
 import com.rm.infill.sim.Terrain
@@ -290,7 +314,9 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 }
                 else -> add(pluralStringResource(Res.plurals.jobs, t.capacity, t.capacity))
             }
-            if (t.zone != Zone.NONE) densityName(map.density[i])?.let { add(stringResource(it)) }
+            // Density and mains mean something in town, not out on the farms.
+            val town = t.zone != Zone.NONE && t.zone != Zone.FARMLAND
+            if (town) densityName(map.density[i])?.let { add(stringResource(it)) }
             if (Generation.station(t)) {
                 // What it's making of what it could, in megawatts.
                 val made = megawatts(city.stationOutput(building))
@@ -299,12 +325,26 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 add(stringResource(if (map.powered[i]) Res.string.has_power else Res.string.no_power))
             }
             if (t == BuildingType.DUMP) add(stringResource(Res.string.dump_fill, (building.fill.toLong() * 100 / Balance.DUMP_ROOM).toInt()))
+            // What it makes, from what, and how much of that's the town's.
+            val kind = building.worksKind
+            val land = Land.output(t)
+            if (kind != null) {
+                val inputs = kind.inputs.map { stringResource(goodName(it.first)) }
+                val from = if (inputs.size == 2) stringResource(Res.string.and_also, inputs[0], inputs[1]) else inputs[0]
+                add(stringResource(Res.string.inspect_makes_from, stringResource(goodName(kind.output)), from))
+                if (building.underway == 0) add(stringResource(Res.string.inspect_local_needs, building.local))
+            } else if (land != null) {
+                add(stringResource(Res.string.inspect_makes, stringResource(goodName(land.first))))
+                if (building.underway == 0) add(stringResource(Res.string.inspect_local_sold, building.local))
+            } else if (t == BuildingType.COAL_PLANT) {
+                add(stringResource(Res.string.inspect_coal_local, building.local))
+            }
             if (building.uncollected) add(stringResource(Res.string.inspect_garbage))
             if (building.burning > 0) add(stringResource(Res.string.on_fire))
             if (building.outage > 0) add(pluralStringResource(Res.plurals.broken_down, building.outage, building.outage))
             if (building.underway == 0 && t != BuildingType.PARK) add(stringResource(Res.string.built_in, yearOf(building.built)))
             if (city.isHeritage(building)) add(stringResource(Res.string.heritage))
-            if (t.zone != Zone.NONE) {
+            if (town) {
                 add(stringResource(if (map.watered[i]) Res.string.inspect_mains else Res.string.inspect_well))
                 add(stringResource(if (map.sewered[i]) Res.string.inspect_sewer else Res.string.inspect_septic))
             }
@@ -386,6 +426,11 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                     if (city.subwayNetwork(i) < 0) ". " + stringResource(Res.string.no_service) else "")
             }
             if (map.brownfield[i].toInt() != 0) add(stringResource(Res.string.brownfield))
+            when (map.resource[i]) {
+                Resource.FERTILE -> add(stringResource(Res.string.inspect_fertile))
+                Resource.ORE -> add(stringResource(Res.string.inspect_ore))
+                Resource.COAL -> add(stringResource(Res.string.inspect_coal_seam))
+            }
             if (map.streetTrees[i].toInt() != 0) add(stringResource(Res.string.street_trees))
             if (road != null && city.snowedIn > 0) add(stringResource(Res.string.snowed_in))
             if (road != null) {
@@ -396,6 +441,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 Zone.RESIDENTIAL -> add(stringResource(Res.string.inspect_zone_residential))
                 Zone.COMMERCIAL -> add(stringResource(Res.string.inspect_zone_commercial))
                 Zone.INDUSTRIAL -> add(stringResource(Res.string.inspect_zone_industrial))
+                Zone.FARMLAND -> add(stringResource(Res.string.inspect_zone_farmland))
             }
             densityName(map.density[i])?.let { add(stringResource(it)) }
         }
@@ -479,6 +525,20 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.DUMP -> Res.string.dump
     BuildingType.INCINERATOR -> Res.string.incinerator
     BuildingType.RECYCLING -> Res.string.recycling
+    BuildingType.FARM -> Res.string.building_farm
+    BuildingType.WOODLOT -> Res.string.building_woodlot
+    BuildingType.MINE -> Res.string.building_mine
+    BuildingType.COLLIERY -> Res.string.building_colliery
+}
+
+fun goodName(g: Good): StringResource = when (g) {
+    Good.FOOD -> Res.string.good_food
+    Good.TIMBER -> Res.string.good_timber
+    Good.ORE -> Res.string.good_ore
+    Good.COAL -> Res.string.good_coal
+    Good.LUMBER -> Res.string.good_lumber
+    Good.METAL -> Res.string.good_metal
+    Good.GOODS -> Res.string.good_goods
 }
 
 fun densityName(density: Byte): StringResource? = when (density) {

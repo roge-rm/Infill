@@ -1,5 +1,7 @@
 package com.rm.infill.map
 
+import com.rm.infill.sim.BuildingType
+import com.rm.infill.sim.Zone
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -93,7 +95,9 @@ fun MapView(
     val trains = graphics.trains > 0 && game.city.trainRoutes.isNotEmpty()
     val animate = running && (fires || traffic || trains || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
     val overlayImage = remember(overlay, game.revision) {
-        overlayImage(overlay, map, { game.city.building(map.building[it])?.people }, { game.city.wearAt(it) }, { game.city.building(map.building[it])?.uncollected == true }) {
+        overlayImage(overlay, map, { game.city.building(map.building[it])?.people }, { game.city.wearAt(it) }, { game.city.building(map.building[it])?.uncollected == true }, { i ->
+            game.city.building(map.building[i])?.takeIf { it.kind >= 0 || it.type.zone == Zone.FARMLAND || it.type == BuildingType.COAL_PLANT }?.local ?: -1
+        }) {
             game.city.tramRiders(it) + game.city.busRiders(it) + game.city.trolleyRiders(it) + game.city.subwayRiders(it)
         }
     }

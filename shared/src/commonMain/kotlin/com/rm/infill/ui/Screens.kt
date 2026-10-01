@@ -63,6 +63,7 @@ import com.rm.infill.sim.SaveSummary
 import com.rm.infill.sim.Terrain
 import com.rm.infill.sim.TerrainGen
 import com.rm.infill.sim.TerrainOptions
+import com.rm.infill.sim.Resource
 import com.rm.infill.ui.theme.Infill
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
@@ -400,7 +401,12 @@ fun terrainImage(m: CityMap): ImageBitmap {
         when (m.terrain[i]) {
             Terrain.WATER -> 0xFF3A6FB0.toInt()
             Terrain.TREES -> 0xFF2F6B2A.toInt()
-            else -> 0xFF5A9A3C.toInt()
+            // Seams show in the preview, rusty for ore and black for coal.
+            else -> when (m.resource[i]) {
+                Resource.ORE -> 0xFF9A4E36.toInt()
+                Resource.COAL -> 0xFF2E2E34.toInt()
+                else -> 0xFF5A9A3C.toInt()
+            }
         }
     }
     return imageBitmapOf(pixels, m.width, m.height)

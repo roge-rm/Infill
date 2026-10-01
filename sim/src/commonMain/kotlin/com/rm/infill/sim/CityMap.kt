@@ -61,6 +61,9 @@ class CityMap(val width: Int, val height: Int) {
     /** Land left fouled where works closed down, 1 where it is: nothing's built on it until it's cleaned up. */
     val brownfield = ByteArray(size)
 
+    /** What's in the ground ([Resource]), laid down with the land. */
+    val resource = ByteArray(size)
+
     /** What's broken on each tile ([Broken]), and the days left until it's mended or the works there are done. */
     val broken = ShortArray(size)
     val mending = ByteArray(size)

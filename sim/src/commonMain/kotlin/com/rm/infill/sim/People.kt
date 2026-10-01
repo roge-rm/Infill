@@ -131,6 +131,8 @@ object Demography {
         BuildingType.WORKS -> intArrayOf(60, 32, 8)
         BuildingType.HOTEL -> intArrayOf(40, 50, 10)
         BuildingType.WORKSHOP -> intArrayOf(90, 10, 0)
+        BuildingType.FARM, BuildingType.WOODLOT -> intArrayOf(95, 5, 0)
+        BuildingType.MINE, BuildingType.COLLIERY -> intArrayOf(85, 13, 2)
         BuildingType.MILL -> intArrayOf(80, 20, 0)
         BuildingType.WAREHOUSE -> intArrayOf(85, 15, 0)
         BuildingType.FACTORY -> intArrayOf(60, 33, 7)

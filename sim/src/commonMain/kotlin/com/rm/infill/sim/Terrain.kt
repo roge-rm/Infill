@@ -14,4 +14,18 @@ object Zone {
     const val RESIDENTIAL: Byte = 1
     const val COMMERCIAL: Byte = 2
     const val INDUSTRIAL: Byte = 3
+
+    /** Farms, woodlots and mines on the outskirts, by what's under each lot. */
+    const val FARMLAND: Byte = 4
+
+    /** The zones that grow, in order. */
+    const val COUNT = 5
+}
+
+/** What's in the ground, for farms and mines: good soil, iron ore, or a coal seam. Stored as a byte. */
+object Resource {
+    const val NONE: Byte = 0
+    const val FERTILE: Byte = 1
+    const val ORE: Byte = 2
+    const val COAL: Byte = 3
 }

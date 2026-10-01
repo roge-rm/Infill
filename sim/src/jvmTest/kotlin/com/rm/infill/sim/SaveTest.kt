@@ -86,4 +86,22 @@ class SaveTest {
         println("a 128 x 128 town saves in ${bytes.size} bytes")
         assertTrue(bytes.size < 200_000, "${bytes.size} bytes")
     }
+
+    @Test
+    fun versionEightAndNineSavesStillLoad() {
+        for ((file, name) in listOf("v8" to "Eightfold", "v9" to "Ninefield")) {
+            val c = SaveGame.read(javaClass.getResourceAsStream("/saves/$file.infill")!!.readBytes())
+            assertEquals(name, c.name)
+            val people = c.stats.population
+            assertTrue(people > 0)
+            // It carries on.
+            repeat(70) { c.tick() }
+            assertTrue(c.stats.population > people / 2, "$file: $people, then ${c.stats.population}")
+        }
+        // Nine kept what M14 added.
+        val nine = SaveGame.read(javaClass.getResourceAsStream("/saves/v9.infill")!!.readBytes())
+        assertTrue(nine.quakes)
+        assertTrue(nine.map.streetTrees.any { it.toInt() != 0 })
+        assertTrue(nine.stats.powerCapacity > 0)
+    }
 }

@@ -2769,6 +2769,176 @@ def recycling(look, v):
     return b
 
 
+# Farmland: farms, woodlots and mines, by what's under the lot.
+
+FIELD = {
+    "spring": [c("#7a5a3a"), c("#6fa848")],
+    "summer": [c("#c9a84a"), c("#dcbc5a")],
+    "autumn": [c("#9a8048"), c("#b89a58")],
+    "bare": [c("#7a5a3e"), c("#6a4c32")],
+    "snow": [c("#e9eff3"), c("#cfd9e1")],
+}
+
+
+def farm(look, v):
+    """A farm on 2 by 2 tiles: fields in rows, the way they run and the crop by the season, split by a lane, with the farmhouse and barn."""
+    b = Building(2, 2, height=2 * STOREY + 6)
+    d = b.d
+    ground, crop = FIELD[look]
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(62, 62)
+    hedge = c("#4f7a34") if look in ("spring", "summer") else c("#6b5a44")
+    # Two or three fields, each its own way.
+    fields = [((1, 1, 40, 30), True), ((1, 33, 40, 62), False), ((43, 33, 62, 62), True)] if v % 2 == 0 else \
+        [((1, 1, 62, 22), False), ((1, 25, 30, 62), True), ((33, 25, 62, 62), False)]
+    for (x0, y0, x1, y1), across in fields:
+        fx0, fy0 = b.ground(x0, y0)
+        fx1, fy1 = b.ground(x1, y1)
+        d.rectangle([fx0, fy0, fx1, fy1], ground)
+        if across:
+            for yy in range(fy0 + 2, fy1, 3):
+                d.line([fx0 + 1, yy, fx1 - 1, yy], crop)
+        else:
+            for xx in range(fx0 + 2, fx1, 3):
+                d.line([xx, fy0 + 1, xx, fy1 - 1], crop)
+        d.rectangle([fx0, fy0, fx1, fy1], outline=hedge)
+        if look == "autumn":
+            rng = random.Random(9990 + v + x0)
+            for _ in range(3):
+                hx, hy = rng.randrange(fx0 + 3, fx1 - 3), rng.randrange(fy0 + 3, fy1 - 3)
+                d.ellipse([hx - 2, hy - 2, hx + 2, hy + 1], c("#d8b860"), OUTLINE)
+    # The farmyard in the corner the fields leave: a house and a red barn.
+    if v % 2 == 0:
+        yx, yy, house, barn = 43, 1, (44, 4, 52, 12), (52, 16, 62, 28)
+    else:
+        yx, yy, house, barn = 1, 25, None, None
+    if house:
+        gx, gy = b.ground(yx, yy)
+        d.rectangle([gx, gy, gx + 19, gy + 29], SNOW_GROUND if look == "snow" else c("#9a8a6a"))
+        roof, wall = b.box(*house, STOREY + 2)
+        siding(d, wall, SIDING[v % 4])
+        windows(d, wall, 1, every=4)
+        d.rectangle(wall, outline=OUTLINE)
+        gable_ew(d, roof, SHINGLE[0], look)
+        roof, wall = b.box(*barn, STOREY + 4)
+        d.rectangle(wall, c("#9a3a2e"))
+        d.rectangle([wall[0] + 3, wall[3] - 5, wall[0] + 7, wall[3]], c("#5a2a20"))
+        d.rectangle(wall, outline=OUTLINE)
+        gable_ew(d, roof, SHINGLE[1], look)
+    else:
+        roof, wall = b.box(4, 2, 14, 10, STOREY + 2)
+        siding(d, wall, SIDING[v % 4])
+        windows(d, wall, 1, every=4)
+        d.rectangle(wall, outline=OUTLINE)
+        gable_ew(d, roof, SHINGLE[0], look)
+        roof, wall = b.box(18, 3, 30, 14, STOREY + 4)
+        d.rectangle(wall, c("#9a3a2e"))
+        d.rectangle([wall[0] + 3, wall[3] - 5, wall[0] + 7, wall[3]], c("#5a2a20"))
+        d.rectangle(wall, outline=OUTLINE)
+        gable_ew(d, roof, SHINGLE[1], look)
+    return b
+
+
+def woodlot(look, v):
+    """A stand of trees with a clearing, stumps and a pile of logs."""
+    b = Building(height=LIFT)
+    rng = random.Random(9900 + v)
+    d = b.d
+    for x, foot in ((8, 14), (22, 12), (26, 24)):
+        if (x + v) % 3 == 0:
+            conifer(b.img, look, x, foot + b.lift, 16, rng)
+        else:
+            deciduous(b.img, look, v, x, foot + b.lift, 6, rng)
+    # Logs stacked and a stump or two.
+    lx, ly = b.ground(5, 27)
+    for k in range(3):
+        d.ellipse([lx + k * 4, ly - 2, lx + k * 4 + 3, ly + 1], c("#8a6a44"), c("#5a4030"))
+    d.line([lx, ly - 3, lx + 12, ly - 3], c("#6b4a30"))
+    for x, y in ((16, 22), (12, 16)):
+        sx, sy = b.ground(x, y)
+        d.ellipse([sx - 1, sy - 1, sx + 1, sy + 1], c("#c8a878"), c("#6b4a30"))
+    b.casters.append((1, 4, 24, 18, 28, 3))
+    return b
+
+
+def headframe(b, look, x, y, height):
+    """A mine's headframe: two legs, a brace and the winding wheel on top."""
+    d = b.d
+    gx, gy = b.ground(x, y)
+    top = gy - height
+    d.line([gx - 6, gy, gx - 1, top], STEEL_LEG, 2)
+    d.line([gx + 6, gy, gx + 1, top], shade(STEEL_LEG, 0.8), 2)
+    d.line([gx + 6, gy, gx + 12, gy - height // 2], STEEL_LEG)
+    for k in range(4, height, 6):
+        w = 6 - 5 * k // height
+        d.line([gx - w, gy - k, gx + w, gy - k], STEEL_LEG)
+    d.ellipse([gx - 4, top - 4, gx + 4, top + 4], outline=c("#3a3c40"), width=2)
+    d.point((gx, top), c("#3a3c40"))
+    b.casters.append((1, x - 6, y - 1, x + 7, y + 1, height))
+
+
+def spoil(b, look, cx, cy, w, cols):
+    d = b.d
+    gx, gy = b.ground(cx, cy)
+    for k, col in enumerate(cols):
+        ww = w - k * 4
+        if ww <= 2:
+            break
+        d.ellipse([gx - ww, gy - ww // 2 - k * 3, gx + ww, gy + ww // 2 - k * 3], SNOW_ROOF[min(2, k)] if look == "snow" else col)
+    b.casters.append((1, cx - w // 2, cy - w // 4, cx + w // 2, cy + w // 4, len(cols) * 3))
+
+
+def pit(look, v, spoil_cols, wagon_col):
+    b = Building(2, 2, height=40)
+    d = b.d
+    rng = random.Random(9950 + v)
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(62, 62)
+    noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), [c("#7d7260"), c("#6e6454"), c("#8a7e6a")] if look != "snow"
+               else [c("#dfe5ea"), c("#cfd7de"), c("#eef2f5")], rng)
+    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#5a5048"))
+    spoil(b, look, 44, 18, 18, spoil_cols)
+    # The engine house, brick, with its chimney.
+    roof, wall = b.box(4, 30, 26, 46, 2 * STOREY)
+    brick(d, wall, c("#8a4a38"))
+    windows(d, wall, 2, every=6)
+    d.rectangle(wall, outline=OUTLINE)
+    gable_ew(d, roof, SHINGLE[2], look)
+    chimney(b, 8, 30, 32, look=look)
+    headframe(b, look, 36, 40, 34)
+    # A track out with wagons on it.
+    tx0, ty = b.ground(4, 56)
+    d.line([tx0, ty, tx0 + 54, ty], c("#5a5048"))
+    d.line([tx0, ty + 3, tx0 + 54, ty + 3], c("#5a5048"))
+    for k in range(2):
+        wx = tx0 + 26 + k * 12
+        d.rectangle([wx, ty - 4, wx + 9, ty + 2], wagon_col, OUTLINE)
+    return b
+
+
+def mine(look, v):
+    """An iron mine on 2 by 2 tiles: headframe, engine house, a rust-red spoil heap and ore wagons."""
+    return pit(look, v, [c("#7a4030"), c("#8a4a36"), c("#9a5a40"), c("#a86a4a")], c("#8a4a36"))
+
+
+def colliery(look, v):
+    """A coal mine on 2 by 2 tiles: headframe, engine house, a black spoil heap and coal wagons."""
+    return pit(look, v, [c("#1e1e22"), c("#2a2a2f"), c("#35353b"), c("#42424a")], c("#2a2a2f"))
+
+
+def seam(look, kind):
+    """Stones showing through the grass where there's a seam underneath: rusty for ore, black for coal."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    rng = random.Random(9970 if kind == "ore" else 9980)
+    cols = [c("#8a4a36"), c("#a05a40"), c("#6a3a2a")] if kind == "ore" else [c("#2a2a2f"), c("#3a3a40"), c("#1e1e22")]
+    for _ in range(4 if look == "snow" else 9):
+        x, y = rng.randrange(2, 29), rng.randrange(2, 29)
+        r = rng.choice((1, 1, 2))
+        d.ellipse([x - r, y - r, x + r, y + r // 2 + 1], rng.choice(cols))
+    return img
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -2786,6 +2956,7 @@ BUILDINGS = [
     ("tram_depot", tram_depot, 1), ("bus_garage", bus_garage, 2), ("subway_station", subway_station, 1),
     ("oil_plant", oil_plant, 1), ("gas_plant", gas_plant, 1), ("hydro_plant", hydro_plant, 1), ("nuclear_plant", nuclear_plant, 1),
     ("substation", substation, 1), ("dump", dump, 2), ("incinerator", incinerator, 1), ("recycling", recycling, 1),
+    ("farm", farm, 2), ("woodlot", woodlot, 3), ("mine", mine, 1), ("colliery", colliery, 1),
 ]
 
 
@@ -3075,6 +3246,8 @@ def sprites_for(look):
         out.append((f"hv_line_{mask}", img, lift, casters))
     img, casters = street_trees(look)
     out.append(("street_trees_0", img, LIFT, round_casters(casters)))
+    out.append(("seam_0", seam(look, "ore"), 0, []))
+    out.append(("seam_1", seam(look, "coal"), 0, []))
     sign = for_sale(look)
     out.append(("for_sale_0", sign.img, sign.lift, []))
     for mask in range(16):
@@ -3156,7 +3329,7 @@ def write_kotlin(names, flat, pos, size):
             lines.append('            "' + text[i:i + 2000] + '"')
         return "decode(\n" + " +\n".join(lines or ['            ""']) + ",\n        )"
 
-    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "street_trees", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
+    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "street_trees", "seam", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
     # A sprite's name must start with exactly one group's, or the counts go wrong.
     for n in names:
         owners = [g for g in groups if n.startswith(g + "_")]

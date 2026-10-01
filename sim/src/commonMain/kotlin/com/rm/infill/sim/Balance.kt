@@ -549,6 +549,25 @@ object Balance {
     /** How much less an empty home holds on when the town has too many homes. */
     const val EMPTY_SHRINK = 30
 
+    // Goods. What a load brought in costs against what it fetches; coal a coal station burns a month for
+    // each megawatt it makes; how much further than the edge freight will go to a buyer in town, in seconds.
+    const val IMPORT_MARKUP = 1.5
+    const val COAL_PER_MW = 2
+    const val EXPORT_DETOUR = 1_800
+
+    // Farmland answers a share of the outside market, as industry does, and what the town brings in from
+    // the land; works answer the market and what the town brings in of what they make. Jobs a load stands for.
+    const val FARM_MARKET = 0.3
+    const val LOADS_PER_FARM_JOB = 1.0
+    const val LOADS_PER_WORKS_JOB = 0.35
+
+    // How much a works likes getting what it needs in town, and a farm or mine selling there, at most.
+    const val LOCAL_APPEAL = 10
+    const val FARMLAND_APPEAL = 45
+    const val POOR_SOIL = 50
+    /** At most how much a farmland lot appeals more for making what the town's short of. */
+    const val SHORT_APPEAL = 25
+
     /** How far a lot can be from a road and still grow, in tiles. */
     const val ROAD_REACH = 3
 

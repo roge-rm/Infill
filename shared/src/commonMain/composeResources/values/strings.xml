@@ -466,7 +466,7 @@
     <string name="station_drawing">Using %1$s</string>
     <string name="megawatts">%1$s MW</string>
     <string name="inspect_garbage">Garbage piling up</string>
-    <string name="dump_fill">%1$d%% full</string>
+    <string name="dump_fill">%1$d% full</string>
     <string name="emergency_repairs">Emergency repairs</string>
     <string name="upkeep_garbage">Garbage and street trees</string>
     <string name="upkeep_disasters">Clean-up</string>
@@ -491,4 +491,29 @@
         <item quantity="one">Line down, a day to mend</item>
         <item quantity="other">Line down, %1$d days to mend</item>
     </plurals>
+    <!-- M12: goods -->
+    <string name="zone_farmland">Farmland</string>
+    <string name="inspect_zone_farmland">Zoned for farmland</string>
+    <string name="building_farm">Farm</string>
+    <string name="building_woodlot">Woodlot</string>
+    <string name="building_mine">Iron mine</string>
+    <string name="building_colliery">Coal mine</string>
+    <string name="good_food">food</string>
+    <string name="good_timber">timber</string>
+    <string name="good_ore">iron ore</string>
+    <string name="good_coal">coal</string>
+    <string name="good_lumber">lumber</string>
+    <string name="good_metal">metal</string>
+    <string name="good_goods">goods</string>
+    <string name="and_also">%1$s and %2$s</string>
+    <string name="inspect_makes">Makes %1$s</string>
+    <string name="inspect_makes_from">Makes %1$s from %2$s</string>
+    <string name="inspect_local_needs">%1$d% of what it uses from town</string>
+    <string name="inspect_local_sold">%1$d% sold in town</string>
+    <string name="inspect_coal_local">%1$d% of its coal from town</string>
+    <string name="inspect_fertile">Good soil</string>
+    <string name="inspect_ore">Iron ore underground</string>
+    <string name="inspect_coal_seam">A coal seam underground</string>
+    <string name="overlay_land">Land</string>
+    <string name="overlay_goods">Goods</string>
 </resources>

@@ -38,6 +38,53 @@ object TerrainGen {
             if (woodShare > 0 && woods[i] >= woodLine) t[i] = Terrain.TREES
             else if (rng.nextInt(1000) < options.trees / 2) t[i] = Terrain.TREES
         }
+        resources(map, seed)
+    }
+
+    /**
+     * What's in the ground: good soil over broad stretches, and a few seams of
+     * iron ore and of coal. With [awayFrom], for a town made before there were
+     * resources, the seams go only where nothing's built or zoned near them.
+     * Its own random numbers, so the land is the same as without it.
+     */
+    fun resources(map: CityMap, seed: Long, awayFrom: ((Int) -> Boolean)? = null) {
+        val rng = Rng(seed xor RESOURCE_SALT)
+        val soilSeed = rng.nextLong().toInt()
+        val r = map.resource
+        r.fill(Resource.NONE)
+        val soil = IntArray(map.size) { fractal(it % map.width, it / map.width, soilSeed) }
+        val soilLine = percentile(soil, 100 - FERTILE_SHARE)
+        for (i in 0 until map.size) if (map.terrain[i] != Terrain.WATER && soil[i] >= soilLine) r[i] = Resource.FERTILE
+        val seams = maxOf(1, map.size / SEAM_AREA)
+        for (kind in listOf(Resource.ORE, Resource.COAL)) repeat(seams) {
+            // A few tries for a spot on dry land, clear of the town.
+            var at = -1
+            repeat(40) {
+                val i = rng.nextInt(map.size)
+                if (at < 0 && map.terrain[i] != Terrain.WATER && (awayFrom == null || !builtNear(map, i, awayFrom))) at = i
+            }
+            if (at < 0) return@repeat
+            val cx = at % map.width
+            val cy = at / map.width
+            val radius = SEAM_RADIUS + rng.nextInt(3)
+            for (y in cy - radius..cy + radius) for (x in cx - radius..cx + radius) {
+                if (!map.inside(x, y)) continue
+                val i = map.index(x, y)
+                val dx = x - cx
+                val dy = y - cy
+                // A ragged edge.
+                if (dx * dx + dy * dy > radius * radius - rng.nextInt(radius * 2 + 1) || map.terrain[i] == Terrain.WATER) continue
+                if (awayFrom != null && awayFrom(i)) continue
+                r[i] = kind
+            }
+        }
+    }
+
+    private fun builtNear(map: CityMap, i: Int, built: (Int) -> Boolean): Boolean {
+        val x = i % map.width
+        val y = i / map.width
+        for (ty in y - 4..y + 4) for (tx in x - 4..x + 4) if (map.inside(tx, ty) && built(map.index(tx, ty))) return true
+        return false
     }
 
     /** A river that wanders from one edge to the one across from it, [halfWidth] tiles either side of its line. */
@@ -138,5 +185,11 @@ object TerrainGen {
 
     private const val ONE = 1024
     private const val TERRAIN_SALT = 0x7e77a1L
+    private const val RESOURCE_SALT = 0x5ea3501L
+
+    /** Percent of the land with good soil; one seam each of ore and coal for this many tiles, and how big. */
+    private const val FERTILE_SHARE = 35
+    private const val SEAM_AREA = 4096
+    private const val SEAM_RADIUS = 3
     private val NEIGHBOURS = arrayOf(0 to -1, 1 to 0, 0 to 1, -1 to 0)
 }

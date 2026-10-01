@@ -83,6 +83,25 @@ internal class Traffic(private val map: CityMap) {
     private val shipped = IntArray(map.size)
 
     /**
+     * Goods: loads of each [Good] to send from each starting tile this month,
+     * room for them at each road tile, and how much room is left in all.
+     */
+    private var goods = Array(Good.COUNT) { IntArray(0) }
+    private val wanted = Array(Good.COUNT) { IntArray(map.size) }
+    private val wantedLeft = IntArray(Good.COUNT)
+
+    /** This month so far and last month: loads delivered at each road tile, and by starting tile, sold in town and sent out of it. */
+    private val delivered = Array(Good.COUNT) { IntArray(map.size) }
+    val lastDelivered = Array(Good.COUNT) { IntArray(map.size) }
+    private val sold = Array(Good.COUNT) { IntArray(map.size) }
+    val lastSold = Array(Good.COUNT) { IntArray(map.size) }
+    private val exported = Array(Good.COUNT) { IntArray(map.size) }
+    val lastExported = Array(Good.COUNT) { IntArray(map.size) }
+
+    /** Last month's room for goods that nobody in town filled, by road tile: what had to be brought in. */
+    val lastUnmet = Array(Good.COUNT) { IntArray(map.size) }
+
+    /**
      * Last month, by starting tile: the average commute in seconds, -1 if
      * workers set out and none found a job, 0 if none set out.
      */
@@ -188,11 +207,13 @@ internal class Traffic(private val map: CityMap) {
      * congestion layer and the results above; then this month's travellers
      * and places to go are taken from the arrays, each by road tile, with how
      * many of the workers and shoppers have a car. [salt] shuffles who goes
-     * first, so no corner of the map always does.
+     * first, so no corner of the map always does. Goods, by kind and road
+     * tile: [goodsAt] to send, and [wantedAt] room for them.
      */
     fun newMonth(
         workersAt: IntArray, shoppersAt: IntArray, freightAt: IntArray, jobsAt: IntArray, shopsAt: IntArray, salt: Int,
         carWorkersAt: IntArray = IntArray(n), carShoppersAt: IntArray = IntArray(n),
+        goodsAt: Array<IntArray>? = null, wantedAt: Array<IntArray>? = null,
     ) {
         for (i in 0 until map.size) lastVolume[i] = (lastVolume[i] + volume[i] + 1) / 2
         volume.fill(0)
@@ -220,7 +241,18 @@ internal class Traffic(private val map: CityMap) {
             sent += workers[k]
             got += placed[o]
             if (workers[k] > 0) commute[o] = if (placed[o] == 0) -1 else (travel[o] / placed[o]).toInt()
-            freightStuck[o] = freight[k] > 0 && shipped[o] * 2 < freight[k]
+            var loads = freight[k]
+            for (g in goods) if (k < g.size) loads += g[k]
+            freightStuck[o] = loads > 0 && shipped[o] * 2 < loads
+        }
+        for (g in 0 until Good.COUNT) {
+            delivered[g].copyInto(lastDelivered[g])
+            delivered[g].fill(0)
+            sold[g].copyInto(lastSold[g])
+            sold[g].fill(0)
+            exported[g].copyInto(lastExported[g])
+            exported[g].fill(0)
+            wanted[g].copyInto(lastUnmet[g])
         }
         workersSent = sent
         workersPlaced = got
@@ -237,7 +269,9 @@ internal class Traffic(private val map: CityMap) {
         jobsAt.copyInto(jobsLeft)
         shopsAt.copyInto(shopsLeft)
         val starts = ArrayList<Int>()
-        for (i in 0 until map.size) if (workersAt[i] > 0 || shoppersAt[i] > 0 || freightAt[i] > 0) starts += i
+        for (i in 0 until map.size) {
+            if (workersAt[i] > 0 || shoppersAt[i] > 0 || freightAt[i] > 0 || goodsAt?.any { it[i] > 0 } == true) starts += i
+        }
         starts.sortBy { mixed(it, salt) }
         origins = starts.toIntArray()
         workers = IntArray(origins.size) { workersAt[origins[it]] }
@@ -245,6 +279,11 @@ internal class Traffic(private val map: CityMap) {
         shoppers = IntArray(origins.size) { shoppersAt[origins[it]] }
         carShoppers = IntArray(origins.size) { min(shoppersAt[origins[it]], carShoppersAt[origins[it]]) }
         freight = IntArray(origins.size) { freightAt[origins[it]] }
+        for (g in 0 until Good.COUNT) {
+            goods[g] = IntArray(origins.size) { goodsAt?.get(g)?.get(origins[it]) ?: 0 }
+            if (wantedAt != null) wantedAt[g].copyInto(wanted[g]) else wanted[g].fill(0)
+            wantedLeft[g] = wanted[g].sum()
+        }
     }
 
     /** Sends the travellers in slice [day] of [days], so the whole month's have gone by its end. */
@@ -259,17 +298,25 @@ internal class Traffic(private val map: CityMap) {
      * separately, since they have different ways to get there.
      */
     private fun send(k: Int) {
-        val total = workers[k] + shoppers[k] + freight[k]
+        var loads = 0
+        for (g in goods) loads += g[k]
+        val total = workers[k] + shoppers[k] + freight[k] + loads
         val parts = (total + PART - 1) / PART
         fun share(v: Int, p: Int) = v * (p + 1) / parts - v * p / parts
+        val cargo = IntArray(Good.COUNT)
         for (p in 0 until parts) {
             val wCar = share(carWorkers[k], p)
             val sCar = share(carShoppers[k], p)
             val w = share(workers[k] - carWorkers[k], p)
             val s = share(shoppers[k] - carShoppers[k], p)
             val f = share(freight[k], p)
-            if (w + s > 0) send(origins[k], w, s, 0, car = false)
-            if (wCar + sCar + f > 0) send(origins[k], wCar, sCar, f, car = true)
+            var c = 0
+            for (g in 0 until Good.COUNT) {
+                cargo[g] = share(goods[g][k], p)
+                c += cargo[g]
+            }
+            if (w + s > 0) send(origins[k], w, s, 0, car = false, null)
+            if (wCar + sCar + f + c > 0) send(origins[k], wCar, sCar, f, car = true, if (c > 0) cargo else null)
         }
     }
 
@@ -289,18 +336,23 @@ internal class Traffic(private val map: CityMap) {
     /**
      * A single search outward from [start], taking the nearest room first.
      * With a [car], the travellers can drive as well as walk and ride, and
-     * freight goes along; without, they walk and ride.
+     * freight goes along; without, they walk and ride. Goods in [cargo] go to
+     * the nearest buyers with room for them, or out of town if none is near.
      */
-    private fun send(start: Int, workers: Int, shoppers: Int, freight: Int, car: Boolean) {
+    private fun send(start: Int, workers: Int, shoppers: Int, freight: Int, car: Boolean, cargo: IntArray?) {
         var w = workers
         var s = shoppers
         var f = freight
+        var c = cargo?.sum() ?: 0
+        // Where the goods could leave town, and how far that was.
+        var out = -1
+        var outAt = 0
         val net = transit?.takeIf { it.any }
         search++
         heapSize = 0
         if (w + s > 0) reach(state(WALK, start), 0, -1)
         if (car && !snowedIn) reach(state(CAR, start), 0, -1)
-        while (heapSize > 0 && (w > 0 || s > 0 || f > 0)) {
+        while (heapSize > 0 && (w > 0 || s > 0 || f > 0 || c > 0)) {
             val d = heapKeys[0]
             val st = pop()
             if (d > dist[st]) continue
@@ -309,6 +361,11 @@ internal class Traffic(private val map: CityMap) {
                 w = 0
                 s = 0
                 if (d > Balance.LONGEST_FREIGHT) break
+            }
+            if (c > 0 && out >= 0 && d > outAt + Balance.EXPORT_DETOUR) {
+                // No buyer near enough: what's left goes out of town.
+                ship(start, out, cargo!!)
+                c = 0
             }
             val layer = st / n
             val a = st % n
@@ -332,13 +389,34 @@ internal class Traffic(private val map: CityMap) {
             if (layer == CAR && f > 0 && (edge(a) || outlet[a] >= 0)) {
                 shipped[start] += f
                 carry(st, f, FREIGHT)
-                if (!edge(a)) {
-                    // Out through the yard.
-                    railFreight[a] += f
-                    val key = (stopTrack[outlet[a]].toLong() shl 32) or 0xffffffffL
-                    journeys[key] = (journeys[key] ?: 0) + f
-                }
+                if (!edge(a)) outByRail(a, f)
                 f = 0
+            }
+            if (layer == CAR && c > 0) {
+                for (g in 0 until Good.COUNT) {
+                    val room = wanted[g][a]
+                    if (cargo!![g] == 0 || room == 0) continue
+                    val t = min(cargo[g], room)
+                    wanted[g][a] -= t
+                    wantedLeft[g] -= t
+                    cargo[g] -= t
+                    c -= t
+                    delivered[g][a] += t
+                    sold[g][start] += t
+                    shipped[start] += t
+                    carry(st, t, FREIGHT)
+                }
+                if (c > 0 && out < 0 && (edge(a) || outlet[a] >= 0)) {
+                    out = st
+                    outAt = d
+                }
+                // Goods nobody in town has room for go straight out.
+                if (out >= 0) for (g in 0 until Good.COUNT) {
+                    if (cargo!![g] == 0 || wantedLeft[g] > 0) continue
+                    shipOne(start, out, g, cargo[g])
+                    c -= cargo[g]
+                    cargo[g] = 0
+                }
             }
             when (layer) {
                 WALK -> walkFrom(a, d, st, net)
@@ -349,6 +427,31 @@ internal class Traffic(private val map: CityMap) {
                 SUBWAY -> subwayFrom(a, d, st, net!!)
             }
         }
+        // The search ran out before the goods did: out of town if there's a way, else they stay where they are.
+        if (c > 0 && out >= 0) ship(start, out, cargo!!)
+    }
+
+    /** Sends what's left in [cargo] out of town by the way to [out], the edge or a freight yard, once the search is done. */
+    private fun ship(start: Int, out: Int, cargo: IntArray) {
+        for (g in 0 until Good.COUNT) if (cargo[g] > 0) {
+            shipOne(start, out, g, cargo[g])
+            cargo[g] = 0
+        }
+    }
+
+    private fun shipOne(start: Int, out: Int, g: Int, loads: Int) {
+        exported[g][start] += loads
+        shipped[start] += loads
+        carry(out, loads, FREIGHT)
+        val a = out % n
+        if (!edge(a)) outByRail(a, loads)
+    }
+
+    /** Freight leaving town by train from the yard reached from road tile [a]. */
+    private fun outByRail(a: Int, loads: Int) {
+        railFreight[a] += loads
+        val key = (stopTrack[outlet[a]].toLong() shl 32) or 0xffffffffL
+        journeys[key] = (journeys[key] ?: 0) + loads
     }
 
     /** On foot: along any road either way, onto a train, a tram, a bus or the subway. */
@@ -644,9 +747,29 @@ internal class Traffic(private val map: CityMap) {
         origins = IntArray(n); workers = IntArray(n); shoppers = IntArray(n); freight = IntArray(n)
         carWorkers = IntArray(n); carShoppers = IntArray(n)
         for (k in 0 until n) { origins[k] = tile(r); workers[k] = r.int(); shoppers[k] = r.int(); freight[k] = r.int() }
+        // No goods before version 10; [readGoods] fills them in after.
+        goods = Array(Good.COUNT) { IntArray(n) }
         freightStuck.fill(false)
         repeat(r.count()) { freightStuck[tile(r)] = true }
         workersSent = r.int(); workersPlaced = r.int()
+    }
+
+    /** Since save version 10. */
+    internal fun writeGoods(w: SaveWriter) {
+        w.count(origins.size)
+        for (g in 0 until Good.COUNT) {
+            for (k in origins.indices) w.int(goods[g][k])
+            for (a in arrayOf(wanted[g], delivered[g], lastDelivered[g], sold[g], lastSold[g], exported[g], lastExported[g], lastUnmet[g])) sparse(w, a)
+        }
+    }
+
+    internal fun readGoods(r: SaveReader) {
+        if (r.count() != origins.size) throw SaveError("the freight doesn't add up")
+        for (g in 0 until Good.COUNT) {
+            goods[g] = IntArray(origins.size) { r.int() }
+            for (a in arrayOf(wanted[g], delivered[g], lastDelivered[g], sold[g], lastSold[g], exported[g], lastExported[g], lastUnmet[g])) sparse(r, a)
+            wantedLeft[g] = wanted[g].sum()
+        }
     }
 
     /** Since save version 8. */

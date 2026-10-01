@@ -56,6 +56,12 @@ enum class BuildingType(
     FACTORY(Zone.INDUSTRIAL, 4, 30, pollution = 18, density = Density.MEDIUM, needs = 3, appeal = 62, buildDays = 90),
     WORKS(Zone.INDUSTRIAL, 5, 140, width = 2, height = 2, pollution = 40, density = Density.HIGH, needs = 3, appeal = 64, buildDays = 200),
 
+    /** On farmland, by what's under the lot: a mine on ore, a colliery on coal, a woodlot in the woods, otherwise a farm. */
+    MINE(Zone.FARMLAND, 1, 20, width = 2, height = 2, pollution = 8, density = Density.LOW, buildDays = 90),
+    COLLIERY(Zone.FARMLAND, 1, 20, width = 2, height = 2, pollution = 12, density = Density.LOW, buildDays = 90),
+    WOODLOT(Zone.FARMLAND, 1, 3, density = Density.LOW, buildDays = 15),
+    FARM(Zone.FARMLAND, 1, 4, width = 2, height = 2, density = Density.LOW, buildDays = 30),
+
     /** Power stations: their smoke follows their output, see [Generation]. Hydro goes beside a river. */
     COAL_PLANT(Zone.NONE, 0, 8, width = 2, height = 2, life = 35),
     OIL_PLANT(Zone.NONE, 0, 10, width = 2, height = 2, year = 1920, life = 35),
@@ -198,4 +204,16 @@ class Building(val id: Int, var type: BuildingType, val x: Int, val y: Int, val 
 
     /** Last month nobody took its garbage away. */
     var uncollected = false
+
+    /** For a works on industrial land, what it makes: a [WorksKind]'s ordinal, or -1. */
+    var kind = -1
+
+    /**
+     * Last month, in percent: for a works, how much of what it needed came
+     * from the town rather than from outside; for a farm, woodlot or mine,
+     * how much of what it made was taken in town; for a coal station, its coal.
+     */
+    var local = 0
+
+    val worksKind: WorksKind? get() = if (kind >= 0) WorksKind.entries[kind] else null
 }

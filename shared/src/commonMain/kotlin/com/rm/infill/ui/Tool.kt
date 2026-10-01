@@ -1,5 +1,6 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.zone_farmland
 import com.rm.infill.res.Res
 import com.rm.infill.res.tool_bulldoze
 import com.rm.infill.res.tool_inspect
@@ -250,6 +251,7 @@ enum class ZoneKind(val zone: Byte, val title: StringResource) {
     Residential(Zone.RESIDENTIAL, Res.string.zone_residential),
     Commercial(Zone.COMMERCIAL, Res.string.zone_commercial),
     Industrial(Zone.INDUSTRIAL, Res.string.zone_industrial),
+    Farmland(Zone.FARMLAND, Res.string.zone_farmland),
 }
 
 /**
@@ -301,7 +303,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             water.bank -> Action.BuildBank(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             else -> Action.RemovePipes(x0, y0, x1, y1)
         }
-        Tool.Zone -> Action.PlaceZone(x0, y0, x1, y1, zone.zone, density.density)
+        Tool.Zone -> Action.PlaceZone(x0, y0, x1, y1, zone.zone, if (zone == ZoneKind.Farmland) Density.LOW else density.density)
         Tool.Bulldoze -> if (bulldoze == BulldozeKind.Renew) Action.RenewArea(x0, y0, x1, y1) else Action.Bulldoze(x0, y0, x1, y1)
         // A building goes where the finger ends up, with that tile its top left.
         Tool.Power -> power.building?.let { Action.PlaceBuilding(it, x1, y1) }

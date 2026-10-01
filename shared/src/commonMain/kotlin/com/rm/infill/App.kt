@@ -647,7 +647,10 @@ private fun GameScreen(
             ) {
                 inspected?.let { (x, y) -> InspectPanel(game, x, y, onClose = { inspected = null }) }
                 if (tool == Tool.Zone) {
-                    OptionPicker(DensityKind.entries, densityKind, { it.title }, { null }, { densityKind = it }, compactTools)
+                    // Farms, woodlots and mines come in one size.
+                    if (zoneKind != ZoneKind.Farmland) {
+                        OptionPicker(DensityKind.entries, densityKind, { it.title }, { null }, { densityKind = it }, compactTools)
+                    }
                     OptionPicker(ZoneKind.entries, zoneKind, { it.title }, { zoneColour(it.zone) }, { zoneKind = it }, compactTools)
                 }
                 if (tool == Tool.Road) {

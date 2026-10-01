@@ -25,6 +25,9 @@ import com.rm.infill.res.overlay_age
 import com.rm.infill.res.overlay_transit
 import com.rm.infill.res.overlay_heat
 import com.rm.infill.res.overlay_garbage
+import com.rm.infill.res.overlay_land
+import com.rm.infill.res.overlay_goods
+import com.rm.infill.sim.Resource
 import com.rm.infill.sim.Household
 import com.rm.infill.sim.Balance
 import com.rm.infill.sim.CityMap
@@ -55,6 +58,8 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Transit(Res.string.overlay_transit, Color(0xFFD8E8F5), Color(0xFF2F5F9A)),
     Heat(Res.string.overlay_heat, Color(0xFF6FA8C8), Color(0xFFD8402F)),
     Garbage(Res.string.overlay_garbage, Color(0xFF4CAF50), Color(0xFF8A5A2A)),
+    Land(Res.string.overlay_land, Color(0xFF6FA848), Color(0xFF2E2E34)),
+    Goods(Res.string.overlay_goods, Color(0xFFD84343), Color(0xFF4CAF50)),
 }
 
 /**
@@ -62,7 +67,8 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
  * Land value covers all land; the rest show only where they are.
  */
 internal fun overlayImage(
-    overlay: Overlay, map: CityMap, homeAt: (Int) -> Household?, wearAt: (Int) -> Int, uncollectedAt: (Int) -> Boolean, ridersAt: (Int) -> Int,
+    overlay: Overlay, map: CityMap, homeAt: (Int) -> Household?, wearAt: (Int) -> Int, uncollectedAt: (Int) -> Boolean,
+    localAt: (Int) -> Int, ridersAt: (Int) -> Int,
 ): ImageBitmap? {
     if (overlay == Overlay.None) return null
     val pixels = IntArray(map.size)
@@ -123,12 +129,25 @@ internal fun overlayImage(
                 if (map.building[i] == 0) continue
                 if (uncollectedAt(i)) 255 else 0
             }
+            // What's in the ground: good soil, ore and coal; the rest shows nothing.
+            Overlay.Land -> {
+                val colour = when (map.resource[i]) {
+                    Resource.FERTILE -> 0x9A7A5230.toInt()
+                    Resource.ORE -> 0xE0A04A30.toInt()
+                    Resource.COAL -> 0xE02A2A30.toInt()
+                    else -> continue
+                }
+                pixels[i] = colour
+                continue
+            }
+            // Works, farms, mines and coal stations: red where it all comes from or goes out of town, green where it's the town's own.
+            Overlay.Goods -> localAt(i).takeIf { it >= 0 }?.let { it * 255 / 100 } ?: continue
             Overlay.None -> 0
         }
         val everywhere = overlay == Overlay.LandValue || overlay == Overlay.Power || overlay == Overlay.Traffic ||
             overlay == Overlay.Railway || overlay == Overlay.Water || overlay == Overlay.Runoff ||
             overlay == Overlay.Schooling || overlay == Overlay.Health || overlay == Overlay.Wealth || overlay == Overlay.Age ||
-            overlay == Overlay.Heat || overlay == Overlay.Garbage
+            overlay == Overlay.Heat || overlay == Overlay.Garbage || overlay == Overlay.Goods
         if (!everywhere && v == 0) continue
         pixels[i] = mix(overlay.low, overlay.high, v / 255f)
     }

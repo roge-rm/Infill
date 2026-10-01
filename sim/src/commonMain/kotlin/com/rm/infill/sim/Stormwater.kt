@@ -37,6 +37,9 @@ object Stormwater {
         BuildingType.FACTORY, BuildingType.WORKS -> 95
         BuildingType.COAL_PLANT, BuildingType.OIL_PLANT, BuildingType.GAS_PLANT -> 85
         BuildingType.HYDRO_PLANT -> 70
+        BuildingType.FARM -> 10
+        BuildingType.WOODLOT -> 0
+        BuildingType.MINE, BuildingType.COLLIERY -> 60
         BuildingType.NUCLEAR_PLANT -> 80
         BuildingType.SUBSTATION -> 50
         BuildingType.DUMP -> 30

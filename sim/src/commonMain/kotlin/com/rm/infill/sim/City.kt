@@ -874,6 +874,7 @@ class City(
         val b = Building(nextId++, type, x, y, variant)
         b.underway = underway
         b.built = monthNow
+        if (type.zone == Zone.INDUSTRIAL) b.kind = chooseKind(type.capacity)
         if (underway > 0) sites += b.id
         buildings[b.id] = b
         stamp(b)
@@ -1419,7 +1420,8 @@ class City(
         var taken = 0L
         fun near(f: Building, b: Building) = kotlin.math.abs(f.x - b.x) + kotlin.math.abs(f.y - b.y) <= Balance.GARBAGE_REACH
         for (b in buildings.values.sortedBy { it.id }) {
-            val people = b.people?.size ?: if (b.type.zone != Zone.NONE) b.type.capacity / 2 else 0
+            // Farms and mines see to their own, out where they are.
+            val people = b.people?.size ?: if (b.type.zone != Zone.NONE && b.type.zone != Zone.FARMLAND) b.type.capacity / 2 else 0
             if (people == 0 || b.underway > 0) {
                 b.uncollected = false
                 continue
@@ -1545,6 +1547,7 @@ class City(
                 continue
             }
             val heavy = t == BuildingType.MILL || t == BuildingType.WAREHOUSE || t == BuildingType.FACTORY || t == BuildingType.WORKS ||
+                t == BuildingType.MINE || t == BuildingType.COLLIERY ||
                 t == BuildingType.COAL_PLANT || t == BuildingType.OIL_PLANT || t == BuildingType.GAS_PLANT
             if (!heavy) continue
             val wear = Ageing.wear(monthNow - b.built, if (t.life > 0) t.life else 40)
@@ -1867,6 +1870,101 @@ class City(
 
     private val traffic = Traffic(map)
 
+    // ---- goods ---------------------------------------------------------------------
+
+    /** What [b] makes a month, in hundredths of a load, or null if it makes nothing to carry. */
+    private fun makes(b: Building): Pair<Good, Int>? {
+        val t = b.type
+        b.worksKind?.let { return it.output to t.capacity * it.rate }
+        val (g, rate) = Land.output(t) ?: return null
+        // Farms on poor soil grow less.
+        val soil = if (t == BuildingType.FARM && map.resource[map.index(b.x, b.y)] != Resource.FERTILE) Balance.POOR_SOIL else 100
+        return g to t.capacity * rate * soil / 100
+    }
+
+    /** What [b] needs a month, in hundredths of a load: a works its makings, a coal station its coal. */
+    private fun needs(b: Building): List<Pair<Good, Int>> {
+        b.worksKind?.let { k -> return k.inputs.map { (g, rate) -> g to b.type.capacity * rate } }
+        if (b.type == BuildingType.COAL_PLANT) return listOf(Good.COAL to coalBurnt(b))
+        return emptyList()
+    }
+
+    /** Hundredths of a load of coal a coal station burns a month at last month's output. */
+    private fun coalBurnt(b: Building): Int = (stationOutput(b).toLong() * Balance.COAL_PER_MW / 10_000).toInt()
+
+    /** What a station's fuel costs a month: a coal station's coal, the town's own cheaper than what's brought in; the others by output. */
+    internal fun fuelCost(b: Building): Double {
+        if (b.type != BuildingType.COAL_PLANT) return Generation.fuel(b.type) * stationOutput(b) / 1_000_000.0
+        val coal = coalBurnt(b) / 100.0
+        return coal * Good.COAL.price * (b.local + (100 - b.local) * Balance.IMPORT_MARKUP) / 100.0
+    }
+
+    /** How much more a farmland lot appeals for building [t], by how much of what it makes the town brought in last month. */
+    private fun shortOf(t: BuildingType): Int {
+        val (g, _) = Land.output(t) ?: return 0
+        return min(Balance.SHORT_APPEAL, stats.goodsImported[g.ordinal] / 2)
+    }
+
+    /** How much the town wants each kind of works this month, in jobs: what it brings in of the works' goods, and the makings it sends away. */
+    private val kindPull = DoubleArray(WorksKind.entries.size)
+
+    /**
+     * What a new works of [jobs] makes: whatever the town brings in most of,
+     * or can make from what it sends away; failing both, finished goods.
+     */
+    private fun chooseKind(jobs: Int): Int {
+        var best = WorksKind.FACTORY.ordinal
+        for (k in WorksKind.entries) if (kindPull[k.ordinal] > kindPull[best]) best = k.ordinal
+        kindPull[best] -= jobs.toDouble()
+        return best
+    }
+
+    /**
+     * Last month's goods, now the trips are in: what each good came to, and
+     * for each works, farm, mine and coal station, how much was its town's.
+     * Buildings sharing a road tile share its deliveries.
+     */
+    private fun settleGoods() {
+        val s = stats
+        val t = traffic
+        for (g in 0 until Good.COUNT) {
+            s.goodsSold[g] = t.lastSold[g].sum()
+            s.goodsExported[g] = t.lastExported[g].sum()
+            s.goodsMade[g] = s.goodsSold[g] + s.goodsExported[g]
+            s.goodsImported[g] = t.lastUnmet[g].sum()
+        }
+        for (b in buildings.values) {
+            val node = accessOf(b)
+            if (node < 0 || b.underway > 0) {
+                b.local = 0
+                continue
+            }
+            val needed = needs(b)
+            b.local = if (needed.isNotEmpty()) {
+                // Each of its needs by weight, at the share its road tile got of what it wanted.
+                var want = 0L
+                var got = 0L
+                for ((g, h) in needed) {
+                    val came = t.lastDelivered[g.ordinal][node]
+                    val all = came + t.lastUnmet[g.ordinal][node]
+                    want += h
+                    if (all > 0) got += h.toLong() * came / all
+                }
+                if (want == 0L) 0 else (got * 100 / want).toInt()
+            } else {
+                val g = makes(b)?.first ?: continue
+                val sold = t.lastSold[g.ordinal][node]
+                val all = sold + t.lastExported[g.ordinal][node]
+                if (all == 0) 0 else sold * 100 / all
+            }
+        }
+        for (k in WorksKind.entries) {
+            var pull = s.goodsImported[k.output.ordinal] * 100.0 / k.rate
+            for ((g, rate) in k.inputs) pull += s.goodsExported[g.ordinal] * 100.0 / rate / k.inputs.size
+            kindPull[k.ordinal] = pull
+        }
+    }
+
     /** The road tile a building is reached from, or -1. */
     private fun accessOf(b: Building): Int {
         var node = -1
@@ -1917,10 +2015,27 @@ class City(
                 else -> jobsAt[node] += c
             }
         }
+        // Goods, in hundredths of a load until each tile's are added up.
+        val goodsAt = Array(Good.COUNT) { IntArray(n) }
+        val wantedAt = Array(Good.COUNT) { IntArray(n) }
+        for (b in buildings.values.sortedBy { it.id }) {
+            if (b.underway > 0 || b.outage > 0) continue
+            val node = accessOf(b)
+            if (node < 0) continue
+            makes(b)?.let { (g, h) -> goodsAt[g.ordinal][node] += h }
+            for ((g, h) in needs(b)) wantedAt[g.ordinal][node] += h
+        }
+        // What's made to the nearest load; what's wanted up to the next, so any need asks for something.
+        for (g in 0 until Good.COUNT) for (i in 0 until n) {
+            goodsAt[g][i] = (goodsAt[g][i] + 50) / 100
+            wantedAt[g][i] = (wantedAt[g][i] + 99) / 100
+        }
         traffic.newMonth(
             workersAt, shoppersAt, freightAt, jobsAt, shopsAt, year * 12 + month,
             IntArray(n) { (carWorkers[it] + 50) / 100 }, IntArray(n) { (carShoppers[it] + 50) / 100 },
+            goodsAt, wantedAt,
         )
+        settleGoods()
         // The waits follow last month's riders.
         updateTransit()
         traffic.lastModes.copyInto(stats.byMode)
@@ -3121,11 +3236,11 @@ class City(
     // ---- growth --------------------------------------------------------------
 
     /** How much each zone may still grow (or has to shrink) this month, in residents or jobs. */
-    private val quota = IntArray(4)
+    private val quota = IntArray(Zone.COUNT)
 
     private fun growDay() {
         val left = daysIn(month, year) - day + 1
-        for (zone in 1..3) {
+        for (zone in 1 until Zone.COUNT) {
             var events = 0
             val most = 1 + abs(quota[zone]) / (left * 6)
             while (quota[zone] != 0 && events < most) {
@@ -3163,8 +3278,8 @@ class City(
             val pull = attraction(i, zone)
             val options = choices(b, i, zone, pull)
             if (options.isEmpty()) return@repeat
-            // An empty lot before pulling something down.
-            val score = pull + rng.nextInt(10) + if (b == null) 4 else 0
+            // An empty lot before pulling something down; on farmland, the lot for what the town's short of.
+            val score = pull + rng.nextInt(10) + (if (b == null) 4 else 0) + if (zone == Zone.FARMLAND) shortOf(options[0]) else 0
             if (score > bestScore) {
                 bestScore = score
                 best = i
@@ -3178,7 +3293,8 @@ class City(
         val added = when {
             type.large -> assemble(type, best)
             b == null -> {
-                clearTrees(best)
+                // A woodlot is the woods.
+                if (type != BuildingType.WOODLOT) clearTrees(best)
                 addBuilding(type, best % map.width, best / map.width, rng.nextInt(1000), underway = type.buildDays)
                 networksChanged()
                 type.capacity
@@ -3204,8 +3320,10 @@ class City(
         val value = map.landValue[i].toInt() and 0xff
         return rung.filter { t ->
             t.density <= map.density[i] && t.year <= year && pull >= t.appeal &&
-                // Industry goes where it's let; homes and shops go up where the land's dear enough to pay for them.
-                (zone == Zone.INDUSTRIAL || value >= t.value) &&
+                // Industry and farms go where they're let; homes and shops go up where the land's dear enough to pay for them.
+                (zone == Zone.INDUSTRIAL || zone == Zone.FARMLAND || value >= t.value) &&
+                // Farms, woodlots and mines by what's under the lot.
+                (zone != Zone.FARMLAND || Land.fits(t, map.terrain[i], map.resource[i])) &&
                 (!t.needsPower || map.powered[i]) && (!t.needsWater || map.watered[i]) && (!t.needsSewer || map.sewered[i]) &&
                 // Businesses can't grow into what the town hasn't the people to staff.
                 (zone == Zone.RESIDENTIAL || !skillsShort(t)) &&
@@ -3327,7 +3445,9 @@ class City(
             previous == null || b.underway > 0 -> {
                 removed = b.type.capacity
                 // Works closing for good leave their land fouled.
-                if (b.type.zone == Zone.INDUSTRIAL && b.underway == 0 && year >= Balance.BROWNFIELD_FROM) {
+                if ((b.type.zone == Zone.INDUSTRIAL || b.type == BuildingType.MINE || b.type == BuildingType.COLLIERY) &&
+                    b.underway == 0 && year >= Balance.BROWNFIELD_FROM
+                ) {
                     forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { map.brownfield[it] = 1 }
                 }
                 removeBuilding(b)
@@ -3361,7 +3481,7 @@ class City(
         for (b in out) if (rng.nextInt(3) == 0) shrink(b)
     }
 
-    private val lotCache = arrayOfNulls<IntArray>(4)
+    private val lotCache = arrayOfNulls<IntArray>(Zone.COUNT)
 
     /** Set when the player changes the map, since only the player changes zones. */
     private var zonesChanged = true
@@ -3370,7 +3490,7 @@ class City(
     private fun zoneLots(zone: Byte): IntArray {
         if (zonesChanged) {
             zonesChanged = false
-            for (z in 1..3) lotCache[z] = null
+            for (z in 1 until Zone.COUNT) lotCache[z] = null
         }
         return lotCache[zone.toInt()] ?: run {
             val list = ArrayList<Int>()
@@ -3434,6 +3554,14 @@ class City(
                 around(x, y, 3) { j, _ -> if (m.terrain[j] == Terrain.WATER) water = true }
                 score += 50 + (if (water) 5 else 0) - crime / 8
                 if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
+                // A works that gets what it needs in town does better.
+                buildings[m.building[i]]?.let { score += it.local * Balance.LOCAL_APPEAL / 100 }
+            }
+            Zone.FARMLAND -> {
+                score += Balance.FARMLAND_APPEAL - crime / 8
+                if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
+                // Selling in town rather than sending it all away.
+                buildings[m.building[i]]?.let { score += it.local * Balance.LOCAL_APPEAL / 100 }
             }
         }
         val stigma = if (zone == Zone.RESIDENTIAL) (m.floodMemory[i].toInt() and 0xff) / Balance.STIGMA_APPEAL else 0
@@ -3539,13 +3667,14 @@ class City(
         var residents = 0
         var shopJobs = 0
         var industryJobs = 0
+        var farmJobs = 0
         var otherJobs = 0
         var health = 0L
         var spending = 0L
         s.children = 0; s.adults = 0; s.elderly = 0; s.workers = 0; s.emptyHomes = 0; s.emptyRoom = 0
         s.workersBy.fill(0); s.byWealth.fill(0)
         val jobsBy = LongArray(Education.LEVELS)
-        s.sites = 0; s.homesComing = 0; s.shopJobsComing = 0; s.industryJobsComing = 0
+        s.sites = 0; s.homesComing = 0; s.shopJobsComing = 0; s.industryJobsComing = 0; s.farmJobsComing = 0
         for (b in buildings.values) {
             val c = b.type.capacity
             if (b.underway > 0) {
@@ -3554,6 +3683,7 @@ class City(
                     Zone.RESIDENTIAL -> s.homesComing += c
                     Zone.COMMERCIAL -> s.shopJobsComing += c
                     Zone.INDUSTRIAL -> s.industryJobsComing += c
+                    Zone.FARMLAND -> s.farmJobsComing += c
                 }
                 continue
             }
@@ -3561,6 +3691,7 @@ class City(
                 Zone.RESIDENTIAL -> residents += b.people?.size ?: 0
                 Zone.COMMERCIAL -> shopJobs += c
                 Zone.INDUSTRIAL -> industryJobs += c
+                Zone.FARMLAND -> farmJobs += c
                 else -> otherJobs += c
             }
             val h = b.people
@@ -3613,6 +3744,7 @@ class City(
         s.keptUp = keptUp()
         s.shopJobs = shopJobs
         s.industryJobs = industryJobs
+        s.farmJobs = farmJobs
         s.otherJobs = otherJobs
         s.health = if (residents == 0) 0 else (health / residents).toInt()
         s.spending = spending.toInt()
@@ -3651,10 +3783,19 @@ class City(
         val market = (Balance.EXPORT_BASE + Balance.EXPORT_PER_RESIDENT * s.population) *
             (1 + Balance.EXPORT_GROWTH * years) * (if (connected) 1.0 else Balance.UNCONNECTED_EXPORTS) *
             (if (railFreight) Balance.RAIL_EXPORTS else 1.0) * Economy.market(year, month) / 100.0
-        val jobs = s.shopJobs + s.industryJobs + s.otherJobs
+        val jobs = s.shopJobs + s.industryJobs + s.farmJobs + s.otherJobs
+        // What the town brings in that it could make: from the land, and from the works.
+        var fromLand = 0.0
+        var fromWorks = 0.0
+        for (g in Good.entries) {
+            if (g.ordinal <= Good.COAL.ordinal) fromLand += s.goodsImported[g.ordinal] / Balance.LOADS_PER_FARM_JOB
+            else fromWorks += s.goodsImported[g.ordinal] / Balance.LOADS_PER_WORKS_JOB
+        }
         // What's going up already counts against demand.
-        val industryGap = market - s.industryJobs
+        val industryGap = market + fromWorks - s.industryJobs
         s.industryDemand = taxed(industryGap - s.industryJobsComing, industrialTax)
+        val farmGap = market * Balance.FARM_MARKET + fromLand - s.farmJobs
+        s.farmDemand = taxed(farmGap - s.farmJobsComing, industrialTax)
         // The shops answer what people spend, more the better off they are.
         val shopGap = s.spending / Balance.RESIDENTS_PER_SHOP_JOB - s.shopJobs.toDouble()
         s.commercialDemand = taxed(shopGap - s.shopJobsComing, commercialTax)
@@ -3670,6 +3811,7 @@ class City(
         quota[Zone.RESIDENTIAL.toInt()] = cap(growOrShrink(taxed(homeGap, residentialTax), s.residentialDemand), s.population)
         quota[Zone.COMMERCIAL.toInt()] = cap(growOrShrink(taxed(shopGap, commercialTax), s.commercialDemand), s.shopJobs)
         quota[Zone.INDUSTRIAL.toInt()] = cap(growOrShrink(taxed(industryGap, industrialTax), s.industryDemand), s.industryJobs)
+        quota[Zone.FARMLAND.toInt()] = cap(growOrShrink(taxed(farmGap, industrialTax), s.farmDemand), s.farmJobs)
     }
 
     /** What a zone does this month: shrink by [standing] if what stands is already too much, else grow by [coming], or not at all. */
@@ -3734,7 +3876,7 @@ class City(
             when {
                 b.type.zone == Zone.RESIDENTIAL -> homes += b.type.capacity * worth * Demography.TAX_BY_WEALTH[b.people?.wealth ?: Wealth.MIDDLE] / 100.0
                 b.type.zone == Zone.COMMERCIAL -> shops += b.type.capacity * worth
-                b.type.zone == Zone.INDUSTRIAL -> works += b.type.capacity * worth
+                b.type.zone == Zone.INDUSTRIAL || b.type.zone == Zone.FARMLAND -> works += b.type.capacity * worth
                 b.type == BuildingType.POLICE_STATION -> police++
                 b.type == BuildingType.FIRE_STATION -> fire++
                 b.type == BuildingType.PARK -> parks++
@@ -3745,7 +3887,7 @@ class City(
                     BuildingType.NUCLEAR_PLANT -> Balance.NUCLEAR_PLANT_UPKEEP
                     BuildingType.SUBSTATION -> Balance.SUBSTATION_UPKEEP
                     else -> Balance.PLANT_UPKEEP
-                } + Generation.fuel(b.type) * stationOutput(b) / 1_000_000.0
+                } + fuelCost(b)
                 b.type.station -> stations++
                 b.type.yard -> yards++
             }
@@ -3861,7 +4003,8 @@ class City(
         w.int(policeFunding); w.int(fireFunding); w.int(parkFunding)
         w.long(rng.state)
         w.int(nextId)
-        for (q in quota) w.int(q)
+        // The first four zones; farmland's since version 10.
+        for (k in 0 until 4) w.int(quota[k])
         val s = stats
         for (v in intArrayOf(
             s.population, s.workers, s.shopJobs, s.industryJobs, s.otherJobs, s.unemployment,
@@ -3948,6 +4091,15 @@ class City(
         w.bool(quakes); w.int(reliefFunding); w.long(disasterBill)
         for (v in intArrayOf(snowedIn, heatWaveDays, epidemicMonths, epidemicStrength)) w.int(v)
         w.bool(hadFlu)
+        // Since version 10.
+        w.layer(map.resource)
+        val trading = buildings.values.filter { it.kind >= 0 || it.local != 0 }
+        w.count(trading.size)
+        for (b in trading) { w.int(b.id); w.int(b.kind); w.int(b.local) }
+        for (v in kindPull) w.long(v.toRawBits())
+        for (v in intArrayOf(s.farmJobs, s.farmJobsComing, s.farmDemand, quota[Zone.FARMLAND.toInt()])) w.int(v)
+        for (a in arrayOf(s.goodsMade, s.goodsSold, s.goodsExported, s.goodsImported)) for (v in a) w.int(v)
+        traffic.writeGoods(w)
     }
 
     companion object {
@@ -3973,7 +4125,7 @@ class City(
             c.policeFunding = r.int(); c.fireFunding = r.int(); c.parkFunding = r.int()
             c.rng.state = r.long()
             c.nextId = r.int()
-            for (k in c.quota.indices) c.quota[k] = r.int()
+            for (k in 0 until 4) c.quota[k] = r.int()
             val s = c.stats
             s.population = r.int(); s.workers = r.int(); s.shopJobs = r.int(); s.industryJobs = r.int()
             s.otherJobs = r.int(); s.unemployment = r.int(); s.residentialDemand = r.int(); s.commercialDemand = r.int()
@@ -4100,6 +4252,18 @@ class City(
                     c.hadFlu = r.bool()
                     c.traffic.snowedIn = c.snowedIn > 0
                 }
+                if (version >= 10) {
+                    r.layer(m.resource)
+                    repeat(r.count()) {
+                        val b = c.buildings[r.int()] ?: throw SaveError("goods at a building that isn't there")
+                        b.kind = r.int()
+                        b.local = r.int()
+                    }
+                    for (k in c.kindPull.indices) c.kindPull[k] = Double.fromBits(r.long())
+                    s.farmJobs = r.int(); s.farmJobsComing = r.int(); s.farmDemand = r.int(); c.quota[Zone.FARMLAND.toInt()] = r.int()
+                    for (a in arrayOf(s.goodsMade, s.goodsSold, s.goodsExported, s.goodsImported)) for (k in a.indices) a[k] = r.int()
+                    c.traffic.readGoods(r)
+                }
                 c.updateNetworks()
             } else {
                 // Before ageing nothing kept its age: count everything as laid half the town's life ago.
@@ -4119,6 +4283,11 @@ class City(
                     if (c.year < next.year || c.goals(next).any { !it.met }) break
                     c.era = next
                 }
+            }
+            if (version < 10) {
+                // Before goods: seams in the ground away from the town, and its works making a bit of everything.
+                TerrainGen.resources(m, c.seed) { i -> m.building[i] != 0 || m.zone[i] != Zone.NONE || m.road[i] != Road.NONE }
+                for (b in c.buildings.values) if (b.type.zone == Zone.INDUSTRIAL) b.kind = b.id % WorksKind.entries.size
             }
             return c
         }
@@ -4206,6 +4375,7 @@ class Stats {
     var homesComing = 0
     var shopJobsComing = 0
     var industryJobsComing = 0
+    var farmJobsComing = 0
 
     internal fun peopleNumbers(): IntArray = intArrayOf(
         children, adults, elderly, *byWealth, *workersBy, *jobsBy, *filledBy, health, spending,
@@ -4225,6 +4395,7 @@ class Stats {
     var workers = 0
     var shopJobs = 0
     var industryJobs = 0
+    var farmJobs = 0
     var otherJobs = 0
     /** Percent of workers without a job, or without a way to get to one. */
     var unemployment = 0
@@ -4234,6 +4405,16 @@ class Stats {
     var residentialDemand = 0
     var commercialDemand = 0
     var industryDemand = 0
+    var farmDemand = 0
+
+    /**
+     * Last month's goods, in loads by [Good]: made in town, taken by buyers in
+     * town, sent out of it, and brought in for buyers short of them.
+     */
+    val goodsMade = IntArray(Good.COUNT)
+    val goodsSold = IntArray(Good.COUNT)
+    val goodsExported = IntArray(Good.COUNT)
+    val goodsImported = IntArray(Good.COUNT)
 
     var residentialIncome = 0L
     var commercialIncome = 0L
@@ -4291,7 +4472,7 @@ class Stats {
     var pollution = 0
     var landValue = 0
 
-    val jobs get() = shopJobs + industryJobs + otherJobs
+    val jobs get() = shopJobs + industryJobs + farmJobs + otherJobs
 }
 
 /** A line a train ran last month: the track from end to end, and whether it carried passengers or freight, and how many. */

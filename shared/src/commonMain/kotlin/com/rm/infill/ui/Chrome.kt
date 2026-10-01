@@ -140,7 +140,7 @@ fun StatusStrip(
             PersonCount(city.stats.population, textSize)
         }
         val st = city.stats
-        DemandBars(st.residentialDemand, st.commercialDemand, st.industryDemand, st.population + st.jobs, Modifier.padding(end = 4.dp))
+        DemandBars(st.residentialDemand, st.commercialDemand, st.industryDemand, st.farmDemand, st.population + st.jobs, Modifier.padding(end = 4.dp))
     }
     ChromeBox(modifier) {
         // On a narrow screen the readings go on a second line under the buttons.
@@ -221,17 +221,17 @@ private fun PersonCount(count: Int, size: androidx.compose.ui.unit.TextUnit) {
  * change in place and so wouldn't be seen to change.
  */
 @Composable
-fun DemandBars(residential: Int, commercial: Int, industrial: Int, townSize: Int, modifier: Modifier = Modifier) {
+fun DemandBars(residential: Int, commercial: Int, industrial: Int, farmland: Int, townSize: Int, modifier: Modifier = Modifier) {
     val c = Infill.colors
     val scale = max(20f, 0.06f * townSize)
-    val values = listOf(residential, commercial, industrial).map { (it / scale).coerceIn(-1f, 1f) }
-    val colours = listOf(Zone.RESIDENTIAL, Zone.COMMERCIAL, Zone.INDUSTRIAL).map { zoneColour(it) }
+    val values = listOf(residential, commercial, industrial, farmland).map { (it / scale).coerceIn(-1f, 1f) }
+    val colours = listOf(Zone.RESIDENTIAL, Zone.COMMERCIAL, Zone.INDUSTRIAL, Zone.FARMLAND).map { zoneColour(it) }
     val label = stringResource(Res.string.demand)
-    Canvas(modifier.size(width = 26.dp, height = 28.dp).semantics { contentDescription = label }) {
-        val bar = size.width / 3f
+    Canvas(modifier.size(width = 34.dp, height = 28.dp).semantics { contentDescription = label }) {
+        val bar = size.width / values.size
         val mid = size.height / 2f
         drawLine(c.chromeEdge, Offset(0f, mid), Offset(size.width, mid), 1.dp.toPx())
-        for (k in 0..2) {
+        for (k in values.indices) {
             val h = values[k] * (mid - 1.dp.toPx())
             val left = k * bar + 1.dp.toPx()
             val w = bar - 2.dp.toPx()
