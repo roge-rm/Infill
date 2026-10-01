@@ -318,15 +318,25 @@ class City(
             }
             is Action.BuildPowerLine -> for (i in action.tiles) {
                 val kind = if (action.high) Power.HIGH else Power.LINE
+                // Cable goes under rivers and track that poles can't stand in.
+                val crossing = m.terrain[i] == Terrain.WATER || m.rail[i] != Rail.NONE
                 when {
                     !inMap(i) -> {}
-                    m.terrain[i] == Terrain.WATER || m.building[i] != 0 || m.zone[i] != Zone.NONE || m.rail[i] != Rail.NONE -> blocked += i
+                    m.building[i] != 0 || m.zone[i] != Zone.NONE -> blocked += i
+                    crossing && !action.buried -> blocked += i
                     action.high && !allowsHighLines() -> blocked += i
-                    m.power[i] == kind -> {}
+                    action.high && action.buried && !allowsHighCable() -> blocked += i
+                    m.power[i] == kind && m.cable(i) == action.buried -> {}
                     else -> {
-                        // An ordinary line can be strung again as a high-voltage one, or back.
+                        // An ordinary line can be strung again as a high-voltage one, or put underground, or back.
                         changes += i
-                        cost += (if (action.high) Prices.HIGH_LINE else Prices.POWER_LINE) + clearing(i)
+                        val price = when {
+                            action.buried && action.high -> Prices.HIGH_CABLE
+                            action.buried -> Prices.CABLE
+                            action.high -> Prices.HIGH_LINE
+                            else -> Prices.POWER_LINE
+                        }
+                        cost += price * (if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1) + clearing(i)
                     }
                 }
             }
@@ -543,6 +553,10 @@ class City(
         if (m.subway[i].toInt() != 0 && worn(m.subwayLaid, i, Balance.TUNNEL_LIFE)) {
             bits = bits or Broken.SUBWAY
             cost += Prices.TUNNEL * Balance.RENEW_ROAD / 100
+        }
+        if (m.cable(i) && worn(m.powerLaid, i, cableLife(i))) {
+            bits = bits or Broken.POWER
+            cost += (if (m.power[i] == Power.HIGH) Prices.HIGH_CABLE else Prices.CABLE) * Balance.RENEW_ROAD / 100 * bridge
         }
         return bits to cost
     }
@@ -858,6 +872,7 @@ class City(
                 if (bits and Broken.TRAM != 0) m.tramLaid[i] = stamp
                 if (bits and Broken.WIRE != 0) m.wireLaid[i] = stamp
                 if (bits and Broken.SUBWAY != 0) m.subwayLaid[i] = stamp
+                if (bits and Broken.POWER != 0) m.powerLaid[i] = stamp
                 startWorks(i, bits, queued++ / Balance.WORKS_PER_DAY)
             }
             is Action.RemoveTransit -> for (i in plan.changes) {
@@ -880,8 +895,12 @@ class City(
             }
             is Action.BuildPowerLine -> for (i in plan.changes) {
                 m.power[i] = if (action.high) Power.HIGH else Power.LINE
+                m.buried[i] = (if (action.buried) m.buried[i].toInt() or BURIED_POWER else m.buried[i].toInt() and BURIED_POWER.inv()).toByte()
+                m.powerLaid[i] = now.toShort()
                 clearBroken(i, Broken.POWER)
                 clearTrees(i)
+                // Cable under a street means digging it up for a few days.
+                if (action.buried && m.road[i] != Road.NONE) startWorks(i, Broken.ROAD, queued++ / Balance.WORKS_PER_DAY)
             }
             is Action.PlaceZone -> for (i in plan.changes) {
                 m.zone[i] = action.zone
@@ -928,6 +947,8 @@ class City(
                 m.zone[i] = Zone.NONE
                 m.density[i] = Density.NONE
                 m.power[i] = Power.NONE
+                m.buried[i] = 0
+                clearBroken(i, Broken.POWER)
                 clearTrees(i)
             }
             is Action.RemovePipes -> for (i in plan.changes) {
@@ -1295,6 +1316,11 @@ class City(
                 wireDown = i
                 continue
             }
+            // Cable underground wears out and has to be dug up to mend; lines overhead are kept up as they go.
+            if (m.cable(i) && givesWay(m.powerLaid[i].toInt(), cableLife(i))) {
+                fail(i, Broken.POWER, Balance.MEND_CABLE, Balance.REPAIR_CABLE)
+                continue
+            }
             if (m.subway[i].toInt() != 0 && givesWay(m.subwayLaid[i].toInt(), Balance.TUNNEL_LIFE)) {
                 fail(i, Broken.SUBWAY, Balance.MEND_TUNNEL, Balance.REPAIR_TUNNEL)
                 tunnelShut = i
@@ -1394,6 +1420,7 @@ class City(
         if (m.tram[i].toInt() != 0) most = max(most, Ageing.wear(now - m.tramLaid[i], Balance.TRAM_TRACK_LIFE))
         if (m.wire[i].toInt() != 0) most = max(most, Ageing.wear(now - m.wireLaid[i], Balance.WIRE_LIFE))
         if (m.subway[i].toInt() != 0) most = max(most, Ageing.wear(now - m.subwayLaid[i], Balance.TUNNEL_LIFE))
+        if (m.cable(i)) most = max(most, Ageing.wear(now - m.powerLaid[i], cableLife(i)))
         buildings[m.building[i]]?.let { b ->
             val life = if (b.type.life > 0) b.type.life else Balance.WORN_YEARS * 2
             if (b.underway == 0) most = max(most, Ageing.wear(now - b.built, life))
@@ -1415,7 +1442,14 @@ class City(
         if (bits and Broken.TRAM != 0) younger(m.tramLaid, Balance.TRAM_TRACK_LIFE)
         if (bits and Broken.WIRE != 0) younger(m.wireLaid, Balance.WIRE_LIFE)
         if (bits and Broken.SUBWAY != 0) younger(m.subwayLaid, Balance.TUNNEL_LIFE)
+        if (bits and Broken.POWER != 0 && m.cable(i)) younger(m.powerLaid, cableLife(i))
     }
+
+    /** How long the cable on tile [i] is expected to last, in years. */
+    fun cableLife(i: Int): Int = if (map.power[i] == Power.HIGH) Balance.HIGH_CABLE_LIFE else Balance.CABLE_LIFE
+
+    /** Whether the town can lay high-voltage cable yet. */
+    fun allowsHighCable(): Boolean = everything || year >= Balance.HIGH_CABLE_YEAR
 
     // ---- environment -------------------------------------------------------------
 
@@ -1694,7 +1728,8 @@ class City(
         var hit = -1
         val chance = Balance.GALE_DOWN * disasterLevel / 2
         for (i in 0 until m.size) {
-            if (m.power[i] != Power.NONE && !m.out(i, Broken.POWER) && rng.nextInt(100) < chance) {
+            // Cable underground is out of the wind.
+            if (m.power[i] != Power.NONE && !m.cable(i) && !m.out(i, Broken.POWER) && rng.nextInt(100) < chance) {
                 fail(i, Broken.POWER, Balance.MEND_LINE, Balance.REPAIR_LINE)
                 hit = i
             }
@@ -4595,18 +4630,20 @@ class City(
         var highLines = 0
         var junctions = 0.0
         var track = 0.0
+        var cables = 0.0
         for (i in 0 until map.size) {
             val bridge = if (map.terrain[i] == Terrain.WATER) Balance.BRIDGE_UPKEEP else 1.0
             val road = RoadType.of(map.road[i])
             if (road != null) roads += road.upkeep * bridge
-            if (map.power[i] == Power.LINE) lines++
-            if (map.power[i] == Power.HIGH) highLines++
+            if (map.cable(i)) cables += (if (map.power[i] == Power.HIGH) Balance.HIGH_CABLE_UPKEEP else Balance.CABLE_UPKEEP)
+            else if (map.power[i] == Power.LINE) lines++
+            else if (map.power[i] == Power.HIGH) highLines++
             junctions += Junction.upkeep(map.control[i])
             if (map.rail[i] != Rail.NONE) track += Balance.RAIL_UPKEEP * bridge
             waterworks += (map.waterPipe[i] + map.sewerPipe[i] + map.stormPipe[i] + map.bank[i]) * Balance.PIPE_UPKEEP
         }
         s.waterUpkeep = waterworks.roundToLong()
-        s.roadUpkeep = (roads + lines * Balance.LINE_UPKEEP + highLines * Balance.HIGH_LINE_UPKEEP + junctions).roundToLong()
+        s.roadUpkeep = (roads + lines * Balance.LINE_UPKEEP + highLines * Balance.HIGH_LINE_UPKEEP + cables + junctions).roundToLong()
         s.railUpkeep = (track + stations * Balance.STATION_UPKEEP + yards * Balance.YARD_UPKEEP).roundToLong()
         s.powerUpkeep = plants.roundToLong()
         s.policeUpkeep = ((police * Balance.POLICE_UPKEEP + policeExtra) * policeFunding / 100).roundToLong()
@@ -4842,6 +4879,9 @@ class City(
         w.int(justice)
         w.int(prisoners)
         for (v in intArrayOf(stats.rackets, stats.offences, stats.arrests, stats.heard, stats.prisoners, stats.cells, stats.justice)) w.int(v)
+        // Since version 20: power cable underground, and when lines went up.
+        w.layer(map.buried)
+        w.shorts(map.powerLaid)
     }
 
     companion object {
@@ -5059,6 +5099,14 @@ class City(
                     val s = c.stats
                     s.rackets = r.int(); s.offences = r.int(); s.arrests = r.int(); s.heard = r.int()
                     s.prisoners = r.int(); s.cells = r.int(); s.justice = r.int()
+                }
+                if (version >= 20) {
+                    r.layer(m.buried)
+                    r.shorts(m.powerLaid)
+                } else {
+                    // Lines from before they kept their age: up half the town's life ago.
+                    val guess = (c.monthNow / 2).toShort()
+                    for (i in 0 until m.size) if (m.power[i] != Power.NONE) m.powerLaid[i] = guess
                 }
                 c.updateNetworks()
             } else {

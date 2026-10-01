@@ -695,7 +695,8 @@ private fun GameScreen(
             viewSize = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
             MapView(
                 game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, graphics, gestures, preview, costText, overlay,
-                underground = tool == Tool.Water || (tool == Tool.Transit && (transitKind == TransitKind.Subway || transitKind == TransitKind.Station)),
+                underground = tool == Tool.Water || (tool == Tool.Transit && (transitKind == TransitKind.Subway || transitKind == TransitKind.Station)) ||
+                    (tool == Tool.Power && powerKind.buried),
                 focus = inspected?.let { (x, y) -> city.map.index(x, y) } ?: -1,
                 districts = if (tool != Tool.Districts) emptyList() else { game.revision; city.districts.map { it.id to it.name } },
                 lines = if (tool != Tool.Transit) emptyList() else {

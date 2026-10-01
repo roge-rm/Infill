@@ -1,5 +1,7 @@
 package com.rm.infill.map
 
+import com.rm.infill.sim.Balance
+import com.rm.infill.sim.Power
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -32,6 +34,8 @@ internal fun DrawScope.drawUnderground(map: CityMap, camera: Camera, now: Int) {
         pipe(map, map.waterPipe, x, y, corner, t, -0.18f, aged(WATER_MAIN, map, i, Pipe.WATER, map.waterPipe, map.waterLaid, Broken.WATER, now))
         pipe(map, map.sewerPipe, x, y, corner, t, 0f, aged(SEWER, map, i, Pipe.SEWER, map.sewerPipe, map.sewerLaid, Broken.SEWER, now))
         pipe(map, map.stormPipe, x, y, corner, t, 0.18f, aged(STORM_DRAIN, map, i, Pipe.STORM, map.stormPipe, map.stormLaid, Broken.STORM, now))
+        // Power cable, amber, and high-voltage cable, thicker and red, across the tile's other diagonal.
+        if (map.cable(i)) cable(map, x, y, corner, t, now)
         // Subway tunnels, wide, through the middle.
         pipe(map, map.subway, x, y, corner, t, 0f, if (map.out(i, Broken.SUBWAY)) BROKEN else TUNNEL, wide = true)
     }
@@ -93,6 +97,25 @@ private fun DrawScope.pipe(map: CityMap, layer: ByteArray, x: Int, y: Int, corne
     if (!joined) drawCircle(colour, width, Offset(cx, cy))
 }
 
+/** Power cable on a tile, joined to the line it carries on as, whether that's underground or up on poles. */
+private fun DrawScope.cable(map: CityMap, x: Int, y: Int, corner: Offset, t: Float, now: Int) {
+    val i = map.index(x, y)
+    val high = map.power[i] == Power.HIGH
+    val life = if (high) Balance.HIGH_CABLE_LIFE else Balance.CABLE_LIFE
+    val colour = if (map.out(i, Broken.POWER)) BROKEN
+    else lerp(if (high) HIGH_CABLE else CABLE, RUST, (Ageing.wear(now - map.powerLaid[i], life) / 100f).coerceIn(0f, 1f) * 0.8f)
+    fun has(nx: Int, ny: Int) = map.inside(nx, ny) && map.power[map.index(nx, ny)] == map.power[i]
+    val cx = corner.x + t * 0.32f
+    val cy = corner.y + t * 0.68f
+    val width = max(1.5f, t * (if (high) 0.14f else 0.08f))
+    var joined = false
+    if (has(x, y - 1)) { drawLine(colour, Offset(cx, cy), Offset(cx, corner.y), width); joined = true }
+    if (has(x, y + 1)) { drawLine(colour, Offset(cx, cy), Offset(cx, corner.y + t), width); joined = true }
+    if (has(x - 1, y)) { drawLine(colour, Offset(cx, cy), Offset(corner.x, cy), width); joined = true }
+    if (has(x + 1, y)) { drawLine(colour, Offset(cx, cy), Offset(corner.x + t, cy), width); joined = true }
+    if (!joined) drawCircle(colour, width, Offset(cx, cy))
+}
+
 /** Floodwater standing after rain, deeper the bluer. */
 internal fun DrawScope.drawFloods(map: CityMap, camera: Camera) {
     val t = camera.tilePx
@@ -122,6 +145,8 @@ private val SEWERED = Color(0xFFC9A06A)
 private val FLOODWATER = Color(0xFF3F6E9E)
 private val RUST = Color(0xFFA8823C)
 private val TUNNEL = Color(0xAA9A6AD0)
+private val CABLE = Color(0xFFE8A33A)
+private val HIGH_CABLE = Color(0xFFE0503A)
 private val BROKEN = Color(0xFFFF2A2A)
 private val DUG = Color(0xFF5A4430)
 private val BARRIER = Color(0xFFE8792A)

@@ -90,7 +90,8 @@ class CityMap(val width: Int, val height: Int) {
     fun closed(i: Int): Boolean {
         val b = broken[i].toInt()
         if (b == 0 || !underRepair(i)) return false
-        return (b and Broken.DUG) != 0 || ((b and Broken.WORKS) != 0 && (b and Broken.ROAD) != 0)
+        // A cable fault is dug up too.
+        return (b and Broken.DUG) != 0 || ((b and Broken.WORKS) != 0 && (b and Broken.ROAD) != 0) || ((b and Broken.POWER) != 0 && cable(i))
     }
 
     /** Whether the road on tile [i] has broken up, which slows everything on it. */
@@ -113,17 +114,29 @@ class CityMap(val width: Int, val height: Int) {
 
     /** When the transit on tile [i] went in, and its crossing's control, packed for undo like [tileLaid]. */
     fun tileTransitLaid(i: Int): Long =
-        ((district[i].toLong() and 0xff) shl 40) or ((lane[i].toLong() and 0x1) shl 39) or ((junction[i].toLong() and 0x7) shl 36) or
+        ((powerLaid[i].toLong() and 0xfff) shl 50) or ((buried[i].toLong() and 0x3) shl 48) or
+            ((district[i].toLong() and 0xff) shl 40) or ((lane[i].toLong() and 0x1) shl 39) or ((junction[i].toLong() and 0x7) shl 36) or
             ((tramLaid[i].toLong() and 0xfff) shl 24) or ((wireLaid[i].toLong() and 0xfff) shl 12) or (subwayLaid[i].toLong() and 0xfff)
 
     fun setTileTransitLaid(i: Int, v: Long) {
         junction[i] = ((v shr 36) and 0x7).toByte()
         lane[i] = ((v shr 39) and 0x1).toByte()
         district[i] = ((v shr 40) and 0xff).toByte()
+        buried[i] = ((v shr 48) and 0x3).toByte()
+        powerLaid[i] = ((v shr 50) and 0xfff).toShort()
         tramLaid[i] = ((v shr 24) and 0xfff).toShort()
         wireLaid[i] = ((v shr 12) and 0xfff).toShort()
         subwayLaid[i] = (v and 0xfff).toShort()
     }
+
+    /** Which lines on a tile run underground: [BURIED_POWER]. */
+    val buried = ByteArray(size)
+
+    /** When the power line on a tile was put up or laid, in months from 1900. */
+    val powerLaid = ShortArray(size)
+
+    /** Whether the power line on tile [i] is underground cable. */
+    fun cable(i: Int): Boolean = power[i] != Power.NONE && (buried[i].toInt() and BURIED_POWER) != 0
 
     /** What's broken on tile [i] and the days to mend it, packed for undo. */
     fun tileFix(i: Int): Int = (broken[i].toInt() and 0xffff) or (mendingDays(i) shl 16)
@@ -278,3 +291,6 @@ class CityMap(val width: Int, val height: Int) {
         const val FNV_PRIME = 0x100000001b3L
     }
 }
+
+/** In [CityMap.buried]: the power line runs underground. */
+const val BURIED_POWER = 1

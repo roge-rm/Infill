@@ -307,6 +307,8 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
             road != null && map.rail[i] != Rail.NONE -> Res.string.inspect_crossing
             road != null -> roadName(road)
             map.rail[i] != Rail.NONE -> Res.string.track
+            map.cable(i) && map.power[i] == Power.HIGH -> Res.string.high_cable
+            map.cable(i) -> Res.string.power_cable
             map.power[i] == Power.HIGH -> Res.string.high_line
             map.power[i] != Power.NONE -> Res.string.inspect_power_line
             map.terrain[i] == Terrain.WATER -> Res.string.inspect_water
@@ -365,11 +367,13 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
         }
         stats += wearStat(glyph, stringResource(materialName(material)), laid[i].toInt(), material.life)
     }
-    if (map.power[i] != Power.NONE) {
+    if (map.cable(i)) stats += wearStat(Glyph.Cable, stringResource(Res.string.label_wear), map.powerLaid[i].toInt(), city.cableLife(i))
+    // High voltage feeds substations, not homes, so only ordinary lines carry a load to show.
+    if (map.power[i] == Power.LINE) {
         val kw = city.lineLoad(i)
         val mw = "${kw / 1000}.${kw % 1000 / 100}"
         stats += StatItem(
-            if (map.power[i] == Power.HIGH) Glyph.Pylon else Glyph.Bolt, stringResource(Res.string.label_load), stringResource(Res.string.megawatts, mw),
+            Glyph.Bolt, stringResource(Res.string.label_load), stringResource(Res.string.megawatts, mw),
             min(1f, kw / Balance.LINE_RATING.toFloat()), if (kw > Balance.LINE_RATING) Tone.Bad else if (kw > Balance.LINE_RATING * 3 / 4) Tone.Warn else Tone.Good,
         )
     }
@@ -430,6 +434,7 @@ private fun tileIcon(map: com.rm.infill.sim.CityMap, i: Int, road: RoadType?): C
             ),
         )
         map.rail[i] != Rail.NONE -> ChoiceIcon(intArrayOf(Atlas.GRASS, Atlas.TRACK + across))
+        map.cable(i) -> ChoiceIcon(glyph = Glyph.Cable, glyphColour = if (map.power[i] == Power.HIGH) Color(0xFFE0503A) else Color(0xFFE8A33A))
         map.power[i] == Power.HIGH -> ChoiceIcon(intArrayOf(Atlas.GRASS, Atlas.HV_LINE + across))
         map.power[i] != Power.NONE -> ChoiceIcon(intArrayOf(Atlas.GRASS, Atlas.POWER_LINE + across))
         map.terrain[i] == Terrain.WATER -> ChoiceIcon(intArrayOf(Atlas.WATER))

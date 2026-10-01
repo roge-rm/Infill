@@ -33,6 +33,19 @@ object Balance {
     /** Monthly upkeep. */
     const val LINE_UPKEEP = 0.1
     const val HIGH_LINE_UPKEEP = 0.3
+
+    // Power cable underground: upkeep a tile, the year high-voltage cable can be laid, the years it lasts,
+    // and the days and money to find and mend a fault. Poles and pylons overhead take value off the land
+    // next to them, within a tile and two.
+    const val CABLE_UPKEEP = 0.2
+    const val HIGH_CABLE_UPKEEP = 0.6
+    const val HIGH_CABLE_YEAR = 1950
+    const val CABLE_LIFE = 40
+    const val HIGH_CABLE_LIFE = 50
+    const val MEND_CABLE = 10
+    const val REPAIR_CABLE = 120L
+    const val POLE_VALUE = 4
+    const val PYLON_VALUE = 10
     // Power stations' upkeep a month, standing idle; fuel is on top, by what they make.
     const val PLANT_UPKEEP = 25.0
     const val OIL_PLANT_UPKEEP = 30.0

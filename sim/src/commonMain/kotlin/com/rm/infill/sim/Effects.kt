@@ -82,6 +82,9 @@ internal object Effects {
         val avenues = if (map.streetTrees.any { it.toInt() != 0 }) SummedArea(w, h) { map.streetTrees[it].toInt() } else null
         val dumps = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.DUMP) 1 else 0 }
         val jails = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.JAIL) 1 else 0 }
+        val overhead = map.power.any { it != Power.NONE }
+        val poles = if (overhead) SummedArea(w, h) { if (map.power[it] == Power.LINE && !map.cable(it)) 1 else 0 } else null
+        val pylons = if (overhead) SummedArea(w, h) { if (map.power[it] == Power.HIGH && !map.cable(it)) 1 else 0 } else null
         val stops = if (map.stop.any { it.toInt() != 0 }) SummedArea(w, h) { if (map.stop[it].toInt() != 0) 1 else 0 } else null
         val subway = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.SUBWAY_STATION) 1 else 0 }
         val fouled = if (map.brownfield.any { it.toInt() != 0 }) SummedArea(w, h) { map.brownfield[it].toInt() } else null
@@ -114,6 +117,9 @@ internal object Effects {
             // A street with trees, and none of a dump's smell.
             if (avenues != null && avenues.around(x, y, 1) > 0) v += Balance.STREET_TREE_VALUE
             if (dumps.around(x, y, 4) > 0 && buildingTypes(i) != BuildingType.DUMP) v -= Balance.DUMP_VALUE
+            // Poles and wires next door, and pylons a little further.
+            if (poles != null && poles.around(x, y, 1) > 0) v -= Balance.POLE_VALUE
+            if (pylons != null && pylons.around(x, y, 2) > 0) v -= Balance.PYLON_VALUE
             // Nor next to a jail.
             if (jails.around(x, y, Balance.JAIL_REACH) > 0 && buildingTypes(i) != BuildingType.JAIL) v -= Balance.JAIL_VALUE
             // A tram or bus stop round the corner, and a subway station a walk away.

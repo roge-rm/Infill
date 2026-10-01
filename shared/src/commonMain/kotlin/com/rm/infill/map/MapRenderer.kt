@@ -310,7 +310,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 surface.blend(treeBase + treeSprite(tx, ty), (tx - x0) * s, (ty - y0) * s)
             } else {
                 if (map.streetTrees[i].toInt() != 0) surface.blend(base + Atlas.STREET_TREES, (tx - x0) * s, (ty - y0) * s)
-                if (map.power[i] != Power.NONE) surface.blend(base + lineSprite(tx, ty), (tx - x0) * s, (ty - y0) * s)
+                // Cable underground isn't seen from above.
+                if (map.power[i] != Power.NONE && !map.cable(i)) surface.blend(base + lineSprite(tx, ty), (tx - x0) * s, (ty - y0) * s)
             }
         }
         return surface.finish()
@@ -347,7 +348,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             return buildingSprite(ax, ay)
         }
         if (map.terrain[i] == Terrain.TREES) return treeSprite(tx, ty)
-        if (map.power[i] != Power.NONE) return lineSprite(tx, ty)
+        if (map.power[i] != Power.NONE && !map.cable(i)) return lineSprite(tx, ty)
         if (map.streetTrees[i].toInt() != 0) return Atlas.STREET_TREES
         return null
     }

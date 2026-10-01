@@ -102,8 +102,8 @@ sealed interface Action {
     data class RemovePipes(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action
 
     /** A power line along [tiles], given as map indices in order. */
-    data class BuildPowerLine(val tiles: IntArray, val high: Boolean = false) : Action {
-        override fun equals(other: Any?) = other is BuildPowerLine && high == other.high && tiles.contentEquals(other.tiles)
+    data class BuildPowerLine(val tiles: IntArray, val high: Boolean = false, val buried: Boolean = false) : Action {
+        override fun equals(other: Any?) = other is BuildPowerLine && high == other.high && buried == other.buried && tiles.contentEquals(other.tiles)
         override fun hashCode() = tiles.contentHashCode()
     }
 
@@ -188,6 +188,10 @@ object Prices {
     const val OUTFALL = 400L
     const val SEWAGE_WORKS = 3_000L
     const val HIGH_LINE = 20L
+
+    /** Power cable laid underground, and high-voltage cable, a tile. */
+    const val CABLE = 30L
+    const val HIGH_CABLE = 150L
     const val STREET_TREE = 15L
     const val OIL_PLANT = 6_000L
     const val GAS_PLANT = 15_000L

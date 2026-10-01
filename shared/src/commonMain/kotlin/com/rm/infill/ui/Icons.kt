@@ -257,7 +257,7 @@ enum class Glyph {
     Plus, Erase, List, Remove, Renew, Pipe, Bank, Tunnel, Route, Auto, Scrubber, Low, Medium, High,
     Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
     Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance, Sack, Glass, Hat,
-    Person, Briefcase, Wrench, Calendar, Snow, Gavel, Tag, Check, Warn, Building,
+    Person, Briefcase, Wrench, Calendar, Snow, Gavel, Tag, Check, Warn, Building, Cable,
 }
 
 /** The drawing for [tool]. */
@@ -465,6 +465,13 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
             for (k in 0 until 4) drawRect(c.copy(alpha = 0.35f), Offset((4 + k * 4.5f) * u, 8 * u), Size(3.2f * u, 4 * u))
             drawCircle(c, 2.4f * u, Offset(7 * u, 19 * u))
             drawCircle(c, 2.4f * u, Offset(17 * u, 19 * u))
+        }
+        Glyph.Cable -> {
+            // The ground, and a cable running under it.
+            drawRect(c.copy(alpha = 0.45f), Offset(2 * u, 5 * u), Size(20 * u, 3 * u))
+            for (x in listOf(5f, 11f, 17f)) line(x, 9f, x - 2f, 12f, 1.2f * u)
+            line(2f, 17f, 22f, 17f, 3.4f * u)
+            drawCircle(c, 2.6f * u, Offset(5 * u, 17 * u))
         }
         Glyph.Person -> {
             drawCircle(c, 4.5f * u, Offset(12 * u, 7 * u))

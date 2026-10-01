@@ -76,6 +76,8 @@ import com.rm.infill.res.hydro_plant
 import com.rm.infill.res.nuclear_plant
 import com.rm.infill.res.substation
 import com.rm.infill.res.high_line
+import com.rm.infill.res.power_cable
+import com.rm.infill.res.high_cable
 import com.rm.infill.res.dump
 import com.rm.infill.res.incinerator
 import com.rm.infill.res.recycling
@@ -342,9 +344,18 @@ enum class BulldozeKind(val title: StringResource) {
 }
 
 /** What the power tool puts down: lines are dragged, stations go where the finger ends up. */
-enum class PowerKind(val title: StringResource, val building: BuildingType? = null, val high: Boolean = false, val scrubbers: Boolean = false) {
+enum class PowerKind(
+    val title: StringResource,
+    val building: BuildingType? = null,
+    val high: Boolean = false,
+    val scrubbers: Boolean = false,
+    /** Laid underground rather than strung on poles. */
+    val buried: Boolean = false,
+) {
     Line(Res.string.power_line),
     High(Res.string.high_line, high = true),
+    Cable(Res.string.power_cable, buried = true),
+    HighCable(Res.string.high_cable, high = true, buried = true),
     Substation(Res.string.substation, BuildingType.SUBSTATION),
     Coal(Res.string.coal_plant, BuildingType.COAL_PLANT),
     Oil(Res.string.oil_plant, BuildingType.OIL_PLANT),
@@ -359,6 +370,7 @@ enum class PowerKind(val title: StringResource, val building: BuildingType? = nu
 fun powerKindsIn(city: City): List<PowerKind> =
     PowerKind.entries.filter {
         when {
+            it.high && it.buried -> city.allowsHighLines() && city.allowsHighCable()
             it.high -> city.allowsHighLines()
             it.scrubbers -> city.allowsScrubbers()
             else -> it.building?.let { b -> city.allows(b) } ?: true
@@ -454,7 +466,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
         Tool.Bulldoze -> if (bulldoze == BulldozeKind.Renew) Action.RenewArea(x0, y0, x1, y1) else Action.Bulldoze(x0, y0, x1, y1)
         // A building goes where the finger ends up, with that tile its top left.
         Tool.Power -> if (power.scrubbers) Action.FitScrubbers(x1, y1) else power.building?.let { Action.PlaceBuilding(it, x1, y1) }
-            ?: Action.BuildPowerLine(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), power.high)
+            ?: Action.BuildPowerLine(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), power.high, power.buried)
     }
 }
 

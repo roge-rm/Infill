@@ -715,4 +715,6 @@
     <string name="justice">Justice</string>
     <string name="policies">Policies</string>
     <string name="workers_jobs">%1$s workers, %2$s jobs</string>
+    <string name="power_cable">Underground cable</string>
+    <string name="high_cable">High-voltage cable</string>
 </resources>
