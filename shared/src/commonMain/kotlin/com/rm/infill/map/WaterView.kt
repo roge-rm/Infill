@@ -36,6 +36,7 @@ internal fun DrawScope.drawUnderground(map: CityMap, camera: Camera, now: Int) {
         pipe(map, map.stormPipe, x, y, corner, t, 0.18f, aged(STORM_DRAIN, map, i, Pipe.STORM, map.stormPipe, map.stormLaid, Broken.STORM, now))
         // Power cable, amber, and high-voltage cable, thicker and red, across the tile's other diagonal.
         if (map.cable(i)) cable(map, x, y, corner, t, now)
+        if (map.duct(i)) duct(map, x, y, corner, t)
         // Subway tunnels, wide, through the middle.
         pipe(map, map.subway, x, y, corner, t, 0f, if (map.out(i, Broken.SUBWAY)) BROKEN else TUNNEL, wide = true)
     }
@@ -116,6 +117,22 @@ private fun DrawScope.cable(map: CityMap, x: Int, y: Int, corner: Offset, t: Flo
     if (!joined) drawCircle(colour, width, Offset(cx, cy))
 }
 
+/** A phone duct: green for copper, orange for fibre, near the tile's top right. */
+private fun DrawScope.duct(map: CityMap, x: Int, y: Int, corner: Offset, t: Float) {
+    val i = map.index(x, y)
+    val colour = if (map.out(i, Broken.PHONE)) BROKEN else if (map.phone[i] == com.rm.infill.sim.Phone.FIBRE) FIBRE_DUCT else COPPER_DUCT
+    fun has(nx: Int, ny: Int) = map.inside(nx, ny) && map.phone[map.index(nx, ny)].toInt() != 0
+    val cx = corner.x + t * 0.72f
+    val cy = corner.y + t * 0.28f
+    val width = max(1.2f, t * 0.06f)
+    var joined = false
+    if (has(x, y - 1)) { drawLine(colour, Offset(cx, cy), Offset(cx, corner.y), width); joined = true }
+    if (has(x, y + 1)) { drawLine(colour, Offset(cx, cy), Offset(cx, corner.y + t), width); joined = true }
+    if (has(x - 1, y)) { drawLine(colour, Offset(cx, cy), Offset(corner.x, cy), width); joined = true }
+    if (has(x + 1, y)) { drawLine(colour, Offset(cx, cy), Offset(corner.x + t, cy), width); joined = true }
+    if (!joined) drawCircle(colour, width, Offset(cx, cy))
+}
+
 /** Floodwater standing after rain, deeper the bluer. */
 internal fun DrawScope.drawFloods(map: CityMap, camera: Camera) {
     val t = camera.tilePx
@@ -146,6 +163,8 @@ private val FLOODWATER = Color(0xFF3F6E9E)
 private val RUST = Color(0xFFA8823C)
 private val TUNNEL = Color(0xAA9A6AD0)
 private val CABLE = Color(0xFFE8A33A)
+private val COPPER_DUCT = Color(0xFF6FBF6A)
+private val FIBRE_DUCT = Color(0xFFDE7828)
 private val HIGH_CABLE = Color(0xFFE0503A)
 private val BROKEN = Color(0xFFFF2A2A)
 private val DUG = Color(0xFF5A4430)

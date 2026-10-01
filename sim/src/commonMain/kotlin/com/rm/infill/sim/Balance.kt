@@ -34,6 +34,44 @@ object Balance {
     const val LINE_UPKEEP = 0.1
     const val HIGH_LINE_UPKEEP = 0.3
 
+    // The telephone. An exchange's lines, by hand and once automatic, and from 1970; the tiles it reaches,
+    // half that with no trunk line out of town, and the tiles broadband reaches from an exchange with fibre
+    // out, and fast service from a fibre line; the years they come. A mast's reach. A business takes a line
+    // for this many jobs. Lines' lives, mending, upkeep. What a phone and broadband are worth to homes and
+    // businesses, faded in and then expected; the share of educated workers working from home on broadband
+    // and fast service; how much quicker a fire's reported and a crime, in a town with phones.
+    const val EXCHANGE_LINES = 1_000
+    const val AUTOMATIC_LINES = 3_000
+    const val DIGITAL_LINES = 10_000
+    const val AUTOMATIC_YEAR = 1930
+    const val DIGITAL_YEAR = 1970
+    const val PHONE_REACH = 10
+    const val DSL_REACH = 6
+    const val FAST_REACH = 2
+    const val FIBRE_YEAR = 1995
+    const val BROADBAND_YEAR = 1995
+    const val FAST_YEAR = 2005
+    const val TOWER_REACH = 12
+    const val JOBS_PER_LINE = 5
+    const val COPPER_LIFE = 40
+    const val FIBRE_LIFE = 30
+    const val MEND_PHONE = 4
+    const val MEND_DUCT = 8
+    const val REPAIR_PHONE = 30L
+    const val COPPER_UPKEEP = 0.1
+    const val FIBRE_UPKEEP = 0.15
+    const val EXCHANGE_UPKEEP = 50.0
+    const val MAST_UPKEEP = 40.0
+    const val PHONE_APPEAL = 6
+    const val PHONE_NEEDED = 8
+    const val BROADBAND_APPEAL = 6
+    const val BROADBAND_NEEDED = 10
+    const val WFH_YEAR = 2000
+    const val WFH_BROADBAND = 15
+    const val WFH_FAST = 30
+    const val CALL_COVER = 30
+    const val CALL_ARRESTS = 20
+
     // Power cable underground: upkeep a tile, the year high-voltage cable can be laid, the years it lasts,
     // and the days and money to find and mend a fault. Poles and pylons overhead take value off the land
     // next to them, within a tile and two.

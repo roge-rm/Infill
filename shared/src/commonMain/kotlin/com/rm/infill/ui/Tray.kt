@@ -490,6 +490,28 @@ private fun waterGlyph(g: WaterGroup): Glyph = when (g) {
 }
 
 /** What [city] can build of one kind of service. */
+private val COPPER_COLOUR = Color(0xFF6FBF6A)
+private val FIBRE_COLOUR = Color(0xFFDE7828)
+
+@Composable
+fun phoneChoices(city: City): List<Choice<PhoneKind>> = phoneKindsIn(city).map { k ->
+    val icon = when {
+        k.building != null -> buildingIcon(k.building)
+        k.duct -> ChoiceIcon(glyph = Glyph.Cable, glyphColour = if (k.fibre) FIBRE_COLOUR else COPPER_COLOUR)
+        k.line -> ChoiceIcon(glyph = Glyph.Phone, glyphColour = if (k.fibre) FIBRE_COLOUR else COPPER_COLOUR)
+        else -> ChoiceIcon(glyph = Glyph.Remove, glyphColour = REMOVE_RED)
+    }
+    val detail = when (k) {
+        PhoneKind.Exchange, PhoneKind.Tower -> buildingDetail(k.building!!)
+        PhoneKind.Copper -> perTile(Prices.COPPER)
+        PhoneKind.CopperDuct -> perTile(Prices.COPPER_DUCT)
+        PhoneKind.Fibre -> perTile(Prices.FIBRE)
+        PhoneKind.FibreDuct -> perTile(Prices.FIBRE_DUCT)
+        PhoneKind.Remove -> null
+    }
+    Choice(k, stringResource(k.title), icon, detail)
+}
+
 @Composable
 fun serviceChoices(city: City, group: ServiceGroup): List<Choice<ServiceKind>> = servicesIn(city).filter { it.group == group }.map { k ->
     when {
@@ -521,7 +543,7 @@ enum class ViewGroup { Town, Utilities, Services, Transport }
 
 fun viewGroup(o: Overlay): ViewGroup = when (o) {
     Overlay.None, Overlay.LandValue, Overlay.Wealth, Overlay.Age, Overlay.Pollution, Overlay.Heat, Overlay.Land -> ViewGroup.Town
-    Overlay.Power, Overlay.LineLoad, Overlay.Water, Overlay.Runoff, Overlay.Garbage -> ViewGroup.Utilities
+    Overlay.Power, Overlay.LineLoad, Overlay.Water, Overlay.Runoff, Overlay.Garbage, Overlay.Comms -> ViewGroup.Utilities
     Overlay.Crime, Overlay.Theft, Overlay.Vice, Overlay.Rackets, Overlay.Police, Overlay.Fire, Overlay.Ladders, Overlay.Ambulance, Overlay.Schooling, Overlay.Health -> ViewGroup.Services
     Overlay.Traffic, Overlay.Junctions, Overlay.Trips, Overlay.Reach, Overlay.Transit, Overlay.Railway, Overlay.Goods -> ViewGroup.Transport
 }
@@ -546,6 +568,7 @@ fun overlayChoices(group: ViewGroup): List<Choice<Overlay>> = Overlay.entries.fi
         Overlay.Crime -> Glyph.Cuffs
         Overlay.Power -> Glyph.Bolt
         Overlay.LineLoad -> Glyph.Pylon
+        Overlay.Comms -> Glyph.Phone
         Overlay.Police -> Glyph.Star
         Overlay.Fire -> Glyph.Flame
         Overlay.Ladders -> Glyph.Ladder

@@ -298,6 +298,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
                 if (s.transitUpkeep > 0) Triple(Glyph.Tram, Res.string.upkeep_transit, s.transitUpkeep) else null,
                 if (s.environmentUpkeep > 0) Triple(Glyph.Bin, Res.string.upkeep_garbage, s.environmentUpkeep) else null,
                 if (s.disasterCost > 0) Triple(Glyph.Warn, Res.string.upkeep_disasters, s.disasterCost) else null,
+                if (s.phoneUpkeep > 0) Triple(Glyph.Phone, Res.string.upkeep_phone, s.phoneUpkeep) else null,
             )
             // Every bar against the biggest, in or out.
             val most = maxOf(1L, (income + upkeep).maxOf { it.third })
@@ -575,6 +576,15 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
                     places(Glyph.Cap, stringResource(Res.string.school_places), s.pupils, s.schoolPlaces),
                     if (s.highSchoolPlaces > 0) places(Glyph.Cap, stringResource(Res.string.high_school_places), s.highSchoolPupils, s.highSchoolPlaces) else null,
                     places(Glyph.Cross, stringResource(Res.string.care_places), s.cared, s.carePlaces),
+                ),
+            )
+        }
+        Section(stringResource(Res.string.tool_phone), Glyph.Phone) {
+            StatGrid(
+                listOfNotNull(
+                    StatItem(Glyph.Phone, stringResource(Res.string.label_with_phone), stringResource(Res.string.percent, s.withPhone), s.withPhone / 100f, toneOf(s.withPhone, 80, 40)),
+                    if (s.withBroadband > 0) StatItem(Glyph.Mast, stringResource(Res.string.label_with_broadband), stringResource(Res.string.percent, s.withBroadband), s.withBroadband / 100f, toneOf(s.withBroadband, 70, 30)) else null,
+                    if (s.workingFromHome > 0) StatItem(Glyph.Building, stringResource(Res.string.label_wfh), n(s.workingFromHome)) else null,
                 ),
             )
         }

@@ -76,6 +76,14 @@ import com.rm.infill.res.hydro_plant
 import com.rm.infill.res.nuclear_plant
 import com.rm.infill.res.substation
 import com.rm.infill.res.high_line
+import com.rm.infill.res.tool_phone
+import com.rm.infill.res.exchange
+import com.rm.infill.res.cell_tower
+import com.rm.infill.res.copper_line
+import com.rm.infill.res.copper_duct
+import com.rm.infill.res.fibre_line
+import com.rm.infill.res.fibre_duct
+import com.rm.infill.res.remove_phone
 import com.rm.infill.res.power_cable
 import com.rm.infill.res.high_cable
 import com.rm.infill.res.dump
@@ -142,6 +150,7 @@ enum class Tool(val title: StringResource) {
     Transit(Res.string.tool_transit),
     Traffic(Res.string.tool_traffic),
     Districts(Res.string.tool_districts),
+    Phone(Res.string.tool_phone),
 }
 
 /**
@@ -153,7 +162,7 @@ enum class ToolGroup(val title: StringResource, val tools: List<Tool>) {
     Bulldoze(Res.string.tool_bulldoze, listOf(Tool.Bulldoze)),
     Zones(Res.string.group_zones, listOf(Tool.Zone, Tool.Districts)),
     Transport(Res.string.group_transport, listOf(Tool.Road, Tool.Rail, Tool.Transit, Tool.Traffic)),
-    Utilities(Res.string.group_utilities, listOf(Tool.Power, Tool.Water)),
+    Utilities(Res.string.group_utilities, listOf(Tool.Power, Tool.Water, Tool.Phone)),
     Services(Res.string.tool_services, listOf(Tool.Services)),
 }
 
@@ -343,6 +352,21 @@ enum class BulldozeKind(val title: StringResource) {
     Renew(Res.string.bulldoze_renew),
 }
 
+/** What the phone tool puts down: exchanges and masts go where the finger ends up, lines are dragged, as is taking them up. */
+enum class PhoneKind(val title: StringResource, val building: BuildingType? = null, val line: Boolean = false, val fibre: Boolean = false, val duct: Boolean = false) {
+    Exchange(Res.string.exchange, building = BuildingType.EXCHANGE),
+    Copper(Res.string.copper_line, line = true),
+    CopperDuct(Res.string.copper_duct, line = true, duct = true),
+    Fibre(Res.string.fibre_line, line = true, fibre = true),
+    FibreDuct(Res.string.fibre_duct, line = true, fibre = true, duct = true),
+    Tower(Res.string.cell_tower, building = BuildingType.CELL_TOWER),
+    Remove(Res.string.remove_phone),
+}
+
+/** What the phone tool offers [city] in its era. */
+fun phoneKindsIn(city: City): List<PhoneKind> =
+    PhoneKind.entries.filter { (!it.fibre || city.allowsFibre()) && (it.building == null || city.allows(it.building)) }
+
 /** What the power tool puts down: lines are dragged, stations go where the finger ends up. */
 enum class PowerKind(
     val title: StringResource,
@@ -421,8 +445,13 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
     fun action(
         tool: Tool, zone: ZoneKind, density: DensityKind, bulldoze: BulldozeKind, power: PowerKind, service: ServiceKind, road: RoadType, roadPipes: Boolean,
         rail: RailKind, water: WaterKind, transit: TransitKind, map: CityMap, junction: JunctionKind = JunctionKind.Lights,
-        district: Int = NEW_DISTRICT,
+        district: Int = NEW_DISTRICT, phone: PhoneKind = PhoneKind.Copper,
     ): Action? = when (tool) {
+        Tool.Phone -> when {
+            phone.building != null -> Action.PlaceBuilding(phone.building, x1, y1)
+            phone.line -> Action.BuildPhoneLine(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), phone.fibre, phone.duct)
+            else -> Action.RemovePhone(x0, y0, x1, y1)
+        }
         Tool.Districts -> if (district == DISTRICT_LIST) null else Action.PaintDistrict(x0, y0, x1, y1, district)
         Tool.Traffic -> Action.SetJunction(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), junction.control)
         Tool.Transit -> when {

@@ -91,7 +91,8 @@ class CityMap(val width: Int, val height: Int) {
         val b = broken[i].toInt()
         if (b == 0 || !underRepair(i)) return false
         // A cable fault is dug up too.
-        return (b and Broken.DUG) != 0 || ((b and Broken.WORKS) != 0 && (b and Broken.ROAD) != 0) || ((b and Broken.POWER) != 0 && cable(i))
+        return (b and Broken.DUG) != 0 || ((b and Broken.WORKS) != 0 && (b and Broken.ROAD) != 0) ||
+            ((b and Broken.POWER) != 0 && cable(i)) || ((b and Broken.PHONE) != 0 && duct(i))
     }
 
     /** Whether the road on tile [i] has broken up, which slows everything on it. */
@@ -129,7 +130,25 @@ class CityMap(val width: Int, val height: Int) {
         subwayLaid[i] = (v and 0xfff).toShort()
     }
 
-    /** Which lines on a tile run underground: [BURIED_POWER]. */
+    /** Telephone trunk lines: [Phone.COPPER] or [Phone.FIBRE], and when each went up. */
+    val phone = ByteArray(size)
+    val phoneLaid = ShortArray(size)
+
+    /** The telephone service on each tile, worked out each month: none, a phone, broadband, fast. */
+    val comms = ByteArray(size)
+
+    /** Whether the phone line on tile [i] runs in a duct underground. */
+    fun duct(i: Int): Boolean = phone[i].toInt() != 0 && (buried[i].toInt() and BURIED_PHONE) != 0
+
+    /** The phone line on a tile, and when it went up, packed for undo. */
+    fun tileUtil(i: Int): Long = ((phone[i].toLong() and 0x3) shl 12) or (phoneLaid[i].toLong() and 0xfff)
+
+    fun setTileUtil(i: Int, v: Long) {
+        phone[i] = ((v shr 12) and 0x3).toByte()
+        phoneLaid[i] = (v and 0xfff).toShort()
+    }
+
+    /** Which lines on a tile run underground: [BURIED_POWER], [BURIED_PHONE]. */
     val buried = ByteArray(size)
 
     /** When the power line on a tile was put up or laid, in months from 1900. */
@@ -294,3 +313,19 @@ class CityMap(val width: Int, val height: Int) {
 
 /** In [CityMap.buried]: the power line runs underground. */
 const val BURIED_POWER = 1
+
+/** In [CityMap.buried]: the phone line runs in a duct. */
+const val BURIED_PHONE = 2
+
+/** What's on [CityMap.phone]. */
+object Phone {
+    const val NONE: Byte = 0
+    const val COPPER: Byte = 1
+    const val FIBRE: Byte = 2
+
+    /** What [CityMap.comms] says. */
+    const val SERVICE_NONE = 0
+    const val SERVICE_PHONE = 1
+    const val SERVICE_BROADBAND = 2
+    const val SERVICE_FAST = 3
+}

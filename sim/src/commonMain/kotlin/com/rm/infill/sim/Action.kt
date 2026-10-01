@@ -102,6 +102,15 @@ sealed interface Action {
     data class RemovePipes(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action
 
     /** A power line along [tiles], given as map indices in order. */
+    /** A telephone trunk line, copper or fibre, on poles or in a duct underground. */
+    data class BuildPhoneLine(val tiles: IntArray, val fibre: Boolean = false, val buried: Boolean = false) : Action {
+        override fun equals(other: Any?) = other is BuildPhoneLine && fibre == other.fibre && buried == other.buried && tiles.contentEquals(other.tiles)
+        override fun hashCode() = tiles.contentHashCode() * 4 + (if (fibre) 2 else 0) + (if (buried) 1 else 0)
+    }
+
+    /** Takes up the telephone lines in a rectangle. */
+    data class RemovePhone(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action
+
     data class BuildPowerLine(val tiles: IntArray, val high: Boolean = false, val buried: Boolean = false) : Action {
         override fun equals(other: Any?) = other is BuildPowerLine && high == other.high && buried == other.buried && tiles.contentEquals(other.tiles)
         override fun hashCode() = tiles.contentHashCode()
@@ -189,6 +198,13 @@ object Prices {
     const val SEWAGE_WORKS = 3_000L
     const val HIGH_LINE = 20L
 
+    /** Telephone lines a tile: copper and fibre, on poles and in a duct. Taking one up. */
+    const val COPPER = 8L
+    const val COPPER_DUCT = 40L
+    const val FIBRE = 25L
+    const val FIBRE_DUCT = 90L
+    const val REMOVE_PHONE = 1L
+
     /** Power cable laid underground, and high-voltage cable, a tile. */
     const val CABLE = 30L
     const val HIGH_CABLE = 150L
@@ -250,6 +266,8 @@ object Prices {
         BuildingType.CLINIC -> CLINIC
         BuildingType.HOSPITAL -> HOSPITAL
         BuildingType.VOLUNTEER_HALL -> 500L
+        BuildingType.EXCHANGE -> 3_000L
+        BuildingType.CELL_TOWER -> 4_000L
         BuildingType.POLICE_HQ -> 6_000L
         BuildingType.COURTHOUSE -> 5_000L
         BuildingType.JAIL -> 8_000L

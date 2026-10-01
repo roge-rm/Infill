@@ -86,6 +86,10 @@ enum class BuildingType(
 
     POLICE_STATION(Zone.NONE, 0, 10, width = 2, height = 1, life = 50),
 
+    /** The telephone: an exchange, and a mast for mobile phones (from 1985). */
+    EXCHANGE(Zone.NONE, 0, 20, width = 2, height = 1, life = 50),
+    CELL_TOWER(Zone.NONE, 0, 2, year = 1985, life = 30),
+
     /** Justice: a police headquarters with its detectives (from 1920), a courthouse and a jail. */
     POLICE_HQ(Zone.NONE, 0, 60, width = 3, height = 2, year = 1920, life = 60),
     COURTHOUSE(Zone.NONE, 0, 30, width = 2, height = 2, life = 80),

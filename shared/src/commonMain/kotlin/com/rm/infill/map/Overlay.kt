@@ -10,6 +10,7 @@ import com.rm.infill.res.Res
 import com.rm.infill.res.overlay_crime
 import com.rm.infill.res.overlay_fire
 import com.rm.infill.res.overlay_ladders
+import com.rm.infill.res.overlay_comms
 import com.rm.infill.res.overlay_theft
 import com.rm.infill.res.overlay_vice
 import com.rm.infill.res.overlay_rackets
@@ -68,6 +69,8 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Ambulance(Res.string.overlay_ambulance, Color(0x002FA8A0), Color(0xFF2FA8A0)),
     Traffic(Res.string.overlay_traffic, Color(0xFFFFF1B8), Color(0xFFD8302F)),
     Railway(Res.string.overlay_rail, Color(0xFFE6E1F5), Color(0xFF5B3FB5)),
+    /** The telephone: none, a phone, broadband, fast. */
+    Comms(Res.string.overlay_comms, Color(0x40D84343), Color(0xFF2F6FD8)),
     Water(Res.string.overlay_water, Color(0xFFD84343), Color(0xFF3F8FD8)),
     Runoff(Res.string.overlay_runoff, Color(0xFFB8DDA8), Color(0xFF7A3B2E)),
     Schooling(Res.string.overlay_schooling, Color(0xFFE8D6B0), Color(0xFF2E5FA8)),
@@ -123,6 +126,11 @@ internal fun overlayImage(
             Overlay.Police -> map.policeCover[i].toInt() and 0xff
             Overlay.Fire -> map.fireCover[i].toInt() and 0xff
             Overlay.Ladders -> map.ladderCover[i].toInt() and 0xff
+            Overlay.Comms -> {
+                // Where there's anything to have it.
+                if (map.building[i] == 0 && map.zone[i] == Zone.NONE && map.comms[i].toInt() == 0) continue
+                map.comms[i] * 85
+            }
             Overlay.Theft -> (map.theft[i].toInt() and 0xff) * 255 / worst
             Overlay.Vice -> (map.vice[i].toInt() and 0xff) * 255 / worst
             Overlay.Rackets -> (map.rackets[i].toInt() and 0xff) * 255 / worst

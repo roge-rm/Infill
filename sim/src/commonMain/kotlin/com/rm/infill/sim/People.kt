@@ -148,6 +148,8 @@ object Demography {
         BuildingType.CLINIC -> intArrayOf(0, 40, 60)
         BuildingType.HOSPITAL -> intArrayOf(10, 40, 50)
         BuildingType.VOLUNTEER_HALL -> intArrayOf(60, 40, 0)
+        BuildingType.EXCHANGE -> intArrayOf(20, 70, 10)
+        BuildingType.CELL_TOWER -> intArrayOf(0, 50, 50)
         BuildingType.POLICE_HQ -> intArrayOf(10, 60, 30)
         BuildingType.COURTHOUSE -> intArrayOf(10, 30, 60)
         BuildingType.JAIL -> intArrayOf(40, 50, 10)

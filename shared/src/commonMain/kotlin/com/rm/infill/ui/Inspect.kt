@@ -36,6 +36,7 @@ import com.rm.infill.sim.Land
 import com.rm.infill.sim.Material
 import com.rm.infill.sim.Pipe
 import com.rm.infill.sim.Power
+import com.rm.infill.sim.Phone
 import com.rm.infill.sim.Rail
 import com.rm.infill.sim.Resource
 import com.rm.infill.sim.RoadType
@@ -113,6 +114,7 @@ private fun LandStrip(city: City, x: Int, y: Int) {
             if (v(map.vice) >= 8) MiniMeter(Glyph.Glass, stringResource(Res.string.label_vice), v(map.vice), highIsBad = true)
             if (v(map.rackets) >= 8) MiniMeter(Glyph.Hat, stringResource(Res.string.label_rackets), v(map.rackets), highIsBad = true)
             MiniMeter(Glyph.Smoke, stringResource(Res.string.label_pollution), v(map.pollution), highIsBad = true)
+            if (v(map.comms) > 0) MiniMeter(Glyph.Phone, stringResource(Res.string.overlay_comms), v(map.comms) * 85, highIsBad = false)
         }
         Spacer(Modifier.weight(1f))
         Text("$x, $y", color = c.textDim, fontSize = Type.caption, maxLines = 1, overflow = TextOverflow.Clip)
@@ -186,7 +188,7 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     }
 
     // A service: staff, wear, and how full it is.
-    if (t.service && t != BuildingType.PARK && built) {
+    if ((t.service || t == BuildingType.EXCHANGE) && t != BuildingType.PARK && built) {
         val staffed = city.staffed(t)
         stats += StatItem(Glyph.Person, stringResource(Res.string.label_staffed), "$staffed%", staffed / 100f, toneOf(staffed, 90, 60))
         if (t.life > 0) {
@@ -195,6 +197,7 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
         }
         val room = b.room
         val label = when {
+            t == BuildingType.EXCHANGE -> Res.string.label_phone_lines
             t.school -> Res.string.label_pupils
             t.health -> Res.string.label_patients
             t == BuildingType.COURTHOUSE -> Res.string.label_cases
@@ -366,6 +369,15 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
             Pipe.STORM -> Glyph.Rain
         }
         stats += wearStat(glyph, stringResource(materialName(material)), laid[i].toInt(), material.life)
+    }
+    if (map.phone[i].toInt() != 0) {
+        val name = when {
+            map.phone[i] == Phone.FIBRE && map.duct(i) -> Res.string.fibre_duct
+            map.phone[i] == Phone.FIBRE -> Res.string.fibre_line
+            map.duct(i) -> Res.string.copper_duct
+            else -> Res.string.copper_line
+        }
+        stats += wearStat(Glyph.Phone, stringResource(name), map.phoneLaid[i].toInt(), city.phoneLife(i))
     }
     if (map.cable(i)) stats += wearStat(Glyph.Cable, stringResource(Res.string.label_wear), map.powerLaid[i].toInt(), city.cableLife(i))
     // High voltage feeds substations, not homes, so only ordinary lines carry a load to show.

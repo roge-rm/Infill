@@ -85,6 +85,10 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
             rect(a.x, a.y, a.x, a.y, camera, if (ok) PLACE_FILL else BLOCKED, if (ok) PLACE_EDGE else BULLDOZE_EDGE)
         }
         is Action.RemoveTransit -> rect(a.x0, a.y0, a.x1, a.y1, camera, BULLDOZE_FILL, BULLDOZE_EDGE)
+        is Action.BuildPhoneLine -> for (i in a.tiles) {
+            drawRect(if (i in p.blocked) BLOCKED else LINE_FILL, at(i), tile)
+        }
+        is Action.RemovePhone -> rect(a.x0, a.y0, a.x1, a.y1, camera, BULLDOZE_FILL, BULLDOZE_EDGE)
         is Action.PlaceBuilding -> {
             val ok = p.plan.problem != Problem.Blocked && p.plan.problem != Problem.NeedsTrack && p.plan.problem != Problem.NeedsWater &&
                 p.plan.problem != Problem.NeedsTramTrack && p.plan.problem != Problem.NeedsTunnel

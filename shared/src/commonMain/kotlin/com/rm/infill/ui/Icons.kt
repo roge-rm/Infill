@@ -257,7 +257,7 @@ enum class Glyph {
     Plus, Erase, List, Remove, Renew, Pipe, Bank, Tunnel, Route, Auto, Scrubber, Low, Medium, High,
     Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
     Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance, Sack, Glass, Hat,
-    Person, Briefcase, Wrench, Calendar, Snow, Gavel, Tag, Check, Warn, Building, Cable,
+    Person, Briefcase, Wrench, Calendar, Snow, Gavel, Tag, Check, Warn, Building, Cable, Phone, Mast,
 }
 
 /** The drawing for [tool]. */
@@ -267,6 +267,7 @@ fun toolGlyph(tool: Tool): Glyph = when (tool) {
     Tool.Road -> Glyph.Road
     Tool.Rail -> Glyph.Rail
     Tool.Water -> Glyph.Drop
+    Tool.Phone -> Glyph.Phone
     Tool.Zone -> Glyph.Zone
     Tool.Power -> Glyph.Bolt
     Tool.Services -> Glyph.Civic
@@ -465,6 +466,23 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
             for (k in 0 until 4) drawRect(c.copy(alpha = 0.35f), Offset((4 + k * 4.5f) * u, 8 * u), Size(3.2f * u, 4 * u))
             drawCircle(c, 2.4f * u, Offset(7 * u, 19 * u))
             drawCircle(c, 2.4f * u, Offset(17 * u, 19 * u))
+        }
+        Glyph.Phone -> {
+            // An old handset.
+            val p = Path().apply {
+                moveTo(5 * u, 4 * u); lineTo(9 * u, 4 * u); lineTo(10 * u, 8 * u); lineTo(8 * u, 10 * u)
+                quadraticTo(10 * u, 14 * u, 14 * u, 16 * u)
+                lineTo(16 * u, 14 * u); lineTo(20 * u, 15 * u); lineTo(20 * u, 19 * u)
+                quadraticTo(10 * u, 20 * u, 5 * u, 4 * u)
+                close()
+            }
+            drawPath(p, c)
+        }
+        Glyph.Mast -> {
+            line(12f, 4f, 7f, 22f, 1.8f * u); line(12f, 4f, 17f, 22f, 1.8f * u)
+            line(9f, 14f, 15f, 14f, 1.6f * u); line(8f, 18f, 16f, 18f, 1.6f * u)
+            drawArc(c, 200f, 140f, false, Offset(5 * u, 0f), Size(14 * u, 10 * u), style = Stroke(1.6f * u))
+            drawArc(c, 200f, 140f, false, Offset(1 * u, -3 * u), Size(22 * u, 15 * u), style = Stroke(1.6f * u))
         }
         Glyph.Cable -> {
             // The ground, and a cable running under it.

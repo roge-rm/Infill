@@ -38,6 +38,8 @@ import com.rm.infill.res.nursing_home
 import com.rm.infill.res.library
 import com.rm.infill.res.college
 import com.rm.infill.res.police_hq
+import com.rm.infill.res.exchange
+import com.rm.infill.res.cell_tower
 import com.rm.infill.res.courthouse
 import com.rm.infill.res.jail
 import com.rm.infill.res.inspect_cases
@@ -307,6 +309,8 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.LIBRARY -> Res.string.library
     BuildingType.COLLEGE -> Res.string.college
     BuildingType.POLICE_HQ -> Res.string.police_hq
+    BuildingType.EXCHANGE -> Res.string.exchange
+    BuildingType.CELL_TOWER -> Res.string.cell_tower
     BuildingType.COURTHOUSE -> Res.string.courthouse
     BuildingType.JAIL -> Res.string.jail
     BuildingType.ROW_HOUSES -> Res.string.building_row_houses

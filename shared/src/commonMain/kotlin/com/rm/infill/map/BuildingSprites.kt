@@ -77,6 +77,8 @@ internal object BuildingSprites {
                 BuildingType.LIBRARY -> Atlas.LIBRARY to Atlas.LIBRARY_COUNT
                 BuildingType.COLLEGE -> Atlas.COLLEGE to Atlas.COLLEGE_COUNT
                 BuildingType.POLICE_HQ -> Atlas.POLICE_HQ to Atlas.POLICE_HQ_COUNT
+                BuildingType.EXCHANGE -> Atlas.EXCHANGE to Atlas.EXCHANGE_COUNT
+                BuildingType.CELL_TOWER -> Atlas.CELL_TOWER to Atlas.CELL_TOWER_COUNT
                 BuildingType.COURTHOUSE -> Atlas.COURTHOUSE to Atlas.COURTHOUSE_COUNT
                 BuildingType.JAIL -> Atlas.JAIL to Atlas.JAIL_COUNT
             }

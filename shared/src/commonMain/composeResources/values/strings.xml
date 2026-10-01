@@ -717,4 +717,18 @@
     <string name="workers_jobs">%1$s workers, %2$s jobs</string>
     <string name="power_cable">Underground cable</string>
     <string name="high_cable">High-voltage cable</string>
+    <string name="tool_phone">Phone</string>
+    <string name="exchange">Telephone exchange</string>
+    <string name="cell_tower">Phone mast</string>
+    <string name="copper_line">Phone line</string>
+    <string name="copper_duct">Phone line in a duct</string>
+    <string name="fibre_line">Fibre line</string>
+    <string name="fibre_duct">Fibre in a duct</string>
+    <string name="remove_phone">Take up phone lines</string>
+    <string name="overlay_comms">Phone and internet</string>
+    <string name="upkeep_phone">Telephone</string>
+    <string name="label_phone_lines">Lines in use</string>
+    <string name="label_with_phone">Have a phone</string>
+    <string name="label_with_broadband">Have broadband</string>
+    <string name="label_wfh">Working from home</string>
 </resources>

@@ -3566,6 +3566,102 @@ def power_line(look, mask):
     return img, lift, [(0, cx, foot - lift, POLE_HEIGHT, 1, 0)]
 
 
+# Telephone lines: a shorter, thinner pole with a single wire, black for
+# copper and bright for fibre, set to one side of the tile so it sits clear
+# of a power line on the same street.
+
+PHONE_POLE = c("#7a5a3e")
+PHONE_HEIGHT = 10
+COPPER_WIRE = (24, 24, 28, 170)
+FIBRE_WIRE = (222, 120, 40, 220)
+
+
+def phone_line(look, mask, fibre):
+    """North 1, east 2, south 4, west 8: one wire each way it runs, from a slim pole near the tile's corner."""
+    lift = lift_for(PHONE_HEIGHT + T // 2)
+    img = Image.new("RGBA", (T, T + lift), (0, 0, 0, 0))
+    wires = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    wd = ImageDraw.Draw(wires)
+    wire = FIBRE_WIRE if fibre else COPPER_WIRE
+    cx, foot = 6, 26 + lift
+    top = foot - PHONE_HEIGHT
+    for side, bit in ((1, 2), (-1, 8)):
+        if not mask & bit:
+            continue
+        end = T if side > 0 else 0
+        pts = []
+        steps = abs(end - cx)
+        for k in range(steps + 1):
+            u = k / max(1, steps)
+            pts.append((cx + side * k, top + round(3 * u * (1 - u) * 2)))
+        wd.line(pts, wire)
+    if mask & 1: wd.line([cx, top, cx, top - (foot - lift)], wire)
+    if mask & 4: wd.line([cx, top, cx, top + (T - (foot - lift))], wire)
+    img.alpha_composite(wires)
+    d = ImageDraw.Draw(img)
+    d.line([cx, top, cx, foot], PHONE_POLE)
+    d.line([cx - 1, top + 1, cx + 1, top + 1], PHONE_POLE)
+    d.point((cx, top), INSULATOR if not fibre else c("#f0c070"))
+    if look == "snow":
+        d.point((cx, top - 1), SNOW)
+    return img, lift, [(0, cx, foot - lift, PHONE_HEIGHT, 1, 0)]
+
+
+def exchange(look, v):
+    """A telephone exchange on 2 by 1 tiles: plain brick, tall windows for the switchboards, an aerial on the roof."""
+    b = Building(2, 1, height=2 * STOREY + 14)
+    d = b.d
+    roof, wall = b.box(3, 4, 60, 24, 2 * STOREY + 2)
+    brick(d, wall, c("#8e5a44") if v == 0 else c("#a89a84"))
+    x0, y0, x1, y1 = wall
+    windows(d, wall, 2, glass=c("#46586a"), sill=TRIM, every=6, width=3, height=5, skip_door=True)
+    door(d, wall, c("#3a3a40"))
+    d.rectangle([x0 + 4, y0 + 2, x0 + 14, y0 + 4], c("#d9c060"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(8900 + v), [("vent", 8, 4)], parapet=STONE)
+    # The aerial.
+    rx0, ry0, rx1, ry1 = roof
+    ax, ay = rx1 - 8, (ry0 + ry1) // 2
+    d.line([ax, ay, ax, ay - 14], c("#9aa0a6"))
+    for k in range(3):
+        d.line([ax - 3 + k, ay - 12 + k * 4, ax + 3 - k, ay - 12 + k * 4], c("#9aa0a6"))
+    b.casters.append((1, rx1 - 9, (ry0 + ry1) // 2 - 1 - b.lift, rx1 - 7, (ry0 + ry1) // 2 + 1 - b.lift, 14))
+    return b
+
+
+def cell_tower(look, v):
+    """A mobile phone mast on one tile: a steel lattice tower with panels at the top, fenced at its foot."""
+    b = Building(height=40)
+    d = b.d
+    gx0, gy0 = b.ground(4, 4)
+    gx1, gy1 = b.ground(27, 27)
+    d.rectangle([gx0, gy0, gx1, gy1], c("#b8b2a6") if look != "snow" else c("#dfe5ea"))
+    for xx in range(gx0, gx1 + 1, 2):
+        d.point((xx, gy0), c("#6a6a70"))
+        d.point((xx, gy1), c("#6a6a70"))
+    for yy in range(gy0, gy1 + 1, 2):
+        d.point((gx0, yy), c("#6a6a70"))
+        d.point((gx1, yy), c("#6a6a70"))
+    fx, fy = b.ground(15, 18)
+    top = fy - 36
+    steel = c("#9aa0a6")
+    d.line([fx - 4, fy, fx, top], steel)
+    d.line([fx + 4, fy, fx, top], steel)
+    for k in range(1, 6):
+        yy = fy - k * 6
+        w = max(1, 4 - k * 4 // 6)
+        d.line([fx - w, yy, fx + w, yy], steel)
+    for dx in (-3, 2):
+        d.rectangle([fx + dx, top + 2, fx + dx + 1, top + 7], c("#e6e6e6"), OUTLINE)
+    d.point((fx, top - 1), c("#e05040"))
+    d.rectangle([gx0 + 3, gy1 - 6, gx0 + 8, gy1 - 2], c("#d0d0cc"), OUTLINE)
+    b.casters.append((1, 13, 16, 17, 20, 36))
+    return b
+
+
+BUILDINGS += [("exchange", exchange, 2), ("cell_tower", cell_tower, 1)]
+
+
 # High-voltage lines: a steel lattice pylon, taller, with three wires a side.
 PYLON = c("#7d848a")
 HV_WIRE = (40, 42, 46, 160)
@@ -3785,6 +3881,12 @@ def sprites_for(look):
     for mask in range(16):
         img, lift, casters = hv_line(look, mask)
         out.append((f"hv_line_{mask}", img, lift, casters))
+    for mask in range(16):
+        img, lift, casters = phone_line(look, mask, False)
+        out.append((f"copper_line_{mask}", img, lift, casters))
+    for mask in range(16):
+        img, lift, casters = phone_line(look, mask, True)
+        out.append((f"fibre_line_{mask}", img, lift, casters))
     img, casters = street_trees(look)
     out.append(("street_trees_0", img, LIFT, round_casters(casters)))
     out.append(("seam_0", seam(look, "ore"), 0, []))
@@ -3875,7 +3977,7 @@ def write_kotlin(names, flat, pos, size):
             lines.append('            "' + text[i:i + 2000] + '"')
         return "decode(\n" + " +\n".join(lines or ['            ""']) + ",\n        )"
 
-    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "street_trees", "seam", "junction", "roundabout", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
+    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "copper_line", "fibre_line", "street_trees", "seam", "junction", "roundabout", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
     # A sprite's name must start with exactly one group's, or the counts go wrong.
     for n in names:
         owners = [g for g in groups if n.startswith(g + "_")]

@@ -187,6 +187,8 @@ import com.rm.infill.ui.toolTabs
 import com.rm.infill.ui.LocalAtlas
 import androidx.compose.runtime.CompositionLocalProvider
 import com.rm.infill.ui.TransitGroup
+import com.rm.infill.ui.PhoneKind
+import com.rm.infill.ui.phoneChoices
 import com.rm.infill.res.overlay as overlayTitle
 import com.rm.infill.ui.WaterGroup
 import com.rm.infill.ui.ViewGroup
@@ -349,6 +351,7 @@ private fun GameScreen(
         var densityKind by remember { mutableStateOf(DensityKind.Medium) }
         var bulldozeKind by remember { mutableStateOf(BulldozeKind.Clear) }
         var powerKind by remember { mutableStateOf(PowerKind.Line) }
+        var phoneKind by remember { mutableStateOf(PhoneKind.Exchange) }
         var roadKind by remember { mutableStateOf(RoadType.DIRT) }
         var railKind by remember { mutableStateOf(RailKind.Track) }
         var waterKind by remember { mutableStateOf(WaterKind.Main) }
@@ -487,9 +490,9 @@ private fun GameScreen(
         }
 
         // What the drag would do, worked out again as it moves.
-        val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, game.revision) {
+        val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, phoneKind, game.revision) {
             drag?.let { d ->
-                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
+                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
             }
         }
         val costText = preview?.let {
@@ -604,7 +607,7 @@ private fun GameScreen(
                     val kind = if (transitKind.line == 2) Stop.TRAM else Stop.BUS
                     if (city.map.stop[i].toInt() and kind != 0 && lineDraft.lastOrNull() != i) lineDraft = lineDraft + i
                 }
-                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice)
+                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind)
                 if (action != null) {
                     val made = action is Action.PaintDistrict && action.id == NEW_DISTRICT
                     val plan = game.apply(action)
@@ -696,7 +699,7 @@ private fun GameScreen(
             MapView(
                 game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, graphics, gestures, preview, costText, overlay,
                 underground = tool == Tool.Water || (tool == Tool.Transit && (transitKind == TransitKind.Subway || transitKind == TransitKind.Station)) ||
-                    (tool == Tool.Power && powerKind.buried),
+                    (tool == Tool.Power && powerKind.buried) || (tool == Tool.Phone && phoneKind.duct),
                 focus = inspected?.let { (x, y) -> city.map.index(x, y) } ?: -1,
                 districts = if (tool != Tool.Districts) emptyList() else { game.revision; city.districts.map { it.id to it.name } },
                 lines = if (tool != Tool.Transit) emptyList() else {
@@ -849,6 +852,7 @@ private fun GameScreen(
                         }, trayFolded, fold, trayWidth, tabs, transitNow, onTab)
                         Tool.Traffic -> ChoiceTray(atlas, junctionChoices(city), junctionKind, { junctionKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
                         Tool.Power -> ChoiceTray(atlas, powerChoices(city), powerKind, { powerKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
+                        Tool.Phone -> ChoiceTray(atlas, phoneChoices(city), phoneKind, { phoneKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
                         Tool.Water -> ChoiceTray(
                             atlas, waterChoices(city, waterNow), waterKind, { waterKind = it; lastWater[waterNow] = it },
                             trayFolded, fold, trayWidth, tabs, waterNow, onTab,

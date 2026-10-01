@@ -39,7 +39,8 @@ object Stormwater {
         BuildingType.HYDRO_PLANT -> 70
         BuildingType.FARM -> 10
         BuildingType.VOLUNTEER_HALL, BuildingType.LIBRARY, BuildingType.JAIL -> 70
-        BuildingType.POLICE_HQ -> 85
+        BuildingType.POLICE_HQ, BuildingType.EXCHANGE -> 85
+        BuildingType.CELL_TOWER -> 20
         BuildingType.COURTHOUSE -> 75
         BuildingType.LADDER_COMPANY, BuildingType.AMBULANCE_STATION -> 85
         BuildingType.NURSING_HOME -> 75

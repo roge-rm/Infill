@@ -19,6 +19,9 @@ object Broken {
     /** A power line, ordinary or high voltage, brought down. */
     const val POWER = 512
 
+    /** A telephone line. */
+    const val PHONE = 1024
+
     /** What shuts the road above it while it's dug up: the pipes and the tram track. */
     const val DUG = WATER or SEWER or STORM or TRAM
 

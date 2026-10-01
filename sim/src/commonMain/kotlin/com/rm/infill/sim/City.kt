@@ -316,6 +316,33 @@ class City(
                     }
                 }
             }
+            is Action.BuildPhoneLine -> for (i in action.tiles) {
+                val kind = if (action.fibre) Phone.FIBRE else Phone.COPPER
+                val crossing = m.terrain[i] == Terrain.WATER || m.rail[i] != Rail.NONE
+                when {
+                    !inMap(i) -> {}
+                    m.building[i] != 0 || m.zone[i] != Zone.NONE -> blocked += i
+                    crossing && !action.buried -> blocked += i
+                    action.fibre && !allowsFibre() -> blocked += i
+                    m.phone[i] == kind && m.duct(i) == action.buried -> {}
+                    else -> {
+                        changes += i
+                        val price = when {
+                            action.fibre && action.buried -> Prices.FIBRE_DUCT
+                            action.fibre -> Prices.FIBRE
+                            action.buried -> Prices.COPPER_DUCT
+                            else -> Prices.COPPER
+                        }
+                        cost += price * (if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1) + clearing(i)
+                    }
+                }
+            }
+            is Action.RemovePhone -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
+                if (m.phone[i].toInt() != 0) {
+                    changes += i
+                    cost += Prices.REMOVE_PHONE
+                }
+            }
             is Action.BuildPowerLine -> for (i in action.tiles) {
                 val kind = if (action.high) Power.HIGH else Power.LINE
                 // Cable goes under rivers and track that poles can't stand in.
@@ -554,6 +581,11 @@ class City(
             bits = bits or Broken.SUBWAY
             cost += Prices.TUNNEL * Balance.RENEW_ROAD / 100
         }
+        if (m.phone[i].toInt() != 0 && worn(m.phoneLaid, i, phoneLife(i))) {
+            bits = bits or Broken.PHONE
+            val price = if (m.phone[i] == Phone.FIBRE) (if (m.duct(i)) Prices.FIBRE_DUCT else Prices.FIBRE) else (if (m.duct(i)) Prices.COPPER_DUCT else Prices.COPPER)
+            cost += price * Balance.RENEW_ROAD / 100 * bridge
+        }
         if (m.cable(i) && worn(m.powerLaid, i, cableLife(i))) {
             bits = bits or Broken.POWER
             cost += (if (m.power[i] == Power.HIGH) Prices.HIGH_CABLE else Prices.CABLE) * Balance.RENEW_ROAD / 100 * bridge
@@ -734,6 +766,9 @@ class City(
         val scrubbedAfter: Set<Int>,
         /** Each building renovated: its id, and when it was built and how long it's shut, before and after. */
         val renovated: List<IntArray> = emptyList(),
+        /** The phone lines on the tiles, before and after. */
+        val utilBefore: LongArray = LongArray(0),
+        val utilAfter: LongArray = LongArray(0),
     )
 
     private val undoable = ArrayDeque<Edit>()
@@ -750,6 +785,7 @@ class City(
         val before = LongArray(plan.changes.size) { m.tileState(plan.changes[it]) }
         val laidBefore = LongArray(plan.changes.size) { m.tileLaid(plan.changes[it]) }
         val transitBefore = LongArray(plan.changes.size) { m.tileTransitLaid(plan.changes[it]) }
+        val utilBefore = LongArray(plan.changes.size) { m.tileUtil(plan.changes[it]) }
         val fixBefore = IntArray(plan.changes.size) { m.tileFix(plan.changes[it]) }
         val linesBefore = lines.map { it.copy() }
         val districtsBefore = districts.map { it.copy() }
@@ -873,6 +909,7 @@ class City(
                 if (bits and Broken.WIRE != 0) m.wireLaid[i] = stamp
                 if (bits and Broken.SUBWAY != 0) m.subwayLaid[i] = stamp
                 if (bits and Broken.POWER != 0) m.powerLaid[i] = stamp
+                if (bits and Broken.PHONE != 0) m.phoneLaid[i] = stamp
                 startWorks(i, bits, queued++ / Balance.WORKS_PER_DAY)
             }
             is Action.RemoveTransit -> for (i in plan.changes) {
@@ -892,6 +929,20 @@ class City(
                 m.railLaid[i] = now.toShort()
                 m.zone[i] = Zone.NONE
                 clearTrees(i)
+            }
+            is Action.BuildPhoneLine -> for (i in plan.changes) {
+                m.phone[i] = if (action.fibre) Phone.FIBRE else Phone.COPPER
+                m.buried[i] = (if (action.buried) m.buried[i].toInt() or BURIED_PHONE else m.buried[i].toInt() and BURIED_PHONE.inv()).toByte()
+                m.phoneLaid[i] = now.toShort()
+                clearBroken(i, Broken.PHONE)
+                clearTrees(i)
+                if (action.buried && m.road[i] != Road.NONE) startWorks(i, Broken.ROAD, queued++ / Balance.WORKS_PER_DAY)
+            }
+            is Action.RemovePhone -> for (i in plan.changes) {
+                m.phone[i] = 0
+                m.phoneLaid[i] = 0
+                m.buried[i] = (m.buried[i].toInt() and BURIED_PHONE.inv()).toByte()
+                clearBroken(i, Broken.PHONE)
             }
             is Action.BuildPowerLine -> for (i in plan.changes) {
                 m.power[i] = if (action.high) Power.HIGH else Power.LINE
@@ -947,8 +998,9 @@ class City(
                 m.zone[i] = Zone.NONE
                 m.density[i] = Density.NONE
                 m.power[i] = Power.NONE
+                m.phone[i] = 0
                 m.buried[i] = 0
-                clearBroken(i, Broken.POWER)
+                clearBroken(i, Broken.POWER or Broken.PHONE)
                 clearTrees(i)
             }
             is Action.RemovePipes -> for (i in plan.changes) {
@@ -975,6 +1027,7 @@ class City(
                 districtsBefore, districts.map { it.copy() },
                 scrubbedBefore, buildings.values.filter { it.scrubbed }.map { it.id }.toSet(),
                 renovated,
+                utilBefore, LongArray(plan.changes.size) { m.tileUtil(plan.changes[it]) },
             ),
         )
         if (undoable.size > MAX_UNDO) undoable.removeFirst()
@@ -1008,6 +1061,7 @@ class City(
             map.setTileState(e.tiles[k], e.before[k])
             map.setTileLaid(e.tiles[k], e.laidBefore[k])
             map.setTileTransitLaid(e.tiles[k], e.transitBefore[k])
+            if (e.utilBefore.isNotEmpty()) map.setTileUtil(e.tiles[k], e.utilBefore[k])
             map.setTileFix(e.tiles[k], e.fixBefore[k])
             if (map.mendingDays(e.tiles[k]) > 0) mendingTiles += e.tiles[k] else mendingTiles -= e.tiles[k]
         }
@@ -1043,6 +1097,7 @@ class City(
             map.setTileState(e.tiles[k], e.after[k])
             map.setTileLaid(e.tiles[k], e.laidAfter[k])
             map.setTileTransitLaid(e.tiles[k], e.transitAfter[k])
+            if (e.utilAfter.isNotEmpty()) map.setTileUtil(e.tiles[k], e.utilAfter[k])
             map.setTileFix(e.tiles[k], e.fixAfter[k])
             if (map.mendingDays(e.tiles[k]) > 0) mendingTiles += e.tiles[k] else mendingTiles -= e.tiles[k]
         }
@@ -1186,6 +1241,7 @@ class City(
         updateEnvironment()
         updateGrime()
         updateServices()
+        updateComms()
         wearOut()
         accidents()
         earthquake()
@@ -1321,6 +1377,10 @@ class City(
                 fail(i, Broken.POWER, Balance.MEND_CABLE, Balance.REPAIR_CABLE)
                 continue
             }
+            if (m.phone[i].toInt() != 0 && givesWay(m.phoneLaid[i].toInt(), phoneLife(i))) {
+                fail(i, Broken.PHONE, if (m.duct(i)) Balance.MEND_DUCT else Balance.MEND_PHONE, Balance.REPAIR_PHONE)
+                continue
+            }
             if (m.subway[i].toInt() != 0 && givesWay(m.subwayLaid[i].toInt(), Balance.TUNNEL_LIFE)) {
                 fail(i, Broken.SUBWAY, Balance.MEND_TUNNEL, Balance.REPAIR_TUNNEL)
                 tunnelShut = i
@@ -1421,6 +1481,7 @@ class City(
         if (m.wire[i].toInt() != 0) most = max(most, Ageing.wear(now - m.wireLaid[i], Balance.WIRE_LIFE))
         if (m.subway[i].toInt() != 0) most = max(most, Ageing.wear(now - m.subwayLaid[i], Balance.TUNNEL_LIFE))
         if (m.cable(i)) most = max(most, Ageing.wear(now - m.powerLaid[i], cableLife(i)))
+        if (m.phone[i].toInt() != 0) most = max(most, Ageing.wear(now - m.phoneLaid[i], phoneLife(i)))
         buildings[m.building[i]]?.let { b ->
             val life = if (b.type.life > 0) b.type.life else Balance.WORN_YEARS * 2
             if (b.underway == 0) most = max(most, Ageing.wear(now - b.built, life))
@@ -1443,7 +1504,14 @@ class City(
         if (bits and Broken.WIRE != 0) younger(m.wireLaid, Balance.WIRE_LIFE)
         if (bits and Broken.SUBWAY != 0) younger(m.subwayLaid, Balance.TUNNEL_LIFE)
         if (bits and Broken.POWER != 0 && m.cable(i)) younger(m.powerLaid, cableLife(i))
+        if (bits and Broken.PHONE != 0 && m.phone[i].toInt() != 0) younger(m.phoneLaid, phoneLife(i))
     }
+
+    /** How long the phone line on tile [i] is expected to last, in years. */
+    fun phoneLife(i: Int): Int = if (map.phone[i] == Phone.FIBRE) Balance.FIBRE_LIFE else Balance.COPPER_LIFE
+
+    /** Whether the town can lay fibre yet. */
+    fun allowsFibre(): Boolean = everything || year >= Balance.FIBRE_YEAR
 
     /** How long the cable on tile [i] is expected to last, in years. */
     fun cableLife(i: Int): Int = if (map.power[i] == Power.HIGH) Balance.HIGH_CABLE_LIFE else Balance.CABLE_LIFE
@@ -1729,6 +1797,10 @@ class City(
         val chance = Balance.GALE_DOWN * disasterLevel / 2
         for (i in 0 until m.size) {
             // Cable underground is out of the wind.
+            if (m.phone[i].toInt() != 0 && !m.duct(i) && !m.out(i, Broken.PHONE) && rng.nextInt(100) < chance) {
+                fail(i, Broken.PHONE, Balance.MEND_PHONE, Balance.REPAIR_PHONE)
+                hit = i
+            }
             if (m.power[i] != Power.NONE && !m.cable(i) && !m.out(i, Broken.POWER) && rng.nextInt(100) < chance) {
                 fail(i, Broken.POWER, Balance.MEND_LINE, Balance.REPAIR_LINE)
                 hit = i
@@ -2308,6 +2380,7 @@ class City(
         // Who has a car, in hundredths of a person, rounded once each tile's added up.
         val carWorkers = IntArray(n)
         val carShoppers = IntArray(n)
+        var wfh = 0
         for (b in buildings.values) {
             if (b.underway > 0) continue
             val node = accessOf(b)
@@ -2318,7 +2391,10 @@ class City(
                     val wealth = b.people?.wealth ?: Wealth.MIDDLE
                     // Where parking's limited, fewer drive.
                     val share = Cars.share(year, wealth) * (if (districtAt(node)?.parking == true || districtAt(map.index(b.x, b.y))?.parking == true) 100 - Balance.PARKING_CUT else 100) / 100
-                    val workers = b.people?.workers() ?: 0
+                    // From 2000, some educated workers with good internet work from home.
+                    val stayHome = workFromHome(b)
+                    wfh += stayHome
+                    val workers = (b.people?.workers() ?: 0) - stayHome
                     val shoppers = (b.people?.size ?: 0) * Demography.SPENDING_BY_WEALTH[wealth] / 100 / Balance.RESIDENTS_PER_SHOPPER
                     workersAt[node] += workers
                     shoppersAt[node] += shoppers
@@ -2337,6 +2413,7 @@ class City(
                 else -> jobsAt[node] += c
             }
         }
+        stats.workingFromHome = wfh
         // Goods, in hundredths of a load until each tile's are added up.
         val goodsAt = Array(Good.COUNT) { IntArray(n) }
         val wantedAt = Array(Good.COUNT) { IntArray(n) }
@@ -2435,6 +2512,171 @@ class City(
         }
     }
 
+    /**
+     * The telephone across the town, each month. Each exchange serves what's
+     * within reach, nearest first, as far as its lines go round, and reaches
+     * half as far with no trunk line out of town. Broadband comes from an
+     * exchange with fibre out, faster still beside a fibre line, and masts
+     * give a phone to anyone near one that's joined up.
+     */
+    private fun updateComms() {
+        val m = map
+        val w = m.width
+        m.comms.fill(0)
+        val exchanges = buildings.values.filter { it.type == BuildingType.EXCHANGE && it.underway == 0 && it.outage == 0 }.sortedBy { it.id }
+        val towers = buildings.values.filter { it.type == BuildingType.CELL_TOWER && it.underway == 0 && it.outage == 0 }.sortedBy { it.id }
+        if (exchanges.isEmpty() && towers.isEmpty()) {
+            stats.withPhone = 0
+            stats.withBroadband = 0
+            return
+        }
+        val out = linkedOut(fibreOnly = false)
+        val fibreOut = if (year >= Balance.BROADBAND_YEAR) linkedOut(fibreOnly = true) else null
+        fun touches(b: Building, reached: BooleanArray): Boolean {
+            for (y in b.y - 1..b.y + b.type.height) for (x in b.x - 1..b.x + b.type.width) {
+                if (!m.inside(x, y)) continue
+                // The footprint and its four sides, not the corners.
+                val corner = (x == b.x - 1 || x == b.x + b.type.width) && (y == b.y - 1 || y == b.y + b.type.height)
+                if (!corner && reached[m.index(x, y)]) return true
+            }
+            return false
+        }
+        val lines = when {
+            year >= Balance.DIGITAL_YEAR -> Balance.DIGITAL_LINES
+            year >= Balance.AUTOMATIC_YEAR -> Balance.AUTOMATIC_LINES
+            else -> Balance.EXCHANGE_LINES
+        }
+        class Exchange(val b: Building, val reach: Int, val fibre: Boolean, var left: Int)
+        val serving = exchanges.map { b ->
+            val linked = touches(b, out)
+            val room = lines * strengthOf(b, 100) / 100
+            b.room = room
+            b.served = 0
+            Exchange(b, if (linked) Balance.PHONE_REACH else Balance.PHONE_REACH / 2, linked && fibreOut != null && touches(b, fibreOut), room)
+        }
+        // The land within each exchange's and mast's reach, for the map view.
+        fun cover(cx: Int, cy: Int, reach: Int, level: Int) {
+            for (y in maxOf(0, cy - reach)..minOf(m.height - 1, cy + reach)) for (x in maxOf(0, cx - reach)..minOf(w - 1, cx + reach)) {
+                if (abs(x - cx) + abs(y - cy) > reach) continue
+                val i = y * w + x
+                if (m.comms[i] < level) m.comms[i] = level.toByte()
+            }
+        }
+        for (e in serving) {
+            val cx = e.b.x + e.b.type.width / 2
+            val cy = e.b.y
+            cover(cx, cy, e.reach, Phone.SERVICE_PHONE)
+            if (e.fibre) cover(cx, cy, Balance.DSL_REACH, Phone.SERVICE_BROADBAND)
+        }
+        val linkedTowers = if (year >= 1985 || everything) towers.filter { touches(it, out) } else emptyList()
+        for (t in linkedTowers) cover(t.x, t.y, Balance.TOWER_REACH, Phone.SERVICE_PHONE)
+        // Fast service beside fibre that runs out of town.
+        val fast = BooleanArray(m.size)
+        if (fibreOut != null && year >= Balance.FAST_YEAR) {
+            for (i in 0 until m.size) if (fibreOut[i] && m.phone[i] == Phone.FIBRE) {
+                val x = i % w
+                val y = i / w
+                for (yy in maxOf(0, y - Balance.FAST_REACH)..minOf(m.height - 1, y + Balance.FAST_REACH)) for (xx in maxOf(0, x - Balance.FAST_REACH)..minOf(w - 1, x + Balance.FAST_REACH)) {
+                    if (abs(xx - x) + abs(yy - y) <= Balance.FAST_REACH) fast[yy * w + xx] = true
+                }
+            }
+        }
+        // Who gets a line: every home and business, nearest an exchange first, while its lines last.
+        val customers = buildings.values.filter { b ->
+            b.underway == 0 && (b.people?.let { !it.empty } ?: (b.type.zone != Zone.NONE))
+        }.sortedBy { it.id }
+        class Ask(val b: Building, val e: Exchange, val distance: Int)
+        val asks = ArrayList<Ask>()
+        for (b in customers) for (e in serving) {
+            val d = abs(b.x - (e.b.x + e.b.type.width / 2)) + abs(b.y - e.b.y)
+            if (d <= e.reach) asks += Ask(b, e, d)
+        }
+        asks.sortWith(compareBy<Ask> { it.distance }.thenBy { it.b.id })
+        val level = HashMap<Int, Int>()
+        for (a in asks) {
+            if (a.b.id in level) continue
+            val need = if (a.b.people != null) 1 else maxOf(1, a.b.type.capacity / Balance.JOBS_PER_LINE)
+            if (a.e.left < need) continue
+            a.e.left -= need
+            a.e.b.served += need
+            val i = m.index(a.b.x, a.b.y)
+            level[a.b.id] = when {
+                fast[i] -> Phone.SERVICE_FAST
+                a.e.fibre && a.distance <= Balance.DSL_REACH -> Phone.SERVICE_BROADBAND
+                else -> Phone.SERVICE_PHONE
+            }
+        }
+        // A mast gives anyone near it a phone, lines or none.
+        for (b in customers) {
+            if (b.id in level) continue
+            if (linkedTowers.any { abs(it.x - b.x) + abs(it.y - b.y) <= Balance.TOWER_REACH }) level[b.id] = Phone.SERVICE_PHONE
+        }
+        // A building has what it got, whatever the land round it has.
+        var phones = 0
+        var broadband = 0
+        for (b in customers) {
+            val got = level[b.id] ?: 0
+            if (got >= Phone.SERVICE_PHONE) phones++
+            if (got >= Phone.SERVICE_BROADBAND) broadband++
+            for (y in b.y until b.y + b.type.height) for (x in b.x until b.x + b.type.width) if (m.inside(x, y)) m.comms[m.index(x, y)] = got.toByte()
+        }
+        stats.withPhone = if (customers.isEmpty()) 0 else phones * 100 / customers.size
+        stats.withBroadband = if (customers.isEmpty()) 0 else broadband * 100 / customers.size
+    }
+
+    /**
+     * The tiles a trunk line joins to the edge of the map, through lines in
+     * use and the exchanges between them; with [fibreOnly], through fibre.
+     */
+    private fun linkedOut(fibreOnly: Boolean): BooleanArray {
+        val m = map
+        val reached = BooleanArray(m.size)
+        fun carries(i: Int): Boolean {
+            val b = buildings[m.building[i]]
+            if (b != null) return b.type == BuildingType.EXCHANGE && b.underway == 0 && b.outage == 0
+            val kind = m.phone[i]
+            if (kind == Phone.NONE || m.out(i, Broken.PHONE)) return false
+            return !fibreOnly || kind == Phone.FIBRE
+        }
+        val queue = ArrayDeque<Int>()
+        for (i in 0 until m.size) {
+            val x = i % m.width
+            val y = i / m.width
+            if ((x == 0 || y == 0 || x == m.width - 1 || y == m.height - 1) && carries(i)) {
+                reached[i] = true
+                queue.addLast(i)
+            }
+        }
+        while (queue.isNotEmpty()) {
+            val i = queue.removeFirst()
+            val x = i % m.width
+            val y = i / m.width
+            for (k in 0 until 4) {
+                val nx = x + DX[k]
+                val ny = y + DY[k]
+                if (!m.inside(nx, ny)) continue
+                val j = m.index(nx, ny)
+                if (reached[j] || !carries(j)) continue
+                reached[j] = true
+                queue.addLast(j)
+            }
+        }
+        return reached
+    }
+
+    /** How many of [b]'s workers work from home today: some of the educated, with broadband, from 2000. */
+    private fun workFromHome(b: Building): Int {
+        val h = b.people ?: return 0
+        if (year < Balance.WFH_YEAR) return 0
+        val share = when (map.comms[map.index(b.x, b.y)].toInt()) {
+            Phone.SERVICE_FAST -> Balance.WFH_FAST
+            Phone.SERVICE_BROADBAND -> Balance.WFH_BROADBAND
+            else -> 0
+        }
+        // Rounded by the home and the month, so a town of homes with one such worker each still sends the right share.
+        return (h.workersAt(Education.EDUCATED) * share + (b.id * 37 + monthNow * 11).mod(100)) / 100
+    }
+
     /** The colleges, for offices to be near. */
     private val colleges get() = buildings.values.filter { it.type == BuildingType.COLLEGE && it.underway == 0 }
 
@@ -2481,7 +2723,9 @@ class City(
             val i = m.index(b.x, b.y)
             val o = p.size.toLong() * (m.crime[i].toInt() and 0xff)
             offences += o
-            caught += o * (m.policeCover[i].toInt() and 0xff) / 255
+            // And a crime's reported sooner.
+            val called = if (m.comms[i] >= Phone.SERVICE_PHONE) 100 + Balance.CALL_ARRESTS else 100
+            caught += min(o, o * (m.policeCover[i].toInt() and 0xff) / 255 * called / 100)
         }
         val s = stats
         s.offences = (offences / 255 / Balance.OFFENCE_SHARE).toInt()
@@ -2618,8 +2862,11 @@ class City(
      * and more where there's mains water for the hydrants.
      */
     internal fun fireCoverAt(i: Int): Int {
-        val cover = map.fireCover[i].toInt() and 0xff
-        return if (cover > 0 && map.watered[i]) min(255, cover + Balance.HYDRANT_COVER) else cover
+        var cover = map.fireCover[i].toInt() and 0xff
+        if (cover > 0 && map.watered[i]) cover = min(255, cover + Balance.HYDRANT_COVER)
+        // A fire's called in sooner where there's a phone.
+        if (cover > 0 && map.comms[i] >= Phone.SERVICE_PHONE) cover = min(255, cover + Balance.CALL_COVER)
+        return cover
     }
 
     /** How many buildings are on fire. */
@@ -4154,6 +4401,7 @@ class City(
         val y = i / m.width
         val value = m.landValue[i].toInt() and 0xff
         val crime = m.crime[i].toInt() and 0xff
+        val comms = m.comms[i].toInt()
         // A business pays the racketeers, or goes elsewhere.
         val shakedown = (m.rackets[i].toInt() and 0xff) / Balance.RACKETS_APPEAL
         val pollution = m.pollution[i].toInt() and 0xff
@@ -4169,6 +4417,9 @@ class City(
                 if (!m.watered[i] && m.grimeLevel(i) >= 2) score -= Balance.BAD_WELL
                 score += amenity(m.sewered[i], Balance.SEWER_APPEAL, Balance.SEWER_FADES, Balance.SEWER_EXPECTED_BY, Balance.SEWER_EXPECTED)
                 score += amenity(m.powered[i], 0, Balance.POWER_FADES, Balance.POWER_EXPECTED_BY, Balance.POWER_EXPECTED)
+                // A phone in the house, and in time the internet.
+                score += amenity(comms >= Phone.SERVICE_PHONE, Balance.PHONE_APPEAL, 1930, 1960, Balance.PHONE_NEEDED)
+                score += amenity(comms >= Phone.SERVICE_BROADBAND, Balance.BROADBAND_APPEAL, 1995, 2010, Balance.BROADBAND_NEEDED)
                 // The well off ask more of a place; the poor put up with more.
                 val home = buildings[m.building[i]]?.people
                 when (home?.wealth ?: chooseWealth(i)) {
@@ -4191,6 +4442,7 @@ class City(
                     people += b?.people?.size ?: 0
                 }
                 score += 28 + value / 4 + min(people / 8, 30) - crime / 6 - pollution / 5 - shakedown
+                score += amenity(comms >= Phone.SERVICE_PHONE, Balance.PHONE_APPEAL, 1910, 1950, Balance.PHONE_NEEDED)
                 buildings[m.building[i]]?.let { score += ageAppeal(it) }
                 // Passing trade.
                 if (access[i] >= 0) score += min(Balance.PASSING_TRADE, traffic.lastFootfall[access[i]] / Balance.TRIPS_PER_PASSING_POINT)
@@ -4205,6 +4457,9 @@ class City(
                 var shops = 0
                 around(x, y, 6) { j, _ -> if (buildings[m.building[j]]?.type?.zone == Zone.COMMERCIAL) shops++ }
                 score += 24 + value / 3 + min(shops, 15) - crime / 5 - pollution / 4 + flowAppeal() - shakedown
+                // Offices live on the telephone, and later the internet.
+                score += amenity(comms >= Phone.SERVICE_PHONE, Balance.PHONE_APPEAL, 1905, 1940, Balance.PHONE_NEEDED)
+                score += amenity(comms >= Phone.SERVICE_BROADBAND, Balance.BROADBAND_APPEAL, 1995, 2000, Balance.BROADBAND_NEEDED)
                 // A college nearby, for the people and the ideas.
                 if (colleges.any { abs(it.x - x) + abs(it.y - y) <= Balance.COLLEGE_REACH }) score += Balance.COLLEGE_OFFICES
                 buildings[m.building[i]]?.let { score += ageAppeal(it) }
@@ -4214,6 +4469,7 @@ class City(
                 var water = false
                 around(x, y, 3) { j, _ -> if (m.terrain[j] == Terrain.WATER) water = true }
                 score += 50 + (if (water) 5 else 0) - crime / 8 - shakedown
+                score += amenity(comms >= Phone.SERVICE_PHONE, Balance.PHONE_APPEAL, 1910, 1950, Balance.PHONE_NEEDED)
                 if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
                 // A works that gets what it needs in town does better.
                 buildings[m.building[i]]?.let { score += it.local * Balance.LOCAL_APPEAL / 100 }
@@ -4559,6 +4815,7 @@ class City(
         var schools = 0.0
         var care = 0.0
         var fireExtra = 0.0
+        var phoneUpkeep = 0.0
         var policeExtra = 0.0
         val days = daysIn(if (month == 0) 11 else month - 1, year).toDouble()
         for (b in buildings.values) {
@@ -4572,6 +4829,8 @@ class City(
                 BuildingType.LIBRARY -> schools += Balance.LIBRARY_UPKEEP
                 BuildingType.COLLEGE -> schools += Balance.COLLEGE_UPKEEP
                 BuildingType.VOLUNTEER_HALL -> fireExtra += Balance.VOLUNTEER_UPKEEP
+                BuildingType.EXCHANGE -> phoneUpkeep += Balance.EXCHANGE_UPKEEP
+                BuildingType.CELL_TOWER -> phoneUpkeep += Balance.MAST_UPKEEP
                 BuildingType.LADDER_COMPANY -> fireExtra += Balance.LADDER_UPKEEP
                 BuildingType.POLICE_HQ -> policeExtra += Balance.HQ_UPKEEP
                 BuildingType.COURTHOUSE -> policeExtra += Balance.COURT_UPKEEP
@@ -4631,10 +4890,13 @@ class City(
         var junctions = 0.0
         var track = 0.0
         var cables = 0.0
+        var phoneLines = 0.0
         for (i in 0 until map.size) {
             val bridge = if (map.terrain[i] == Terrain.WATER) Balance.BRIDGE_UPKEEP else 1.0
             val road = RoadType.of(map.road[i])
             if (road != null) roads += road.upkeep * bridge
+            if (map.phone[i] == Phone.COPPER) phoneLines += Balance.COPPER_UPKEEP
+            else if (map.phone[i] == Phone.FIBRE) phoneLines += Balance.FIBRE_UPKEEP
             if (map.cable(i)) cables += (if (map.power[i] == Power.HIGH) Balance.HIGH_CABLE_UPKEEP else Balance.CABLE_UPKEEP)
             else if (map.power[i] == Power.LINE) lines++
             else if (map.power[i] == Power.HIGH) highLines++
@@ -4643,6 +4905,7 @@ class City(
             waterworks += (map.waterPipe[i] + map.sewerPipe[i] + map.stormPipe[i] + map.bank[i]) * Balance.PIPE_UPKEEP
         }
         s.waterUpkeep = waterworks.roundToLong()
+        s.phoneUpkeep = (phoneUpkeep + phoneLines).roundToLong()
         s.roadUpkeep = (roads + lines * Balance.LINE_UPKEEP + highLines * Balance.HIGH_LINE_UPKEEP + cables + junctions).roundToLong()
         s.railUpkeep = (track + stations * Balance.STATION_UPKEEP + yards * Balance.YARD_UPKEEP).roundToLong()
         s.powerUpkeep = plants.roundToLong()
@@ -4693,7 +4956,7 @@ class City(
         disasterBill = 0
         s.schoolUpkeep = (schools * schoolFunding / 100).roundToLong()
         s.healthUpkeep = (care * healthFunding / 100).roundToLong()
-        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost
+        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost + s.phoneUpkeep
         funds += s.income - s.upkeep
     }
 
@@ -4882,6 +5145,11 @@ class City(
         // Since version 20: power cable underground, and when lines went up.
         w.layer(map.buried)
         w.shorts(map.powerLaid)
+        // Since version 21: the telephone.
+        w.layer(map.phone)
+        w.shorts(map.phoneLaid)
+        w.layer(map.comms)
+        for (v in longArrayOf(stats.phoneUpkeep, stats.withPhone.toLong(), stats.withBroadband.toLong(), stats.workingFromHome.toLong())) w.long(v)
     }
 
     companion object {
@@ -5108,6 +5376,13 @@ class City(
                     val guess = (c.monthNow / 2).toShort()
                     for (i in 0 until m.size) if (m.power[i] != Power.NONE) m.powerLaid[i] = guess
                 }
+                if (version >= 21) {
+                    r.layer(m.phone)
+                    r.shorts(m.phoneLaid)
+                    r.layer(m.comms)
+                    val s = c.stats
+                    s.phoneUpkeep = r.long(); s.withPhone = r.long().toInt(); s.withBroadband = r.long().toInt(); s.workingFromHome = r.long().toInt()
+                }
                 c.updateNetworks()
             } else {
                 // Before ageing nothing kept its age: count everything as laid half the town's life ago.
@@ -5326,6 +5601,14 @@ class Stats {
     /** Last month's fares, and the upkeep of the tram track, tunnels, stops, depots, garages and stations. */
     var fareIncome = 0L
     var transitUpkeep = 0L
+
+    /** The telephone: exchanges, masts and lines, a month. */
+    var phoneUpkeep = 0L
+
+    /** Percent of homes and businesses with a phone, and with broadband; workers at home on any day. */
+    var withPhone = 0
+    var withBroadband = 0
+    var workingFromHome = 0
 
     /** Last month's commutes by [Mode]. */
     val byMode = IntArray(Mode.entries.size)

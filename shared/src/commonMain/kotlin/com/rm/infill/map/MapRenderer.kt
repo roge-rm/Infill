@@ -310,8 +310,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 surface.blend(treeBase + treeSprite(tx, ty), (tx - x0) * s, (ty - y0) * s)
             } else {
                 if (map.streetTrees[i].toInt() != 0) surface.blend(base + Atlas.STREET_TREES, (tx - x0) * s, (ty - y0) * s)
-                // Cable underground isn't seen from above.
+                // Cable underground isn't seen from above. A phone line shares the power poles where there are any.
                 if (map.power[i] != Power.NONE && !map.cable(i)) surface.blend(base + lineSprite(tx, ty), (tx - x0) * s, (ty - y0) * s)
+                else if (map.phone[i].toInt() != 0 && !map.duct(i)) surface.blend(base + phoneSprite(tx, ty), (tx - x0) * s, (ty - y0) * s)
             }
         }
         return surface.finish()
@@ -349,6 +350,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         }
         if (map.terrain[i] == Terrain.TREES) return treeSprite(tx, ty)
         if (map.power[i] != Power.NONE && !map.cable(i)) return lineSprite(tx, ty)
+        if (map.phone[i].toInt() != 0 && !map.duct(i)) return phoneSprite(tx, ty)
         if (map.streetTrees[i].toInt() != 0) return Atlas.STREET_TREES
         return null
     }
@@ -420,6 +422,24 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     }
 
     /** Which neighbours a line's wires run to: lines of its kind, power stations and substations. */
+    /** A phone line's pole and wires, joined to the line each way and to exchanges and masts. */
+    private fun phoneSprite(x: Int, y: Int): Int {
+        val kind = map.phone[map.index(x, y)]
+        fun joins(nx: Int, ny: Int): Boolean {
+            if (!map.inside(nx, ny)) return false
+            val j = map.index(nx, ny)
+            if (map.phone[j] == kind) return true
+            val type = map.buildingType[j].toInt() - 1
+            return type == BuildingType.EXCHANGE.ordinal || type == BuildingType.CELL_TOWER.ordinal
+        }
+        var m = 0
+        if (joins(x, y - 1)) m = m or 1
+        if (joins(x + 1, y)) m = m or 2
+        if (joins(x, y + 1)) m = m or 4
+        if (joins(x - 1, y)) m = m or 8
+        return (if (kind == com.rm.infill.sim.Phone.FIBRE) Atlas.FIBRE_LINE else Atlas.COPPER_LINE) + m
+    }
+
     private fun powerMask(x: Int, y: Int, kind: Byte): Int {
         var m = 0
         if (carries(x, y - 1, kind)) m = m or 1
