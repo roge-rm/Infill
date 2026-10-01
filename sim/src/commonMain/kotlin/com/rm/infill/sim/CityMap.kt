@@ -174,8 +174,11 @@ class CityMap(val width: Int, val height: Int) {
     /** What land is worth, 0 to 255, worked out each month. */
     val landValue = ByteArray(size)
 
-    /** Crime, 0 to 255, worked out each month. */
+    /** Crime, 0 to 255, worked out each month: in all, and theft, vice and rackets apart. */
     val crime = ByteArray(size)
+    val theft = ByteArray(size)
+    val vice = ByteArray(size)
+    val rackets = ByteArray(size)
 
     /** How well police and fire stations reach each tile, 0 to 255. */
     val policeCover = ByteArray(size)

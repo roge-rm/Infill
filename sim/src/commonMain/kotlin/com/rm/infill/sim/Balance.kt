@@ -189,6 +189,41 @@ object Balance {
     const val LIBRARY_UPKEEP = 12.0
     const val COLLEGE_UPKEEP = 150.0
 
+    // Crime by kind. The share of theft and vice, in percent, full police cover puts off. Rackets from 1920: how much
+    // of the theft and vice where justice fails feeds them a month (one part in this), how much they fade a
+    // month anyway and with a fully staffed police headquarters, and how much they put businesses off.
+    const val THEFT_POLICE = 60
+    const val VICE_POLICE = 40
+    const val SHOP_THEFT = 12
+    const val NIGHTLIFE = 12
+    const val RACKETS_YEAR = 1920
+    const val RACKETS_GROW = 10
+    const val RACKETS_FADE = 2
+    const val DETECTIVES = 14
+    const val RACKETS_APPEAL = 6
+
+    // Justice. People times crime over 255, over this, are the offences a month; this share of those in
+    // police cover end in an arrest. A police station hears this many cases a month and holds this many,
+    // a courthouse hears this many and a jail holds this many. This share of the cases heard end in a
+    // sentence, of this many months on average. Crime is up to this much more, in percent, where no
+    // arrest sticks. A jail takes this much off land value within this many tiles.
+    const val OFFENCE_SHARE = 10
+    const val ARREST_SHARE = 60
+    const val LOCKUP_CASES = 15
+    const val CELLS = 10
+    const val COURT_CASES = 150
+    const val JAIL_PLACES = 400
+    const val CONVICTED = 70
+    const val SENTENCE = 6
+    const val JUSTICE_SLACK = 30
+    const val JAIL_VALUE = 15
+    const val JAIL_REACH = 3
+
+    // Upkeep a month.
+    const val HQ_UPKEEP = 120.0
+    const val COURT_UPKEEP = 80.0
+    const val JAIL_UPKEEP = 150.0
+
     // A service past its expected life works at less, by half a point a point of wear past it, down to this;
     // renovating one costs this share of its price and shuts it for this many days.
     const val WORN_SERVICE = 60

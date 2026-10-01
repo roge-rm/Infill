@@ -256,7 +256,7 @@ enum class Glyph {
     Inspect, Bulldoze, Road, Rail, Drop, Zone, Bolt, Civic, Tram, Lights, District, Utilities,
     Plus, Erase, List, Remove, Renew, Pipe, Bank, Tunnel, Route, Auto, Scrubber, Low, Medium, High,
     Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
-    Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance,
+    Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance, Sack, Glass, Hat,
 }
 
 /** The drawing for [tool]. */
@@ -464,6 +464,24 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
             for (k in 0 until 4) drawRect(c.copy(alpha = 0.35f), Offset((4 + k * 4.5f) * u, 8 * u), Size(3.2f * u, 4 * u))
             drawCircle(c, 2.4f * u, Offset(7 * u, 19 * u))
             drawCircle(c, 2.4f * u, Offset(17 * u, 19 * u))
+        }
+        Glyph.Sack -> {
+            // A swag bag, tied at the neck.
+            drawOval(c, Offset(4 * u, 8 * u), Size(16 * u, 14 * u))
+            drawPath(path(9f, 9f, 15f, 9f, 17f, 4f, 7f, 4f), c)
+            line(8f, 9f, 16f, 9f, 1.6f * u)
+        }
+        Glyph.Glass -> {
+            // A cocktail glass.
+            drawPath(path(4f, 4f, 20f, 4f, 12f, 13f), c)
+            line(12f, 13f, 12f, 20f, 2f * u)
+            line(7f, 21f, 17f, 21f, 2.2f * u)
+        }
+        Glyph.Hat -> {
+            // A fedora.
+            drawOval(c, Offset(2 * u, 14 * u), Size(20 * u, 6 * u))
+            drawPath(path(6f, 16f, 7f, 7f, 12f, 9f, 17f, 7f, 18f, 16f), c)
+            line(7f, 13f, 17f, 13f, 1.6f * u)
         }
         Glyph.Ladder -> {
             line(7f, 2f, 9f, 22f, 2.2f * u); line(17f, 2f, 15f, 22f, 2.2f * u)

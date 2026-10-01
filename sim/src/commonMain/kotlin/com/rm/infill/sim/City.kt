@@ -1173,10 +1173,7 @@ class City(
         heatWaveDays = 0
         census()
         startTraffic()
-        Effects.crime(
-            map, { i -> buildings[map.building[i]]?.people?.size ?: 0 },
-            { i -> map.building[i] != 0 }, stats.unemployment, map.crime,
-        )
+        updateCrime()
         Effects.landValue(map, { i -> buildings[map.building[i]]?.type }, nearRoad, map.landValue) { i ->
             // People and jobs on the tile, a building's shared over its lots.
             val b = buildings[map.building[i]]
@@ -2376,7 +2373,7 @@ class City(
     private fun updateServices() {
         fun of(t: BuildingType) = buildings.values.filter { it.type == t }.sortedBy { it.id }
         val motor = year >= Balance.MOTOR_FIRE_YEAR
-        cover(of(BuildingType.POLICE_STATION), year >= Balance.PATROL_CAR_YEAR, Balance.POLICE_REACH, Balance.POLICE_RESPONSE_FULL, Balance.POLICE_RESPONSE_MOST, policeFunding, 100, map.policeCover)
+        cover(buildings.values.filter { it.type.patrols }.sortedBy { it.id }, year >= Balance.PATROL_CAR_YEAR, Balance.POLICE_REACH, Balance.POLICE_RESPONSE_FULL, Balance.POLICE_RESPONSE_MOST, policeFunding, 100, map.policeCover)
         // Fire halls, and volunteer halls at half the strength.
         cover(of(BuildingType.FIRE_STATION), motor, Balance.FIRE_REACH, Balance.FIRE_RESPONSE_FULL, Balance.FIRE_RESPONSE_MOST, fireFunding, 100, map.fireCover)
         val volunteers = ByteArray(map.size)
@@ -2405,6 +2402,95 @@ class City(
 
     /** The colleges, for offices to be near. */
     private val colleges get() = buildings.values.filter { it.type == BuildingType.COLLEGE && it.underway == 0 }
+
+    /**
+     * Percent of last month's arrests that stuck: heard in court and the
+     * guilty held their time. Low, and crime grows and rackets feed.
+     */
+    var justice = 100
+        private set
+
+    /** People in the cells and the jails. */
+    var prisoners = 0
+        private set
+
+    /** The month's crime: rackets first, from what went unpunished, then each kind, then what came of it. */
+    private fun updateCrime() {
+        if (year >= Balance.RACKETS_YEAR) {
+            // Detectives at headquarters work the whole town; a second headquarters adds nothing.
+            val hq = buildings.values.filter { it.type == BuildingType.POLICE_HQ }.maxOfOrNull { strengthOf(it, policeFunding) } ?: 0
+            Effects.rackets(map, justice, Balance.DETECTIVES * hq / 100)
+        } else {
+            map.rackets.fill(0)
+        }
+        Effects.crime(
+            map, { i -> buildings[map.building[i]]?.people?.size ?: 0 },
+            { i -> buildings[map.building[i]]?.type?.let { t -> if (t.zone == Zone.COMMERCIAL) t.capacity / (t.width * t.height) else 0 } ?: 0 },
+            { i -> map.building[i] != 0 }, stats.unemployment, justice,
+        )
+        courts()
+    }
+
+    /**
+     * Arrests, the courts and the cells: the offences where people are, the
+     * share of them the police catch, the cases the stations and courthouses
+     * can hear, and the room in the cells and jails for those found guilty.
+     */
+    private fun courts() {
+        val m = map
+        var offences = 0L
+        var caught = 0L
+        for (b in buildings.values) {
+            val p = b.people ?: continue
+            if (p.size == 0) continue
+            val i = m.index(b.x, b.y)
+            val o = p.size.toLong() * (m.crime[i].toInt() and 0xff)
+            offences += o
+            caught += o * (m.policeCover[i].toInt() and 0xff) / 255
+        }
+        val s = stats
+        s.offences = (offences / 255 / Balance.OFFENCE_SHARE).toInt()
+        val per = 255L * Balance.OFFENCE_SHARE * 100
+        val arrests = ((caught * Balance.ARREST_SHARE + per / 2) / per).toInt()
+        s.arrests = arrests
+        // What each place can hear and hold, as its funding, staff and age allow.
+        val places = buildings.values.filter { it.type.justice && it.underway == 0 }.sortedBy { it.id }
+        fun hears(b: Building) = when {
+            b.type.patrols -> Balance.LOCKUP_CASES
+            b.type == BuildingType.COURTHOUSE -> Balance.COURT_CASES
+            else -> 0
+        } * strengthOf(b, policeFunding) / 100
+        fun holds(b: Building) = when {
+            b.type.patrols -> Balance.CELLS
+            b.type == BuildingType.JAIL -> Balance.JAIL_PLACES
+            else -> 0
+        } * strengthOf(b, policeFunding) / 100
+        val canHear = places.sumOf { hears(it) }
+        val room = places.sumOf { holds(it) }
+        val month = Justice.month(arrests, canHear, room, prisoners)
+        val heard = month.heard
+        val wanting = month.wanting
+        prisoners = month.prisoners
+        justice = month.justice
+        s.heard = heard
+        s.prisoners = prisoners
+        s.cells = room
+        s.justice = justice
+        // Each place's share of the cases and the prisoners, for inspect.
+        for (b in places) {
+            when {
+                b.type == BuildingType.COURTHOUSE -> {
+                    b.room = hears(b)
+                    b.served = if (canHear == 0) 0 else (arrests.toLong() * b.room / canHear).toInt()
+                }
+                b.type == BuildingType.JAIL -> {
+                    b.room = holds(b)
+                    b.served = if (room == 0) 0 else (wanting.toLong() * b.room / room).toInt()
+                }
+                b.type.patrols -> b.served = (arrests.toLong() * (m.policeCover[m.index(b.x, b.y)].toInt() and 0xff) / 255 / places.count { it.type.patrols }).toInt()
+            }
+        }
+    }
 
     /** How well [b] still works for its age, in percent: fully until its expected life, less past it. */
     fun condition(b: Building): Int {
@@ -4033,6 +4119,8 @@ class City(
         val y = i / m.width
         val value = m.landValue[i].toInt() and 0xff
         val crime = m.crime[i].toInt() and 0xff
+        // A business pays the racketeers, or goes elsewhere.
+        val shakedown = (m.rackets[i].toInt() and 0xff) / Balance.RACKETS_APPEAL
         val pollution = m.pollution[i].toInt() and 0xff
         var score = if (m.powered[i]) 10 else 0
         when (zone) {
@@ -4067,7 +4155,7 @@ class City(
                     val b = buildings[m.building[j]]
                     people += b?.people?.size ?: 0
                 }
-                score += 28 + value / 4 + min(people / 8, 30) - crime / 6 - pollution / 5
+                score += 28 + value / 4 + min(people / 8, 30) - crime / 6 - pollution / 5 - shakedown
                 buildings[m.building[i]]?.let { score += ageAppeal(it) }
                 // Passing trade.
                 if (access[i] >= 0) score += min(Balance.PASSING_TRADE, traffic.lastFootfall[access[i]] / Balance.TRIPS_PER_PASSING_POINT)
@@ -4081,7 +4169,7 @@ class City(
                 // Dear land in the busy middle of town, close to the shops, clean and safe.
                 var shops = 0
                 around(x, y, 6) { j, _ -> if (buildings[m.building[j]]?.type?.zone == Zone.COMMERCIAL) shops++ }
-                score += 24 + value / 3 + min(shops, 15) - crime / 5 - pollution / 4 + flowAppeal()
+                score += 24 + value / 3 + min(shops, 15) - crime / 5 - pollution / 4 + flowAppeal() - shakedown
                 // A college nearby, for the people and the ideas.
                 if (colleges.any { abs(it.x - x) + abs(it.y - y) <= Balance.COLLEGE_REACH }) score += Balance.COLLEGE_OFFICES
                 buildings[m.building[i]]?.let { score += ageAppeal(it) }
@@ -4090,7 +4178,7 @@ class City(
             Zone.INDUSTRIAL -> {
                 var water = false
                 around(x, y, 3) { j, _ -> if (m.terrain[j] == Terrain.WATER) water = true }
-                score += 50 + (if (water) 5 else 0) - crime / 8
+                score += 50 + (if (water) 5 else 0) - crime / 8 - shakedown
                 if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
                 // A works that gets what it needs in town does better.
                 buildings[m.building[i]]?.let { score += it.local * Balance.LOCAL_APPEAL / 100 }
@@ -4436,6 +4524,7 @@ class City(
         var schools = 0.0
         var care = 0.0
         var fireExtra = 0.0
+        var policeExtra = 0.0
         val days = daysIn(if (month == 0) 11 else month - 1, year).toDouble()
         for (b in buildings.values) {
             when (b.type) {
@@ -4449,6 +4538,9 @@ class City(
                 BuildingType.COLLEGE -> schools += Balance.COLLEGE_UPKEEP
                 BuildingType.VOLUNTEER_HALL -> fireExtra += Balance.VOLUNTEER_UPKEEP
                 BuildingType.LADDER_COMPANY -> fireExtra += Balance.LADDER_UPKEEP
+                BuildingType.POLICE_HQ -> policeExtra += Balance.HQ_UPKEEP
+                BuildingType.COURTHOUSE -> policeExtra += Balance.COURT_UPKEEP
+                BuildingType.JAIL -> policeExtra += Balance.JAIL_UPKEEP
                 else -> {}
             }
             waterworks += when (b.type) {
@@ -4517,7 +4609,7 @@ class City(
         s.roadUpkeep = (roads + lines * Balance.LINE_UPKEEP + highLines * Balance.HIGH_LINE_UPKEEP + junctions).roundToLong()
         s.railUpkeep = (track + stations * Balance.STATION_UPKEEP + yards * Balance.YARD_UPKEEP).roundToLong()
         s.powerUpkeep = plants.roundToLong()
-        s.policeUpkeep = (police * Balance.POLICE_UPKEEP * policeFunding / 100).roundToLong()
+        s.policeUpkeep = ((police * Balance.POLICE_UPKEEP + policeExtra) * policeFunding / 100).roundToLong()
         s.fireUpkeep = ((fire * Balance.FIRE_UPKEEP + fireExtra) * fireFunding / 100).roundToLong()
         s.parkUpkeep = (parks * Balance.PARK_UPKEEP * parkFunding / 100).roundToLong()
         // Rides from stops with free fares bring in nothing.
@@ -4571,6 +4663,7 @@ class City(
     /** This month's numbers into the history. */
     private fun record() {
         var crime = 0L
+        var rackets = 0L
         var pollution = 0L
         var value = 0L
         var built = 0
@@ -4578,6 +4671,7 @@ class City(
         for (i in 0 until map.size) {
             if (map.building[i] != 0) {
                 crime += map.crime[i].toInt() and 0xff
+                rackets += map.rackets[i].toInt() and 0xff
                 pollution += map.pollution[i].toInt() and 0xff
                 built++
             }
@@ -4588,6 +4682,7 @@ class City(
         }
         val s = stats
         s.crime = if (built == 0) 0 else (crime / built).toInt()
+        s.rackets = if (built == 0) 0 else (rackets / built).toInt()
         s.pollution = if (built == 0) 0 else (pollution / built).toInt()
         s.landValue = if (land == 0) 0 else (value / land).toInt()
         history.record(this)
@@ -4737,11 +4832,16 @@ class City(
         val scrubbed = buildings.values.filter { it.scrubbed }
         w.count(scrubbed.size)
         for (b in scrubbed) w.int(b.id)
-        // Since version 18: the services' cover, worked out each month from the roads as they were.
-        w.layer(map.policeCover)
-        w.layer(map.fireCover)
+        // Since version 18: the cover of the services that came with it, worked out each month from the roads as they were.
         w.layer(map.ladderCover)
         w.layer(map.ambulanceCover)
+        // Since version 19: crime by kind, and justice.
+        w.layer(map.theft)
+        w.layer(map.vice)
+        w.layer(map.rackets)
+        w.int(justice)
+        w.int(prisoners)
+        for (v in intArrayOf(stats.rackets, stats.offences, stats.arrests, stats.heard, stats.prisoners, stats.cells, stats.justice)) w.int(v)
     }
 
     companion object {
@@ -4942,10 +5042,23 @@ class City(
                     repeat(r.count()) { c.buildings[r.int()]?.scrubbed = true }
                 }
                 if (version >= 18) {
-                    r.layer(m.policeCover)
-                    r.layer(m.fireCover)
+                    // Version 18 saved police and fire cover twice.
+                    if (version == 18) {
+                        r.layer(m.policeCover)
+                        r.layer(m.fireCover)
+                    }
                     r.layer(m.ladderCover)
                     r.layer(m.ambulanceCover)
+                }
+                if (version >= 19) {
+                    r.layer(m.theft)
+                    r.layer(m.vice)
+                    r.layer(m.rackets)
+                    c.justice = r.int()
+                    c.prisoners = r.int()
+                    val s = c.stats
+                    s.rackets = r.int(); s.offences = r.int(); s.arrests = r.int(); s.heard = r.int()
+                    s.prisoners = r.int(); s.cells = r.int(); s.justice = r.int()
                 }
                 c.updateNetworks()
             } else {
@@ -5172,6 +5285,19 @@ class Stats {
 
     /** Averages: crime and pollution where there are buildings, land value over all the land. 0 to 255. */
     var crime = 0
+
+    /** Rackets, on average where there are buildings, 0 to 255. */
+    var rackets = 0
+
+    /** Last month's offences and arrests, the cases heard, and the prisoners held of the room in the cells and jails. */
+    var offences = 0
+    var arrests = 0
+    var heard = 0
+    var prisoners = 0
+    var cells = 0
+
+    /** Percent of the arrests that stuck. */
+    var justice = 100
     var pollution = 0
     var landValue = 0
 

@@ -3353,6 +3353,129 @@ def college(look, v):
     return b
 
 
+# Justice: a police headquarters, a courthouse and a jail.
+
+
+def police_hq(look, v):
+    """Police headquarters on 3 by 2 tiles: three storeys of grey stone, a blue lamp, a flag and patrol cars out front."""
+    b = Building(3, 2, height=3 * STOREY + 8)
+    d = b.d
+    rng = random.Random(8800)
+    gx0, gy0 = b.ground(4, 48)
+    gx1, gy1 = b.ground(92, 61)
+    d.rectangle([gx0, gy0, gx1, gy1], c("#b8b2a6") if look != "snow" else c("#dfe5ea"))
+    roof, wall = b.box(4, 6, 92, 46, 3 * STOREY + 2)
+    wall_col = c("#a8a69e")
+    d.rectangle(wall, wall_col)
+    x0, y0, x1, y1 = wall
+    for yy in range(y0 + 3, y1, 4):
+        d.line([x0 + 1, yy, x1 - 1, yy], shade(wall_col, 0.92))
+    cx = (x0 + x1) // 2
+    windows(d, wall, 3, glass=c("#46586a"), sill=TRIM, every=5, width=2, height=3, skip=[(cx - 6, cx + 6)])
+    d.rectangle([cx - 4, y1 - 8, cx + 4, y1], c("#2a2a30"))
+    d.rectangle([cx - 6, y1 - 9, cx + 6, y1 - 9], STONE)
+    for k in (-6, 6):
+        d.rectangle([cx + k, y1 - 12, cx + k + 1, y1 - 10], c("#3f6fd8"))
+        d.point((cx + k, y1 - 12), c("#a8c4ff"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, rng, [("stack", 8, 4), ("hatch", 40, 10), ("vent", 70, 8), ("vent", 20, 20)], parapet=STONE)
+    # The flag, and the patrol cars at the kerb.
+    fx, fy = b.ground(20, 54)
+    d.line([fx, fy, fx, fy - 22], c("#d0d0d0"))
+    d.rectangle([fx + 1, fy - 22, fx + 6, fy - 19], c("#c0392b"))
+    d.rectangle([fx + 3, fy - 22, fx + 4, fy - 19], c("#f2f2ea"))
+    b.casters.append((1, 19, 53, 21, 55, 22))
+    for k, px in enumerate((54, 68)):
+        x, y = b.ground(px, 52)
+        d.rectangle([x, y, x + 10, y + 5], c("#1e2a44") if k == 0 else c("#f2f2ee"), OUTLINE)
+        d.rectangle([x + 3, y + 1, x + 7, y + 3], c("#6c7f8a"))
+        d.point((x + 5, y), c("#3f6fd8"))
+    return b
+
+
+def courthouse(look, v):
+    """A courthouse on 2 by 2 tiles: pale stone, a row of columns under a pediment, wide steps, and a dome or a clock."""
+    b = Building(2, 2, height=3 * STOREY + 14)
+    d = b.d
+    gx0, gy0 = b.ground(2, 2)
+    gx1, gy1 = b.ground(61, 61)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else c("#86a85e"))
+    px, py = b.ground(26, 48)
+    d.rectangle([px, py, px + 11, gy1], PATH if look != "snow" else c("#cfd8df"))
+    roof, wall = b.box(6, 8, 58, 46, 3 * STOREY)
+    wall_col = c("#e0d8c2") if v == 0 else c("#cfc0a0")
+    d.rectangle(wall, wall_col)
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    windows(d, wall, 3, glass=c("#46586a"), sill=TRIM, every=6, width=2, height=4, skip=[(cx - 14, cx + 14)])
+    # The portico: columns the height of the front, a pediment, steps.
+    d.rectangle([cx - 14, y0 + 6, cx + 14, y1], c("#efe8d8"))
+    for k in range(-13, 14, 4):
+        d.line([cx + k, y0 + 8, cx + k, y1], c("#c9c0aa"))
+    d.polygon([(cx - 16, y0 + 6), (cx, y0 - 2), (cx + 16, y0 + 6)], TRIM, OUTLINE)
+    d.rectangle([cx - 2, y1 - 7, cx + 2, y1], c("#4a3226"))
+    for k in range(3):
+        d.rectangle([cx - 15 - k, y1 + 1 + k, cx + 15 + k, y1 + 1 + k], STONE)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(8810 + v), [], parapet=STONE)
+    rx0, ry0, rx1, ry1 = roof
+    mx, my = (rx0 + rx1) // 2, (ry0 + ry1) // 2
+    if v == 0:
+        d.ellipse([mx - 9, my - 9, mx + 9, my + 9], SNOW_ROOF[0] if look == "snow" else c("#6e8f86"), OUTLINE)
+        d.ellipse([mx - 4, my - 6, mx + 1, my - 1], c("#8fb0a6") if look != "snow" else c("#ffffff"))
+        d.rectangle([mx - 1, my - 12, mx + 1, my - 9], c("#d9b44a"))
+    else:
+        d.rectangle([mx - 6, my - 6, mx + 6, my + 6], wall_col, OUTLINE)
+        d.ellipse([mx - 4, my - 4, mx + 4, my + 4], c("#f2f2ea"), OUTLINE)
+        d.line([mx, my, mx, my - 3], OUTLINE)
+        d.line([mx, my, mx + 2, my], OUTLINE)
+    b.casters.append((1, 22, 18, 42, 38, 3 * STOREY + 14))
+    return b
+
+
+def jail(look, v):
+    """A jail on 3 by 3 tiles: a high wall round a bare yard, a long cell block of small barred windows, and a watch tower."""
+    b = Building(3, 3, height=4 * STOREY + 4)
+    d = b.d
+    rng = random.Random(8820)
+    gx0, gy0 = b.ground(2, 2)
+    gx1, gy1 = b.ground(93, 93)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else c("#a89a7e"))
+    # The cell block across the back, and the gatehouse at the front.
+    roof, wall = b.box(10, 8, 86, 40, 3 * STOREY)
+    brick(d, wall, c("#8a7a6a"))
+    x0, y0, x1, y1 = wall
+    for row in range(3):
+        for xx in range(x0 + 3, x1 - 2, 4):
+            yy = y0 + 3 + row * STOREY
+            d.rectangle([xx, yy, xx + 1, yy + 2], c("#2a2a30"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, rng, [("vent", 10, 6), ("vent", 40, 6), ("vent", 60, 6)], parapet=c("#6a6058"))
+    groof, gwall = b.box(38, 76, 58, 90, STOREY + 4)
+    brick(d, gwall, c("#7a6a5a"))
+    gx0_, gy0_, gx1_, gy1_ = gwall
+    d.rectangle([(gx0_ + gx1_) // 2 - 3, gy1_ - 7, (gx0_ + gx1_) // 2 + 3, gy1_], c("#3a3a40"))
+    for k in range((gx0_ + gx1_) // 2 - 2, (gx0_ + gx1_) // 2 + 3, 2):
+        d.line([k, gy1_ - 7, k, gy1_], c("#8a8a90"))
+    d.rectangle(gwall, outline=OUTLINE)
+    flat_roof(b.img, groof, look, rng, [], parapet=c("#6a6058"))
+    # The wall round the yard.
+    wx0, wy0 = b.ground(4, 44)
+    wx1, wy1 = b.ground(91, 91)
+    for (a, bb) in (((wx0, wy0), (wx0, wy1)), ((wx1, wy0), (wx1, wy1)), ((wx0, wy1), (wx1, wy1))):
+        d.line([a, bb], c("#6a6058"), width=3)
+    b.casters.append((1, 4, 44, 6, 91, 10))
+    b.casters.append((1, 89, 44, 91, 91, 10))
+    # The watch tower in the corner.
+    troof, twall = b.box(80, 72, 90, 82, 4 * STOREY + 2)
+    brick(d, twall, c("#7a6a5a"))
+    d.rectangle(twall, outline=OUTLINE)
+    d.rectangle(troof, SNOW_ROOF[0] if look == "snow" else c("#4a4a50"), OUTLINE)
+    tx0, ty0, tx1, ty1 = twall
+    d.rectangle([tx0 + 2, ty0 + 2, tx1 - 2, ty0 + 4], c("#d9c060"))
+    return b
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -3374,6 +3497,7 @@ BUILDINGS = [
     ("offices", offices, 3), ("office_building", office_building, 2), ("office_tower", office_tower, 2), ("glass_tower", glass_tower, 2),
     ("volunteer_hall", volunteer_hall, 2), ("ladder_company", ladder_company, 1), ("ambulance_station", ambulance_station, 1),
     ("nursing_home", nursing_home, 2), ("library", library, 2), ("college", college, 2),
+    ("police_hq", police_hq, 1), ("courthouse", courthouse, 2), ("jail", jail, 1),
 ]
 
 

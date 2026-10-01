@@ -10,6 +10,9 @@ import com.rm.infill.res.Res
 import com.rm.infill.res.overlay_crime
 import com.rm.infill.res.overlay_fire
 import com.rm.infill.res.overlay_ladders
+import com.rm.infill.res.overlay_theft
+import com.rm.infill.res.overlay_vice
+import com.rm.infill.res.overlay_rackets
 import com.rm.infill.res.overlay_ambulance
 import com.rm.infill.res.overlay_land_value
 import com.rm.infill.res.overlay_none
@@ -55,6 +58,10 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     LineLoad(Res.string.overlay_line_load, Color(0xFF4CAF50), Color(0xFFD8302F)),
     Police(Res.string.overlay_police, Color(0x001E5AC8), Color(0xFF1E5AC8)),
     Fire(Res.string.overlay_fire, Color(0x00E67E22), Color(0xFFE67E22)),
+    /** Crime by kind: theft, vice, and the rackets that grow where justice fails. */
+    Theft(Res.string.overlay_theft, Color(0x00C0392B), Color(0xFFC0392B)),
+    Vice(Res.string.overlay_vice, Color(0x008E44AD), Color(0xFF8E44AD)),
+    Rackets(Res.string.overlay_rackets, Color(0x002A2A30), Color(0xFF2A2A30)),
     /** Where a ladder company gets to in time, which a tall building's fire needs. */
     Ladders(Res.string.overlay_ladders, Color(0x00C0392B), Color(0xFFC0392B)),
     /** Where an ambulance gets to in time. */
@@ -79,6 +86,18 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Reach(Res.string.overlay_reach, Color(0xFF3FA85A), Color(0xFFD8302F)),
 }
 
+/** The crime views run up to the worst on the map, though never past this far. */
+private const val CRIME_FLOOR = 24
+
+/** The layer a crime view shows, or null. */
+private fun crimeLayer(overlay: Overlay, map: CityMap): ByteArray? = when (overlay) {
+    Overlay.Crime -> map.crime
+    Overlay.Theft -> map.theft
+    Overlay.Vice -> map.vice
+    Overlay.Rackets -> map.rackets
+    else -> null
+}
+
 /**
  * The overlay as a bitmap of one pixel a tile, drawn smoothly over the map.
  * Land value covers all land; the rest show only where they are.
@@ -89,6 +108,8 @@ internal fun overlayImage(
 ): ImageBitmap? {
     if (overlay == Overlay.None) return null
     val most = if (overlay == Overlay.Trips) maxOf(1, focus?.maxOrNull() ?: 1) else 1
+    // Crime rarely runs past a third of the scale: its views show it against the worst there is.
+    val worst = crimeLayer(overlay, map)?.let { layer -> maxOf(CRIME_FLOOR, layer.maxOf { it.toInt() and 0xff }) } ?: 255
     val pixels = IntArray(map.size)
     for (i in 0 until map.size) {
         // Water shows nothing, except bridges for traffic.
@@ -98,10 +119,13 @@ internal fun overlayImage(
         val v: Int = when (overlay) {
             Overlay.LandValue -> map.landValue[i].toInt() and 0xff
             Overlay.Pollution -> map.pollution[i].toInt() and 0xff
-            Overlay.Crime -> map.crime[i].toInt() and 0xff
+            Overlay.Crime -> (map.crime[i].toInt() and 0xff) * 255 / worst
             Overlay.Police -> map.policeCover[i].toInt() and 0xff
             Overlay.Fire -> map.fireCover[i].toInt() and 0xff
             Overlay.Ladders -> map.ladderCover[i].toInt() and 0xff
+            Overlay.Theft -> (map.theft[i].toInt() and 0xff) * 255 / worst
+            Overlay.Vice -> (map.vice[i].toInt() and 0xff) * 255 / worst
+            Overlay.Rackets -> (map.rackets[i].toInt() and 0xff) * 255 / worst
             Overlay.Ambulance -> map.ambulanceCover[i].toInt() and 0xff
             Overlay.Power -> {
                 // Only what wants power: buildings, zones and lines.

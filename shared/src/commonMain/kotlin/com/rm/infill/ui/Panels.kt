@@ -37,6 +37,15 @@ import com.rm.infill.res.ambulance_station
 import com.rm.infill.res.nursing_home
 import com.rm.infill.res.library
 import com.rm.infill.res.college
+import com.rm.infill.res.police_hq
+import com.rm.infill.res.courthouse
+import com.rm.infill.res.jail
+import com.rm.infill.res.inspect_cases
+import com.rm.infill.res.inspect_held
+import com.rm.infill.res.inspect_arrests
+import com.rm.infill.res.inspect_theft
+import com.rm.infill.res.inspect_vice
+import com.rm.infill.res.inspect_rackets
 import com.rm.infill.res.inspect_crowded
 import com.rm.infill.res.inspect_taking
 import com.rm.infill.res.inspect_line_load
@@ -316,6 +325,10 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 val staffed = city.staffed(t)
                 if (staffed < 100) add(stringResource(Res.string.inspect_staffed, staffed))
             }
+            // A court's cases and a jail's prisoners, of what they can take; a station's arrests.
+            if (t == BuildingType.COURTHOUSE && building.underway == 0) add(stringResource(Res.string.inspect_cases, groupThousands(building.served.toLong()), groupThousands(building.room.toLong())))
+            if (t == BuildingType.JAIL && building.underway == 0) add(stringResource(Res.string.inspect_held, groupThousands(building.served.toLong()), groupThousands(building.room.toLong())))
+            if (t.patrols && building.underway == 0) add(stringResource(Res.string.inspect_arrests, building.served))
             if ((t.school || t.health) && building.room > 0) {
                 add(
                     if (building.served > building.room) stringResource(Res.string.inspect_crowded, groupThousands(building.served.toLong()), groupThousands(building.room.toLong()))
@@ -483,11 +496,18 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
     val value = level(map.landValue[i].toInt() and 0xff)
     val crime = level(map.crime[i].toInt() and 0xff)
     val pollution = level(map.pollution[i].toInt() and 0xff)
-    val details = if (map.terrain[i] == Terrain.WATER) emptyList() else listOf(
-        stringResource(Res.string.inspect_land_value, value),
-        stringResource(Res.string.inspect_crime, crime),
-        stringResource(Res.string.inspect_pollution, pollution),
-    )
+    val details = if (map.terrain[i] == Terrain.WATER) emptyList() else buildList {
+        add(stringResource(Res.string.inspect_land_value, value))
+        add(stringResource(Res.string.inspect_crime, crime))
+        // Its kinds, where there's any.
+        val theft = map.theft[i].toInt() and 0xff
+        val vice = map.vice[i].toInt() and 0xff
+        val rackets = map.rackets[i].toInt() and 0xff
+        if (theft >= 8) add(stringResource(Res.string.inspect_theft, level(theft)))
+        if (vice >= 8) add(stringResource(Res.string.inspect_vice, level(vice)))
+        if (rackets >= 8) add(stringResource(Res.string.inspect_rackets, level(rackets)))
+        add(stringResource(Res.string.inspect_pollution, pollution))
+    }
     val close = stringResource(Res.string.close)
     ChromeBox(modifier.widthIn(min = 200.dp, max = 360.dp)) {
         Row(Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp), verticalAlignment = Alignment.Top) {
@@ -550,6 +570,9 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.NURSING_HOME -> Res.string.nursing_home
     BuildingType.LIBRARY -> Res.string.library
     BuildingType.COLLEGE -> Res.string.college
+    BuildingType.POLICE_HQ -> Res.string.police_hq
+    BuildingType.COURTHOUSE -> Res.string.courthouse
+    BuildingType.JAIL -> Res.string.jail
     BuildingType.ROW_HOUSES -> Res.string.building_row_houses
     BuildingType.APARTMENTS -> Res.string.building_apartments
     BuildingType.APARTMENT_COURT -> Res.string.building_apartment_court

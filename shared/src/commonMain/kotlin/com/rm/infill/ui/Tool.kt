@@ -47,6 +47,9 @@ import com.rm.infill.res.ambulance_station
 import com.rm.infill.res.nursing_home
 import com.rm.infill.res.library
 import com.rm.infill.res.college
+import com.rm.infill.res.police_hq
+import com.rm.infill.res.courthouse
+import com.rm.infill.res.jail
 import com.rm.infill.res.tool_road
 import com.rm.infill.res.tool_rail
 import com.rm.infill.res.tool_water
@@ -244,6 +247,9 @@ enum class ServiceGroup(val title: StringResource) {
 /** What the services tool puts down. Parks are dragged out, as are street trees along roads; stations go where the finger ends up. */
 enum class ServiceKind(val title: StringResource, val type: BuildingType?, val group: ServiceGroup) {
     Police(Res.string.police_station, BuildingType.POLICE_STATION, ServiceGroup.Police),
+    PoliceHq(Res.string.police_hq, BuildingType.POLICE_HQ, ServiceGroup.Police),
+    Courthouse(Res.string.courthouse, BuildingType.COURTHOUSE, ServiceGroup.Police),
+    Jail(Res.string.jail, BuildingType.JAIL, ServiceGroup.Police),
     Fire(Res.string.fire_station, BuildingType.FIRE_STATION, ServiceGroup.Fire),
     Volunteers(Res.string.volunteer_hall, BuildingType.VOLUNTEER_HALL, ServiceGroup.Fire),
     Ladders(Res.string.ladder_company, BuildingType.LADDER_COMPANY, ServiceGroup.Fire),

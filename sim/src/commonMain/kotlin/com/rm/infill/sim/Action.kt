@@ -246,6 +246,9 @@ object Prices {
         BuildingType.CLINIC -> CLINIC
         BuildingType.HOSPITAL -> HOSPITAL
         BuildingType.VOLUNTEER_HALL -> 500L
+        BuildingType.POLICE_HQ -> 6_000L
+        BuildingType.COURTHOUSE -> 5_000L
+        BuildingType.JAIL -> 8_000L
         BuildingType.LADDER_COMPANY -> 2_500L
         BuildingType.AMBULANCE_STATION -> 2_000L
         BuildingType.NURSING_HOME -> 4_000L

@@ -81,6 +81,7 @@ internal object Effects {
         val busy = SummedArea(w, h, activity)
         val avenues = if (map.streetTrees.any { it.toInt() != 0 }) SummedArea(w, h) { map.streetTrees[it].toInt() } else null
         val dumps = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.DUMP) 1 else 0 }
+        val jails = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.JAIL) 1 else 0 }
         val stops = if (map.stop.any { it.toInt() != 0 }) SummedArea(w, h) { if (map.stop[it].toInt() != 0) 1 else 0 } else null
         val subway = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.SUBWAY_STATION) 1 else 0 }
         val fouled = if (map.brownfield.any { it.toInt() != 0 }) SummedArea(w, h) { map.brownfield[it].toInt() } else null
@@ -113,6 +114,8 @@ internal object Effects {
             // A street with trees, and none of a dump's smell.
             if (avenues != null && avenues.around(x, y, 1) > 0) v += Balance.STREET_TREE_VALUE
             if (dumps.around(x, y, 4) > 0 && buildingTypes(i) != BuildingType.DUMP) v -= Balance.DUMP_VALUE
+            // Nor next to a jail.
+            if (jails.around(x, y, Balance.JAIL_REACH) > 0 && buildingTypes(i) != BuildingType.JAIL) v -= Balance.JAIL_VALUE
             // A tram or bus stop round the corner, and a subway station a walk away.
             if (stops != null && stops.around(x, y, Balance.STOP_REACH) > 0) v += Balance.STOP_VALUE
             if (subway.around(x, y, Balance.SUBWAY_REACH) > 0) v += Balance.SUBWAY_VALUE
@@ -132,24 +135,66 @@ internal object Effects {
     }
 
     /**
-     * Crime, 0 to 255, where people are: crowding, cheap land and joblessness
-     * raise it, police lower it. Empty land has none.
+     * Crime, 0 to 255, where people are, by kind. Theft follows cheap land,
+     * joblessness and shops to steal from; vice follows crowding and busy
+     * shopping streets. Police on patrol put off a share of both, theft the
+     * more, and catch some of the rest. All of it is the two
+     * with half the rackets already there, and more where [justice], the
+     * percent of arrests that stick, is low. Empty land has none.
      */
-    fun crime(map: CityMap, residents: (Int) -> Int, occupied: (Int) -> Boolean, unemployment: Int, out: ByteArray) {
+    fun crime(map: CityMap, residents: (Int) -> Int, shops: (Int) -> Int, occupied: (Int) -> Boolean, unemployment: Int, justice: Int) {
         val w = map.width
         val h = map.height
         val people = SummedArea(w, h, residents)
+        val trade = SummedArea(w, h, shops)
+        val slack = 100 + Balance.JUSTICE_SLACK * (100 - justice.coerceIn(0, 100)) / 100
         for (y in 0 until h) for (x in 0 until w) {
             val i = y * w + x
             if (!occupied(i)) {
-                out[i] = 0
+                map.crime[i] = 0
+                map.theft[i] = 0
+                map.vice[i] = 0
                 continue
             }
-            var v = people.around(x, y, 3) / 6
-            v += max(0, 80 - (map.landValue[i].toInt() and 0xff)) / 3
-            v += unemployment
-            v -= (map.policeCover[i].toInt() and 0xff) * 7 / 10
-            out[i] = v.coerceIn(0, 255).toByte()
+            val police = map.policeCover[i].toInt() and 0xff
+            val nearShops = trade.around(x, y, 3)
+            var theft = max(0, 80 - (map.landValue[i].toInt() and 0xff)) / 3 + unemployment
+            theft += min(Balance.SHOP_THEFT, nearShops / 20)
+            theft = theft * (255 * 100 - police * Balance.THEFT_POLICE) / (255 * 100)
+            var vice = people.around(x, y, 3) / 6 + min(Balance.NIGHTLIFE, nearShops / 30)
+            vice = vice * (255 * 100 - police * Balance.VICE_POLICE) / (255 * 100)
+            theft = theft.coerceIn(0, 255) * slack / 100
+            vice = vice.coerceIn(0, 255) * slack / 100
+            map.theft[i] = theft.coerceIn(0, 255).toByte()
+            map.vice[i] = vice.coerceIn(0, 255).toByte()
+            map.crime[i] = (theft + vice + (map.rackets[i].toInt() and 0xff) / 2).coerceIn(0, 255).toByte()
+        }
+    }
+
+    /**
+     * A month of rackets, from 1920: they feed on the theft and vice where
+     * justice fails and the police are thin, spread a little to the
+     * neighbours, and fade, the faster with [detectives] on them.
+     */
+    fun rackets(map: CityMap, justice: Int, detectives: Int) {
+        val w = map.width
+        val h = map.height
+        val unpunished = 150 - justice.coerceIn(0, 100)
+        val grown = IntArray(map.size)
+        for (i in 0 until map.size) {
+            val feed = ((map.theft[i].toInt() and 0xff) + (map.vice[i].toInt() and 0xff)) * unpunished / 100 / Balance.RACKETS_GROW
+            val police = (map.policeCover[i].toInt() and 0xff) / 20
+            grown[i] = ((map.rackets[i].toInt() and 0xff) + feed - police - Balance.RACKETS_FADE - detectives).coerceIn(0, 255)
+        }
+        // A racket reaches the next street: each tile takes a quarter of the way to its strongest neighbour.
+        for (y in 0 until h) for (x in 0 until w) {
+            val i = y * w + x
+            var most = grown[i]
+            if (x > 0) most = max(most, grown[i - 1])
+            if (x < w - 1) most = max(most, grown[i + 1])
+            if (y > 0) most = max(most, grown[i - w])
+            if (y < h - 1) most = max(most, grown[i + w])
+            map.rackets[i] = (grown[i] + (most - grown[i]) / 4).coerceIn(0, 255).toByte()
         }
     }
 }

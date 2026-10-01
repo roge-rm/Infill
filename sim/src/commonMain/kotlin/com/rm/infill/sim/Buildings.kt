@@ -85,6 +85,11 @@ enum class BuildingType(
     RECYCLING(Zone.NONE, 0, 15, width = 2, height = 2, year = 1975),
 
     POLICE_STATION(Zone.NONE, 0, 10, width = 2, height = 1, life = 50),
+
+    /** Justice: a police headquarters with its detectives (from 1920), a courthouse and a jail. */
+    POLICE_HQ(Zone.NONE, 0, 60, width = 3, height = 2, year = 1920, life = 60),
+    COURTHOUSE(Zone.NONE, 0, 30, width = 2, height = 2, life = 80),
+    JAIL(Zone.NONE, 0, 40, width = 3, height = 3, life = 60),
     FIRE_STATION(Zone.NONE, 0, 12, width = 2, height = 2, life = 50),
 
     /** Fire: a volunteer hall, cheap and half as strong; a ladder company (from 1905), which tall buildings need. */
@@ -133,7 +138,13 @@ enum class BuildingType(
     ;
 
     /** A building the city runs rather than one that grows on zoned land. */
-    val service get() = this == POLICE_STATION || this == PARK || fire || school || health || this == LIBRARY
+    val service get() = this == PARK || justice || fire || school || health || this == LIBRARY
+
+    /** Keeps the peace: police, courts and jails. */
+    val justice get() = this == POLICE_STATION || this == POLICE_HQ || this == COURTHOUSE || this == JAIL
+
+    /** Has police on patrol from it. */
+    val patrols get() = this == POLICE_STATION || this == POLICE_HQ
 
     /** Fights fires. */
     val fire get() = this == FIRE_STATION || this == VOLUNTEER_HALL || this == LADDER_COMPANY
