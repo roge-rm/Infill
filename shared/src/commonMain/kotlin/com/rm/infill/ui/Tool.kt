@@ -1,6 +1,21 @@
 package com.rm.infill.ui
 
 import com.rm.infill.res.tool_districts
+import com.rm.infill.res.services_police
+import com.rm.infill.res.transit_trams
+import com.rm.infill.res.transit_buses
+import com.rm.infill.res.transit_subway
+import com.rm.infill.res.water_supply
+import com.rm.infill.res.water_sewers
+import com.rm.infill.res.water_storm
+import com.rm.infill.res.services_fire
+import com.rm.infill.res.services_health
+import com.rm.infill.res.services_schools
+import com.rm.infill.res.services_parks
+import com.rm.infill.res.services_waste
+import com.rm.infill.res.group_transport
+import com.rm.infill.res.group_utilities
+import com.rm.infill.res.group_zones
 import com.rm.infill.res.tram_line
 import com.rm.infill.res.bus_line
 import com.rm.infill.res.bus_lane
@@ -118,6 +133,22 @@ enum class Tool(val title: StringResource) {
     Districts(Res.string.tool_districts),
 }
 
+/**
+ * The toolbar's buttons. A button with more than one tool shows them as tabs
+ * over their choices, so the bar fits across an upright phone.
+ */
+enum class ToolGroup(val title: StringResource, val tools: List<Tool>) {
+    Inspect(Res.string.tool_inspect, listOf(Tool.Inspect)),
+    Bulldoze(Res.string.tool_bulldoze, listOf(Tool.Bulldoze)),
+    Zones(Res.string.group_zones, listOf(Tool.Zone, Tool.Districts)),
+    Transport(Res.string.group_transport, listOf(Tool.Road, Tool.Rail, Tool.Transit, Tool.Traffic)),
+    Utilities(Res.string.group_utilities, listOf(Tool.Power, Tool.Water)),
+    Services(Res.string.tool_services, listOf(Tool.Services)),
+}
+
+/** The button [tool] is under. */
+val Tool.group: ToolGroup get() = ToolGroup.entries.first { this in it.tools }
+
 /** The districts tool's choice that opens the list rather than painting. */
 const val DISTRICT_LIST = -2
 
@@ -174,23 +205,49 @@ enum class TransitKind(
     Remove(Res.string.remove_transit),
 }
 
+/** The kinds of transit, each a tab of its own beside the roads. */
+enum class TransitGroup(val title: StringResource) {
+    Trams(Res.string.transit_trams),
+    Buses(Res.string.transit_buses),
+    Subway(Res.string.transit_subway),
+}
+
+/** The tabs [this] shows in: a lane serves trams and buses both, and taking things up and the list of lines are in each they apply to. */
+val TransitKind.groups: List<TransitGroup> get() = when (this) {
+    TransitKind.TramTrack, TransitKind.TramStop, TransitKind.Depot, TransitKind.TramLine -> listOf(TransitGroup.Trams)
+    TransitKind.BusStop, TransitKind.Garage, TransitKind.Wire, TransitKind.BusLine -> listOf(TransitGroup.Buses)
+    TransitKind.Subway, TransitKind.Station -> listOf(TransitGroup.Subway)
+    TransitKind.Lane, TransitKind.Lines -> listOf(TransitGroup.Trams, TransitGroup.Buses)
+    TransitKind.Remove -> TransitGroup.entries
+}
+
 /** What the transit tool offers [city] in its era. */
 fun transitKindsIn(city: City): List<TransitKind> =
     TransitKind.entries.filter { k -> if (k.wire) city.allowsTrolleybuses() else (k.building ?: k.needs)?.let { city.allows(it) } ?: true }
 
+/** The kinds of service, each a tab of its own in the services tray. */
+enum class ServiceGroup(val title: StringResource) {
+    Police(Res.string.services_police),
+    Fire(Res.string.services_fire),
+    Health(Res.string.services_health),
+    Schools(Res.string.services_schools),
+    Parks(Res.string.services_parks),
+    Waste(Res.string.services_waste),
+}
+
 /** What the services tool puts down. Parks are dragged out, as are street trees along roads; stations go where the finger ends up. */
-enum class ServiceKind(val title: StringResource, val type: BuildingType?) {
-    Police(Res.string.police_station, BuildingType.POLICE_STATION),
-    Fire(Res.string.fire_station, BuildingType.FIRE_STATION),
-    Park(Res.string.park, BuildingType.PARK),
-    StreetTrees(Res.string.street_trees, null),
-    School(Res.string.school, BuildingType.SCHOOL),
-    HighSchool(Res.string.high_school, BuildingType.HIGH_SCHOOL),
-    Clinic(Res.string.clinic, BuildingType.CLINIC),
-    Hospital(Res.string.hospital, BuildingType.HOSPITAL),
-    Dump(Res.string.dump, BuildingType.DUMP),
-    Incinerator(Res.string.incinerator, BuildingType.INCINERATOR),
-    Recycling(Res.string.recycling, BuildingType.RECYCLING),
+enum class ServiceKind(val title: StringResource, val type: BuildingType?, val group: ServiceGroup) {
+    Police(Res.string.police_station, BuildingType.POLICE_STATION, ServiceGroup.Police),
+    Fire(Res.string.fire_station, BuildingType.FIRE_STATION, ServiceGroup.Fire),
+    Park(Res.string.park, BuildingType.PARK, ServiceGroup.Parks),
+    StreetTrees(Res.string.street_trees, null, ServiceGroup.Parks),
+    School(Res.string.school, BuildingType.SCHOOL, ServiceGroup.Schools),
+    HighSchool(Res.string.high_school, BuildingType.HIGH_SCHOOL, ServiceGroup.Schools),
+    Clinic(Res.string.clinic, BuildingType.CLINIC, ServiceGroup.Health),
+    Hospital(Res.string.hospital, BuildingType.HOSPITAL, ServiceGroup.Health),
+    Dump(Res.string.dump, BuildingType.DUMP, ServiceGroup.Waste),
+    Incinerator(Res.string.incinerator, BuildingType.INCINERATOR, ServiceGroup.Waste),
+    Recycling(Res.string.recycling, BuildingType.RECYCLING, ServiceGroup.Waste),
 }
 
 /** The services [city] can build in its era. */
@@ -241,6 +298,21 @@ enum class WaterKind(
     Remove(Res.string.remove_pipes),
 }
 
+/** Clean water, sewage and storm water, each a tab of its own beside power. */
+enum class WaterGroup(val title: StringResource) {
+    Supply(Res.string.water_supply),
+    Sewers(Res.string.water_sewers),
+    Storm(Res.string.water_storm),
+}
+
+/** The tabs [this] shows in; taking pipes up is in all of them. */
+val WaterKind.groups: List<WaterGroup> get() = when (this) {
+    WaterKind.Main, WaterKind.Wood, WaterKind.Pump, WaterKind.Wells, WaterKind.Tower, WaterKind.Treatment -> listOf(WaterGroup.Supply)
+    WaterKind.Sewer, WaterKind.Outfall, WaterKind.Works -> listOf(WaterGroup.Sewers)
+    WaterKind.Drain, WaterKind.Pond, WaterKind.StormOutfall, WaterKind.Bank -> listOf(WaterGroup.Storm)
+    WaterKind.Remove -> WaterGroup.entries
+}
+
 /** What the water tool offers [city] now: wooden mains only while they're still laid, sewage works once it has them. */
 fun waterKindsIn(city: City): List<WaterKind> =
     WaterKind.entries.filter { (it.material == null || city.allows(it.material)) && (it.building == null || city.allows(it.building)) }
@@ -284,15 +356,6 @@ fun roadName(t: RoadType): StringResource = when (t) {
     RoadType.AVENUE -> Res.string.road_avenue
     RoadType.ONE_WAY_AVENUE -> Res.string.road_one_way_avenue
     RoadType.BOULEVARD -> Res.string.road_boulevard
-}
-
-/** A dot of the road's colour, for the picker. */
-fun roadColour(t: RoadType): Color = when (t) {
-    RoadType.DIRT -> Color(0xFFA88A5C)
-    RoadType.GRAVEL -> Color(0xFFB3A893)
-    RoadType.LANE -> Color(0xFFC9A978)
-    RoadType.STREET, RoadType.ONE_WAY_STREET -> Color(0xFF8A8780)
-    RoadType.AVENUE, RoadType.ONE_WAY_AVENUE, RoadType.BOULEVARD -> Color(0xFF6E6B65)
 }
 
 /** The roads [city] can build in its era. */

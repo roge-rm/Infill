@@ -1,13 +1,7 @@
 package com.rm.infill.ui
 
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -253,76 +246,6 @@ import com.rm.infill.ui.theme.Infill
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
-
-/** The choices a tool has, like the kinds of zone, shown above the toolbar while it's picked. */
-@Composable
-fun <T> OptionPicker(
-    options: List<T>,
-    selected: T,
-    title: (T) -> StringResource,
-    dot: (T) -> Color?,
-    onSelect: (T) -> Unit,
-    compact: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val c = Infill.colors
-    ChromeBox(modifier) {
-        // Scrolls sideways when the choices are wider than the screen.
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()).padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            for (option in options) {
-                val on = option == selected
-                val inView = remember(option) { BringIntoViewRequester() }
-                if (on) LaunchedEffect(option) { inView.bringIntoView() }
-                Row(
-                    Modifier
-                        .bringIntoViewRequester(inView)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (on) c.accent else c.button)
-                        .semantics(mergeDescendants = true) { this.selected = on }
-                        .clickable(role = Role.Tab) { onSelect(option) }
-                        .padding(horizontal = 10.dp, vertical = if (compact) 6.dp else 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    dot(option)?.let { Box(Modifier.size(10.dp).clip(CircleShape).background(it)) }
-                    Text(
-                        stringResource(title(option)), color = if (on) c.onAccent else c.text,
-                        fontSize = if (compact) 12.sp else 13.sp, maxLines = 1, softWrap = false,
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** Like [OptionPicker], for choices named at run time. */
-@Composable
-fun <T> NamedPicker(options: List<T>, selected: T, label: @Composable (T) -> String, dot: (T) -> Color?, onSelect: (T) -> Unit, compact: Boolean) {
-    val c = Infill.colors
-    ChromeBox {
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            for (option in options) {
-                val on = option == selected
-                Row(
-                    Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (on) c.accent else c.button)
-                        .semantics(mergeDescendants = true) { this.selected = on }
-                        .clickable(role = Role.Tab) { onSelect(option) }
-                        .padding(horizontal = 10.dp, vertical = if (compact) 6.dp else 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    dot(option)?.let { Box(Modifier.size(10.dp).clip(CircleShape).background(it)) }
-                    Text(label(option), color = if (on) c.onAccent else c.text, fontSize = if (compact) 12.sp else 13.sp, maxLines = 1, softWrap = false)
-                }
-            }
-        }
-    }
-}
 
 /** What's on a tile. */
 @Composable

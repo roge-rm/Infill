@@ -600,4 +600,25 @@
     <string name="inspect_staffed">Staffed %1$d%</string>
     <string name="inspect_crowded">Crowded: %1$s in room for %2$s</string>
     <string name="inspect_taking">%1$s of %2$s places taken</string>
+    <string name="group_zones">Zones</string>
+    <string name="services_police">Police</string>
+    <string name="transit_trams">Trams</string>
+    <string name="transit_buses">Buses</string>
+    <string name="transit_subway">Subway</string>
+    <string name="water_supply">Water</string>
+    <string name="water_sewers">Sewers</string>
+    <string name="water_storm">Storm</string>
+    <string name="views_town">Town</string>
+    <string name="services_fire">Fire</string>
+    <string name="services_health">Health</string>
+    <string name="services_schools">Schools</string>
+    <string name="services_parks">Parks</string>
+    <string name="services_waste">Waste</string>
+    <string name="group_transport">Transport</string>
+    <string name="group_utilities">Utilities</string>
+    <string name="choice_building">%1$s · %2$d×%3$d</string>
+    <string name="per_tile">%1$s a tile</string>
+    <string name="fold_choices">Show fewer</string>
+    <string name="unfold_choices">Show all the choices</string>
+    <string name="close_view">Close the view</string>
 </resources>

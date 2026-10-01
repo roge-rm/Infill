@@ -103,11 +103,9 @@ import com.rm.infill.ui.Preview
 import com.rm.infill.ui.ToolDrag
 import com.rm.infill.ui.ZoneKind
 import com.rm.infill.ui.DensityKind
-import com.rm.infill.ui.OptionPicker
 import com.rm.infill.ui.PowerKind
 import com.rm.infill.ui.RailKind
 import com.rm.infill.ui.WaterKind
-import com.rm.infill.ui.roadColour
 import com.rm.infill.ui.roadName
 import com.rm.infill.ui.roadsIn
 import com.rm.infill.sim.RoadType
@@ -117,7 +115,6 @@ import com.rm.infill.ui.powerKindsIn
 import com.rm.infill.sim.NEW_DISTRICT
 import com.rm.infill.ui.lineColour
 import com.rm.infill.ui.DISTRICT_LIST
-import com.rm.infill.ui.NamedPicker
 import com.rm.infill.ui.DistrictsWindow
 import com.rm.infill.sim.Action
 import com.rm.infill.sim.Stop
@@ -165,6 +162,38 @@ import com.rm.infill.ui.ScreenShape
 import com.rm.infill.ui.StatusStrip
 import com.rm.infill.ui.Tool
 import com.rm.infill.ui.ToolBar
+import com.rm.infill.ui.ToolGroup
+import com.rm.infill.ui.group
+import com.rm.infill.ui.Choice
+import com.rm.infill.ui.ChoiceIcon
+import com.rm.infill.ui.ChoiceTray
+import com.rm.infill.ui.Glyph
+import com.rm.infill.ui.Legend
+import com.rm.infill.ui.TrayToggle
+import com.rm.infill.ui.densityGlyph
+import com.rm.infill.ui.zoneChoices
+import com.rm.infill.ui.roadChoices
+import com.rm.infill.ui.railChoices
+import com.rm.infill.ui.transitChoices
+import com.rm.infill.ui.junctionChoices
+import com.rm.infill.ui.powerChoices
+import com.rm.infill.ui.waterChoices
+import com.rm.infill.ui.serviceChoices
+import com.rm.infill.ui.bulldozeChoices
+import com.rm.infill.ui.overlayChoices
+import com.rm.infill.ui.ServiceGroup
+import com.rm.infill.ui.serviceTabs
+import com.rm.infill.ui.toolTabs
+import com.rm.infill.ui.TransitGroup
+import com.rm.infill.res.overlay as overlayTitle
+import com.rm.infill.ui.WaterGroup
+import com.rm.infill.ui.ViewGroup
+import com.rm.infill.ui.viewGroup
+import com.rm.infill.ui.viewTabs
+import com.rm.infill.ui.groups
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.foundation.layout.widthIn
+import kotlin.math.max
 import com.rm.infill.ui.screenLayout
 import com.rm.infill.ui.theme.InfillTheme
 
@@ -336,6 +365,14 @@ private fun GameScreen(
         var serviceKind by remember { mutableStateOf(ServiceKind.Police) }
         var overlay by remember { mutableStateOf(Overlay.None) }
         var choosingOverlay by remember { mutableStateOf(false) }
+        var trayFolded by remember { mutableStateOf(false) }
+        val lastTool = remember { mutableStateMapOf<ToolGroup, Tool>() }
+        val lastService = remember { mutableStateMapOf<ServiceGroup, ServiceKind>() }
+        val lastTransit = remember { mutableStateMapOf<TransitGroup, TransitKind>() }
+        val lastWater = remember { mutableStateMapOf<WaterGroup, WaterKind>() }
+        var transitTab by remember { mutableStateOf(TransitGroup.Trams) }
+        var waterTab by remember { mutableStateOf(WaterGroup.Supply) }
+        var viewTab by remember { mutableStateOf(ViewGroup.Town) }
         var stripSize by remember { mutableStateOf(IntSize.Zero) }
         var budgetOpen by remember { mutableStateOf(false) }
         var graphsOpen by remember { mutableStateOf(false) }
@@ -493,8 +530,20 @@ private fun GameScreen(
                 serviceKind = services[(services.indexOf(serviceKind) + 1) % services.size]
             }
             tool = t
+            lastTool[t.group] = t
+            trayFolded = false
+            choosingOverlay = false
             drag = null
             if (t != Tool.Inspect) inspected = null
+        }
+
+        // A toolbar button: its tool used last, or again on the open one to fold or open its choices.
+        fun pickGroup(g: ToolGroup) {
+            if (tool.group == g) {
+                if (choosingOverlay) choosingOverlay = false else trayFolded = !trayFolded
+                return
+            }
+            pick(lastTool[g] ?: g.tools.first())
         }
 
         fun tell(problem: Problem?) {
@@ -557,6 +606,8 @@ private fun GameScreen(
                     val made = action is Action.PaintDistrict && action.id == NEW_DISTRICT
                     val plan = game.apply(action)
                     tell(plan.problem)
+                    // Out of the way once something's built, to see it.
+                    if (plan.ok) trayFolded = true
                     // Once made, go on painting into the new district.
                     if (made && plan.ok) city.districts.lastOrNull()?.let { districtChoice = it.id }
                 }
@@ -655,12 +706,14 @@ private fun GameScreen(
             val sideTools = layout.large || layout.shape == ScreenShape.Wide
             val compactTools = layout.compact || layout.short || layout.narrow
             val twoLines = layout.narrow && layout.shape == ScreenShape.Tall
+            // A phone on its side hasn't the height for undo and redo down the rail, so they go along the top.
+            val historyOnTop = twoLines || (sideTools && layout.short)
             StatusStrip(
                 game, onMenu, paused, { paused = !paused }, speed, { speed = (speed + 1) % SPEEDS.size },
-                overlay != Overlay.None || choosingOverlay, { choosingOverlay = !choosingOverlay },
+                overlay != Overlay.None || choosingOverlay, { if (overlay != Overlay.None) viewTab = viewGroup(overlay); choosingOverlay = !choosingOverlay },
                 { budgetOpen = true }, { peopleOpen = true }, { eraShown = city.era },
                 Sky.sun(sunStep, month).strength == 0f, layout.compact || layout.narrow,
-                twoLines = twoLines, onUndo = ::undo, onRedo = ::redo,
+                twoLines = twoLines, withHistory = historyOnTop, onUndo = ::undo, onRedo = ::redo,
                 Modifier
                     // Beside the tools rather than above them when they run down the side.
                     .align(if (sideTools && !layout.large) Alignment.TopCenter else Alignment.TopStart)
@@ -684,14 +737,15 @@ private fun GameScreen(
             }
             if (sideTools) {
                 ToolBar(
-                    tool, ::pick, game.canUndo, game.canRedo, ::undo, ::redo, vertical = true, compact = compactTools,
+                    tool.group, ::pickGroup, game.canUndo, game.canRedo, ::undo, ::redo, vertical = true, compact = compactTools,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
                         .windowInsetsPadding(safe.only(WindowInsetsSides.Start))
                         .padding(gap),
+                    withHistory = !historyOnTop,
                 )
             }
-            // Along the bottom: what's being inspected, the kinds of zone, and on an upright phone the tools.
+            // Along the bottom: what's being inspected, the chosen tool's choices, and on an upright phone the tools.
             Column(
                 Modifier
                     .align(Alignment.BottomCenter)
@@ -701,48 +755,6 @@ private fun GameScreen(
                 verticalArrangement = Arrangement.spacedBy(gap),
             ) {
                 inspected?.let { (x, y) -> InspectPanel(game, x, y, onClose = { inspected = null }) }
-                if (tool == Tool.Zone) {
-                    // Farms, woodlots and mines come in one size.
-                    if (zoneKind != ZoneKind.Farmland) {
-                        OptionPicker(DensityKind.entries, densityKind, { it.title }, { null }, { densityKind = it }, compactTools)
-                    }
-                    OptionPicker(ZoneKind.entries, zoneKind, { it.title }, { zoneColour(it.zone) }, { zoneKind = it }, compactTools)
-                }
-                if (tool == Tool.Road) {
-                    OptionPicker(roadsIn(city), roadKind, { roadName(it) }, { roadColour(it) }, { roadKind = it }, compactTools)
-                }
-                if (tool == Tool.Road) {
-                    OptionPicker(listOf(false, true), roadPipes, { if (it) Res.string.road_with_pipes else Res.string.road_only }, { null }, { roadPipes = it }, compactTools)
-                }
-                if (tool == Tool.Water) {
-                    OptionPicker(waterKindsIn(city), waterKind, { it.title }, { null }, { waterKind = it }, compactTools)
-                }
-                if (tool == Tool.Rail) {
-                    OptionPicker(RailKind.entries, railKind, { it.title }, { null }, { railKind = it }, compactTools)
-                }
-                if (tool == Tool.Power) {
-                    OptionPicker(powerKindsIn(city), powerKind, { it.title }, { null }, { powerKind = it }, compactTools)
-                }
-                if (tool == Tool.Bulldoze) {
-                    OptionPicker(BulldozeKind.entries, bulldozeKind, { it.title }, { null }, { bulldozeKind = it }, compactTools)
-                }
-                if (tool == Tool.Districts) {
-                    game.revision
-                    // A district chosen that's since gone falls back to making a new one.
-                    if (districtChoice > 0 && city.districts.none { it.id == districtChoice }) districtChoice = NEW_DISTRICT
-                    val choices = listOf(NEW_DISTRICT, 0) + city.districts.map { it.id } + DISTRICT_LIST
-                    NamedPicker(choices, districtChoice, { id ->
-                        when (id) {
-                            NEW_DISTRICT -> stringResource(Res.string.new_district)
-                            0 -> stringResource(Res.string.erase_district)
-                            DISTRICT_LIST -> stringResource(Res.string.districts)
-                            else -> city.districts.firstOrNull { it.id == id }?.name ?: ""
-                        }
-                    }, { id -> if (id > 0) lineColour(id) else null }, { if (it == DISTRICT_LIST) districtsOpen = true else districtChoice = it }, compactTools)
-                }
-                if (tool == Tool.Traffic) {
-                    OptionPicker(junctionKindsIn(city), junctionKind, { it.title }, { null }, { junctionKind = it }, compactTools)
-                }
                 if (tool == Tool.Transit && transitKind.line != 0) {
                     val tram = transitKind.line == 2
                     LineDraftBar(lineDraft.size, tram, { lineDraft = emptyList() }) {
@@ -750,27 +762,93 @@ private fun GameScreen(
                         lineDraft = emptyList()
                     }
                 }
-                if (tool == Tool.Transit) {
-                    OptionPicker(transitKindsIn(city), transitKind, { it.title }, { null }, {
-                        if (it.list) linesOpen = true
-                        else {
-                            if (it != transitKind) lineDraft = emptyList()
-                            transitKind = it
-                        }
-                    }, compactTools)
-                }
-                if (tool == Tool.Services) {
-                    OptionPicker(servicesIn(city), serviceKind, { it.title }, { null }, { serviceKind = it }, compactTools)
-                }
-                // The map views stay up while one is showing, so its name is on screen.
+                val trayWidth = Modifier.widthIn(max = TRAY_WIDTH.dp)
+                // The map views: their tiles while choosing, then a line naming the one showing.
                 if (choosingOverlay || overlay != Overlay.None) {
-                    OptionPicker(
-                        Overlay.entries, overlay, { it.title }, { if (it == Overlay.None) null else it.high.copy(alpha = 1f) },
-                        { overlay = it; if (it == Overlay.None) choosingOverlay = false }, compactTools,
-                    )
+                    // Folded, the line names the view showing, so its kind's tiles are the ones looked at.
+                    val group = if (choosingOverlay) viewTab else viewGroup(overlay)
+                    ChoiceTray(
+                        atlas, overlayChoices(group), overlay, { overlay = it; choosingOverlay = false },
+                        folded = !choosingOverlay, onFold = { choosingOverlay = !it }, modifier = trayWidth,
+                        tabs = viewTabs(), tab = group, onTab = { if (it is ViewGroup) viewTab = it }, blank = stringResource(Res.string.overlayTitle),
+                        onClose = if (overlay == Overlay.None) null else ({ overlay = Overlay.None; choosingOverlay = false }),
+                    ) { if (overlay != Overlay.None) Legend(overlay.low.copy(alpha = max(overlay.low.alpha, 0.35f)), overlay.high.copy(alpha = 1f)) }
+                }
+                if (!choosingOverlay) {
+                    val tabs = toolTabs(tool, city)
+                    val fold = { f: Boolean -> trayFolded = f }
+                    // The tab open: a key stepping on to a kind in another tab takes the tab with it.
+                    val transitNow = if (transitTab in transitKind.groups) transitTab else transitKind.groups.first()
+                    val waterNow = if (waterTab in waterKind.groups) waterTab else waterKind.groups.first()
+                    val onTab = { t: Any ->
+                        when (t) {
+                            is Tool -> if (t != tool) pick(t)
+                            is TransitGroup -> {
+                                if (tool != Tool.Transit) pick(Tool.Transit)
+                                transitTab = t
+                                val kind = lastTransit[t] ?: transitKindsIn(city).first { t in it.groups && !it.list && it != TransitKind.Remove }
+                                if (kind != transitKind) lineDraft = emptyList()
+                                transitKind = kind
+                            }
+                            is WaterGroup -> {
+                                if (tool != Tool.Water) pick(Tool.Water)
+                                waterTab = t
+                                waterKind = lastWater[t] ?: waterKindsIn(city).first { t in it.groups && it != WaterKind.Remove }
+                            }
+                        }
+                    }
+                    when (tool) {
+                        Tool.Inspect -> {}
+                        Tool.Zone -> ChoiceTray(atlas, zoneChoices(), zoneKind, { zoneKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab) {
+                            // Farms, woodlots and mines come in one size.
+                            if (zoneKind != ZoneKind.Farmland) for (d in DensityKind.entries) {
+                                TrayToggle(densityGlyph(d), stringResource(d.title), d == densityKind) { densityKind = d }
+                            }
+                        }
+                        Tool.Districts -> {
+                            game.revision
+                            // A district chosen that's since gone falls back to making a new one.
+                            if (districtChoice > 0 && city.districts.none { it.id == districtChoice }) districtChoice = NEW_DISTRICT
+                            val choices = listOf(
+                                Choice(NEW_DISTRICT, stringResource(Res.string.new_district), ChoiceIcon(glyph = Glyph.Plus)),
+                                Choice(0, stringResource(Res.string.erase_district), ChoiceIcon(glyph = Glyph.Erase)),
+                            ) + city.districts.map { d ->
+                                Choice(d.id, d.name, ChoiceIcon(back = lineColour(d.id), letters = d.name.take(2).uppercase()))
+                            } + Choice(DISTRICT_LIST, stringResource(Res.string.districts), ChoiceIcon(glyph = Glyph.List))
+                            ChoiceTray(
+                                atlas, choices, districtChoice, { if (it == DISTRICT_LIST) districtsOpen = true else districtChoice = it },
+                                trayFolded, fold, trayWidth, tabs, tool, onTab,
+                            )
+                        }
+                        Tool.Road -> ChoiceTray(atlas, roadChoices(city), roadKind, { roadKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab) {
+                            TrayToggle(Glyph.Pipe, stringResource(Res.string.road_with_pipes), roadPipes) { roadPipes = !roadPipes }
+                        }
+                        Tool.Rail -> ChoiceTray(atlas, railChoices(), railKind, { railKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
+                        Tool.Transit -> ChoiceTray(atlas, transitChoices(city, transitNow), transitKind, {
+                            if (it.list) linesOpen = true
+                            else {
+                                if (it != transitKind) lineDraft = emptyList()
+                                transitKind = it
+                                lastTransit[transitNow] = it
+                            }
+                        }, trayFolded, fold, trayWidth, tabs, transitNow, onTab)
+                        Tool.Traffic -> ChoiceTray(atlas, junctionChoices(city), junctionKind, { junctionKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
+                        Tool.Power -> ChoiceTray(atlas, powerChoices(city), powerKind, { powerKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
+                        Tool.Water -> ChoiceTray(
+                            atlas, waterChoices(city, waterNow), waterKind, { waterKind = it; lastWater[waterNow] = it },
+                            trayFolded, fold, trayWidth, tabs, waterNow, onTab,
+                        )
+                        // One tab for each kind of service, each opening on the one used last.
+                        Tool.Services -> ChoiceTray(
+                            atlas, serviceChoices(city, serviceKind.group), serviceKind, { serviceKind = it; lastService[it.group] = it },
+                            trayFolded, fold, trayWidth, serviceTabs(city), serviceKind.group,
+                            { g -> if (g is ServiceGroup) serviceKind = lastService[g] ?: servicesIn(city).first { it.group == g } },
+                        )
+                        Tool.Bulldoze -> ChoiceTray(atlas, bulldozeChoices(), bulldozeKind, { bulldozeKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
+                    }
                 }
                 if (!sideTools) {
-                    ToolBar(tool, ::pick, game.canUndo, game.canRedo, ::undo, ::redo, vertical = false, compact = compactTools, withHistory = !twoLines)
+                    ToolBar(tool.group, ::pickGroup, game.canUndo, game.canRedo, ::undo, ::redo, vertical = false, compact = compactTools, modifier = trayWidth, withHistory = !historyOnTop)
                 }
             }
             if (layout.large) {
@@ -810,6 +888,9 @@ private const val KEY_PAN_DP = 600f
 private const val KEY_ZOOM = 1.5f
 
 private const val PANEL_WIDTH = 240
+
+/** The widest the toolbar and its tray go along the bottom. */
+private const val TRAY_WIDTH = 520
 
 /** A message for the top of the screen, with a building's name in it and a tile to go to if it's about a place. */
 private data class Message(

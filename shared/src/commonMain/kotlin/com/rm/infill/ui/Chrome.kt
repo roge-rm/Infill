@@ -1,9 +1,9 @@
 package com.rm.infill.ui
 
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -98,6 +97,8 @@ fun StatusStrip(
     night: Boolean,
     compact: Boolean,
     twoLines: Boolean,
+    /** Undo and redo up here, when the toolbar has no room for them. */
+    withHistory: Boolean,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     modifier: Modifier = Modifier,
@@ -166,6 +167,10 @@ fun StatusStrip(
             ) {
                 buttons()
                 readings()
+                if (withHistory) {
+                    HistoryButton(false, game.canUndo, button, onUndo)
+                    HistoryButton(true, game.canRedo, button, onRedo)
+                }
             }
         }
     }
@@ -240,11 +245,14 @@ fun DemandBars(residential: Int, commercial: Int, industrial: Int, office: Int, 
         }
     }
 }
-/** The tools, in a row along the bottom or a column down the side, with undo and redo at the end. */
+/**
+ * The tool buttons, in a row along the bottom or a column down the side, with
+ * undo and redo at the end. The row shares out the width rather than scrolling.
+ */
 @Composable
 fun ToolBar(
-    selected: Tool,
-    onSelect: (Tool) -> Unit,
+    selected: ToolGroup,
+    onSelect: (ToolGroup) -> Unit,
     canUndo: Boolean,
     canRedo: Boolean,
     onUndo: () -> Unit,
@@ -256,40 +264,48 @@ fun ToolBar(
 ) {
     val c = Infill.colors
     val side = if (compact) 36.dp else 40.dp
-    // The picked tool scrolls into view, so one picked by key is always seen.
-    val inView = remember { Tool.entries.associateWith { BringIntoViewRequester() } }
-    LaunchedEffect(selected) { inView.getValue(selected).bringIntoView() }
-    val buttons = @Composable {
-        for (tool in Tool.entries) {
-            Box(Modifier.bringIntoViewRequester(inView.getValue(tool))) {
-                ToolButton(tool, tool == selected, compact) { onSelect(tool) }
-            }
-        }
-        if (withHistory) {
-            Box(
-                Modifier
-                    .padding(if (vertical) 0.dp else 2.dp, if (vertical) 2.dp else 0.dp)
-                    .background(c.chromeEdge)
-                    .then(if (vertical) Modifier.height(1.dp).width(side) else Modifier.width(1.dp).height(side)),
-            )
-            HistoryButton(false, canUndo, side, onUndo)
-            HistoryButton(true, canRedo, side, onRedo)
-        }
+    val divider = @Composable {
+        Box(
+            Modifier
+                .padding(if (vertical) 0.dp else 2.dp, if (vertical) 2.dp else 0.dp)
+                .background(c.chromeEdge)
+                .then(if (vertical) Modifier.height(1.dp).width(side) else Modifier.width(1.dp).height(side)),
+        )
     }
-    ChromeBox(modifier) {
-        if (vertical) {
-            // Scrolls when a short screen can't fit the whole rail.
+    if (vertical) {
+        ChromeBox(modifier) {
+            // Scrolls only when a very short screen can't fit the whole rail.
             Column(
                 Modifier.verticalScroll(rememberScrollState()).padding(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-            ) { buttons() }
-        } else {
+            ) {
+                for (group in ToolGroup.entries) {
+                    ToolButton(group, group == selected, compact, Modifier.width(if (compact) 56.dp else 64.dp)) { onSelect(group) }
+                }
+                if (withHistory) {
+                    divider()
+                    HistoryButton(false, canUndo, side, onUndo)
+                    HistoryButton(true, canRedo, side, onRedo)
+                }
+            }
+        }
+    } else {
+        ChromeBox(modifier.fillMaxWidth()) {
             Row(
-                Modifier.horizontalScroll(rememberScrollState()).padding(4.dp),
+                Modifier.padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
-            ) { buttons() }
+            ) {
+                for (group in ToolGroup.entries) {
+                    ToolButton(group, group == selected, compact, Modifier.weight(1f)) { onSelect(group) }
+                }
+                if (withHistory) {
+                    divider()
+                    HistoryButton(false, canUndo, side, onUndo)
+                    HistoryButton(true, canRedo, side, onRedo)
+                }
+            }
         }
     }
 }
@@ -313,23 +329,36 @@ fun HistoryButton(redo: Boolean, enabled: Boolean, side: Dp, onClick: () -> Unit
 }
 
 @Composable
-private fun ToolButton(tool: Tool, selected: Boolean, compact: Boolean, onClick: () -> Unit) {
+private fun ToolButton(group: ToolGroup, selected: Boolean, compact: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val c = Infill.colors
-    val title = stringResource(tool.title)
+    val title = stringResource(group.title)
     val shape = RoundedCornerShape(8.dp)
+    val tint = if (selected) c.onAccent else c.textDim
     Column(
-        Modifier
+        modifier
             .clip(shape)
             .background(if (selected) c.accent else c.button)
             .semantics(mergeDescendants = true) { this.selected = selected }
             .clickable(role = Role.Tab, onClick = onClick)
-            .padding(horizontal = 6.dp, vertical = if (compact) 4.dp else 6.dp)
-            .width(if (compact) 44.dp else 56.dp),
+            .padding(horizontal = 2.dp, vertical = if (compact) 4.dp else 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        ToolIcon(tool, if (selected) c.onAccent else c.text, Modifier.size(if (compact) 24.dp else 28.dp))
-        Text(title, color = if (selected) c.onAccent else c.textDim, fontSize = if (compact) 10.sp else 11.sp, maxLines = 1)
+        GlyphIcon(groupGlyph(group), if (selected) c.onAccent else c.text, Modifier.size(if (compact) 24.dp else 28.dp))
+        // Long names shrink to fit a narrow button rather than being cut off.
+        BasicText(
+            title, maxLines = 1, style = TextStyle(color = tint, textAlign = TextAlign.Center),
+            autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = if (compact) 10.sp else 11.sp),
+        )
     }
+}
+
+private fun groupGlyph(group: ToolGroup): Glyph = when (group) {
+    ToolGroup.Inspect -> Glyph.Inspect
+    ToolGroup.Bulldoze -> Glyph.Bulldoze
+    ToolGroup.Zones -> Glyph.Zone
+    ToolGroup.Transport -> Glyph.Road
+    ToolGroup.Utilities -> Glyph.Utilities
+    ToolGroup.Services -> Glyph.Civic
 }
 
 @Composable

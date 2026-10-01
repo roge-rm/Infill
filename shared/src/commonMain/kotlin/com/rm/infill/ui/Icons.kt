@@ -18,27 +18,6 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-/** The toolbar's icons, drawn on a 24 unit square so they scale with the button. */
-@Composable
-fun ToolIcon(tool: Tool, colour: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier) {
-        val u = size.minDimension / 24f
-        when (tool) {
-            Tool.Inspect -> inspect(u, colour)
-            Tool.Bulldoze -> bulldoze(u, colour)
-            Tool.Road -> road(u, colour)
-            Tool.Rail -> rail(u, colour)
-            Tool.Water -> drop(u, colour)
-            Tool.Zone -> zone(u, colour)
-            Tool.Power -> bolt(u, colour)
-            Tool.Services -> civic(u, colour)
-            Tool.Transit -> tram(u, colour)
-            Tool.Traffic -> lights(u, colour)
-            Tool.Districts -> districtIcon(u, colour)
-        }
-    }
-}
-
 @Composable
 fun PauseIcon(paused: Boolean, colour: Color, modifier: Modifier = Modifier) {
     Canvas(modifier) {
@@ -270,4 +249,243 @@ private fun DrawScope.zone(u: Float, c: Color) {
     for (i in 0..1) for (j in 0..1) {
         drawRect(c, Offset((6.5f + i * 6) * u, (6.5f + j * 6) * u), Size(4.5f * u, 4.5f * u))
     }
+}
+
+/** Small drawings for the choices that have no sprite of their own, and for the map views. */
+enum class Glyph {
+    Inspect, Bulldoze, Road, Rail, Drop, Zone, Bolt, Civic, Tram, Lights, District, Utilities,
+    Plus, Erase, List, Remove, Renew, Pipe, Bank, Tunnel, Route, Auto, Scrubber, Low, Medium, High,
+    Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
+    Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole,
+}
+
+/** The drawing for [tool]. */
+fun toolGlyph(tool: Tool): Glyph = when (tool) {
+    Tool.Inspect -> Glyph.Inspect
+    Tool.Bulldoze -> Glyph.Bulldoze
+    Tool.Road -> Glyph.Road
+    Tool.Rail -> Glyph.Rail
+    Tool.Water -> Glyph.Drop
+    Tool.Zone -> Glyph.Zone
+    Tool.Power -> Glyph.Bolt
+    Tool.Services -> Glyph.Civic
+    Tool.Transit -> Glyph.Tram
+    Tool.Traffic -> Glyph.Lights
+    Tool.Districts -> Glyph.District
+}
+
+/** The drawing for a kind of service. */
+fun serviceGlyph(group: ServiceGroup): Glyph = when (group) {
+    ServiceGroup.Police -> Glyph.Star
+    ServiceGroup.Fire -> Glyph.Flame
+    ServiceGroup.Health -> Glyph.Cross
+    ServiceGroup.Schools -> Glyph.Cap
+    ServiceGroup.Parks -> Glyph.Tree
+    ServiceGroup.Waste -> Glyph.Bin
+}
+
+/** [g] on a 24 unit square, [u] a unit. */
+fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
+    val w = 2f * u
+    fun line(x0: Float, y0: Float, x1: Float, y1: Float, width: Float = w) = drawLine(c, Offset(x0 * u, y0 * u), Offset(x1 * u, y1 * u), width, StrokeCap.Round)
+    fun path(vararg p: Float): Path = Path().apply {
+        moveTo(p[0] * u, p[1] * u)
+        for (k in 2 until p.size step 2) lineTo(p[k] * u, p[k + 1] * u)
+        close()
+    }
+    fun cloud(cx: Float, cy: Float) {
+        drawCircle(c, 3.5f * u, Offset((cx - 4) * u, (cy + 1) * u))
+        drawCircle(c, 4.5f * u, Offset(cx * u, (cy - 1) * u))
+        drawCircle(c, 3.5f * u, Offset((cx + 4) * u, (cy + 1) * u))
+        drawRect(c, Offset((cx - 4) * u, cy * u), Size(8 * u, 4.5f * u))
+    }
+    when (g) {
+        Glyph.Inspect -> inspect(u, c)
+        Glyph.Bulldoze -> bulldoze(u, c)
+        Glyph.Road -> road(u, c)
+        Glyph.Rail -> rail(u, c)
+        Glyph.Drop -> drop(u, c)
+        Glyph.Zone -> zone(u, c)
+        Glyph.Bolt -> bolt(u, c)
+        Glyph.Civic -> civic(u, c)
+        Glyph.Tram -> tram(u, c)
+        Glyph.Lights -> lights(u, c)
+        Glyph.District -> districtIcon(u, c)
+        Glyph.Utilities -> {
+            // A bolt beside a drop.
+            withTransform({ translate(-4.5f * u, 0f); scale(0.8f, 0.8f, Offset(12 * u, 12 * u)) }) { bolt(u, c) }
+            withTransform({ translate(5f * u, 3f * u); scale(0.62f, 0.62f, Offset(12 * u, 12 * u)) }) { drop(u, c) }
+        }
+        Glyph.Plus -> { line(12f, 5f, 12f, 19f, 3f * u); line(5f, 12f, 19f, 12f, 3f * u) }
+        Glyph.Erase -> {
+            drawCircle(c, 7.5f * u, Offset(12 * u, 12 * u), style = Stroke(2.4f * u))
+            line(6.7f, 17.3f, 17.3f, 6.7f, 2.4f * u)
+        }
+        Glyph.List -> for (k in 0..2) {
+            drawCircle(c, 1.6f * u, Offset(5 * u, (6.5f + k * 5.5f) * u))
+            line(9f, 6.5f + k * 5.5f, 20f, 6.5f + k * 5.5f)
+        }
+        Glyph.Remove -> { line(6f, 6f, 18f, 18f, 3f * u); line(18f, 6f, 6f, 18f, 3f * u) }
+        Glyph.Renew -> {
+            drawArc(c, 200f, 280f, false, Offset(5 * u, 5 * u), Size(14 * u, 14 * u), style = Stroke(2.4f * u, cap = StrokeCap.Round))
+            drawPath(path(15f, 3f, 21f, 6.5f, 15f, 10f), c)
+        }
+        Glyph.Pipe -> {
+            drawRect(c, Offset(2 * u, 9 * u), Size(20 * u, 6 * u))
+            for (x in listOf(7f, 17f)) drawRect(c, Offset((x - 1.2f) * u, 7.5f * u), Size(2.4f * u, 9 * u))
+        }
+        Glyph.Bank -> {
+            drawPath(path(3f, 17f, 7f, 7f, 17f, 7f, 21f, 17f), c)
+            line(2f, 20.5f, 22f, 20.5f, 1.6f * u)
+        }
+        Glyph.Tunnel -> {
+            drawArc(c, 180f, 180f, false, Offset(5 * u, 6 * u), Size(14 * u, 14 * u), style = Stroke(2.6f * u))
+            line(5f, 13f, 5f, 20f, 2.6f * u); line(19f, 13f, 19f, 20f, 2.6f * u)
+            line(2f, 20.5f, 22f, 20.5f, 1.6f * u)
+        }
+        Glyph.Route -> {
+            val pts = listOf(4f to 18f, 10f to 8f, 15f to 15f, 20f to 5f)
+            for (k in 0 until pts.size - 1) line(pts[k].first, pts[k].second, pts[k + 1].first, pts[k + 1].second, 1.8f * u)
+            for ((x, y) in pts) drawCircle(c, 2.4f * u, Offset(x * u, y * u))
+        }
+        Glyph.Auto -> {
+            // A small cog.
+            for (k in 0 until 8) {
+                val a = k * PI.toFloat() / 4
+                line(12 + 6.5f * cos(a), 12 + 6.5f * sin(a), 12 + 9f * cos(a), 12 + 9f * sin(a), 2.6f * u)
+            }
+            drawCircle(c, 5.5f * u, Offset(12 * u, 12 * u), style = Stroke(2.6f * u))
+        }
+        Glyph.Scrubber -> {
+            drawRect(c, Offset(9 * u, 8 * u), Size(6 * u, 14 * u))
+            for (y in listOf(4.5f, 2f)) line(7f, y, 17f, y, 1.4f * u)
+            drawRect(c, Offset(7 * u, 6 * u), Size(10 * u, 2.4f * u))
+        }
+        Glyph.Low, Glyph.Medium, Glyph.High -> {
+            val n = g.ordinal - Glyph.Low.ordinal + 1
+            for (k in 0 until n) drawRect(c, Offset((4 + k * 6) * u, (20 - 5 - k * 5) * u), Size(4.5f * u, (5 + k * 5) * u))
+            line(2f, 20.5f, 22f, 20.5f, 1.4f * u)
+        }
+        Glyph.Smoke -> { cloud(12f, 10f); drawCircle(c, 2.4f * u, Offset(7 * u, 19 * u)); drawCircle(c, 1.6f * u, Offset(4 * u, 22 * u)) }
+        Glyph.Cuffs -> {
+            drawCircle(c, 4.5f * u, Offset(7 * u, 15 * u), style = Stroke(2.2f * u))
+            drawCircle(c, 4.5f * u, Offset(17 * u, 15 * u), style = Stroke(2.2f * u))
+            line(10f, 9f, 14f, 9f, 1.8f * u); line(9f, 11f, 10f, 9f, 1.8f * u); line(15f, 11f, 14f, 9f, 1.8f * u)
+        }
+        Glyph.Star -> {
+            val p = Path()
+            for (k in 0 until 10) {
+                val r = if (k % 2 == 0) 10f else 4.2f
+                val a = -PI.toFloat() / 2 + k * PI.toFloat() / 5
+                val x = (12 + r * cos(a)) * u
+                val y = (13 + r * sin(a)) * u
+                if (k == 0) p.moveTo(x, y) else p.lineTo(x, y)
+            }
+            p.close()
+            drawPath(p, c)
+        }
+        Glyph.Flame -> {
+            val p = Path().apply {
+                moveTo(12 * u, 2 * u)
+                cubicTo(14 * u, 7 * u, 20 * u, 10 * u, 19 * u, 16 * u)
+                cubicTo(18 * u, 20 * u, 15 * u, 22 * u, 12 * u, 22 * u)
+                cubicTo(8 * u, 22 * u, 5 * u, 19 * u, 5 * u, 15 * u)
+                cubicTo(5 * u, 11 * u, 9 * u, 10 * u, 9 * u, 6 * u)
+                cubicTo(11 * u, 8 * u, 11 * u, 10 * u, 12 * u, 12 * u)
+                cubicTo(13 * u, 9 * u, 13 * u, 5 * u, 12 * u, 2 * u)
+                close()
+            }
+            drawPath(p, c)
+        }
+        Glyph.Car -> {
+            drawRoundRect(c, Offset(2 * u, 11 * u), Size(20 * u, 6 * u), CornerRadius(1.5f * u))
+            drawPath(path(6f, 11.5f, 8.5f, 6f, 15.5f, 6f, 18f, 11.5f), c)
+            drawCircle(c, 2.5f * u, Offset(7 * u, 18.5f * u))
+            drawCircle(c, 2.5f * u, Offset(17 * u, 18.5f * u))
+        }
+        Glyph.Rain -> {
+            cloud(12f, 8f)
+            for (x in listOf(7f, 12f, 17f)) line(x, 16f, x - 1.5f, 21f, 1.8f * u)
+        }
+        Glyph.Cap -> {
+            drawPath(path(12f, 4f, 23f, 9f, 12f, 14f, 1f, 9f), c)
+            drawPath(path(6f, 11f, 18f, 11f, 18f, 17f, 12f, 19f, 6f, 17f), c)
+            line(20f, 10f, 20f, 17f, 1.4f * u)
+        }
+        Glyph.Cross -> {
+            drawRect(c, Offset(9 * u, 3 * u), Size(6 * u, 18 * u))
+            drawRect(c, Offset(3 * u, 9 * u), Size(18 * u, 6 * u))
+        }
+        Glyph.Coins -> for (k in 0..3) {
+            drawOval(c, Offset(5 * u, (16 - k * 3.6f) * u), Size(14 * u, 5 * u))
+            drawOval(c.copy(alpha = 0.4f), Offset(5 * u, (16 - k * 3.6f) * u), Size(14 * u, 5 * u), style = Stroke(0.8f * u))
+        }
+        Glyph.Coin -> {
+            drawCircle(c, 9 * u, Offset(12 * u, 12 * u), style = Stroke(2f * u))
+            line(12f, 6f, 12f, 18f, 1.6f * u)
+            drawArc(c, 100f, 250f, false, Offset(8.5f * u, 7.5f * u), Size(7 * u, 4.5f * u), style = Stroke(1.8f * u))
+            drawArc(c, 280f, 250f, false, Offset(8.5f * u, 12 * u), Size(7 * u, 4.5f * u), style = Stroke(1.8f * u))
+        }
+        Glyph.Hourglass -> {
+            line(5f, 3f, 19f, 3f); line(5f, 21f, 19f, 21f)
+            drawPath(path(7f, 4f, 17f, 4f, 12f, 12f), c)
+            drawPath(path(12f, 12f, 17f, 20f, 7f, 20f), c, style = Stroke(1.8f * u))
+            drawPath(path(12f, 15f, 15f, 20f, 9f, 20f), c)
+        }
+        Glyph.Heat -> {
+            drawRoundRect(c, Offset(9.5f * u, 2 * u), Size(5 * u, 14 * u), CornerRadius(2.5f * u), style = Stroke(1.8f * u))
+            drawCircle(c, 4.5f * u, Offset(12 * u, 18 * u))
+            line(12f, 8f, 12f, 16f, 2.2f * u)
+        }
+        Glyph.Bin -> {
+            drawPath(path(5f, 8f, 19f, 8f, 17f, 22f, 7f, 22f), c)
+            drawRect(c, Offset(3 * u, 5 * u), Size(18 * u, 2 * u))
+            drawRect(c, Offset(9.5f * u, 3 * u), Size(5 * u, 2 * u))
+        }
+        Glyph.Mountain -> {
+            drawPath(path(1f, 20f, 9f, 6f, 17f, 20f), c)
+            drawPath(path(10f, 20f, 16f, 10f, 23f, 20f), c)
+        }
+        Glyph.Crate -> {
+            drawRect(c, Offset(4 * u, 4 * u), Size(16 * u, 16 * u), style = Stroke(2.2f * u))
+            line(4f, 4f, 20f, 20f, 1.8f * u); line(20f, 4f, 4f, 20f, 1.8f * u)
+        }
+        Glyph.Arrows -> {
+            line(3f, 8f, 19f, 8f); drawPath(path(21f, 8f, 16f, 4f, 16f, 12f), c)
+            line(5f, 16f, 21f, 16f); drawPath(path(3f, 16f, 8f, 12f, 8f, 20f), c)
+        }
+        Glyph.Target -> {
+            drawCircle(c, 9 * u, Offset(12 * u, 12 * u), style = Stroke(1.8f * u))
+            drawCircle(c, 5 * u, Offset(12 * u, 12 * u), style = Stroke(1.8f * u))
+            drawCircle(c, 1.8f * u, Offset(12 * u, 12 * u))
+        }
+        Glyph.Bus -> {
+            drawRoundRect(c, Offset(2 * u, 6 * u), Size(20 * u, 12 * u), CornerRadius(2.5f * u))
+            for (k in 0 until 4) drawRect(c.copy(alpha = 0.35f), Offset((4 + k * 4.5f) * u, 8 * u), Size(3.2f * u, 4 * u))
+            drawCircle(c, 2.4f * u, Offset(7 * u, 19 * u))
+            drawCircle(c, 2.4f * u, Offset(17 * u, 19 * u))
+        }
+        Glyph.Manhole -> {
+            drawCircle(c, 9 * u, Offset(12 * u, 12 * u), style = Stroke(2.2f * u))
+            for (y in listOf(8f, 12f, 16f)) line(6.5f, y, 17.5f, y, 1.8f * u)
+        }
+        Glyph.Tree -> {
+            drawCircle(c, 6 * u, Offset(12 * u, 9 * u))
+            drawCircle(c, 4.5f * u, Offset(7.5f * u, 12.5f * u))
+            drawCircle(c, 4.5f * u, Offset(16.5f * u, 12.5f * u))
+            drawRect(c, Offset(10.8f * u, 14 * u), Size(2.4f * u, 8 * u))
+        }
+        Glyph.Diamond -> drawPath(path(12f, 4f, 18f, 12f, 12f, 20f, 6f, 12f), c, style = Stroke(2.4f * u))
+        Glyph.Pylon -> {
+            line(12f, 2f, 5f, 22f, 1.8f * u); line(12f, 2f, 19f, 22f, 1.8f * u)
+            line(4f, 7f, 20f, 7f, 1.8f * u); line(6f, 12f, 18f, 12f, 1.8f * u)
+            line(8.5f, 12f, 15.5f, 18f, 1.4f * u); line(15.5f, 12f, 8.5f, 18f, 1.4f * u)
+        }
+    }
+}
+
+/** [g] in [colour], for a toolbar button or a choice. */
+@Composable
+fun GlyphIcon(g: Glyph, colour: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) { glyph(g, size.minDimension / 24f, colour) }
 }
