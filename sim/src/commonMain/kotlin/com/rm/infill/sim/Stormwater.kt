@@ -30,6 +30,10 @@ object Stormwater {
         BuildingType.FACTORY -> 95
         BuildingType.COAL_PLANT -> 85
         BuildingType.POLICE_STATION, BuildingType.FIRE_STATION -> 80
+        // Schools and hospitals have their yards and lawns.
+        BuildingType.SCHOOL, BuildingType.HIGH_SCHOOL -> 65
+        BuildingType.CLINIC -> 75
+        BuildingType.HOSPITAL -> 70
         BuildingType.PARK -> 5
         BuildingType.STATION, BuildingType.STATION_NS -> 75
         BuildingType.FREIGHT_YARD, BuildingType.FREIGHT_YARD_NS -> 70

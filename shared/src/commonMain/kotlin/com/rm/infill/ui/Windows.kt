@@ -73,7 +73,33 @@ import com.rm.infill.res.upkeep_roads
 import com.rm.infill.res.upkeep_rail
 import com.rm.infill.res.upkeep_water
 import com.rm.infill.res.upkeep_flood
+import com.rm.infill.res.upkeep_schools
+import com.rm.infill.res.upkeep_health
 import com.rm.infill.sim.Series
+import com.rm.infill.sim.Wealth
+import androidx.compose.ui.text.style.TextAlign
+import com.rm.infill.res.people
+import com.rm.infill.res.children
+import com.rm.infill.res.adults
+import com.rm.infill.res.elderly
+import com.rm.infill.res.health
+import com.rm.infill.res.empty_homes
+import com.rm.infill.res.born
+import com.rm.infill.res.died
+import com.rm.infill.res.moved_in
+import com.rm.infill.res.moved_out
+import com.rm.infill.res.homes_by_wealth
+import com.rm.infill.res.work_by_schooling
+import com.rm.infill.res.workers
+import com.rm.infill.res.jobs_heading
+import com.rm.infill.res.unschooled
+import com.rm.infill.res.schooled
+import com.rm.infill.res.educated
+import com.rm.infill.res.school_places
+import com.rm.infill.res.high_school_places
+import com.rm.infill.res.care_places
+import com.rm.infill.res.taken_of
+import com.rm.infill.res.schools_and_care
 import com.rm.infill.ui.theme.Infill
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringArrayResource
@@ -138,6 +164,8 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
             Stepper(Res.string.police_station, city.policeFunding, 10) { game.setFunding(police = (city.policeFunding + it).coerceIn(0, 100)) }
             Stepper(Res.string.fire_station, city.fireFunding, 10) { game.setFunding(fire = (city.fireFunding + it).coerceIn(0, 100)) }
             Stepper(Res.string.park, city.parkFunding, 10) { game.setFunding(parks = (city.parkFunding + it).coerceIn(0, 100)) }
+            Stepper(Res.string.upkeep_schools, city.schoolFunding, 10) { game.setFunding(schools = (city.schoolFunding + it).coerceIn(0, 100)) }
+            Stepper(Res.string.upkeep_health, city.healthFunding, 10) { game.setFunding(health = (city.healthFunding + it).coerceIn(0, 100)) }
             Heading(Res.string.last_month)
             MoneyLine(Res.string.tax_residential, s.residentialIncome)
             MoneyLine(Res.string.tax_commercial, s.commercialIncome)
@@ -150,6 +178,8 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
             MoneyLine(Res.string.police_station, -s.policeUpkeep)
             MoneyLine(Res.string.fire_station, -s.fireUpkeep)
             MoneyLine(Res.string.park, -s.parkUpkeep)
+            if (s.schoolUpkeep > 0) MoneyLine(Res.string.upkeep_schools, -s.schoolUpkeep)
+            if (s.healthUpkeep > 0) MoneyLine(Res.string.upkeep_health, -s.healthUpkeep)
             Box(Modifier.fillMaxWidth().height(1.dp).background(c.chromeEdge))
             MoneyLine(Res.string.net, s.income - s.upkeep, bold = true)
         }
@@ -293,5 +323,71 @@ private fun LineChart(values: LongArray, line: Color, grid: Color, modifier: Mod
         }
         drawPath(fill, line.copy(alpha = 0.15f))
         drawPath(path, line, style = Stroke(2.dp.toPx()))
+    }
+}
+
+/** Who lives in the town: their ages, health and wealth, the work they're schooled for, and places at school and with a doctor. */
+@Composable
+fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
+    val c = Infill.colors
+    game.revision
+    val s = game.city.stats
+    fun n(v: Int) = groupThousands(v.toLong())
+    Window(Res.string.people, onClose) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            CountLine(Res.string.children, n(s.children))
+            CountLine(Res.string.adults, n(s.adults))
+            CountLine(Res.string.elderly, n(s.elderly))
+            CountLine(Res.string.health, healthWord(s.health))
+            if (s.emptyHomes > 0) CountLine(Res.string.empty_homes, n(s.emptyHomes))
+            Heading(Res.string.last_month)
+            CountLine(Res.string.born, n(s.births))
+            CountLine(Res.string.died, n(s.deaths))
+            CountLine(Res.string.moved_in, n(s.movedIn))
+            CountLine(Res.string.moved_out, n(s.movedOut))
+            Heading(Res.string.homes_by_wealth)
+            for (w in 0 until Wealth.LEVELS) CountLine(wealthName(w), n(s.byWealth[w]))
+            Heading(Res.string.work_by_schooling)
+            Row(Modifier.fillMaxWidth()) {
+                Box(Modifier.weight(1f))
+                Text(stringResource(Res.string.workers), color = c.textDim, fontSize = 13.sp, modifier = Modifier.widthIn(min = 72.dp), textAlign = TextAlign.End)
+                Text(stringResource(Res.string.jobs_heading), color = c.textDim, fontSize = 13.sp, modifier = Modifier.widthIn(min = 72.dp), textAlign = TextAlign.End)
+            }
+            for ((k, name) in listOf(Res.string.unschooled, Res.string.schooled, Res.string.educated).withIndex()) {
+                Row(Modifier.fillMaxWidth()) {
+                    Text(stringResource(name), color = c.textDim, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                    Text(n(s.workersBy[k]), color = c.text, fontSize = 14.sp, modifier = Modifier.widthIn(min = 72.dp), textAlign = TextAlign.End)
+                    // Jobs short of workers show in red.
+                    val short = s.filledBy[k] < s.jobsBy[k]
+                    Text(
+                        n(s.jobsBy[k]), color = if (short) Color(0xFFD84343) else c.text, fontSize = 14.sp,
+                        modifier = Modifier.widthIn(min = 72.dp), textAlign = TextAlign.End,
+                    )
+                }
+            }
+            Heading(Res.string.schools_and_care)
+            CountLine(Res.string.school_places, stringResource(Res.string.taken_of, n(s.pupils), n(s.schoolPlaces)))
+            if (s.highSchoolPlaces > 0) CountLine(Res.string.high_school_places, stringResource(Res.string.taken_of, n(s.highSchoolPupils), n(s.highSchoolPlaces)))
+            CountLine(Res.string.care_places, stringResource(Res.string.taken_of, n(s.cared), n(s.carePlaces)))
+            Text(
+                stringResource(Res.string.graphs),
+                color = c.text, fontSize = 14.sp,
+                modifier = Modifier
+                    .padding(top = 6.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(c.button)
+                    .clickable(role = Role.Button, onClick = onGraphs)
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun CountLine(label: StringResource, value: String) {
+    val c = Infill.colors
+    Row(Modifier.fillMaxWidth()) {
+        Text(stringResource(label), color = c.textDim, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        Text(value, color = c.text, fontSize = 14.sp)
     }
 }

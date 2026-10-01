@@ -37,6 +37,10 @@ internal object BuildingSprites {
                 BuildingType.OUTFALL -> Atlas.SEWER_OUTFALL to Atlas.SEWER_OUTFALL_COUNT
                 BuildingType.STORM_POND -> Atlas.STORM_POND to Atlas.STORM_POND_COUNT
                 BuildingType.STORM_OUTFALL -> Atlas.STORM_OUTFALL to Atlas.STORM_OUTFALL_COUNT
+                BuildingType.SCHOOL -> Atlas.SCHOOL to Atlas.SCHOOL_COUNT
+                BuildingType.HIGH_SCHOOL -> Atlas.HIGH_SCHOOL to Atlas.HIGH_SCHOOL_COUNT
+                BuildingType.CLINIC -> Atlas.CLINIC to Atlas.CLINIC_COUNT
+                BuildingType.HOSPITAL -> Atlas.HOSPITAL to Atlas.HOSPITAL_COUNT
             }
             first[t.ordinal] = f
             count[t.ordinal] = n

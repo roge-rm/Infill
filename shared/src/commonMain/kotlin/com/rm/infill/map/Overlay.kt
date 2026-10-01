@@ -18,6 +18,10 @@ import com.rm.infill.res.overlay_traffic
 import com.rm.infill.res.overlay_rail
 import com.rm.infill.res.overlay_water
 import com.rm.infill.res.overlay_runoff
+import com.rm.infill.res.overlay_schooling
+import com.rm.infill.res.overlay_health
+import com.rm.infill.res.overlay_wealth
+import com.rm.infill.sim.Household
 import com.rm.infill.sim.Balance
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Stormwater
@@ -40,13 +44,16 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Railway(Res.string.overlay_rail, Color(0xFFE6E1F5), Color(0xFF5B3FB5)),
     Water(Res.string.overlay_water, Color(0xFFD84343), Color(0xFF3F8FD8)),
     Runoff(Res.string.overlay_runoff, Color(0xFFB8DDA8), Color(0xFF7A3B2E)),
+    Schooling(Res.string.overlay_schooling, Color(0xFFE8D6B0), Color(0xFF2E5FA8)),
+    Health(Res.string.overlay_health, Color(0xFFC0392B), Color(0xFF3FA85A)),
+    Wealth(Res.string.overlay_wealth, Color(0xFF8A6A4A), Color(0xFFE0B83A)),
 }
 
 /**
  * The overlay as a bitmap of one pixel a tile, drawn smoothly over the map.
  * Land value covers all land; the rest show only where they are.
  */
-internal fun overlayImage(overlay: Overlay, map: CityMap): ImageBitmap? {
+internal fun overlayImage(overlay: Overlay, map: CityMap, homeAt: (Int) -> Household?): ImageBitmap? {
     if (overlay == Overlay.None) return null
     val pixels = IntArray(map.size)
     for (i in 0 until map.size) {
@@ -85,10 +92,21 @@ internal fun overlayImage(overlay: Overlay, map: CityMap): ImageBitmap? {
                 val hard = Stormwater.hardness(map, i) * 255 / 100
                 if (drained(map, i)) hard / 3 else hard
             }
+            // Homes only, and not those standing empty.
+            Overlay.Schooling -> {
+                val h = homeAt(i)?.takeIf { !it.empty } ?: continue
+                // The children's schooling where there are children, else what the grown-ups had.
+                if (h.children > 0) (h.schooling * 2 + h.highSchooling) * 255 / 300
+                else if (h.adults == 0) continue
+                else (h.schooled[1] + h.schooled[2] * 2) * 255 / (h.adults * 2)
+            }
+            Overlay.Health -> (homeAt(i)?.takeIf { !it.empty } ?: continue).health * 255 / 100
+            Overlay.Wealth -> (homeAt(i)?.takeIf { !it.empty } ?: continue).wealth * 127
             Overlay.None -> 0
         }
         val everywhere = overlay == Overlay.LandValue || overlay == Overlay.Power || overlay == Overlay.Traffic ||
-            overlay == Overlay.Railway || overlay == Overlay.Water || overlay == Overlay.Runoff
+            overlay == Overlay.Railway || overlay == Overlay.Water || overlay == Overlay.Runoff ||
+            overlay == Overlay.Schooling || overlay == Overlay.Health || overlay == Overlay.Wealth
         if (!everywhere && v == 0) continue
         pixels[i] = mix(overlay.low, overlay.high, v / 255f)
     }

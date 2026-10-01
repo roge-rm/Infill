@@ -59,6 +59,26 @@ import com.rm.infill.res.inspect_power_line
 import com.rm.infill.res.jobs
 import com.rm.infill.res.no_power
 import com.rm.infill.res.residents
+import com.rm.infill.res.places
+import com.rm.infill.res.cares_for
+import com.rm.infill.res.for_sale
+import com.rm.infill.res.for_sale_months
+import com.rm.infill.res.inspect_ages
+import com.rm.infill.res.inspect_health
+import com.rm.infill.res.inspect_schooling
+import com.rm.infill.res.inspect_adults_schooled
+import com.rm.infill.res.wealth_poor
+import com.rm.infill.res.wealth_middle
+import com.rm.infill.res.wealth_well_off
+import com.rm.infill.res.health_poor
+import com.rm.infill.res.health_fair
+import com.rm.infill.res.health_good
+import com.rm.infill.res.school
+import com.rm.infill.res.high_school
+import com.rm.infill.res.clinic
+import com.rm.infill.res.hospital
+import com.rm.infill.sim.Education
+import com.rm.infill.sim.Wealth
 import com.rm.infill.res.inspect_bridge
 import com.rm.infill.res.inspect_crossing
 import com.rm.infill.res.inspect_linked
@@ -165,8 +185,32 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
         if (building != null) {
             val t = building.type
             add(stringResource(buildingName(t)))
-            when (t.zone) {
-                Zone.RESIDENTIAL -> add(pluralStringResource(Res.plurals.residents, t.capacity, t.capacity))
+            val h = building.people
+            when {
+                h != null && h.empty -> add(
+                    if (h.forSale == 0) stringResource(Res.string.for_sale)
+                    else pluralStringResource(Res.plurals.for_sale_months, h.forSale, h.forSale),
+                )
+                h != null -> {
+                    add(stringResource(wealthName(h.wealth)) + ", " + pluralStringResource(Res.plurals.residents, h.size, h.size).replaceFirstChar { it.lowercase() })
+                    add(stringResource(Res.string.inspect_ages, h.children, h.adults, h.elderly))
+                    add(stringResource(Res.string.inspect_health, healthWord(h.health)))
+                    if (h.children > 0) add(stringResource(Res.string.inspect_schooling, level(h.schooling * 255 / 100)))
+                    if (h.adults > 0) {
+                        val schooled = (h.schooled[Education.SCHOOLED] + h.schooled[Education.EDUCATED]) * 100 / h.adults
+                        add(stringResource(Res.string.inspect_adults_schooled, schooled))
+                    }
+                }
+                t.school -> {
+                    add(pluralStringResource(Res.plurals.jobs, t.capacity, t.capacity))
+                    val n = (if (t == BuildingType.SCHOOL) Balance.SCHOOL_PLACES else Balance.HIGH_SCHOOL_PLACES) * city.schoolFunding / 100
+                    add(pluralStringResource(Res.plurals.places, n, n))
+                }
+                t.health -> {
+                    add(pluralStringResource(Res.plurals.jobs, t.capacity, t.capacity))
+                    val n = (if (t == BuildingType.CLINIC) Balance.CLINIC_CARES else Balance.HOSPITAL_CARES) * city.healthFunding / 100
+                    add(pluralStringResource(Res.plurals.cares_for, n, n))
+                }
                 else -> add(pluralStringResource(Res.plurals.jobs, t.capacity, t.capacity))
             }
             if (t.needsPower || t == BuildingType.COAL_PLANT) {
@@ -188,7 +232,8 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 add(stringResource(if (city.railLinked(building)) Res.string.inspect_linked else Res.string.inspect_not_linked))
                 if (!city.reachable(building)) add(stringResource(Res.string.inspect_no_road))
             }
-            when (val commute = map.commute[i].toInt() and 0xff) {
+            // No one commutes from an empty home.
+            when (val commute = if (building.people?.empty == true) 0 else map.commute[i].toInt() and 0xff) {
                 0 -> {}
                 255 -> add(stringResource(Res.string.inspect_no_commute))
                 // Half minutes, from one up.
@@ -289,7 +334,27 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.OUTFALL -> Res.string.sewer_outfall
     BuildingType.STORM_POND -> Res.string.storm_pond
     BuildingType.STORM_OUTFALL -> Res.string.storm_outfall
+    BuildingType.SCHOOL -> Res.string.school
+    BuildingType.HIGH_SCHOOL -> Res.string.high_school
+    BuildingType.CLINIC -> Res.string.clinic
+    BuildingType.HOSPITAL -> Res.string.hospital
 }
+
+fun wealthName(wealth: Int): StringResource = when (wealth) {
+    Wealth.POOR -> Res.string.wealth_poor
+    Wealth.WELL_OFF -> Res.string.wealth_well_off
+    else -> Res.string.wealth_middle
+}
+
+/** Health, 0 to 100, as a word. */
+@Composable
+fun healthWord(health: Int): String = stringResource(
+    when {
+        health < 45 -> Res.string.health_poor
+        health < 65 -> Res.string.health_fair
+        else -> Res.string.health_good
+    },
+)
 
 /** A short message that goes away by itself. If it's about a place, tapping it goes there. */
 @Composable

@@ -44,6 +44,9 @@ class CityMap(val width: Int, val height: Int) {
     val buildingType = ByteArray(size)
     val buildingVariant = ByteArray(size)
 
+    /** Homes standing empty for sale. Follows from the buildings. */
+    val forSale = BooleanArray(size)
+
     /** Pollution, 0 to 255, worked out each month. Not saved; it follows from the buildings. */
     val pollution = ByteArray(size)
 

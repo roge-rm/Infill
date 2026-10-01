@@ -112,6 +112,10 @@ object Prices {
     const val OUTFALL = 400L
     const val STORM_POND = 600L
     const val STORM_OUTFALL = 300L
+    const val SCHOOL = 1_600L
+    const val HIGH_SCHOOL = 3_500L
+    const val CLINIC = 700L
+    const val HOSPITAL = 6_000L
 
     /** What it costs to put up a building the player places. */
     fun of(type: BuildingType): Long = when (type) {
@@ -127,6 +131,10 @@ object Prices {
         BuildingType.OUTFALL -> OUTFALL
         BuildingType.STORM_POND -> STORM_POND
         BuildingType.STORM_OUTFALL -> STORM_OUTFALL
+        BuildingType.SCHOOL -> SCHOOL
+        BuildingType.HIGH_SCHOOL -> HIGH_SCHOOL
+        BuildingType.CLINIC -> CLINIC
+        BuildingType.HOSPITAL -> HOSPITAL
         else -> 0L
     }
 }

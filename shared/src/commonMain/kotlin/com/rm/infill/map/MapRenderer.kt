@@ -280,6 +280,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 val (ax, ay) = anchor(tx, ty)
                 if (ax != tx || ty != bottom(tx, ty)) continue
                 surface.blend(base + buildingSprite(ax, ay), (ax - x0) * s, (ay - y0) * s)
+                if (map.forSale[i]) surface.blend(base + Atlas.FOR_SALE, (ax - x0) * s, (ay - y0) * s)
                 continue
             }
             if (map.terrain[i] == Terrain.TREES) {

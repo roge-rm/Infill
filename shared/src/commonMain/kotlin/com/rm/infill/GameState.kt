@@ -58,10 +58,15 @@ class GameState(val city: City) {
     }
 
     /** Service funding in percent; any left out stay as they are. */
-    fun setFunding(police: Int = city.policeFunding, fire: Int = city.fireFunding, parks: Int = city.parkFunding) {
+    fun setFunding(
+        police: Int = city.policeFunding, fire: Int = city.fireFunding, parks: Int = city.parkFunding,
+        schools: Int = city.schoolFunding, health: Int = city.healthFunding,
+    ) {
         city.policeFunding = police
         city.fireFunding = fire
         city.parkFunding = parks
+        city.schoolFunding = schools
+        city.healthFunding = health
         revision++
     }
 

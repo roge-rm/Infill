@@ -92,7 +92,9 @@ fun MapView(
     val traffic = graphics.vehicles > 0 && game.city.stats.population > 0
     val trains = graphics.trains > 0 && game.city.trainRoutes.isNotEmpty()
     val animate = running && (fires || traffic || trains || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
-    val overlayImage = remember(overlay, game.revision) { overlayImage(overlay, map) }
+    val overlayImage = remember(overlay, game.revision) {
+        overlayImage(overlay, map) { game.city.building(map.building[it])?.people }
+    }
     LaunchedEffect(animate) {
         if (!animate) return@LaunchedEffect
         var last = withFrameNanos { it }

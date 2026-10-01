@@ -89,7 +89,7 @@ fun StatusStrip(
     overlayOn: Boolean,
     onOverlay: () -> Unit,
     onBudget: () -> Unit,
-    onGraphs: () -> Unit,
+    onPeople: () -> Unit,
     night: Boolean,
     compact: Boolean,
     twoLines: Boolean,
@@ -130,7 +130,7 @@ fun StatusStrip(
             moneyText(city.funds), color = if (city.funds < 0) Color(0xFFD84343) else c.text, fontSize = textSize,
             modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onBudget).padding(2.dp),
         )
-        Box(Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onGraphs).padding(2.dp)) {
+        Box(Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onPeople).padding(2.dp)) {
             PersonCount(city.stats.population, textSize)
         }
         val st = city.stats

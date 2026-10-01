@@ -1807,6 +1807,171 @@ def storm_pond(look, v):
     return b
 
 
+# Schools and health care: a schoolhouse with its bell and yard, a high school
+# with columns at the door, a doctor's clinic and a hospital of three wings.
+
+PLAYGROUND = c("#c8b48a")
+SNOW_GROUND = c("#e4ebf0")
+CLINIC_BLUE = c("#3f6fb0")
+
+
+def bell_cupola(b, look, x, y, height):
+    """A little open bell tower with a pointed roof, standing on a roof at tile pixel x, y."""
+    d = b.d
+    top = b.lift
+    base = y + top - height
+    d.rectangle([x - 2, base - 5, x + 2, base], TRIM, OUTLINE)
+    d.point((x, base - 3), c("#b08a3a"))
+    d.polygon([(x - 3, base - 5), (x, base - 10), (x + 3, base - 5)], SNOW_ROOF[0] if look == "snow" else SHINGLE[2], OUTLINE)
+    b.casters.append((1, x - 2, y - 2, x + 3, y + 2, height + 10))
+
+
+def schoolyard(b, look, x0, y0, x1, y1):
+    """Bare ground fenced off for play, with a few marks of games on it."""
+    d = b.d
+    gx0, gy0 = b.ground(x0, y0)
+    gx1, gy1 = b.ground(x1, y1)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else PLAYGROUND)
+    for xx in range(gx0, gx1 + 1, 3):
+        d.point((xx, gy0), c("#6b5a44"))
+        d.point((xx, gy1), c("#6b5a44"))
+    for yy in range(gy0, gy1 + 1, 3):
+        d.point((gx0, yy), c("#6b5a44"))
+        d.point((gx1, yy), c("#6b5a44"))
+    if look != "snow":
+        # Hopscotch, and a swing frame.
+        for k in range(3):
+            d.rectangle([gx0 + 4, gy0 + 3 + k * 3, gx0 + 6, gy0 + 5 + k * 3], outline=c("#efe8d8"))
+        d.line([gx1 - 10, gy0 + 3, gx1 - 3, gy0 + 3], c("#4a3a2a"))
+        d.line([gx1 - 10, gy0 + 3, gx1 - 10, gy0 + 9], c("#4a3a2a"))
+        d.line([gx1 - 3, gy0 + 3, gx1 - 3, gy0 + 9], c("#4a3a2a"))
+
+
+def school(look, v):
+    """A two storey schoolhouse on 2 by 2 tiles, brick or white boards, a bell on the roof and a yard to the south."""
+    b = Building(2, 2, height=2 * STOREY + 18)
+    d = b.d
+    schoolyard(b, look, 4, 42, 59, 61)
+    roof, wall = b.box(6, 10, 57, 38, 2 * STOREY + 2)
+    if v == 0:
+        brick(d, wall, c("#a0503a"))
+    else:
+        siding(d, wall, c("#ece6d6"))
+    windows(d, wall, 2, glass=c("#46586a"), sill=TRIM, every=5, width=3, height=4, skip_door=True)
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    # Double doors under a little pediment.
+    d.rectangle([cx - 3, y1 - 6, cx + 3, y1], c("#5a3a2a"))
+    d.line([cx, y1 - 6, cx, y1], OUTLINE)
+    d.polygon([(cx - 5, y1 - 7), (cx, y1 - 10), (cx + 5, y1 - 7)], TRIM, OUTLINE)
+    d.rectangle(wall, outline=OUTLINE)
+    gable_ew(d, roof, SHINGLE[0] if v == 0 else SHINGLE[2], look)
+    bell_cupola(b, look, (6 + 57) // 2, 24, 2 * STOREY + 8)
+    return b
+
+
+def high_school(look, v):
+    """Three storeys of brick or stone on 3 by 2 tiles, a columned door in the middle and a flag out front."""
+    b = Building(3, 2, height=3 * STOREY + 8)
+    d = b.d
+    rng = random.Random(8100 + v)
+    gx0, gy0 = b.ground(10, 48)
+    gx1, gy1 = b.ground(85, 61)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else c("#7fa05a"))
+    # A path up to the door.
+    px, py = b.ground(46, 46)
+    d.rectangle([px, py, px + 4, gy1], c("#d9ccaa") if look != "snow" else c("#cfd8df"))
+    roof, wall = b.box(4, 8, 91, 44, 3 * STOREY + 2)
+    if v == 0:
+        brick(d, wall, c("#8e4a3a"))
+    else:
+        d.rectangle(wall, c("#cfc6b0"))
+        x0, y0, x1, y1 = wall
+        for yy in range(y0 + 2, y1, 4):
+            d.line([x0 + 1, yy, x1 - 1, yy], shade(c("#cfc6b0"), 0.93))
+    x0, y0, x1, y1 = wall
+    d.rectangle([x0, y0 + 1, x1, y0 + 1], STONE)
+    windows(d, wall, 3, glass=c("#46586a"), sill=TRIM, every=5, width=3, height=4, skip=[((x0 + x1) // 2 - 8, (x0 + x1) // 2 + 8)])
+    cx = (x0 + x1) // 2
+    # The portico: columns and a pediment over the door.
+    d.rectangle([cx - 7, y1 - 12, cx + 7, y1], c("#e6dfcc"))
+    for k in range(-6, 7, 3):
+        d.line([cx + k, y1 - 11, cx + k, y1], c("#bfb7a4"))
+    d.rectangle([cx - 2, y1 - 6, cx + 2, y1], c("#4a3226"))
+    d.polygon([(cx - 9, y1 - 12), (cx, y1 - 17), (cx + 9, y1 - 12)], TRIM, OUTLINE)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, rng, [("stack", 8, 4), ("stack", 76, 4), ("hatch", 40, 10), ("vent", 60, 14)], parapet=STONE)
+    # The flagpole.
+    fx, fy = b.ground(66, 54)
+    d.line([fx, fy, fx, fy - 22], c("#d0d0d0"))
+    d.rectangle([fx + 1, fy - 22, fx + 6, fy - 19], c("#c0392b"))
+    d.rectangle([fx + 3, fy - 22, fx + 4, fy - 19], c("#f2f2ea"))
+    b.casters.append((1, 65, 53, 67, 55, 22))
+    return b
+
+
+def clinic(look, v):
+    """A doctor's clinic on one tile: a neat white building with a blue sign and a lamp by the door."""
+    b = Building(height=2 * STOREY + 6)
+    d = b.d
+    roof, wall = b.box(4, 8, 27, 25, 2 * STOREY)
+    if v == 0:
+        siding(d, wall, c("#eeeae0"))
+    else:
+        brick(d, wall, c("#b07a5a"))
+    windows(d, wall, 2, sill=TRIM, every=5, skip_door=True)
+    door(d, wall, c("#3a4f6a"))
+    x0, y0, x1, y1 = wall
+    # A blue sign with a white cross over the door.
+    cx = (x0 + x1) // 2
+    d.rectangle([cx - 3, y0 + STOREY - 1, cx + 3, y0 + STOREY + 3], CLINIC_BLUE)
+    d.line([cx, y0 + STOREY, cx, y0 + STOREY + 2], c("#ffffff"))
+    d.line([cx - 1, y0 + STOREY + 1, cx + 1, y0 + STOREY + 1], c("#ffffff"))
+    d.rectangle(wall, outline=OUTLINE)
+    if v == 0:
+        gable_ew(d, roof, SHINGLE[2], look)
+    else:
+        flat_roof(b.img, roof, look, random.Random(8200), [("vent", 6, 4)], parapet=STONE)
+    return b
+
+
+def hospital(look, v):
+    """A hospital on 3 by 3 tiles: a tall middle block and two wings, pale stone, a covered entrance and lawns."""
+    b = Building(3, 3, height=4 * STOREY + 6)
+    d = b.d
+    rng = random.Random(8300)
+    gx0, gy0 = b.ground(2, 2)
+    gx1, gy1 = b.ground(93, 93)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else c("#86a85e"))
+    # The drive to the door.
+    dx0, dy0 = b.ground(40, 74)
+    d.rectangle([dx0, dy0, dx0 + 15, gy1], c("#b8b2a6") if look != "snow" else c("#d6dde3"))
+    wall_col = c("#ddd5c2")
+    # The wings first, then the middle block in front of them.
+    for (x0_, x1_) in ((6, 30), (66, 90)):
+        roof, wall = b.box(x0_, 10, x1_, 70, 3 * STOREY)
+        d.rectangle(wall, wall_col)
+        windows(d, wall, 3, sill=TRIM, every=4)
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, roof, look, rng, [("vent", 6, 10), ("vent", 14, 40)], parapet=STONE)
+    roof, wall = b.box(28, 6, 68, 64, 4 * STOREY + 2)
+    d.rectangle(wall, shade(wall_col, 1.03))
+    x0, y0, x1, y1 = wall
+    windows(d, wall, 4, sill=TRIM, every=4, skip=[((x0 + x1) // 2 - 7, (x0 + x1) // 2 + 7)])
+    cx = (x0 + x1) // 2
+    # The covered entrance, and a blue sign over it.
+    d.rectangle([cx - 8, y1 - 7, cx + 8, y1 - 6], c("#5a6068"))
+    for k in (-7, 7):
+        d.line([cx + k, y1 - 5, cx + k, y1 + 3], c("#9a9aa0"))
+    d.rectangle([cx - 2, y1 - 5, cx + 2, y1], c("#3a4f6a"))
+    d.rectangle([cx - 4, y0 + 3, cx + 4, y0 + 7], CLINIC_BLUE)
+    d.line([cx, y0 + 4, cx, y0 + 6], c("#ffffff"))
+    d.line([cx - 1, y0 + 5, cx + 1, y0 + 5], c("#ffffff"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, rng, [("stack", 6, 4), ("tank", 26, 10), ("hatch", 12, 30)], parapet=STONE)
+    return b
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -1816,7 +1981,20 @@ BUILDINGS = [
     ("station_ew", station_ew, 4), ("station_ns", station_ns, 4), ("yard_ew", yard_ew, 4), ("yard_ns", yard_ns, 4),
     ("pumping_station", pumping_station, 1), ("well_field", well_field, 1), ("tower", water_tower, 1),
     ("sewer_outfall", sewer_outfall, 1), ("storm_pond", storm_pond, 1), ("storm_outfall", storm_outfall, 1),
+    ("school", school, 2), ("high_school", high_school, 2), ("clinic", clinic, 2), ("hospital", hospital, 1),
 ]
+
+
+def for_sale(look):
+    """A sign on a post at the front corner of a home's lot, for a home standing empty."""
+    b = Building(height=12)
+    d = b.d
+    x, y = b.ground(3, 30)
+    d.line([x, y, x, y - 10], c("#6b4a30"))
+    d.rectangle([x + 1, y - 10, x + 8, y - 5], c("#f2f2ea"), OUTLINE)
+    d.line([x + 3, y - 8, x + 6, y - 8], c("#c0392b"))
+    d.line([x + 3, y - 7, x + 5, y - 7], c("#c0392b"))
+    return b
 
 
 # ---- power lines ------------------------------------------------------------------
@@ -2030,6 +2208,8 @@ def sprites_for(look):
     for mask in range(16):
         img, lift, casters = power_line(look, mask)
         out.append((f"power_line_{mask}", img, lift, casters))
+    sign = for_sale(look)
+    out.append(("for_sale_0", sign.img, sign.lift, []))
     for i, (name, img, lift, casters) in enumerate(out):
         override = OVERRIDES / look / f"{name}.png"
         if override.exists():
@@ -2100,7 +2280,7 @@ def write_kotlin(names, flat, pos, size):
             lines.append("        " + ", ".join(str(v) for v in values[i:i + per_line]) + ",")
         return "\n".join(lines)
 
-    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line"]
+    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "for_sale"]
     # A sprite's name must start with exactly one group's, or the counts go wrong.
     for n in names:
         owners = [g for g in groups if n.startswith(g + "_")]

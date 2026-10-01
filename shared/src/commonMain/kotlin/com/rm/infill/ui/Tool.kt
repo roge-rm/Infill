@@ -8,6 +8,10 @@ import com.rm.infill.res.tool_services
 import com.rm.infill.res.police_station
 import com.rm.infill.res.fire_station
 import com.rm.infill.res.park
+import com.rm.infill.res.school
+import com.rm.infill.res.high_school
+import com.rm.infill.res.clinic
+import com.rm.infill.res.hospital
 import com.rm.infill.res.tool_road
 import com.rm.infill.res.tool_rail
 import com.rm.infill.res.tool_water
@@ -63,11 +67,18 @@ enum class Tool(val title: StringResource) {
 }
 
 /** What the services tool puts down. Parks are dragged out; stations go where the finger ends up. */
-enum class ServiceKind(val title: StringResource, val type: BuildingType) {
+enum class ServiceKind(val title: StringResource, val type: BuildingType, val year: Int = 1900) {
     Police(Res.string.police_station, BuildingType.POLICE_STATION),
     Fire(Res.string.fire_station, BuildingType.FIRE_STATION),
     Park(Res.string.park, BuildingType.PARK),
+    School(Res.string.school, BuildingType.SCHOOL),
+    HighSchool(Res.string.high_school, BuildingType.HIGH_SCHOOL, year = 1910),
+    Clinic(Res.string.clinic, BuildingType.CLINIC),
+    Hospital(Res.string.hospital, BuildingType.HOSPITAL),
 }
+
+/** The services that can be built in [year]. */
+fun servicesIn(year: Int): List<ServiceKind> = ServiceKind.entries.filter { it.year <= year }
 
 /** What the rail tool puts down. Track is dragged; stations and yards go where the finger ends up. */
 enum class RailKind(val title: StringResource) {

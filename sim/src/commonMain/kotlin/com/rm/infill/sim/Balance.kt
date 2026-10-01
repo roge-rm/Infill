@@ -236,6 +236,71 @@ object Balance {
     const val SEWER_APPEAL = 3
     const val BAD_WELL = 10
 
+    /**
+     * Schools: pupils a school and a high school take, fully funded, and how far
+     * children come to them. Children of high school age are a third of them.
+     */
+    const val SCHOOL_PLACES = 240
+    const val HIGH_SCHOOL_PLACES = 400
+    const val SCHOOL_REACH = 12
+    const val HIGH_SCHOOL_REACH = 18
+    const val TEENS = 3
+
+    /** Months for children's schooling to catch up with how many of them have a place: about three years. */
+    const val SCHOOLING_PACE = 36
+
+    /** Health care: people a clinic and a hospital look after, fully funded, and how far they come. */
+    const val CLINIC_CARES = 1_500
+    const val HOSPITAL_CARES = 12_000
+    const val CLINIC_REACH = 8
+    const val HOSPITAL_REACH = 22
+
+    /** Monthly upkeep of a school, high school, clinic and hospital, fully funded. */
+    const val SCHOOL_UPKEEP = 30.0
+    const val HIGH_SCHOOL_UPKEEP = 60.0
+    const val CLINIC_UPKEEP = 15.0
+    const val HOSPITAL_UPKEEP = 90.0
+
+    /**
+     * Health: where it settles, from a starting [HEALTH_BASE], and how fast it
+     * gets there, a [HEALTH_PACE]th of the gap a month. Care adds up to
+     * [CARE_HEALTH], mains water and the sewer [MAINS_HEALTH] each, wealth
+     * [WEALTH_HEALTH] a class, a park nearby [PARK_HEALTH]; pollution takes a
+     * point for every [POLLUTION_HEALTH], grime [GRIME_HEALTH] a step, a
+     * tenement's crowding [CROWDING_HEALTH], and a sickness [SICK_HEALTH] at once.
+     */
+    const val HEALTH_BASE = 50
+    const val HEALTH_PACE = 6
+    const val CARE_HEALTH = 25
+    const val MAINS_HEALTH = 6
+    const val WEALTH_HEALTH = 5
+    const val PARK_HEALTH = 4
+    const val POLLUTION_HEALTH = 5
+    const val GRIME_HEALTH = 4
+    const val CROWDING_HEALTH = 8
+    const val SICK_HEALTH = 20
+
+    /** Health below which people start to move away. */
+    const val UNHEALTHY = 40
+
+    /** Land value up to which homes are built poor, and from which they're built well off. */
+    const val POOR_BELOW = 70
+    const val WELL_OFF_FROM = 120
+
+    /** Share of a skill's jobs going unfilled from which businesses wanting it can't grow, in percent. */
+    const val SKILL_SHORT = 25
+
+    // An empty home's chance of selling each month, in percent: SALE_BASE with
+    // no one looking, SALE_PER_DEMAND more for every percent of the town that's
+    // looking for a home, between SALE_LEAST and SALE_MOST.
+    const val SALE_BASE = 12
+    const val SALE_PER_DEMAND = 6
+    const val SALE_LEAST = 3
+    const val SALE_MOST = 85
+
+    /** How much less an empty home holds on when the town has too many homes. */
+    const val EMPTY_SHRINK = 30
+
     /** How far a lot can be from a road and still grow, in tiles. */
     const val ROAD_REACH = 2
 

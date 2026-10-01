@@ -52,10 +52,22 @@ enum class BuildingType(
     /** Stormwater: a pond that holds it, and an outfall for the storm drains. */
     STORM_POND(Zone.NONE, 0, 0, width = 2, height = 2),
     STORM_OUTFALL(Zone.NONE, 0, 0),
+
+    /** Schooling and health: a school, a high school (from 1910), a doctor's clinic and a hospital. */
+    SCHOOL(Zone.NONE, 0, 8, width = 2, height = 2),
+    HIGH_SCHOOL(Zone.NONE, 0, 16, width = 3, height = 2),
+    CLINIC(Zone.NONE, 0, 4),
+    HOSPITAL(Zone.NONE, 0, 60, width = 3, height = 3),
     ;
 
     /** A building the city runs rather than one that grows on zoned land. */
-    val service get() = this == POLICE_STATION || this == FIRE_STATION || this == PARK
+    val service get() = this == POLICE_STATION || this == FIRE_STATION || this == PARK || school || health
+
+    /** Teaches children. */
+    val school get() = this == SCHOOL || this == HIGH_SCHOOL
+
+    /** Looks after people's health. */
+    val health get() = this == CLINIC || this == HOSPITAL
 
     /** Passengers board here. */
     val station get() = this == STATION || this == STATION_NS
@@ -89,6 +101,9 @@ enum class BuildingType(
 
 /** One building on the map. [x], [y] is its top left tile. [variant] picks how it looks. */
 class Building(val id: Int, var type: BuildingType, val x: Int, val y: Int, val variant: Int) {
+    /** The people living here, for a home. */
+    var people: Household? = null
+
     /** Days since it was built or last grew. */
     var age = 0
 

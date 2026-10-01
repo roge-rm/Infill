@@ -130,7 +130,9 @@ class RailTest {
         val with = town(yard = true)
         val yard = with.buildingAt(44, 21)!!
         assertTrue(with.freightSent(yard) > 0, "nothing went by train")
-        assertTrue(with.stats.industryJobs > without.stats.industryJobs, "${with.stats.industryJobs} vs ${without.stats.industryJobs}")
+        // The market, whether or not there are the hands to work it yet.
+        fun City.market() = stats.industryJobs + stats.industryDemand
+        assertTrue(with.market() > without.market(), "${with.market()} vs ${without.market()}")
     }
 
     @Test

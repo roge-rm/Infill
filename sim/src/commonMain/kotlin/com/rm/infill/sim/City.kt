@@ -47,6 +47,9 @@ class City(
     fun buildingAt(x: Int, y: Int): Building? = buildings[map.buildingAt(x, y)]
     val buildingCount get() = buildings.size
 
+    /** Every building with people living in it, or empty for sale. */
+    val homes get() = buildings.values.filter { it.people != null }
+
     /** Tax rates in percent. */
     var residentialTax = Balance.DEFAULT_TAX
     var commercialTax = Balance.DEFAULT_TAX
@@ -527,14 +530,17 @@ class City(
         val b = Building(nextId++, type, x, y, variant)
         buildings[b.id] = b
         stamp(b)
+        fitHousehold(b)
         return b
     }
 
     private fun removeBuilding(b: Building) {
+        b.people?.let { departures += it.size }
         buildings.remove(b.id)
         forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { i ->
             map.building[i] = 0
             map.buildingType[i] = 0
+            map.forSale[i] = false
             map.buildingVariant[i] = 0
             map.fire[i] = 0
         }
@@ -547,6 +553,15 @@ class City(
             map.buildingType[i] = (b.type.ordinal + 1).toByte()
             map.buildingVariant[i] = b.variant.toByte()
             map.fire[i] = min(b.burning, 127).toByte()
+            map.forSale[i] = b.people?.empty == true
+        }
+    }
+
+    /** Puts a home's for sale sign up or takes it down, and has the map drawn again there. */
+    private fun markForSale(b: Building) {
+        forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) {
+            map.forSale[it] = b.people?.empty == true
+            townChanges += it
         }
     }
 
@@ -557,6 +572,7 @@ class City(
             map.buildingType[i] = if (b == null) 0 else (b.type.ordinal + 1).toByte()
             map.buildingVariant[i] = if (b == null) 0 else b.variant.toByte()
             map.fire[i] = if (b == null) 0 else min(b.burning, 127).toByte()
+            map.forSale[i] = b?.people?.empty == true
         }
     }
 
@@ -607,10 +623,11 @@ class City(
         updatePollution()
         updateGrime()
         updateServices()
+        updatePeople()
         census()
         startTraffic()
         Effects.crime(
-            map, { i -> buildings[map.building[i]]?.let { if (it.type.zone == Zone.RESIDENTIAL) it.type.capacity else 0 } ?: 0 },
+            map, { i -> buildings[map.building[i]]?.people?.size ?: 0 },
             { i -> map.building[i] != 0 }, stats.unemployment, map.crime,
         )
         Effects.landValue(map, { i -> buildings[map.building[i]]?.type }, nearRoad, map.landValue)
@@ -734,8 +751,8 @@ class City(
             val c = b.type.capacity
             when (b.type.zone) {
                 Zone.RESIDENTIAL -> {
-                    workersAt[node] += (c * Balance.LABOUR_SHARE).toInt()
-                    shoppersAt[node] += c / Balance.RESIDENTS_PER_SHOPPER
+                    workersAt[node] += b.people?.workers() ?: 0
+                    shoppersAt[node] += (b.people?.size ?: 0) * Demography.SPENDING_BY_WEALTH[b.people?.wealth ?: Wealth.MIDDLE] / 100 / Balance.RESIDENTS_PER_SHOPPER
                 }
                 Zone.COMMERCIAL -> {
                     jobsAt[node] += c
@@ -1364,6 +1381,7 @@ class City(
             }
             if (chance > 0 && rng.nextInt(chance) == 0) {
                 if (sick < 0) sick = i
+                b.people?.let { it.health = max(5, it.health - Balance.SICK_HEALTH) }
                 shrink(b)
             }
         }
@@ -1498,6 +1516,310 @@ class City(
         for (b in out) if (rng.nextInt(3) == 0) shrink(b)
     }
 
+    // ---- people ------------------------------------------------------------------
+
+    /** How much of what schools and health care ask for they get, in percent. Less money, fewer places, less reach. */
+    var schoolFunding = 100
+    var healthFunding = 100
+
+    /** Last month's share of the jobs at each level of schooling left unfilled, in percent. */
+    private val skillShortage = IntArray(Education.LEVELS)
+
+    /** How far each class of home falls short of the share the town's jobs call for, in thousandths. */
+    private val wealthGap = IntArray(Wealth.LEVELS)
+
+    /** People who moved in and out this month so far. */
+    private var arrivals = 0
+    private var departures = 0
+
+    /** Whether the town is short of the people to staff a business of [type]: a level of schooling it leans on that's a quarter unfilled. */
+    private fun skillsShort(type: BuildingType): Boolean {
+        val skills = Demography.jobSkills(type)
+        for (k in 0 until Education.LEVELS) {
+            if (skills[k] >= 20 && skillShortage[k] >= Balance.SKILL_SHORT) return true
+        }
+        return false
+    }
+
+    /**
+     * The class a new home on lot [i] is built for: what its land allows (the
+     * poor can't afford dear land, the well off won't live on cheap), and of
+     * that, what the town's jobs call for most.
+     */
+    private fun chooseWealth(i: Int): Int {
+        val value = map.landValue[i].toInt() and 0xff
+        val allowed = when {
+            value < Balance.POOR_BELOW -> intArrayOf(Wealth.POOR, Wealth.MIDDLE)
+            value >= Balance.WELL_OFF_FROM -> intArrayOf(Wealth.MIDDLE, Wealth.WELL_OFF)
+            else -> intArrayOf(Wealth.POOR, Wealth.MIDDLE, Wealth.WELL_OFF)
+        }
+        var best = allowed[0]
+        for (w in allowed) if (wealthGap[w] > wealthGap[best]) best = w
+        return best
+    }
+
+    /** Fills a home with newcomers as it grows, or has some move out as it shrinks. Nothing for other buildings. */
+    private fun fitHousehold(b: Building) {
+        if (b.type.zone != Zone.RESIDENTIAL) {
+            b.people = null
+            return
+        }
+        val h = b.people ?: Household(0, 0, 0, chooseWealth(map.index(b.x, b.y))).also {
+            b.people = it
+            arrive(it, b.type.capacity)
+        }
+        // An empty home stays empty, whatever its size, until it sells.
+        if (h.empty) return
+        val gap = b.type.capacity - h.size
+        if (gap > 0) arrive(h, gap) else if (gap < 0) leave(h, -gap, youngFirst = false)
+    }
+
+    /**
+     * What's owed to each kind of newcomer, in ten-thousandths of a person:
+     * children, adults by schooling, the elderly. Carried from one home to the
+     * next so a town of small homes comes out in the right shares.
+     */
+    private val newcomerCarry = IntArray(2 + Education.LEVELS)
+
+    /** [count] newcomers, made up as the era's households are and schooled as the region is. */
+    private fun arrive(h: Household, count: Int) {
+        val ages = Demography.newcomerAges(year)
+        val schooling = Demography.newcomerSchooling(year)
+        val shares = IntArray(newcomerCarry.size) { k ->
+            when (k) {
+                0 -> ages[0] * 100
+                newcomerCarry.size - 1 -> ages[2] * 100
+                else -> ages[1] * schooling[k - 1]
+            }
+        }
+        repeat(count) {
+            var pick = 0
+            for (k in shares.indices) {
+                newcomerCarry[k] += shares[k]
+                if (newcomerCarry[k] > newcomerCarry[pick]) pick = k
+            }
+            newcomerCarry[pick] -= 10_000
+            when (pick) {
+                0 -> h.children++
+                newcomerCarry.size - 1 -> h.elderly++
+                else -> {
+                    h.adults++
+                    h.schooled[pick - 1]++
+                }
+            }
+        }
+        arrivals += count
+    }
+
+    /**
+     * [count] people move out: when a home's full, young adults moving on
+     * ([youngFirst]), else some of everyone, as when a building is cut down a size.
+     */
+    private fun leave(h: Household, count: Int, youngFirst: Boolean) {
+        var left = min(count, h.size)
+        departures += left
+        if (youngFirst) {
+            val adults = min(left, h.adults)
+            removeAdults(h, adults)
+            left -= adults
+            val kids = min(left, h.children)
+            h.children -= kids
+            left -= kids
+            h.elderly -= min(left, h.elderly)
+            return
+        }
+        val size = h.size
+        val kids = min(h.children, left * h.children / size)
+        val elders = min(h.elderly, left * h.elderly / size)
+        h.children -= kids
+        h.elderly -= elders
+        left -= kids + elders
+        val adults = min(left, h.adults)
+        removeAdults(h, adults)
+        left -= adults
+        val more = min(left, h.children)
+        h.children -= more
+        h.elderly -= min(left - more, h.elderly)
+    }
+
+    /** Takes [n] adults away, each from a level of schooling picked by chance in proportion to who's there. */
+    private fun removeAdults(h: Household, n: Int) {
+        repeat(min(n, h.adults)) {
+            var pick = rng.nextInt(h.adults)
+            var k = 0
+            while (pick >= h.schooled[k]) pick -= h.schooled[k++]
+            h.schooled[k]--
+            h.adults--
+        }
+    }
+
+    /**
+     * Empty homes for sale: quick to sell when many are looking for a home,
+     * slow when few are, and slower still when the town has more homes than
+     * people. New owners are whoever the street suits now.
+     */
+    internal fun sell(homes: List<Building>) {
+        val looking = stats.homeSeekers * 100 / max(100, stats.population)
+        val chance = (Balance.SALE_BASE + looking * Balance.SALE_PER_DEMAND).coerceIn(Balance.SALE_LEAST, Balance.SALE_MOST)
+        for (b in homes) {
+            val h = b.people!!
+            if (!h.empty) continue
+            if (rng.nextInt(100) >= chance) {
+                h.forSale++
+                continue
+            }
+            h.forSale = 0
+            h.wealth = chooseWealth(map.index(b.x, b.y))
+            h.health = 60
+            arrive(h, b.type.capacity)
+            markForSale(b)
+        }
+    }
+
+    /** [count] times [perThousand] thousandths, the part left over rounded up by chance. */
+    private fun flow(count: Int, perThousand: Int): Int {
+        val exact = count * perThousand
+        return exact / 1000 + if (exact % 1000 > 0 && rng.nextInt(1000) < exact % 1000) 1 else 0
+    }
+
+    /** A month's move of [value] towards [target]: a [pace]th of the way, at least a step. */
+    private fun towards(value: Int, target: Int, pace: Int): Int {
+        val step = (target - value) / pace
+        return value + if (step != 0) step else (target - value).coerceIn(-1, 1)
+    }
+
+    /**
+     * Places for [need] in each home at the buildings of [type], each taking
+     * [places] fully funded, within [reach] of it, nearest homes first. By home.
+     */
+    private fun allot(type: BuildingType, places: Int, reach: Int, funding: Int, homes: List<Building>, need: (Building) -> Int): HashMap<Int, Int> {
+        val got = HashMap<Int, Int>()
+        val r = reach(reach, funding)
+        for (place in buildings.values) {
+            if (place.type != type) continue
+            var room = places * funding / 100
+            val cx = place.x + place.type.width / 2
+            val cy = place.y + place.type.height / 2
+            val near = homes.filter { abs(it.x - cx) + abs(it.y - cy) <= r }
+                .sortedWith(compareBy<Building>({ abs(it.x - cx) + abs(it.y - cy) }, { it.id }))
+            for (b in near) {
+                if (room == 0) break
+                val want = need(b) - (got[b.id] ?: 0)
+                if (want <= 0) continue
+                val t = min(room, want)
+                got[b.id] = (got[b.id] ?: 0) + t
+                room -= t
+            }
+        }
+        return got
+    }
+
+    /**
+     * A month in every home: school and doctors for those with a place, health
+     * moving towards what the place gives it, children born and growing up,
+     * adults growing old, people dying, and the home kept full by the young
+     * moving on or newcomers moving in.
+     */
+    private fun updatePeople() {
+        val m = map
+        val s = stats
+        val homes = this.homes
+        var births = 0
+        var deaths = 0
+        var emptied = 0
+        val pupils = allot(BuildingType.SCHOOL, Balance.SCHOOL_PLACES, Balance.SCHOOL_REACH, schoolFunding, homes) { it.people!!.children }
+        val teens = allot(BuildingType.HIGH_SCHOOL, Balance.HIGH_SCHOOL_PLACES, Balance.HIGH_SCHOOL_REACH, schoolFunding, homes) { it.people!!.children / Balance.TEENS }
+        val clinic = allot(BuildingType.CLINIC, Balance.CLINIC_CARES, Balance.CLINIC_REACH, healthFunding, homes) { it.people!!.size }
+        val hospital = allot(BuildingType.HOSPITAL, Balance.HOSPITAL_CARES, Balance.HOSPITAL_REACH, healthFunding, homes) { it.people!!.size - (clinic[it.id] ?: 0) }
+        val parks = SummedArea(m.width, m.height) { if (m.buildingType[it].toInt() - 1 == BuildingType.PARK.ordinal) 1 else 0 }
+        s.pupils = pupils.values.sum()
+        s.highSchoolPupils = teens.values.sum()
+        s.cared = clinic.values.sum() + hospital.values.sum()
+        sell(homes)
+        for (b in homes) {
+            val h = b.people!!
+            if (h.empty) continue
+            val i = m.index(b.x, b.y)
+            // School: the share of the children with a place, which their schooling follows.
+            val kids = h.children
+            val atSchool = if (kids == 0) 0 else min(100, (pupils[b.id] ?: 0) * 100 / kids)
+            h.schooling = towards(h.schooling, atSchool, Balance.SCHOOLING_PACE)
+            val older = kids / Balance.TEENS
+            val atHighSchool = if (older == 0) 0 else min(100, (teens[b.id] ?: 0) * 100 / older)
+            h.highSchooling = towards(h.highSchooling, atHighSchool, Balance.SCHOOLING_PACE)
+
+            // Health, towards what the place gives it.
+            val careShare = if (h.size == 0) 0 else min(100, ((clinic[b.id] ?: 0) + (hospital[b.id] ?: 0)) * 100 / h.size)
+            var target = Balance.HEALTH_BASE + Balance.CARE_HEALTH * careShare / 100 + Balance.WEALTH_HEALTH * h.wealth
+            if (m.watered[i]) target += Balance.MAINS_HEALTH
+            if (m.sewered[i]) target += Balance.MAINS_HEALTH
+            if (parks.around(b.x, b.y, 4) > 0) target += Balance.PARK_HEALTH
+            target -= (m.pollution[i].toInt() and 0xff) / Balance.POLLUTION_HEALTH + m.grimeLevel(i) * Balance.GRIME_HEALTH
+            if (b.type == BuildingType.TENEMENT) target -= Balance.CROWDING_HEALTH
+            h.health = towards(h.health, target.coerceIn(5, 100), Balance.HEALTH_PACE)
+
+            // Born, growing up, growing old, dying.
+            val factor = Demography.healthFactor(h.health)
+            val born = flow(h.adults, Demography.births(year, h.wealth))
+            val grown = min(h.children, flow(h.children, Demography.GROWING_UP))
+            val childDied = min(h.children - grown, flow(h.children, Demography.childDeaths(year) * factor / 100))
+            val aged = min(h.adults, flow(h.adults, Demography.GROWING_OLD))
+            val adultDied = min(h.adults - aged, flow(h.adults, Demography.adultDeaths(year) * factor / 100))
+            val elderDied = min(h.elderly, flow(h.elderly, Demography.elderlyDeaths(year) * factor / 100))
+            removeAdults(h, aged + adultDied)
+            // Each child grown up has had the schooling the home's children get, as far as chance goes.
+            repeat(grown) {
+                val level = when {
+                    rng.nextInt(100) >= h.schooling -> Education.UNSCHOOLED
+                    rng.nextInt(100) >= h.highSchooling -> Education.SCHOOLED
+                    else -> Education.EDUCATED
+                }
+                h.schooled[level]++
+            }
+            h.adults += grown
+            h.children += born - grown - childDied
+            h.elderly += aged - elderDied
+            births += born
+            deaths += childDied + adultDied + elderDied
+
+            // With the last of the grown-ups gone the children go to family elsewhere, and the home's put up for sale.
+            if (h.adults + h.elderly == 0) {
+                departures += h.children
+                h.children = 0
+                h.schooled.fill(0)
+                h.schooling = 0
+                h.highSchooling = 0
+                emptied++
+                markForSale(b)
+                continue
+            }
+
+            // Kept full.
+            val gap = b.type.capacity - h.size
+            if (gap > 0) arrive(h, gap) else if (gap < 0) leave(h, -gap, youngFirst = true)
+        }
+        s.births = births
+        s.deaths = deaths
+        s.emptied = emptied
+        s.movedIn = arrivals
+        s.movedOut = departures
+        arrivals = 0
+        departures = 0
+        var places = 0
+        var highPlaces = 0
+        var carePlaces = 0
+        for (b in buildings.values) when (b.type) {
+            BuildingType.SCHOOL -> places += Balance.SCHOOL_PLACES * schoolFunding / 100
+            BuildingType.HIGH_SCHOOL -> highPlaces += Balance.HIGH_SCHOOL_PLACES * schoolFunding / 100
+            BuildingType.CLINIC -> carePlaces += Balance.CLINIC_CARES * healthFunding / 100
+            BuildingType.HOSPITAL -> carePlaces += Balance.HOSPITAL_CARES * healthFunding / 100
+            else -> {}
+        }
+        s.schoolPlaces = places
+        s.highSchoolPlaces = highPlaces
+        s.carePlaces = carePlaces
+    }
+
     // ---- growth --------------------------------------------------------------
 
     /** How much each zone may still grow (or has to shrink) this month, in residents or jobs. */
@@ -1533,8 +1855,12 @@ class City(
             val next = if (b == null) BuildingType.firstFor(zone) else b.type.next
             if (next == null) return@repeat
             if (b != null && b.age < Balance.SETTLE_DAYS) return@repeat
+            // No one to build on to an empty home.
+            if (b?.people?.empty == true) return@repeat
             if (next.needsPower && !map.powered[i]) return@repeat
             if ((next.needsWater && !map.watered[i]) || (next.needsSewer && !map.sewered[i])) return@repeat
+            // Businesses can't grow into what the town hasn't the people to staff.
+            if (zone != Zone.RESIDENTIAL && skillsShort(next)) return@repeat
             val pull = attraction(i, zone)
             if (pull < Balance.STAGE_ATTRACTION[zone - 1][next.stage]) return@repeat
             val score = pull + rng.nextInt(10) + if (b != null) 4 else 0
@@ -1558,6 +1884,7 @@ class City(
             b.type = next
             b.age = 0
             stamp(b)
+            fitHousehold(b)
         }
         townChanges += best
         return added
@@ -1572,7 +1899,8 @@ class City(
             if (lots.isEmpty()) return@repeat
             val i = lots[rng.nextInt(lots.size)]
             if (map.building[i] == 0) return@repeat
-            val score = attraction(i, zone)
+            val empty = buildings[map.building[i]]?.people?.empty == true
+            val score = attraction(i, zone) - if (empty) Balance.EMPTY_SHRINK else 0
             if (score < worstScore) {
                 worstScore = score
                 worst = i
@@ -1594,6 +1922,7 @@ class City(
             b.type = previous
             b.age = 0
             stamp(b)
+            fitHousehold(b)
         }
         townChanges += map.index(b.x, b.y)
         return removed
@@ -1645,12 +1974,20 @@ class City(
                 // Mains water and the sewer are wanted; a well in grimy ground is not.
                 if (m.watered[i]) score += Balance.MAINS_APPEAL else if (m.grimeLevel(i) >= 2) score -= Balance.BAD_WELL
                 if (m.sewered[i]) score += Balance.SEWER_APPEAL
+                // The well off ask more of a place; the poor put up with more.
+                val home = buildings[m.building[i]]?.people
+                when (home?.wealth ?: chooseWealth(i)) {
+                    Wealth.WELL_OFF -> score += value / 6 - pollution / 4 - crime / 6
+                    Wealth.POOR -> score += pollution / 6
+                }
+                // People leave unhealthy homes.
+                if (home != null && !home.empty && home.health < Balance.UNHEALTHY) score -= (Balance.UNHEALTHY - home.health) / 2
             }
             Zone.COMMERCIAL -> {
                 var people = 0
                 around(x, y, 6) { j, _ ->
                     val b = buildings[m.building[j]]
-                    if (b != null && b.type.zone == Zone.RESIDENTIAL) people += b.type.capacity
+                    people += b?.people?.size ?: 0
                 }
                 score += 28 + value / 4 + min(people / 8, 30) - crime / 6 - pollution / 5
                 // Passing trade.
@@ -1725,26 +2062,76 @@ class City(
         }
     }
 
+    /**
+     * The town's people and jobs: who lives here by age, schooling and wealth,
+     * the jobs by the schooling they want, and workers matched to them
+     * town-wide, the best schooled to the jobs that need them most and the
+     * rest down from there.
+     */
     private fun census() {
+        val s = stats
         var residents = 0
         var shopJobs = 0
         var industryJobs = 0
         var otherJobs = 0
+        var health = 0L
+        var spending = 0L
+        s.children = 0; s.adults = 0; s.elderly = 0; s.workers = 0; s.emptyHomes = 0; s.emptyRoom = 0
+        s.workersBy.fill(0); s.byWealth.fill(0)
+        val jobsBy = LongArray(Education.LEVELS)
         for (b in buildings.values) {
+            val c = b.type.capacity
             when (b.type.zone) {
-                Zone.RESIDENTIAL -> residents += b.type.capacity
-                Zone.COMMERCIAL -> shopJobs += b.type.capacity
-                Zone.INDUSTRIAL -> industryJobs += b.type.capacity
-                else -> otherJobs += b.type.capacity
+                Zone.RESIDENTIAL -> residents += b.people?.size ?: 0
+                Zone.COMMERCIAL -> shopJobs += c
+                Zone.INDUSTRIAL -> industryJobs += c
+                else -> otherJobs += c
+            }
+            val h = b.people
+            if (h != null) {
+                if (h.empty) {
+                    s.emptyHomes++
+                    s.emptyRoom += c
+                }
+                s.children += h.children; s.adults += h.adults; s.elderly += h.elderly
+                s.workers += h.workers()
+                for (k in 0 until Education.LEVELS) s.workersBy[k] += h.workersAt(k)
+                s.byWealth[h.wealth] += h.size
+                health += h.health.toLong() * h.size
+                spending += h.size.toLong() * Demography.SPENDING_BY_WEALTH[h.wealth] / 100
+            } else if (c > 0) {
+                val skills = Demography.jobSkills(b.type)
+                for (k in 0 until Education.LEVELS) jobsBy[k] += c.toLong() * skills[k]
             }
         }
-        stats.population = residents
-        stats.shopJobs = shopJobs
-        stats.industryJobs = industryJobs
-        stats.otherJobs = otherJobs
-        stats.workers = (residents * Balance.LABOUR_SHARE).toInt()
-        val jobs = shopJobs + industryJobs + otherJobs
-        stats.unemployment = if (stats.workers == 0) 0 else max(0, (stats.workers - jobs) * 100 / stats.workers)
+        s.population = residents
+        s.shopJobs = shopJobs
+        s.industryJobs = industryJobs
+        s.otherJobs = otherJobs
+        s.health = if (residents == 0) 0 else (health / residents).toInt()
+        s.spending = spending.toInt()
+        for (k in 0 until Education.LEVELS) s.jobsBy[k] = (jobsBy[k] / 100).toInt()
+
+        // Each level of job filled first by workers at that level, then by better schooled ones with nothing better.
+        val free = s.workersBy.copyOf()
+        s.filledBy.fill(0)
+        for (job in Education.LEVELS - 1 downTo 0) {
+            for (worker in job until Education.LEVELS) {
+                val take = min(s.jobsBy[job] - s.filledBy[job], free[worker])
+                s.filledBy[job] += take
+                free[worker] -= take
+            }
+        }
+        val idle = free.sum()
+        s.unemployment = if (s.workers == 0) 0 else idle * 100 / s.workers
+        for (k in 0 until Education.LEVELS) {
+            skillShortage[k] = if (s.jobsBy[k] == 0) 0 else (s.jobsBy[k] - s.filledBy[k]) * 100 / s.jobsBy[k]
+        }
+
+        // The homes the jobs call for: well off for educated work, middling for schooled, poor for the rest.
+        val filled = s.filledBy.sum()
+        val want = if (filled == 0) intArrayOf(500, 400, 100) else IntArray(Wealth.LEVELS) { s.filledBy[it] * 1000 / filled }
+        for (w in 0 until Wealth.LEVELS) wealthGap[w] = want[w] - (if (residents == 0) 0 else s.byWealth[w] * 1000 / residents)
     }
 
     /**
@@ -1760,9 +2147,15 @@ class City(
             (if (railFreight) Balance.RAIL_EXPORTS else 1.0)
         val jobs = s.shopJobs + s.industryJobs + s.otherJobs
         s.industryDemand = taxed(market - s.industryJobs, industrialTax)
-        s.commercialDemand = taxed(s.population / Balance.RESIDENTS_PER_SHOP_JOB - s.shopJobs, commercialTax)
+        // The shops answer what people spend, more the better off they are.
+        s.commercialDemand = taxed(s.spending / Balance.RESIDENTS_PER_SHOP_JOB - s.shopJobs, commercialTax)
         val settlers = (Balance.SETTLERS + Balance.SETTLERS_PER_RESIDENT * s.population) * (if (railPassengers) Balance.RAIL_SETTLERS else 1.0)
-        s.residentialDemand = taxed(jobs / Balance.LABOUR_SHARE + settlers - s.population, residentialTax)
+        // Homes for the people the jobs need, children and the elderly with them.
+        val workersPerResident = if (s.population == 0) Balance.LABOUR_SHARE else (s.workers.toDouble() / s.population).coerceIn(0.25, 0.6)
+        val seekers = jobs / workersPerResident + settlers - s.population
+        s.homeSeekers = taxed(seekers, residentialTax)
+        // The empty homes take what they can of it before anyone builds.
+        s.residentialDemand = taxed(seekers - s.emptyRoom, residentialTax)
         quota[Zone.RESIDENTIAL.toInt()] = cap(s.residentialDemand, s.population)
         quota[Zone.COMMERCIAL.toInt()] = cap(s.commercialDemand, s.shopJobs)
         quota[Zone.INDUSTRIAL.toInt()] = cap(s.industryDemand, s.industryJobs)
@@ -1796,8 +2189,17 @@ class City(
         var stations = 0
         var yards = 0
         var waterworks = 0.0
+        var schools = 0.0
+        var care = 0.0
         val days = daysIn(if (month == 0) 11 else month - 1, year).toDouble()
         for (b in buildings.values) {
+            when (b.type) {
+                BuildingType.SCHOOL -> schools += Balance.SCHOOL_UPKEEP
+                BuildingType.HIGH_SCHOOL -> schools += Balance.HIGH_SCHOOL_UPKEEP
+                BuildingType.CLINIC -> care += Balance.CLINIC_UPKEEP
+                BuildingType.HOSPITAL -> care += Balance.HOSPITAL_UPKEEP
+                else -> {}
+            }
             waterworks += when (b.type) {
                 BuildingType.PUMPING_STATION -> Balance.PUMP_UPKEEP
                 BuildingType.WELL_FIELD -> Balance.WELL_UPKEEP
@@ -1812,7 +2214,7 @@ class City(
             b.closedDays = 0
             val worth = (0.5 + (map.landValue[map.index(b.x, b.y)].toInt() and 0xff) / 200.0) * open
             when {
-                b.type.zone == Zone.RESIDENTIAL -> homes += b.type.capacity * worth
+                b.type.zone == Zone.RESIDENTIAL -> homes += b.type.capacity * worth * Demography.TAX_BY_WEALTH[b.people?.wealth ?: Wealth.MIDDLE] / 100.0
                 b.type.zone == Zone.COMMERCIAL -> shops += b.type.capacity * worth
                 b.type.zone == Zone.INDUSTRIAL -> works += b.type.capacity * worth
                 b.type == BuildingType.POLICE_STATION -> police++
@@ -1847,7 +2249,9 @@ class City(
         s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome
         s.floodCost = floodBill
         floodBill = 0
-        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost
+        s.schoolUpkeep = (schools * schoolFunding / 100).roundToLong()
+        s.healthUpkeep = (care * healthFunding / 100).roundToLong()
+        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep
         funds += s.income - s.upkeep
     }
 
@@ -1940,6 +2344,16 @@ class City(
         w.long(stats.waterUpkeep)
         w.count(sewage.size)
         for ((at, people) in sewage.entries.sortedBy { it.key }) { w.int(at); w.int(people) }
+        // Since version 5.
+        w.int(schoolFunding); w.int(healthFunding)
+        for (v in skillShortage) w.int(v)
+        for (v in wealthGap) w.int(v)
+        w.int(arrivals); w.int(departures)
+        for (v in newcomerCarry) w.int(v)
+        w.count(homes.size)
+        for (b in homes) { w.int(b.id); b.people!!.writeTo(w) }
+        for (v in s.peopleNumbers()) w.int(v)
+        w.long(s.schoolUpkeep); w.long(s.healthUpkeep)
     }
 
     companion object {
@@ -2018,6 +2432,25 @@ class City(
                 s.waterUpkeep = r.long()
                 repeat(r.count()) { c.sewage[r.int()] = r.int() }
             }
+            if (version >= 5) {
+                c.schoolFunding = r.int(); c.healthFunding = r.int()
+                for (k in c.skillShortage.indices) c.skillShortage[k] = r.int()
+                for (k in c.wealthGap.indices) c.wealthGap[k] = r.int()
+                c.arrivals = r.int(); c.departures = r.int()
+                for (k in c.newcomerCarry.indices) c.newcomerCarry[k] = r.int()
+                repeat(r.count()) {
+                    val b = c.buildings[r.int()] ?: throw SaveError("people in a home that isn't there")
+                    b.people = Household.readFrom(r)
+                    c.stamp(b)
+                }
+                s.readPeopleNumbers(r)
+                s.schoolUpkeep = r.long(); s.healthUpkeep = r.long()
+            } else {
+                // Older towns had no people as such, only room for them: each home is filled as newcomers would fill it.
+                for (b in c.buildings.values.sortedBy { it.id }) c.fitHousehold(b)
+                c.arrivals = 0
+                c.census()
+            }
             // Worked out now rather than on the first day, so a city loaded paused shows its power and water.
             c.updateNetworks()
             return c
@@ -2051,6 +2484,59 @@ class City(
 /** The town's numbers as of the start of the month. Demand is in residents or jobs, negative when there's too much. */
 class Stats {
     var population = 0
+
+    /** The people by age, adults' schooling and wealth. */
+    var children = 0
+    var adults = 0
+    var elderly = 0
+    val byWealth = IntArray(Wealth.LEVELS)
+
+    /** Workers, jobs and jobs filled at each level of schooling. */
+    val workersBy = IntArray(Education.LEVELS)
+    val jobsBy = IntArray(Education.LEVELS)
+    val filledBy = IntArray(Education.LEVELS)
+
+    /** Average health, 0 to 100, and what the town spends in the shops, in middling residents. */
+    var health = 0
+    var spending = 0
+
+    /** Last month: born, died, moved in and out, and homes left empty by the last of their people dying. */
+    var births = 0
+    var deaths = 0
+    var movedIn = 0
+    var movedOut = 0
+    var emptied = 0
+
+    /** Homes standing empty for sale, and the people they'd hold. */
+    var emptyHomes = 0
+    var emptyRoom = 0
+
+    /** Places at school, high school and with a doctor, and how many have one. */
+    var schoolPlaces = 0
+    var pupils = 0
+    var highSchoolPlaces = 0
+    var highSchoolPupils = 0
+    var carePlaces = 0
+    var cared = 0
+
+    /** People looking for a home, in residents, before the empty homes take any. */
+    var homeSeekers = 0
+
+    internal fun peopleNumbers(): IntArray = intArrayOf(
+        children, adults, elderly, *byWealth, *workersBy, *jobsBy, *filledBy, health, spending,
+        births, deaths, movedIn, movedOut, emptied, emptyHomes, emptyRoom,
+        schoolPlaces, pupils, highSchoolPlaces, highSchoolPupils, carePlaces, cared, homeSeekers,
+    )
+
+    internal fun readPeopleNumbers(r: SaveReader) {
+        children = r.int(); adults = r.int(); elderly = r.int()
+        for (a in arrayOf(byWealth, workersBy, jobsBy, filledBy)) for (k in a.indices) a[k] = r.int()
+        health = r.int(); spending = r.int()
+        births = r.int(); deaths = r.int(); movedIn = r.int(); movedOut = r.int(); emptied = r.int(); emptyHomes = r.int(); emptyRoom = r.int()
+        schoolPlaces = r.int(); pupils = r.int(); highSchoolPlaces = r.int(); highSchoolPupils = r.int(); carePlaces = r.int(); cared = r.int()
+        homeSeekers = r.int()
+    }
+
     var workers = 0
     var shopJobs = 0
     var industryJobs = 0
@@ -2084,6 +2570,8 @@ class Stats {
     var policeUpkeep = 0L
     var fireUpkeep = 0L
     var parkUpkeep = 0L
+    var schoolUpkeep = 0L
+    var healthUpkeep = 0L
     var upkeep = 0L
 
     /** Averages: crime and pollution where there are buildings, land value over all the land. 0 to 255. */

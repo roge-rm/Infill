@@ -83,6 +83,8 @@ import com.rm.infill.ui.roadName
 import com.rm.infill.ui.roadsIn
 import com.rm.infill.sim.RoadType
 import com.rm.infill.ui.ServiceKind
+import com.rm.infill.ui.servicesIn
+import com.rm.infill.ui.PeopleWindow
 import com.rm.infill.ui.BudgetWindow
 import com.rm.infill.ui.GraphsWindow
 import com.rm.infill.ui.buildingName
@@ -282,6 +284,7 @@ private fun GameScreen(
         var stripSize by remember { mutableStateOf(IntSize.Zero) }
         var budgetOpen by remember { mutableStateOf(false) }
         var graphsOpen by remember { mutableStateOf(false) }
+        var peopleOpen by remember { mutableStateOf(false) }
         var paused by remember { mutableStateOf(true) }
         val keys = remember { KeyInput() }
         keys.bindings = settings.keys
@@ -385,7 +388,10 @@ private fun GameScreen(
             if (t == Tool.Rail && tool == Tool.Rail) railKind = RailKind.entries[(railKind.ordinal + 1) % RailKind.entries.size]
             if (t == Tool.Water && tool == Tool.Water) waterKind = WaterKind.entries[(waterKind.ordinal + 1) % WaterKind.entries.size]
             if (t == Tool.Power && tool == Tool.Power) powerKind = PowerKind.entries[(powerKind.ordinal + 1) % PowerKind.entries.size]
-            if (t == Tool.Services && tool == Tool.Services) serviceKind = ServiceKind.entries[(serviceKind.ordinal + 1) % ServiceKind.entries.size]
+            if (t == Tool.Services && tool == Tool.Services) {
+                val services = servicesIn(city.year)
+                serviceKind = services[(services.indexOf(serviceKind) + 1) % services.size]
+            }
             tool = t
             drag = null
             if (t != Tool.Inspect) inspected = null
@@ -416,7 +422,7 @@ private fun GameScreen(
         // Esc and the back button: let go of a drag, close what's open, put the tool down, then the menu.
         fun back() {
             when {
-                budgetOpen || graphsOpen -> { budgetOpen = false; graphsOpen = false }
+                budgetOpen || graphsOpen || peopleOpen -> { budgetOpen = false; graphsOpen = false; peopleOpen = false }
                 drag != null -> drag = null
                 choosingOverlay -> choosingOverlay = false
                 inspected != null -> inspected = null
@@ -484,6 +490,7 @@ private fun GameScreen(
                             KeyAction.ToolServices -> pick(Tool.Services)
                             KeyAction.Budget -> budgetOpen = !budgetOpen
                             KeyAction.Graphs -> graphsOpen = !graphsOpen
+                            KeyAction.People -> peopleOpen = !peopleOpen
                             KeyAction.NextOverlay -> overlay = Overlay.entries[(overlay.ordinal + 1) % Overlay.entries.size]
                             KeyAction.Speed1 -> { speed = 0; paused = false }
                             KeyAction.Speed2 -> { speed = 1; paused = false }
@@ -521,7 +528,7 @@ private fun GameScreen(
             StatusStrip(
                 game, onMenu, paused, { paused = !paused }, speed, { speed = (speed + 1) % SPEEDS.size },
                 overlay != Overlay.None || choosingOverlay, { choosingOverlay = !choosingOverlay },
-                { budgetOpen = true }, { graphsOpen = true },
+                { budgetOpen = true }, { peopleOpen = true },
                 Sky.sun(sunStep, month).strength == 0f, layout.compact || layout.narrow,
                 twoLines = twoLines, onUndo = ::undo, onRedo = ::redo,
                 Modifier
@@ -583,7 +590,7 @@ private fun GameScreen(
                     OptionPicker(PowerKind.entries, powerKind, { it.title }, { null }, { powerKind = it }, compactTools)
                 }
                 if (tool == Tool.Services) {
-                    OptionPicker(ServiceKind.entries, serviceKind, { it.title }, { null }, { serviceKind = it }, compactTools)
+                    OptionPicker(servicesIn(city.year), serviceKind, { it.title }, { null }, { serviceKind = it }, compactTools)
                 }
                 // The map views stay up while one is showing, so its name is on screen.
                 if (choosingOverlay || overlay != Overlay.None) {
@@ -615,6 +622,7 @@ private fun GameScreen(
             }
             if (budgetOpen) BudgetWindow(game) { budgetOpen = false }
             if (graphsOpen) GraphsWindow(game) { graphsOpen = false }
+            if (peopleOpen) PeopleWindow(game, { peopleOpen = false; graphsOpen = true }) { peopleOpen = false }
         }
     }
 }

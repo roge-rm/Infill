@@ -307,6 +307,7 @@ private val ACTION_NAMES: Map<KeyAction, StringResource> = mapOf(
     KeyAction.Pause to Res.string.pause,
     KeyAction.Budget to Res.string.budget,
     KeyAction.Graphs to Res.string.graphs,
+    KeyAction.People to Res.string.people,
     KeyAction.NextOverlay to Res.string.overlay,
     KeyAction.Back to Res.string.key_back,
 )
