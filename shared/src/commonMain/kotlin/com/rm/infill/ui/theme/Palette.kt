@@ -20,6 +20,10 @@ data class InfillColors(
     val textDim: Color,
     val accent: Color,
     val onAccent: Color,
+    /** How a figure is doing: well, so-so, badly. */
+    val good: Color,
+    val warn: Color,
+    val bad: Color,
     val isLight: Boolean,
 )
 
@@ -32,6 +36,9 @@ val DarkColors = InfillColors(
     textDim = Color(0xFF9AA0A6),
     accent = Color(0xFFF0B429),
     onAccent = Color(0xFF1C1F24),
+    good = Color(0xFF4CB86A),
+    warn = Color(0xFFE8A33A),
+    bad = Color(0xFFE05A4E),
     isLight = false,
 )
 
@@ -44,6 +51,9 @@ val LightColors = InfillColors(
     textDim = Color(0xFF636A72),
     accent = Color(0xFFE0A100),
     onAccent = Color(0xFF1C1F24),
+    good = Color(0xFF2E9A50),
+    warn = Color(0xFFC77D12),
+    bad = Color(0xFFC8402F),
     isLight = true,
 )
 

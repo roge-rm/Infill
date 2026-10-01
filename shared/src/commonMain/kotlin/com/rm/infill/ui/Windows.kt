@@ -1,5 +1,11 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.*
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.style.TextOverflow
+
 import com.rm.infill.sim.Density
 import org.jetbrains.compose.resources.pluralStringResource
 import com.rm.infill.sim.Action
@@ -207,10 +213,16 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * A window over the map: the map dims behind it and a tap outside closes it.
- * It keeps clear of the camera cutout and scrolls if the screen is short.
+ * Its title has a drawing and a close button. It keeps clear of the camera
+ * cutout and scrolls if the screen is short.
  */
 @Composable
-fun Window(title: StringResource, onClose: () -> Unit, content: @Composable () -> Unit) {
+fun Window(title: StringResource, onClose: () -> Unit, glyph: Glyph? = null, content: @Composable () -> Unit) {
+    WindowFrame(stringResource(title), onClose, glyph, content)
+}
+
+@Composable
+fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, content: @Composable () -> Unit) {
     val c = Infill.colors
     Box(
         Modifier
@@ -223,111 +235,148 @@ fun Window(title: StringResource, onClose: () -> Unit, content: @Composable () -
     ) {
         ChromeBox(
             Modifier
-                .widthIn(max = 460.dp)
+                .widthIn(max = 480.dp)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
         ) {
-            Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
-                Text(stringResource(title), color = c.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                Box(Modifier.padding(vertical = 10.dp)) { content() }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    Text(
-                        stringResource(Res.string.done),
-                        color = c.onAccent,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(c.accent)
-                            .clickable(role = Role.Button, onClick = onClose)
-                            .padding(horizontal = 18.dp, vertical = 8.dp),
-                    )
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    glyph?.let {
+                        Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(c.accent), contentAlignment = Alignment.Center) {
+                            GlyphIcon(it, c.onAccent, Modifier.size(20.dp))
+                        }
+                    }
+                    Text(title, color = c.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    CloseButton(onClose)
                 }
+                Column(Modifier.padding(top = 14.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(18.dp)) { content() }
             }
         }
     }
 }
 
-/** Taxes, what each service gets, and last month's money in and out. */
+/** Taxes, what each service gets, last month's money in and out, and the power and garbage. */
 @Composable
 fun BudgetWindow(game: GameState, onClose: () -> Unit) {
     val c = Infill.colors
     game.revision
     val city = game.city
     val s = city.stats
-    Window(Res.string.budget, onClose) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Heading(Res.string.taxes)
-            Stepper(Res.string.tax_residential, city.residentialTax, 1) { game.setTaxes(r = (city.residentialTax + it).coerceIn(0, 20)) }
-            Stepper(Res.string.tax_commercial, city.commercialTax, 1) { game.setTaxes(c = (city.commercialTax + it).coerceIn(0, 20)) }
-            Stepper(Res.string.tax_industrial, city.industrialTax, 1) { game.setTaxes(i = (city.industrialTax + it).coerceIn(0, 20)) }
-            Heading(Res.string.funding)
-            Stepper(Res.string.police_station, city.policeFunding, 10) { game.setFunding(police = (city.policeFunding + it).coerceIn(0, 100)) }
-            Stepper(Res.string.fire_station, city.fireFunding, 10) { game.setFunding(fire = (city.fireFunding + it).coerceIn(0, 100)) }
-            Stepper(Res.string.park, city.parkFunding, 10) { game.setFunding(parks = (city.parkFunding + it).coerceIn(0, 100)) }
-            Stepper(Res.string.upkeep_schools, city.schoolFunding, 10) { game.setFunding(schools = (city.schoolFunding + it).coerceIn(0, 100)) }
-            Stepper(Res.string.upkeep_health, city.healthFunding, 10) { game.setFunding(health = (city.healthFunding + it).coerceIn(0, 100)) }
-            Stepper(Res.string.emergency_repairs, city.reliefFunding, 25) { game.setFunding(relief = (city.reliefFunding + it).coerceIn(50, 200)) }
-            Heading(Res.string.power)
-            @Composable
-            fun mw(kw: Long) = stringResource(Res.string.megawatts, groupThousands((kw + 500) / 1000))
-            CountLine(Res.string.power_capacity, mw(s.powerCapacity))
-            CountLine(Res.string.power_peak, mw(s.powerDemand))
-            if (s.powerShort > 0) CountLine(Res.string.power_short, mw(s.powerShort))
-            Heading(Res.string.garbage)
-            CountLine(Res.string.garbage_taken, stringResource(Res.string.percent, s.wasteCollected))
-            if (s.dumpRoom > 0) CountLine(Res.string.dump_room, stringResource(Res.string.tonnes, groupThousands(s.dumpRoom.toLong())))
-            if (s.smog > 0) CountLine(Res.string.smog, stringResource(Res.string.percent, s.smog * 100 / 255))
-            // What the town's goods fetched outside, and what it had to bring in.
-            if (s.exportValue > 0 || s.importValue > 0) {
-                Heading(Res.string.trade)
-                // What the town's businesses trade, not the town's own money.
-                CountLine(Res.string.trade_out, moneyText(s.exportValue))
-                CountLine(Res.string.trade_in, moneyText(s.importValue))
+    Window(Res.string.budget, onClose, Glyph.Coins) {
+        Section(stringResource(Res.string.taxes), Glyph.Coin) {
+            Stepper(ZoneMark(com.rm.infill.sim.Zone.RESIDENTIAL), stringResource(Res.string.tax_residential), city.residentialTax, 1) { game.setTaxes(r = (city.residentialTax + it).coerceIn(0, 20)) }
+            Stepper(ZoneMark(com.rm.infill.sim.Zone.COMMERCIAL), stringResource(Res.string.tax_commercial), city.commercialTax, 1) { game.setTaxes(c = (city.commercialTax + it).coerceIn(0, 20)) }
+            Stepper(ZoneMark(com.rm.infill.sim.Zone.INDUSTRIAL), stringResource(Res.string.tax_industrial), city.industrialTax, 1) { game.setTaxes(i = (city.industrialTax + it).coerceIn(0, 20)) }
+        }
+        Section(stringResource(Res.string.funding), Glyph.Civic) {
+            Stepper(GlyphMark(Glyph.Star), stringResource(Res.string.police_station), city.policeFunding, 10) { game.setFunding(police = (city.policeFunding + it).coerceIn(0, 100)) }
+            Stepper(GlyphMark(Glyph.Flame), stringResource(Res.string.fire_station), city.fireFunding, 10) { game.setFunding(fire = (city.fireFunding + it).coerceIn(0, 100)) }
+            Stepper(GlyphMark(Glyph.Tree), stringResource(Res.string.park), city.parkFunding, 10) { game.setFunding(parks = (city.parkFunding + it).coerceIn(0, 100)) }
+            Stepper(GlyphMark(Glyph.Cap), stringResource(Res.string.upkeep_schools), city.schoolFunding, 10) { game.setFunding(schools = (city.schoolFunding + it).coerceIn(0, 100)) }
+            Stepper(GlyphMark(Glyph.Cross), stringResource(Res.string.upkeep_health), city.healthFunding, 10) { game.setFunding(health = (city.healthFunding + it).coerceIn(0, 100)) }
+            Stepper(GlyphMark(Glyph.Wrench), stringResource(Res.string.emergency_repairs), city.reliefFunding, 25) { game.setFunding(relief = (city.reliefFunding + it).coerceIn(50, 200)) }
+        }
+        Section(stringResource(Res.string.last_month), Glyph.Calendar) {
+            val income = listOfNotNull(
+                Triple(Glyph.Person, Res.string.tax_residential, s.residentialIncome),
+                Triple(Glyph.Crate, Res.string.tax_commercial, s.commercialIncome),
+                Triple(Glyph.Building, Res.string.tax_industrial, s.industrialIncome),
+                if (s.officeIncome > 0) Triple(Glyph.Briefcase, Res.string.income_offices, s.officeIncome) else null,
+                if (s.fareIncome > 0) Triple(Glyph.Bus, Res.string.income_fares, s.fareIncome) else null,
+            )
+            val upkeep = listOfNotNull(
+                Triple(Glyph.Road, Res.string.upkeep_roads, s.roadUpkeep),
+                if (s.railUpkeep > 0) Triple(Glyph.Rail, Res.string.upkeep_rail, s.railUpkeep) else null,
+                if (s.waterUpkeep > 0) Triple(Glyph.Drop, Res.string.upkeep_water, s.waterUpkeep) else null,
+                if (s.floodCost > 0) Triple(Glyph.Rain, Res.string.upkeep_flood, s.floodCost) else null,
+                Triple(Glyph.Bolt, Res.string.upkeep_power, s.powerUpkeep),
+                Triple(Glyph.Star, Res.string.police_station, s.policeUpkeep),
+                Triple(Glyph.Flame, Res.string.fire_station, s.fireUpkeep),
+                Triple(Glyph.Tree, Res.string.park, s.parkUpkeep),
+                if (s.schoolUpkeep > 0) Triple(Glyph.Cap, Res.string.upkeep_schools, s.schoolUpkeep) else null,
+                if (s.healthUpkeep > 0) Triple(Glyph.Cross, Res.string.upkeep_health, s.healthUpkeep) else null,
+                if (s.repairCost > 0) Triple(Glyph.Wrench, Res.string.upkeep_repairs, s.repairCost) else null,
+                if (s.transitUpkeep > 0) Triple(Glyph.Tram, Res.string.upkeep_transit, s.transitUpkeep) else null,
+                if (s.environmentUpkeep > 0) Triple(Glyph.Bin, Res.string.upkeep_garbage, s.environmentUpkeep) else null,
+                if (s.disasterCost > 0) Triple(Glyph.Warn, Res.string.upkeep_disasters, s.disasterCost) else null,
+            )
+            // Every bar against the biggest, in or out.
+            val most = maxOf(1L, (income + upkeep).maxOf { it.third })
+            for ((g, label, amount) in income) MoneyBar(g, stringResource(label), amount, most, c.good)
+            Divider()
+            for ((g, label, amount) in upkeep) MoneyBar(g, stringResource(label), -amount, most, c.bad)
+            Divider()
+            val net = s.income - s.upkeep
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(Res.string.net), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(moneyText(net), color = if (net < 0) c.bad else c.good, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
-            Heading(Res.string.last_month)
-            MoneyLine(Res.string.tax_residential, s.residentialIncome)
-            MoneyLine(Res.string.tax_commercial, s.commercialIncome)
-            MoneyLine(Res.string.tax_industrial, s.industrialIncome)
-            if (s.officeIncome > 0) MoneyLine(Res.string.income_offices, s.officeIncome)
-            if (s.fareIncome > 0) MoneyLine(Res.string.income_fares, s.fareIncome)
-            MoneyLine(Res.string.upkeep_roads, -s.roadUpkeep)
-            if (s.railUpkeep > 0) MoneyLine(Res.string.upkeep_rail, -s.railUpkeep)
-            if (s.waterUpkeep > 0) MoneyLine(Res.string.upkeep_water, -s.waterUpkeep)
-            if (s.floodCost > 0) MoneyLine(Res.string.upkeep_flood, -s.floodCost)
-            MoneyLine(Res.string.upkeep_power, -s.powerUpkeep)
-            MoneyLine(Res.string.police_station, -s.policeUpkeep)
-            MoneyLine(Res.string.fire_station, -s.fireUpkeep)
-            MoneyLine(Res.string.park, -s.parkUpkeep)
-            if (s.schoolUpkeep > 0) MoneyLine(Res.string.upkeep_schools, -s.schoolUpkeep)
-            if (s.healthUpkeep > 0) MoneyLine(Res.string.upkeep_health, -s.healthUpkeep)
-            if (s.repairCost > 0) MoneyLine(Res.string.upkeep_repairs, -s.repairCost)
-            if (s.transitUpkeep > 0) MoneyLine(Res.string.upkeep_transit, -s.transitUpkeep)
-            if (s.environmentUpkeep > 0) MoneyLine(Res.string.upkeep_garbage, -s.environmentUpkeep)
-            if (s.disasterCost > 0) MoneyLine(Res.string.upkeep_disasters, -s.disasterCost)
-            Box(Modifier.fillMaxWidth().height(1.dp).background(c.chromeEdge))
-            MoneyLine(Res.string.net, s.income - s.upkeep, bold = true)
+        }
+        @Composable
+        fun mw(kw: Long) = stringResource(Res.string.megawatts, groupThousands((kw + 500) / 1000))
+        Section(stringResource(Res.string.power), Glyph.Bolt) {
+            val use = if (s.powerCapacity > 0) (s.powerDemand * 100 / s.powerCapacity).toInt() else 0
+            StatGrid(
+                listOfNotNull(
+                    StatItem(Glyph.Bolt, stringResource(Res.string.power_peak), stringResource(Res.string.value_of, mw(s.powerDemand), mw(s.powerCapacity)), minOf(1f, use / 100f), when { use > 100 -> Tone.Bad; use > 85 -> Tone.Warn; else -> Tone.Good }, wide = true),
+                    if (s.powerShort > 0) StatItem(Glyph.Warn, stringResource(Res.string.power_short), mw(s.powerShort), 1f, Tone.Bad) else null,
+                ),
+            )
+        }
+        Section(stringResource(Res.string.garbage), Glyph.Bin) {
+            StatGrid(
+                listOfNotNull(
+                    StatItem(Glyph.Bin, stringResource(Res.string.garbage_taken), stringResource(Res.string.percent, s.wasteCollected), s.wasteCollected / 100f, toneOf(s.wasteCollected, 95, 70)),
+                    if (s.dumpRoom > 0) StatItem(Glyph.Mountain, stringResource(Res.string.dump_room), stringResource(Res.string.tonnes, groupThousands(s.dumpRoom.toLong()))) else null,
+                    if (s.smog > 0) StatItem(Glyph.Smoke, stringResource(Res.string.smog), stringResource(Res.string.percent, s.smog * 100 / 255), s.smog / 255f, if (s.smog >= 128) Tone.Bad else Tone.Warn) else null,
+                ),
+            )
+        }
+        // What the town's businesses trade, not the town's own money.
+        if (s.exportValue > 0 || s.importValue > 0) {
+            Section(stringResource(Res.string.trade), Glyph.Crate) {
+                StatGrid(
+                    listOf(
+                        StatItem(Glyph.Arrows, stringResource(Res.string.trade_out), moneyText(s.exportValue)),
+                        StatItem(Glyph.Arrows, stringResource(Res.string.trade_in), moneyText(s.importValue)),
+                    ),
+                )
+            }
         }
     }
 }
 
+/** What's drawn at the start of a stepper's row: a zone's colour or a drawing. */
+sealed class Mark
+class ZoneMark(val zone: Byte) : Mark()
+class GlyphMark(val glyph: Glyph) : Mark()
+
 @Composable
-private fun Heading(text: StringResource) {
-    Text(stringResource(text), color = Infill.colors.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+private fun MarkIcon(mark: Mark) {
+    val c = Infill.colors
+    Box(Modifier.size(28.dp).clip(RoundedCornerShape(7.dp)).background(c.button), contentAlignment = Alignment.Center) {
+        when (mark) {
+            is ZoneMark -> Box(Modifier.size(14.dp).clip(RoundedCornerShape(3.dp)).background(zoneColour(mark.zone)))
+            is GlyphMark -> GlyphIcon(mark.glyph, c.textDim, Modifier.size(17.dp))
+        }
+    }
 }
 
 /** A name, a percentage and buttons to take [step] off it or add it. */
 @Composable
-private fun Stepper(label: StringResource, value: Int, step: Int, change: (Int) -> Unit) {
+private fun Stepper(mark: Mark, name: String, value: Int, step: Int, change: (Int) -> Unit) {
+    StepperRow(mark, name, stringResource(Res.string.percent, value), change, step)
+}
+
+@Composable
+private fun StepperRow(mark: Mark?, name: String, value: String, change: (Int) -> Unit, step: Int = 1) {
     val c = Infill.colors
-    val name = stringResource(label)
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(name, color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        mark?.let { MarkIcon(it) }
+        Text(name, color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         StepButton("−", stringResource(Res.string.less) + " " + name) { change(-step) }
         Text(
-            stringResource(Res.string.percent, value),
-            color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.widthIn(min = 52.dp).padding(horizontal = 6.dp),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            value, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.widthIn(min = 48.dp), textAlign = TextAlign.Center,
         )
         StepButton("+", stringResource(Res.string.more) + " " + name) { change(step) }
     }
@@ -338,7 +387,7 @@ private fun StepButton(sign: String, description: String, onClick: () -> Unit) {
     val c = Infill.colors
     Box(
         Modifier
-            .size(36.dp)
+            .size(34.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(c.button)
             .semantics { contentDescription = description }
@@ -347,27 +396,29 @@ private fun StepButton(sign: String, description: String, onClick: () -> Unit) {
     ) { Text(sign, color = c.text, fontSize = 18.sp) }
 }
 
+/** A line of money: its drawing and name, a bar as long as its share of [most], and the amount. */
 @Composable
-private fun MoneyLine(label: StringResource, amount: Long, bold: Boolean = false) {
+private fun MoneyBar(glyph: Glyph, label: String, amount: Long, most: Long, colour: Color) {
     val c = Infill.colors
-    Row(Modifier.fillMaxWidth()) {
-        Text(stringResource(label), color = c.textDim, fontSize = 14.sp, modifier = Modifier.weight(1f))
-        Text(
-            moneyText(amount),
-            color = c.text, fontSize = 14.sp, fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
-        )
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        GlyphIcon(glyph, c.textDim, Modifier.size(16.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, color = c.textDim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Meter(kotlin.math.abs(amount) / most.toFloat(), colour, Modifier.fillMaxWidth(), 6.dp)
+        }
+        Text(moneyText(amount), color = c.text, fontSize = 14.sp, modifier = Modifier.widthIn(min = 72.dp), textAlign = TextAlign.End)
     }
 }
 
-private val SERIES_NAMES = mapOf(
-    Series.Population to Res.string.series_population,
-    Series.Jobs to Res.string.series_jobs,
-    Series.Funds to Res.string.series_funds,
-    Series.Income to Res.string.series_income,
-    Series.Upkeep to Res.string.series_upkeep,
-    Series.Crime to Res.string.series_crime,
-    Series.Pollution to Res.string.series_pollution,
-    Series.LandValue to Res.string.series_land_value,
+private val SERIES = listOf(
+    Triple(Series.Population, Res.string.series_population, Glyph.Person),
+    Triple(Series.Jobs, Res.string.series_jobs, Glyph.Briefcase),
+    Triple(Series.Funds, Res.string.series_funds, Glyph.Coins),
+    Triple(Series.Income, Res.string.series_income, Glyph.Coin),
+    Triple(Series.Upkeep, Res.string.series_upkeep, Glyph.Wrench),
+    Triple(Series.Crime, Res.string.series_crime, Glyph.Cuffs),
+    Triple(Series.Pollution, Res.string.series_pollution, Glyph.Smoke),
+    Triple(Series.LandValue, Res.string.series_land_value, Glyph.Mountain),
 )
 
 /** The town over the years, one thing at a time. */
@@ -377,23 +428,25 @@ fun GraphsWindow(game: GameState, onClose: () -> Unit) {
     game.revision
     val history = game.city.history
     var series by remember { mutableStateOf(Series.Population) }
-    Window(Res.string.graphs, onClose) {
+    Window(Res.string.graphs, onClose, Glyph.Arrows) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // Two rows of choices, so they fit an upright phone.
-            for (row in Series.entries.chunked(4)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    for (s in row) {
+            // Two rows of four, so they fit an upright phone.
+            for (row in SERIES.chunked(4)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    for ((s, name, glyph) in row) {
                         val on = s == series
-                        Text(
-                            stringResource(SERIES_NAMES.getValue(s)),
-                            color = if (on) c.onAccent else c.text,
-                            fontSize = 13.sp,
-                            modifier = Modifier
+                        Column(
+                            Modifier
+                                .weight(1f)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(if (on) c.accent else c.button)
                                 .clickable(role = Role.Tab) { series = s }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                        )
+                                .padding(vertical = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            GlyphIcon(glyph, if (on) c.onAccent else c.text, Modifier.size(18.dp))
+                            Text(stringResource(name), color = if (on) c.onAccent else c.text, fontSize = 11.sp, maxLines = 1)
+                        }
                     }
                 }
             }
@@ -406,9 +459,9 @@ fun GraphsWindow(game: GameState, onClose: () -> Unit) {
                 val (y1, m1) = history.dateOf(history.count - 1)
                 val top = values.max()
                 val money = series == Series.Funds || series == Series.Income || series == Series.Upkeep
-                val topLabel = if (money) stringResource(Res.string.money, groupThousands(top)) else groupThousands(top)
                 Row(Modifier.fillMaxWidth()) {
-                    Text(topLabel, color = c.textDim, fontSize = 12.sp)
+                    Text(shownText(top, money), color = c.textDim, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    Text(shownText(values.last(), money), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
                 LineChart(values, c.accent, c.chromeEdge, Modifier.fillMaxWidth().height(180.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -419,6 +472,9 @@ fun GraphsWindow(game: GameState, onClose: () -> Unit) {
         }
     }
 }
+
+@Composable
+private fun shownText(v: Long, money: Boolean) = if (money) moneyText(v) else groupThousands(v)
 
 /** A line over time from zero up to the highest value, with a soft fill under it. */
 @Composable
@@ -450,77 +506,109 @@ private fun LineChart(values: LongArray, line: Color, grid: Color, modifier: Mod
     }
 }
 
-/** Who lives in the town: their ages, health and wealth, the work they're schooled for, and places at school and with a doctor. */
+/** Colours for the ages, the wealth and the ways to work, in the people window's bars. */
+private val AGES = listOf(Color(0xFF7FC4E8), Color(0xFF4C8FD6), Color(0xFF9A7AC8))
+private val WEALTH = listOf(Color(0xFFB08A5A), Color(0xFF8FA85A), Color(0xFFE0B83A))
+private val MODES = listOf(
+    Color(0xFF8FBF6A), Color(0xFF8A8F98), Color(0xFF2FA85A), Color(0xFF16A2A2), Color(0xFFD8302F), Color(0xFF2F6FD8), Color(0xFF8E44AD),
+)
+
+/** Who lives in the town, the work they're schooled for, places at school and with a doctor, and how justice is doing. */
 @Composable
 fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
     val c = Infill.colors
     game.revision
     val s = game.city.stats
     fun n(v: Int) = groupThousands(v.toLong())
-    Window(Res.string.people, onClose) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            CountLine(Res.string.children, n(s.children))
-            CountLine(Res.string.adults, n(s.adults))
-            CountLine(Res.string.elderly, n(s.elderly))
-            CountLine(Res.string.health, healthWord(s.health))
-            CountLine(Res.string.traffic_flow, stringResource(Res.string.percent, s.flow))
-            if (s.emptyHomes > 0) CountLine(Res.string.empty_homes, n(s.emptyHomes))
-            Heading(Res.string.last_month)
-            CountLine(Res.string.born, n(s.births))
-            CountLine(Res.string.died, n(s.deaths))
-            CountLine(Res.string.moved_in, n(s.movedIn))
-            CountLine(Res.string.moved_out, n(s.movedOut))
-            // How commutes are made, those used at all.
-            val trips = s.byMode.sum()
-            if (trips > 0) {
-                Heading(Res.string.commutes)
-                val names = listOf(Res.string.mode_walk, Res.string.mode_car, Res.string.mode_bus, Res.string.mode_trolley, Res.string.mode_tram, Res.string.mode_subway, Res.string.mode_train)
-                for (k in s.byMode.indices) if (s.byMode[k] > 0) CountLine(names[k], stringResource(Res.string.percent, s.byMode[k] * 100 / trips))
-            }
-            Heading(Res.string.homes_by_wealth)
-            for (w in 0 until Wealth.LEVELS) CountLine(wealthName(w), n(s.byWealth[w]))
-            Heading(Res.string.work_by_schooling)
-            Row(Modifier.fillMaxWidth()) {
-                Box(Modifier.weight(1f))
-                Text(stringResource(Res.string.workers), color = c.textDim, fontSize = 13.sp, modifier = Modifier.widthIn(min = 72.dp), textAlign = TextAlign.End)
-                Text(stringResource(Res.string.jobs_heading), color = c.textDim, fontSize = 13.sp, modifier = Modifier.widthIn(min = 72.dp), textAlign = TextAlign.End)
-            }
-            for ((k, name) in listOf(Res.string.unschooled, Res.string.schooled, Res.string.educated).withIndex()) {
-                Row(Modifier.fillMaxWidth()) {
-                    Text(stringResource(name), color = c.textDim, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                    Text(n(s.workersBy[k]), color = c.text, fontSize = 14.sp, modifier = Modifier.widthIn(min = 72.dp), textAlign = TextAlign.End)
-                    // Jobs short of workers show in red.
-                    val short = s.filledBy[k] < s.jobsBy[k]
-                    Text(
-                        n(s.jobsBy[k]), color = if (short) Color(0xFFD84343) else c.text, fontSize = 14.sp,
-                        modifier = Modifier.widthIn(min = 72.dp), textAlign = TextAlign.End,
-                    )
-                }
-            }
-            Heading(Res.string.schools_and_care)
-            CountLine(Res.string.school_places, stringResource(Res.string.taken_of, n(s.pupils), n(s.schoolPlaces)))
-            if (s.highSchoolPlaces > 0) CountLine(Res.string.high_school_places, stringResource(Res.string.taken_of, n(s.highSchoolPupils), n(s.highSchoolPlaces)))
-            CountLine(Res.string.care_places, stringResource(Res.string.taken_of, n(s.cared), n(s.carePlaces)))
-            Text(
-                stringResource(Res.string.graphs),
-                color = c.text, fontSize = 14.sp,
-                modifier = Modifier
-                    .padding(top = 6.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(c.button)
-                    .clickable(role = Role.Button, onClick = onGraphs)
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
+    Window(Res.string.people, onClose, Glyph.Person) {
+        StatGrid(
+            listOfNotNull(
+                StatItem(Glyph.Person, stringResource(Res.string.population), n(s.population)),
+                StatItem(Glyph.Cross, stringResource(Res.string.health), healthWord(s.health).replaceFirstChar { it.uppercase() }, s.health / 100f, toneOf(s.health, 65, 45)),
+                StatItem(Glyph.Briefcase, stringResource(Res.string.label_unemployed), stringResource(Res.string.percent, s.unemployment), s.unemployment / 100f, when { s.unemployment >= 15 -> Tone.Bad; s.unemployment >= 7 -> Tone.Warn; else -> Tone.Good }),
+                if (s.commute > 0) StatItem(Glyph.Car, stringResource(Res.string.label_commute), stringResource(Res.string.value_minutes, s.commute)) else null,
+                StatItem(Glyph.Lights, stringResource(Res.string.traffic_flow), stringResource(Res.string.percent, s.flow), s.flow / 100f, toneOf(s.flow, 80, 50)),
+                if (s.emptyHomes > 0) StatItem(Glyph.Tag, stringResource(Res.string.empty_homes), n(s.emptyHomes)) else null,
+            ),
+        )
+        Section(stringResource(Res.string.label_ages), Glyph.Hourglass) {
+            BarWithKey(listOf(Triple(stringResource(Res.string.children), s.children, AGES[0]), Triple(stringResource(Res.string.adults), s.adults, AGES[1]), Triple(stringResource(Res.string.elderly), s.elderly, AGES[2])))
+        }
+        Section(stringResource(Res.string.homes_by_wealth), Glyph.Coins) {
+            BarWithKey((0 until Wealth.LEVELS).map { Triple(stringResource(wealthName(it)), s.byWealth[it], WEALTH[it]) })
+        }
+        Section(stringResource(Res.string.last_month), Glyph.Calendar) {
+            StatGrid(
+                listOf(
+                    StatItem(Glyph.Plus, stringResource(Res.string.born), n(s.births)),
+                    StatItem(Glyph.Erase, stringResource(Res.string.died), n(s.deaths)),
+                    StatItem(Glyph.Arrows, stringResource(Res.string.moved_in), n(s.movedIn)),
+                    StatItem(Glyph.Arrows, stringResource(Res.string.moved_out), n(s.movedOut)),
+                ),
             )
         }
+        // How commutes are made, those used at all.
+        val trips = s.byMode.sum()
+        if (trips > 0) {
+            Section(stringResource(Res.string.commutes), Glyph.Car) {
+                val names = listOf(Res.string.mode_walk, Res.string.mode_car, Res.string.mode_bus, Res.string.mode_trolley, Res.string.mode_tram, Res.string.mode_subway, Res.string.mode_train)
+                BarWithKey(s.byMode.indices.filter { s.byMode[it] > 0 }.map { Triple(stringResource(names[it]), s.byMode[it] * 100 / trips, MODES[it]) }, percent = true)
+            }
+        }
+        Section(stringResource(Res.string.work_by_schooling), Glyph.Briefcase) {
+            val most = maxOf(1, (s.workersBy + s.jobsBy).max())
+            for ((k, name) in listOf(Res.string.unschooled, Res.string.schooled, Res.string.educated).withIndex()) {
+                val short = s.filledBy[k] < s.jobsBy[k]
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(Modifier.fillMaxWidth()) {
+                        Text(stringResource(name), color = c.text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Text(stringResource(Res.string.workers_jobs, n(s.workersBy[k]), n(s.jobsBy[k])), color = if (short) c.bad else c.textDim, fontSize = 12.sp)
+                    }
+                    Meter(s.workersBy[k] / most.toFloat(), c.accent, Modifier.fillMaxWidth(), 5.dp)
+                    Meter(s.jobsBy[k] / most.toFloat(), if (short) c.bad else c.textDim, Modifier.fillMaxWidth(), 5.dp)
+                }
+            }
+        }
+        Section(stringResource(Res.string.schools_and_care), Glyph.Cap) {
+            StatGrid(
+                listOfNotNull(
+                    places(Glyph.Cap, stringResource(Res.string.school_places), s.pupils, s.schoolPlaces),
+                    if (s.highSchoolPlaces > 0) places(Glyph.Cap, stringResource(Res.string.high_school_places), s.highSchoolPupils, s.highSchoolPlaces) else null,
+                    places(Glyph.Cross, stringResource(Res.string.care_places), s.cared, s.carePlaces),
+                ),
+            )
+        }
+        Section(stringResource(Res.string.justice), Glyph.Gavel) {
+            StatGrid(
+                listOfNotNull(
+                    StatItem(Glyph.Cuffs, stringResource(Res.string.label_offences), n(s.offences)),
+                    StatItem(Glyph.Star, stringResource(Res.string.label_arrests_all), n(s.arrests)),
+                    StatItem(Glyph.Gavel, stringResource(Res.string.label_justice), stringResource(Res.string.percent, s.justice), s.justice / 100f, toneOf(s.justice, 90, 60)),
+                    places(Glyph.Cuffs, stringResource(Res.string.label_prisoners), s.prisoners, s.cells),
+                    if (s.rackets > 0) StatItem(Glyph.Hat, stringResource(Res.string.label_rackets), level(s.rackets).replaceFirstChar { it.uppercase() }, minOf(1f, s.rackets / 64f), Tone.Bad) else null,
+                ),
+            )
+        }
+        Actions(listOf(ActionItem(Glyph.Arrows, stringResource(Res.string.graphs), onClick = onGraphs)))
     }
 }
 
+/** How full some places are: green with room, amber near full, red past it. */
 @Composable
-private fun CountLine(label: StringResource, value: String) {
-    val c = Infill.colors
-    Row(Modifier.fillMaxWidth()) {
-        Text(stringResource(label), color = c.textDim, fontSize = 14.sp, modifier = Modifier.weight(1f))
-        Text(value, color = c.text, fontSize = 14.sp)
+private fun places(glyph: Glyph, label: String, taken: Int, room: Int): StatItem {
+    val share = if (room == 0) (if (taken > 0) 200 else 0) else taken * 100 / room
+    return StatItem(
+        glyph, label, stringResource(Res.string.value_of, groupThousands(taken.toLong()), groupThousands(room.toLong())),
+        minOf(1f, share / 100f), when { share > 100 -> Tone.Bad; share > 90 -> Tone.Warn; else -> Tone.Good },
+    )
+}
+
+/** A bar of parts with its key under it. */
+@Composable
+private fun BarWithKey(parts: List<Triple<String, Int, Color>>, percent: Boolean = false) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        StackedBar(parts.map { it.second to it.third }, Modifier.fillMaxWidth(), 12.dp)
+        BarKey(parts.map { Triple(it.first, it.second, it.third) }, percent)
     }
 }
 
@@ -543,39 +631,61 @@ private fun eraLine(era: Era): StringResource = when (era) {
 }
 
 /**
- * An era: what it's about, the roads and buildings it brings, and what the
- * town needs for the next one against what it has.
+ * An era: what it's about, the roads and buildings it brings as pictures, and
+ * how far the town is towards each thing the next one needs.
  */
 @Composable
 fun EraWindow(game: GameState, era: Era, onClose: () -> Unit) {
     val c = Infill.colors
     game.revision
     val city = game.city
-    Window(eraName(era), onClose) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(stringResource(eraLine(era)), color = c.text, fontSize = 15.sp)
-            val roads = RoadType.entries.filter { Era.of(it.year) == era && era != Era.TOWNSHIP }.map { roadName(it) }
-            val buildings = BuildingType.entries.filter { Era.of(it.year) == era && era != Era.TOWNSHIP }.map { buildingName(it) } +
-                Material.entries.filter { Era.of(it.year) == era && era != Era.TOWNSHIP }.map { materialName(it) } +
-                (if (Era.of(Balance.TROLLEYBUS_YEAR) == era) listOf(Res.string.trolley_wire) else emptyList())
-            if (roads.isNotEmpty() || buildings.isNotEmpty()) {
-                Heading(Res.string.era_brings)
-                for (name in roads + buildings) Text(stringResource(name), color = c.text, fontSize = 14.sp)
+    Window(eraName(era), onClose, Glyph.Calendar) {
+        Text(stringResource(eraLine(era)), color = c.text, fontSize = 15.sp)
+        val brings = buildList {
+            if (era != Era.TOWNSHIP) {
+                for (t in RoadType.entries) if (Era.of(t.year) == era) add(stringResource(roadName(t)) to roadIcon(t))
+                for (t in BuildingType.entries) if (Era.of(t.year) == era) add(stringResource(buildingName(t)) to buildingIcon(t))
+                for (m in Material.entries) if (Era.of(m.year) == era) add(stringResource(materialName(m)) to ChoiceIcon(glyph = Glyph.Pipe, glyphColour = PIPE_COLOURS[m.pipe]))
+                if (Era.of(Balance.TROLLEYBUS_YEAR) == era) add(stringResource(Res.string.trolley_wire) to ChoiceIcon(intArrayOf(com.rm.infill.map.Atlas.ROAD_STREET + 10, com.rm.infill.map.Atlas.TROLLEY_WIRE + 10)))
             }
-            // What the next era needs, from the one the town's in.
-            val next = city.era.next
-            if (next != null && era == city.era) {
-                Text(
-                    stringResource(Res.string.era_next, stringResource(eraName(next)), next.year),
-                    color = c.textDim, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp),
-                )
-                for (goal in city.goals(next)) {
-                    Row(Modifier.fillMaxWidth()) {
-                        Text(goalText(goal), color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                        Text(goalHave(goal), color = if (goal.met) Color(0xFF3FA85A) else c.textDim, fontSize = 14.sp)
+        }
+        if (brings.isNotEmpty()) {
+            Section(stringResource(Res.string.era_brings), Glyph.Plus) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for ((name, icon) in brings) {
+                        Column(Modifier.width(72.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            ChoiceTile(LocalAtlas.current, icon, name, false, 52.dp, null)
+                            Text(name, color = c.textDim, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                        }
                     }
                 }
             }
+        }
+        // What the next era needs, from the one the town's in.
+        val next = city.era.next
+        if (next != null && era == city.era) {
+            Section(stringResource(Res.string.era_next, stringResource(eraName(next)), next.year), Glyph.Target) {
+                for (goal in city.goals(next)) GoalRow(goal)
+            }
+        }
+    }
+}
+
+@Composable
+private fun GoalRow(goal: Goal) {
+    val c = Infill.colors
+    val share = if (goal.need > 0) minOf(1f, goal.have / goal.need.toFloat()) else if (goal.met) 1f else 0f
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(
+            Modifier.size(28.dp).clip(RoundedCornerShape(14.dp)).background(if (goal.met) c.good else c.button),
+            contentAlignment = Alignment.Center,
+        ) { GlyphIcon(if (goal.met) Glyph.Check else Glyph.Hourglass, if (goal.met) Color.White else c.textDim, Modifier.size(16.dp)) }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row {
+                Text(goalText(goal), color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text(goalHave(goal), color = if (goal.met) c.good else c.textDim, fontSize = 13.sp)
+            }
+            Meter(share, if (goal.met) c.good else c.accent, Modifier.fillMaxWidth())
         }
     }
 }
@@ -618,6 +728,7 @@ fun LineDraftBar(stops: Int, tram: Boolean, onClear: () -> Unit, onMake: () -> U
     val c = Infill.colors
     ChromeBox {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            GlyphIcon(Glyph.Route, c.accent, Modifier.size(20.dp))
             Text(
                 stringResource(if (tram) Res.string.tram_line else Res.string.bus_line) + ", " + pluralStringResource(Res.plurals.line_stops, stops, stops),
                 color = c.text, fontSize = 14.sp,
@@ -641,48 +752,63 @@ private fun TextButton(text: String, primary: Boolean, onClick: () -> Unit) {
     )
 }
 
+/** A card in a window: a coloured square with a drawing or letters, a name, a remove button, then what's in it. */
+@Composable
+private fun ItemCard(colour: Color, glyph: Glyph?, letters: String?, title: String, onRemove: () -> Unit, content: @Composable () -> Unit) {
+    val c = Infill.colors
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(c.button.copy(alpha = 0.55f)).padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(colour), contentAlignment = Alignment.Center) {
+                glyph?.let { GlyphIcon(it, Color.White, Modifier.size(18.dp)) }
+                letters?.let { Text(it, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+            }
+            Text(title, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            ActionButton(ActionItem(Glyph.Remove, stringResource(Res.string.remove), confirm = true, onClick = onRemove))
+        }
+        content()
+    }
+}
+
 /** Every line: what runs on it, how it's doing, its vehicles to add or take off, and taking it off altogether. */
 @Composable
 fun LinesWindow(game: GameState, onClose: () -> Unit) {
     val c = Infill.colors
     game.revision
     val city = game.city
-    Window(Res.string.lines, onClose) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (city.lines.isEmpty()) Text(stringResource(Res.string.no_lines), color = c.textDim, fontSize = 14.sp)
-            var buses = 0
-            var trams = 0
-            for (line in city.lines) {
-                val state = city.lineState(line.id)
-                val number = if (line.tram) ++trams else ++buses
-                val kind = when {
-                    line.tram -> Res.string.tram_line
-                    state?.mode == com.rm.infill.sim.Mode.TROLLEY -> Res.string.trolley_line
-                    else -> Res.string.bus_line
+    Window(Res.string.lines, onClose, Glyph.Route) {
+        if (city.lines.isEmpty()) Text(stringResource(Res.string.no_lines), color = c.textDim, fontSize = 14.sp)
+        var buses = 0
+        var trams = 0
+        for (line in city.lines) {
+            val state = city.lineState(line.id)
+            val number = if (line.tram) ++trams else ++buses
+            val trolley = state?.mode == com.rm.infill.sim.Mode.TROLLEY
+            val kind = when {
+                line.tram -> Res.string.tram_line
+                trolley -> Res.string.trolley_line
+                else -> Res.string.bus_line
+            }
+            val glyph = if (line.tram) Glyph.Tram else Glyph.Bus
+            ItemCard(lineColour(line.id), glyph, null, stringResource(Res.string.line_name, stringResource(kind), number), { game.apply(Action.RemoveLine(line.id)) }) {
+                if (state != null && state.running) {
+                    StatGrid(
+                        listOf(
+                            StatItem(Glyph.Route, stringResource(Res.string.label_stops), line.stops.size.toString()),
+                            StatItem(Glyph.Person, stringResource(Res.string.label_riders), groupThousands(city.lineRiders(line.id).toLong())),
+                            StatItem(Glyph.Hourglass, stringResource(Res.string.label_round_trip), stringResource(Res.string.value_minutes, state.roundTrip / 60)),
+                            StatItem(Glyph.Hourglass, stringResource(Res.string.label_wait), stringResource(Res.string.value_minutes, maxOf(1, state.wait / 60))),
+                        ),
+                    )
+                } else {
+                    Pills(listOf(PillItem(Glyph.Warn, stringResource(Res.string.line_not_running), Tone.Warn)))
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(lineColour(line.id)))
-                        Text(stringResource(Res.string.line_name, stringResource(kind), number), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        TextButton(stringResource(Res.string.remove), false) { game.apply(Action.RemoveLine(line.id)) }
-                    }
-                    if (state != null && state.running) {
-                        Text(stringResource(Res.string.line_info, line.stops.size, state.roundTrip / 60, maxOf(1, state.wait / 60)), color = c.textDim, fontSize = 13.sp)
-                        val riders = city.lineRiders(line.id)
-                        Text(pluralStringResource(Res.plurals.line_riders, riders, groupThousands(riders.toLong())), color = c.textDim, fontSize = 13.sp)
-                    } else {
-                        Text(stringResource(Res.string.line_not_running), color = c.textDim, fontSize = 13.sp)
-                    }
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(Res.string.line_vehicles), color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                        StepButton("−", stringResource(Res.string.less)) { if (line.vehicles > 1) game.apply(Action.SetVehicles(line.id, line.vehicles - 1)) }
-                        Text(
-                            "${line.vehicles}", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.widthIn(min = 40.dp).padding(horizontal = 6.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        )
-                        StepButton("+", stringResource(Res.string.more)) { game.apply(Action.SetVehicles(line.id, line.vehicles + 1)) }
-                    }
-                }
+                StepperRow(GlyphMark(glyph), stringResource(Res.string.line_vehicles), "${line.vehicles}", { d ->
+                    val v = line.vehicles + d
+                    if (v >= 1) game.apply(Action.SetVehicles(line.id, v))
+                })
             }
         }
     }
@@ -694,60 +820,73 @@ fun DistrictsWindow(game: GameState, onClose: () -> Unit) {
     val c = Infill.colors
     game.revision
     val city = game.city
-    Window(Res.string.districts, onClose) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (city.districts.isEmpty()) Text(stringResource(Res.string.no_districts), color = c.textDim, fontSize = 14.sp)
-            for (d in city.districts) {
-                fun set(change: (com.rm.infill.sim.District) -> Unit) {
-                    game.apply(Action.SetDistrict(d.id, d.copy().also(change)))
+    Window(Res.string.districts, onClose, Glyph.District) {
+        if (city.districts.isEmpty()) Text(stringResource(Res.string.no_districts), color = c.textDim, fontSize = 14.sp)
+        for (d in city.districts) {
+            fun set(change: (com.rm.infill.sim.District) -> Unit) {
+                game.apply(Action.SetDistrict(d.id, d.copy().also(change)))
+            }
+            val f = city.districtFigures(d.id)
+            ItemCard(lineColour(d.id), null, d.name.take(2).uppercase(), d.name, { game.apply(Action.RemoveDistrict(d.id)) }) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    StatCell(StatItem(Glyph.Person, stringResource(Res.string.people), groupThousands(f.people.toLong())), Modifier.weight(1f))
+                    StatCell(StatItem(Glyph.Briefcase, stringResource(Res.string.label_jobs), groupThousands(f.jobs.toLong())), Modifier.weight(1f))
                 }
-                val f = city.districtFigures(d.id)
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(lineColour(d.id)))
-                        Text(d.name, color = c.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        TextButton(stringResource(Res.string.remove), false) { game.apply(Action.RemoveDistrict(d.id)) }
-                    }
-                    Text(stringResource(Res.string.district_figures, groupThousands(f.people.toLong()), groupThousands(f.jobs.toLong())), color = c.textDim, fontSize = 13.sp)
-                    Text(
-                        stringResource(Res.string.district_value, level(f.landValue), level(f.crime), level(f.pollution)),
-                        color = c.textDim, fontSize = 13.sp,
-                    )
-                    Heading(Res.string.district_taxes)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    MiniMeter(Glyph.Coin, stringResource(Res.string.label_land_value), f.landValue, highIsBad = false)
+                    MiniMeter(Glyph.Cuffs, stringResource(Res.string.label_crime), f.crime, highIsBad = true)
+                    MiniMeter(Glyph.Smoke, stringResource(Res.string.label_pollution), f.pollution, highIsBad = true)
+                }
+                Section(stringResource(Res.string.district_taxes), Glyph.Coin) {
+                    val range = Balance.DISTRICT_TAX_RANGE
                     for ((k, label) in listOf(Res.string.tax_homes, Res.string.tax_shops, Res.string.tax_works).withIndex()) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(label), color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                            val range = com.rm.infill.sim.Balance.DISTRICT_TAX_RANGE
-                            StepButton("−", stringResource(Res.string.less)) { set { it.tax[k] = (it.tax[k] - 1).coerceAtLeast(-range) } }
-                            Text(
-                                if (d.tax[k] > 0) "+${d.tax[k]}" else if (d.tax[k] < 0) "−${-d.tax[k]}" else "0", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.widthIn(min = 40.dp).padding(horizontal = 6.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            )
-                            StepButton("+", stringResource(Res.string.more)) { set { it.tax[k] = (it.tax[k] + 1).coerceAtMost(range) } }
-                        }
+                        val zone = listOf(com.rm.infill.sim.Zone.RESIDENTIAL, com.rm.infill.sim.Zone.COMMERCIAL, com.rm.infill.sim.Zone.INDUSTRIAL)[k]
+                        val shown = if (d.tax[k] > 0) "+${d.tax[k]}" else if (d.tax[k] < 0) "−${-d.tax[k]}" else "0"
+                        StepperRow(ZoneMark(zone), stringResource(label), shown, { step -> set { it.tax[k] = (it.tax[k] + step).coerceIn(-range, range) } })
                     }
-                    Heading(Res.string.height_limit)
+                }
+                Section(stringResource(Res.string.height_limit), Glyph.High) {
                     Chips(listOf(Density.NONE, Density.LOW, Density.MEDIUM), d.height, {
                         stringResource(if (it == Density.NONE) Res.string.height_none else densityName(it)!!)
                     }) { h -> set { it.height = h } }
-                    Toggle(Res.string.keep_heritage, d.heritage) { v -> set { it.heritage = v } }
-                    Toggle(Res.string.limit_parking, d.parking) { v -> set { it.parking = v } }
-                    Toggle(Res.string.no_heavy_industry, d.lightIndustry) { v -> set { it.lightIndustry = v } }
-                    Toggle(Res.string.clean_works, d.cleanWorks) { v -> set { it.cleanWorks = v } }
-                    Toggle(Res.string.no_trucks, d.noTrucks) { v -> set { it.noTrucks = v } }
-                    Toggle(Res.string.free_fares, d.freeFares) { v -> set { it.freeFares = v } }
-                    Toggle(Res.string.rent_control, d.rentControl) { v -> set { it.rentControl = v } }
+                }
+                Section(stringResource(Res.string.policies), Glyph.List) {
+                    val policies = listOf(
+                        Triple(Glyph.Star, Res.string.keep_heritage, d.heritage) to { v: Boolean -> set { it.heritage = v } },
+                        Triple(Glyph.Car, Res.string.limit_parking, d.parking) to { v: Boolean -> set { it.parking = v } },
+                        Triple(Glyph.Building, Res.string.no_heavy_industry, d.lightIndustry) to { v: Boolean -> set { it.lightIndustry = v } },
+                        Triple(Glyph.Scrubber, Res.string.clean_works, d.cleanWorks) to { v: Boolean -> set { it.cleanWorks = v } },
+                        Triple(Glyph.Crate, Res.string.no_trucks, d.noTrucks) to { v: Boolean -> set { it.noTrucks = v } },
+                        Triple(Glyph.Bus, Res.string.free_fares, d.freeFares) to { v: Boolean -> set { it.freeFares = v } },
+                        Triple(Glyph.Tag, Res.string.rent_control, d.rentControl) to { v: Boolean -> set { it.rentControl = v } },
+                    )
+                    for (row in policies.chunked(2)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for ((p, change) in row) PolicyTile(p.first, stringResource(p.second), p.third, Modifier.weight(1f)) { change(!p.third) }
+                            if (row.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+/** A policy that's on or off: its drawing and name, lit when it's on. */
 @Composable
-private fun Toggle(label: StringResource, on: Boolean, change: (Boolean) -> Unit) {
+private fun PolicyTile(glyph: Glyph, label: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val c = Infill.colors
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(label), color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
-        Chips(listOf(true, false), on, { stringResource(if (it) Res.string.yes else Res.string.no) }, change)
+    Row(
+        modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (on) c.accent else c.button)
+            .semantics(mergeDescendants = true) { contentDescription = label }
+            .clickable(role = Role.Switch, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        GlyphIcon(glyph, if (on) c.onAccent else c.textDim, Modifier.size(18.dp))
+        Text(label, color = if (on) c.onAccent else c.text, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }

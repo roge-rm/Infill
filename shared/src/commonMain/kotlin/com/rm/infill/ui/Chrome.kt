@@ -388,13 +388,17 @@ fun CityPanel(game: GameState, modifier: Modifier = Modifier) {
     val city = game.city
     val s = city.stats
     ChromeBox(modifier) {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            PanelLine(stringResource(Res.string.population), groupThousands(s.population.toLong()))
-            PanelLine(stringResource(Res.string.jobs_label), groupThousands(s.jobs.toLong()))
-            PanelLine(stringResource(Res.string.funds), moneyText(city.funds))
-            PanelLine(stringResource(Res.string.income), moneyText(s.income))
-            PanelLine(stringResource(Res.string.upkeep), moneyText(s.upkeep))
-            PanelLine(stringResource(Res.string.year), city.year.toString())
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            StatGrid(
+                listOf(
+                    StatItem(Glyph.Person, stringResource(Res.string.population), groupThousands(s.population.toLong())),
+                    StatItem(Glyph.Briefcase, stringResource(Res.string.jobs_label), groupThousands(s.jobs.toLong())),
+                    StatItem(Glyph.Coins, stringResource(Res.string.funds), moneyText(city.funds)),
+                    StatItem(Glyph.Calendar, stringResource(Res.string.year), city.year.toString()),
+                    StatItem(Glyph.Coin, stringResource(Res.string.income), moneyText(s.income)),
+                    StatItem(Glyph.Wrench, stringResource(Res.string.upkeep), moneyText(s.upkeep)),
+                ),
+            )
         }
     }
 }

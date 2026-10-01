@@ -257,6 +257,7 @@ enum class Glyph {
     Plus, Erase, List, Remove, Renew, Pipe, Bank, Tunnel, Route, Auto, Scrubber, Low, Medium, High,
     Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
     Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance, Sack, Glass, Hat,
+    Person, Briefcase, Wrench, Calendar, Snow, Gavel, Tag, Check, Warn, Building,
 }
 
 /** The drawing for [tool]. */
@@ -464,6 +465,54 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
             for (k in 0 until 4) drawRect(c.copy(alpha = 0.35f), Offset((4 + k * 4.5f) * u, 8 * u), Size(3.2f * u, 4 * u))
             drawCircle(c, 2.4f * u, Offset(7 * u, 19 * u))
             drawCircle(c, 2.4f * u, Offset(17 * u, 19 * u))
+        }
+        Glyph.Person -> {
+            drawCircle(c, 4.5f * u, Offset(12 * u, 7 * u))
+            drawRoundRect(c, Offset(4 * u, 13 * u), Size(16 * u, 9 * u), CornerRadius(7 * u))
+        }
+        Glyph.Briefcase -> {
+            drawRoundRect(c, Offset(3 * u, 8 * u), Size(18 * u, 12 * u), CornerRadius(2 * u))
+            drawRect(c, Offset(9 * u, 4.5f * u), Size(6 * u, 2 * u))
+            line(9f, 5f, 9f, 8f, 1.8f * u); line(15f, 5f, 15f, 8f, 1.8f * u)
+            drawRect(c.copy(alpha = 0.35f), Offset(3 * u, 12.5f * u), Size(18 * u, 1.6f * u))
+        }
+        Glyph.Wrench -> {
+            line(6f, 18f, 15f, 9f, 3.2f * u)
+            drawCircle(c, 5 * u, Offset(16.5f * u, 7.5f * u), style = Stroke(2.6f * u))
+        }
+        Glyph.Calendar -> {
+            drawRoundRect(c, Offset(3 * u, 5 * u), Size(18 * u, 16 * u), CornerRadius(2 * u), style = Stroke(2 * u))
+            drawRect(c, Offset(3 * u, 5 * u), Size(18 * u, 5 * u))
+            line(8f, 3f, 8f, 7f, 2f * u); line(16f, 3f, 16f, 7f, 2f * u)
+            for (k in 0..2) drawCircle(c, 1.2f * u, Offset((7.5f + k * 4.5f) * u, 15 * u))
+        }
+        Glyph.Snow -> for (k in 0 until 3) {
+            val a = k * PI.toFloat() / 3
+            line(12 - 9 * cos(a), 12 - 9 * sin(a), 12 + 9 * cos(a), 12 + 9 * sin(a), 2f * u)
+        }
+        Glyph.Gavel -> {
+            withTransform({ rotate(-40f, Offset(12 * u, 12 * u)) }) {
+                drawRoundRect(c, Offset(6 * u, 3 * u), Size(12 * u, 6 * u), CornerRadius(1.5f * u))
+                drawRect(c, Offset(11 * u, 9 * u), Size(2.2f * u, 11 * u))
+            }
+            line(3f, 21f, 13f, 21f, 2.2f * u)
+        }
+        Glyph.Tag -> {
+            drawPath(path(3f, 12f, 11f, 4f, 20f, 4f, 20f, 13f, 12f, 21f), c)
+            drawCircle(c.copy(alpha = 0.35f), 1.8f * u, Offset(16 * u, 8 * u))
+        }
+        Glyph.Check -> {
+            line(5f, 13f, 10f, 18f, 3f * u); line(10f, 18f, 19f, 7f, 3f * u)
+        }
+        Glyph.Warn -> {
+            drawPath(path(12f, 3f, 22f, 20f, 2f, 20f), c)
+            drawRect(c.copy(alpha = 0.4f), Offset(11 * u, 8.5f * u), Size(2 * u, 6 * u))
+            drawCircle(c.copy(alpha = 0.4f), 1.2f * u, Offset(12 * u, 17 * u))
+        }
+        Glyph.Building -> {
+            drawRect(c, Offset(5 * u, 4 * u), Size(14 * u, 17 * u))
+            for (r in 0..2) for (k in 0..1) drawRect(c.copy(alpha = 0.35f), Offset((7.5f + k * 5.5f) * u, (6.5f + r * 4.5f) * u), Size(3 * u, 2.5f * u))
+            line(3f, 21f, 21f, 21f, 1.6f * u)
         }
         Glyph.Sack -> {
             // A swag bag, tied at the neck.

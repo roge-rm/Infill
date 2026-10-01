@@ -323,7 +323,10 @@ fun densityGlyph(d: DensityKind): Glyph = when (d) {
 
 // What each tool offers, as tiles.
 
-private fun building(type: BuildingType): ChoiceIcon = ChoiceIcon(intArrayOf(BuildingSprites.sprite(type.ordinal, 0)))
+private fun building(type: BuildingType): ChoiceIcon = buildingIcon(type)
+
+/** A building's picture, from its first look. */
+fun buildingIcon(type: BuildingType): ChoiceIcon = ChoiceIcon(intArrayOf(BuildingSprites.sprite(type.ordinal, 0)))
 
 /** A building's price and size. */
 @Composable
@@ -340,8 +343,11 @@ private const val ACROSS = 10
 private const val CROSSROADS = 15
 
 @Composable
-fun roadChoices(city: City): List<Choice<RoadType>> = roadsIn(city).map { t ->
-    val icon = when (t) {
+fun roadChoices(city: City): List<Choice<RoadType>> = roadsIn(city).map { t -> Choice(t, stringResource(roadName(t)), roadIcon(t), perTile(t.price)) }
+
+/** A straight stretch of a kind of road. */
+fun roadIcon(t: RoadType): ChoiceIcon {
+    return when (t) {
         RoadType.DIRT -> ChoiceIcon(intArrayOf(Atlas.ROAD_DIRT + ACROSS))
         RoadType.GRAVEL -> ChoiceIcon(intArrayOf(Atlas.ROAD_GRAVEL + ACROSS))
         RoadType.LANE -> ChoiceIcon(intArrayOf(Atlas.ROAD_LANE + ACROSS))
@@ -352,7 +358,6 @@ fun roadChoices(city: City): List<Choice<RoadType>> = roadsIn(city).map { t ->
         // One carriageway, with its half of the median.
         RoadType.BOULEVARD -> ChoiceIcon(intArrayOf(Atlas.ROAD_AVENUE + ACROSS, Atlas.MEDIAN))
     }
-    Choice(t, stringResource(roadName(t)), icon, perTile(t.price))
 }
 
 @Composable
@@ -406,7 +411,7 @@ fun junctionChoices(city: City): List<Choice<JunctionKind>> = junctionKindsIn(ci
     Choice(k, stringResource(k.title), icon)
 }
 
-private val PIPE_COLOURS = mapOf(Pipe.WATER to Color(0xFF4FA3E0), Pipe.SEWER to Color(0xFFB0824A), Pipe.STORM to Color(0xFFB8BCC2))
+internal val PIPE_COLOURS = mapOf(Pipe.WATER to Color(0xFF4FA3E0), Pipe.SEWER to Color(0xFFB0824A), Pipe.STORM to Color(0xFFB8BCC2))
 private val WOOD_PIPE = Color(0xFF6E4326)
 
 @Composable

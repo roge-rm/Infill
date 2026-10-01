@@ -75,20 +75,22 @@ import kotlin.random.Random
 
 /** A wide button for the screens and menus. [primary] is the one most likely wanted. */
 @Composable
-fun BigButton(text: String, primary: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
+fun BigButton(text: String, primary: Boolean = false, enabled: Boolean = true, glyph: Glyph? = null, onClick: () -> Unit) {
     val c = Infill.colors
-    Text(
-        text,
-        color = if (primary) c.onAccent else if (enabled) c.text else c.textDim,
-        fontSize = 16.sp,
-        fontWeight = if (primary) FontWeight.SemiBold else FontWeight.Normal,
-        modifier = Modifier
+    val tint = if (primary) c.onAccent else if (enabled) c.text else c.textDim
+    Row(
+        Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(if (primary) c.accent else c.button)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        glyph?.let { GlyphIcon(it, tint, Modifier.size(20.dp)) }
+        Text(text, color = tint, fontSize = 16.sp, fontWeight = if (primary) FontWeight.SemiBold else FontWeight.Normal)
+    }
 }
 
 /** A full screen page on the plain background, its content in a column that scrolls and keeps clear of the cutout. */
@@ -251,37 +253,35 @@ fun <T> Chips(options: List<T>, selected: T, label: @Composable (T) -> String, o
 fun LoadWindow(saves: List<Pair<String, SaveSummary>>, onLoad: (String) -> Unit, onDelete: (String) -> Unit, onClose: () -> Unit) {
     val c = Infill.colors
     var deleting by remember { mutableStateOf<String?>(null) }
-    Window(Res.string.load, onClose) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Window(Res.string.load, onClose, Glyph.List) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (saves.isEmpty()) Text(stringResource(Res.string.no_saves), color = c.textDim, fontSize = 14.sp)
             for ((file, s) in saves) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(
-                        Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(c.button)
-                            .clickable(role = Role.Button) { onLoad(file) }
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                    ) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(c.button)
+                        .clickable(role = Role.Button) { onLoad(file) }
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    // A town, or the autosave of one.
+                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(c.accent), contentAlignment = Alignment.Center) {
+                        GlyphIcon(if (file == AUTOSAVE) Glyph.Renew else Glyph.Building, c.onAccent, Modifier.size(18.dp))
+                    }
+                    Column(Modifier.weight(1f)) {
                         Text(
                             if (file == AUTOSAVE) stringResource(Res.string.autosave_of, s.name) else s.name,
                             color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                         )
-                        Text(summaryLine(s), color = c.textDim, fontSize = 13.sp)
-                    }
-                    Box(Modifier.padding(start = 6.dp)) {
-                        Chips(listOf(file), if (deleting == file) file else null, {
-                            stringResource(if (deleting == file) Res.string.delete_really else Res.string.delete)
-                        }) {
-                            if (deleting == file) {
-                                onDelete(file)
-                                deleting = null
-                            } else {
-                                deleting = file
-                            }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            GlyphIcon(Glyph.Person, c.textDim, Modifier.size(12.dp))
+                            Text(summaryLine(s), color = c.textDim, fontSize = 13.sp)
                         }
                     }
+                    ActionButton(ActionItem(Glyph.Remove, stringResource(Res.string.delete), confirm = true) { onDelete(file) })
                 }
             }
         }
@@ -291,13 +291,13 @@ fun LoadWindow(saves: List<Pair<String, SaveSummary>>, onLoad: (String) -> Unit,
 /** The game's menu: save, load, start again, settings, or back to the main screen. */
 @Composable
 fun MenuWindow(onSave: () -> Unit, onLoad: () -> Unit, onNew: () -> Unit, onSettings: () -> Unit, onMain: () -> Unit, onClose: () -> Unit) {
-    Window(Res.string.menu, onClose) {
+    Window(Res.string.menu, onClose, Glyph.List) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            BigButton(stringResource(Res.string.save), primary = true, onClick = onSave)
-            BigButton(stringResource(Res.string.load), onClick = onLoad)
-            BigButton(stringResource(Res.string.new_city), onClick = onNew)
-            BigButton(stringResource(Res.string.settings), onClick = onSettings)
-            BigButton(stringResource(Res.string.main_screen), onClick = onMain)
+            BigButton(stringResource(Res.string.save), primary = true, glyph = Glyph.Check, onClick = onSave)
+            BigButton(stringResource(Res.string.load), glyph = Glyph.List, onClick = onLoad)
+            BigButton(stringResource(Res.string.new_city), glyph = Glyph.Plus, onClick = onNew)
+            BigButton(stringResource(Res.string.settings), glyph = Glyph.Auto, onClick = onSettings)
+            BigButton(stringResource(Res.string.main_screen), glyph = Glyph.Building, onClick = onMain)
         }
     }
 }
@@ -328,6 +328,15 @@ private val ACTION_NAMES: Map<KeyAction, StringResource> = mapOf(
     KeyAction.Back to Res.string.key_back,
 )
 
+@Composable
+private fun SettingHead(title: StringResource, glyph: Glyph) {
+    val c = Infill.colors
+    Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        GlyphIcon(glyph, c.accent, Modifier.size(15.dp))
+        Text(stringResource(title).uppercase(), color = c.textDim, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.6.sp)
+    }
+}
+
 /** Graphics, theme, the size of controls and text, and the keys. */
 @Composable
 fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
@@ -348,9 +357,9 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
                 true
             },
     ) {
-        Window(Res.string.settings, onClose) {
+        Window(Res.string.settings, onClose, Glyph.Auto) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(stringResource(Res.string.graphics), color = c.textDim, fontSize = 13.sp)
+                SettingHead(Res.string.graphics, Glyph.Mountain)
                 Chips(GraphicsLevel.entries, settings.graphics, {
                     stringResource(
                         when (it) {
@@ -360,7 +369,7 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
                         },
                     )
                 }) { settings.graphics = it }
-                Text(stringResource(Res.string.theme), color = c.textDim, fontSize = 13.sp)
+                SettingHead(Res.string.theme, Glyph.Lights)
                 Chips(ThemeChoice.entries, settings.theme, {
                     stringResource(
                         when (it) {
@@ -370,13 +379,13 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
                         },
                     )
                 }) { settings.theme = it }
-                Text(stringResource(Res.string.disasters), color = c.textDim, fontSize = 13.sp)
+                SettingHead(Res.string.disasters, Glyph.Warn)
                 Chips(listOf(0, 1, 2), settings.disasters, {
                     stringResource(listOf(Res.string.disasters_off, Res.string.disasters_fewer, Res.string.disasters_normal)[it])
                 }) { settings.disasters = it }
-                Text(stringResource(Res.string.ui_size), color = c.textDim, fontSize = 13.sp)
+                SettingHead(Res.string.ui_size, Glyph.Zone)
                 Chips(Settings.SCALES, settings.uiScale, { "${(it * 100).toInt()}%" }) { settings.uiScale = it }
-                Text(stringResource(Res.string.keys), color = c.textDim, fontSize = 13.sp)
+                SettingHead(Res.string.keys, Glyph.List)
                 for ((action, title) in ACTION_NAMES) {
                     val keys = settings.keys.filterValues { it == action }.keys.map { keyName(it) }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

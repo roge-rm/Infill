@@ -184,6 +184,8 @@ import com.rm.infill.ui.overlayChoices
 import com.rm.infill.ui.ServiceGroup
 import com.rm.infill.ui.serviceTabs
 import com.rm.infill.ui.toolTabs
+import com.rm.infill.ui.LocalAtlas
+import androidx.compose.runtime.CompositionLocalProvider
 import com.rm.infill.ui.TransitGroup
 import com.rm.infill.res.overlay as overlayTitle
 import com.rm.infill.ui.WaterGroup
@@ -193,6 +195,7 @@ import com.rm.infill.ui.viewTabs
 import com.rm.infill.ui.groups
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.fillMaxWidth
 import kotlin.math.max
 import com.rm.infill.ui.screenLayout
 import com.rm.infill.ui.theme.InfillTheme
@@ -641,6 +644,8 @@ private fun GameScreen(
         val anyOpen = windowOpen || budgetOpen || graphsOpen || peopleOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
         LaunchedEffect(anyOpen) { if (!anyOpen) focus.requestFocus() }
 
+        // Panels draw buildings in their own art.
+        CompositionLocalProvider(LocalAtlas provides atlas) {
         BoxWithConstraints(
             Modifier
                 .fillMaxSize()
@@ -686,6 +691,7 @@ private fun GameScreen(
                 },
         ) {
             val layout = screenLayout(maxWidth, maxHeight)
+            val screenHeight = maxHeight
             viewSize = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
             MapView(
                 game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, graphics, gestures, preview, costText, overlay,
@@ -754,7 +760,15 @@ private fun GameScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(gap),
             ) {
-                inspected?.let { (x, y) -> InspectPanel(game, x, y, onClose = { inspected = null }) }
+                inspected?.let { (x, y) ->
+                    InspectPanel(
+                        game, x, y, onClose = { inspected = null },
+                        onAction = { action -> tell(game.apply(action).problem) },
+                        onLines = { linesOpen = true },
+                        maxHeight = screenHeight * INSPECT_SHARE,
+                        modifier = Modifier.widthIn(max = TRAY_WIDTH.dp).fillMaxWidth(),
+                    )
+                }
                 if (tool == Tool.Transit && transitKind.line != 0) {
                     val tram = transitKind.line == 2
                     LineDraftBar(lineDraft.size, tram, { lineDraft = emptyList() }) {
@@ -875,6 +889,7 @@ private fun GameScreen(
             eraShown?.let { EraWindow(game, it) { eraShown = null } }
             if (peopleOpen) PeopleWindow(game, { peopleOpen = false; graphsOpen = true }) { peopleOpen = false }
         }
+        }
     }
 }
 
@@ -891,6 +906,9 @@ private const val PANEL_WIDTH = 240
 
 /** The widest the toolbar and its tray go along the bottom. */
 private const val TRAY_WIDTH = 520
+
+/** The most of the screen's height the inspect card's figures take before they scroll. */
+private const val INSPECT_SHARE = 0.4f
 
 /** A message for the top of the screen, with a building's name in it and a tile to go to if it's about a place. */
 private data class Message(
