@@ -32,6 +32,8 @@ internal fun DrawScope.drawUnderground(map: CityMap, camera: Camera, now: Int) {
         pipe(map, map.waterPipe, x, y, corner, t, -0.18f, aged(WATER_MAIN, map, i, Pipe.WATER, map.waterPipe, map.waterLaid, Broken.WATER, now))
         pipe(map, map.sewerPipe, x, y, corner, t, 0f, aged(SEWER, map, i, Pipe.SEWER, map.sewerPipe, map.sewerLaid, Broken.SEWER, now))
         pipe(map, map.stormPipe, x, y, corner, t, 0.18f, aged(STORM_DRAIN, map, i, Pipe.STORM, map.stormPipe, map.stormLaid, Broken.STORM, now))
+        // Subway tunnels, wide, through the middle.
+        pipe(map, map.subway, x, y, corner, t, 0f, if (map.out(i, Broken.SUBWAY)) BROKEN else TUNNEL, wide = true)
     }
 }
 
@@ -77,12 +79,12 @@ internal fun DrawScope.drawWorks(map: CityMap, camera: Camera) {
 }
 
 /** One kind of pipe on a tile: from just off its middle out to each side joined to more of it, or a stub if none are. */
-private fun DrawScope.pipe(map: CityMap, layer: ByteArray, x: Int, y: Int, corner: Offset, t: Float, offset: Float, colour: Color) {
+private fun DrawScope.pipe(map: CityMap, layer: ByteArray, x: Int, y: Int, corner: Offset, t: Float, offset: Float, colour: Color, wide: Boolean = false) {
     if (layer[map.index(x, y)].toInt() == 0) return
     fun has(nx: Int, ny: Int) = map.inside(nx, ny) && layer[map.index(nx, ny)].toInt() != 0
     val cx = corner.x + t * (0.5f + offset)
     val cy = corner.y + t * (0.5f + offset)
-    val width = max(1.5f, t * 0.1f)
+    val width = max(1.5f, t * (if (wide) 0.3f else 0.1f))
     var joined = false
     if (has(x, y - 1)) { drawLine(colour, Offset(cx, cy), Offset(cx, corner.y), width); joined = true }
     if (has(x, y + 1)) { drawLine(colour, Offset(cx, cy), Offset(cx, corner.y + t), width); joined = true }
@@ -119,6 +121,7 @@ private val WATERED = Color(0xFF7CC4F2)
 private val SEWERED = Color(0xFFC9A06A)
 private val FLOODWATER = Color(0xFF3F6E9E)
 private val RUST = Color(0xFFA8823C)
+private val TUNNEL = Color(0xAA9A6AD0)
 private val BROKEN = Color(0xFFFF2A2A)
 private val DUG = Color(0xFF5A4430)
 private val BARRIER = Color(0xFFE8792A)

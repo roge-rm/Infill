@@ -96,14 +96,14 @@ class RoadsTest {
         assertEquals(Math.round(10 * RoadType.DIRT.upkeep + RoadType.DIRT.upkeep * Balance.BRIDGE_UPKEEP), c.stats.roadUpkeep)
     }
 
-    /** Runs a month of trips from the given tiles and ends it, so the results are in. */
+    /** Runs a month of trips from the given tiles, everyone driving, and ends it, so the results are in. */
     private fun City.trips(workers: Map<Int, Int>, jobs: Map<Int, Int>, months: Int = 1): Traffic {
         val t = Traffic(map)
         val n = map.size
         repeat(months) {
             val w = IntArray(n).also { a -> workers.forEach { (k, v) -> a[k] = v } }
             val j = IntArray(n).also { a -> jobs.forEach { (k, v) -> a[k] = v } }
-            t.newMonth(w, IntArray(n), IntArray(n), j, IntArray(n), it)
+            t.newMonth(w, IntArray(n), IntArray(n), j, IntArray(n), it, carWorkersAt = w)
             t.sendDay(1, 1)
         }
         t.newMonth(IntArray(n), IntArray(n), IntArray(n), IntArray(n), IntArray(n), 0)
@@ -113,17 +113,18 @@ class RoadsTest {
     @Test
     fun oneWayStreetsSendTrafficTheLongWayRound() {
         val c = city()
-        // A one-way street west from the jobs to the homes, and a way round.
+        // A one-way street west from the jobs to the homes, and a paved way round.
         c.road(20, 10, 4, 10, RoadType.ONE_WAY_STREET)
-        c.road(4, 10, 4, 16)
-        c.road(4, 16, 20, 16)
-        c.road(20, 16, 20, 10)
+        c.road(4, 10, 4, 16, RoadType.STREET)
+        c.road(4, 16, 20, 16, RoadType.STREET)
+        c.road(20, 16, 20, 10, RoadType.STREET)
         val t = c.trips(mapOf(c.i(4, 10) to 20), mapOf(c.i(20, 10) to 50))
         assertEquals(20, t.workersPlaced)
+        // No cars the wrong way up the one-way street; they drive round.
         assertEquals(0, t.lastVolume[c.i(12, 10)])
         assertEquals(10, t.lastVolume[c.i(12, 16)]) // averaged with the empty month before
-        // 6 down, 16 across, 6 up, and the corners are dirt now.
-        assertEquals(28 * RoadType.DIRT.time, t.commute[c.i(4, 10)])
+        // Round by car is quicker than straight there on foot.
+        assertTrue(t.commute[c.i(4, 10)] < 16 * Balance.WALK_TIME)
     }
 
     @Test
@@ -169,6 +170,8 @@ class RoadsTest {
     fun aBetterMainStreetShortensTheCommute() {
         fun town(type: RoadType): City {
             val c = City(7, 64, 64, TerrainOptions(water = 0, trees = 0, river = false))
+            // When most people drive, which is when the road matters.
+            City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, 1960)
             c.road(0, 30, 60, 30, type)
             c.apply(Action.PlaceZone(5, 28, 40, 29, Zone.RESIDENTIAL))
             c.apply(Action.PlaceZone(24, 31, 40, 32, Zone.INDUSTRIAL))

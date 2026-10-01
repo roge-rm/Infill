@@ -93,7 +93,9 @@ fun MapView(
     val trains = graphics.trains > 0 && game.city.trainRoutes.isNotEmpty()
     val animate = running && (fires || traffic || trains || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
     val overlayImage = remember(overlay, game.revision) {
-        overlayImage(overlay, map, { game.city.building(map.building[it])?.people }) { game.city.wearAt(it) }
+        overlayImage(overlay, map, { game.city.building(map.building[it])?.people }, { game.city.wearAt(it) }) {
+            game.city.tramRiders(it) + game.city.busRiders(it) + game.city.trolleyRiders(it) + game.city.subwayRiders(it)
+        }
     }
     LaunchedEffect(animate) {
         if (!animate) return@LaunchedEffect
@@ -191,7 +193,10 @@ fun MapView(
         drawFloods(map, camera)
         drawWorks(map, camera)
         val stopped = if (trains) drawTrains(game.city.trainRoutes, map, camera, weatherTime, graphics.trains, graphics.smoke) else emptySet()
-        if (traffic) drawVehicles(map, camera, game.city.year, weatherTime, graphics.vehicles, stopped)
+        if (traffic) {
+            drawVehicles(map, camera, game.city.year, weatherTime, graphics.vehicles, stopped)
+            drawTransit(map, camera, weatherTime, { game.city.tramRiders(it) }, { game.city.busRiders(it) }) { game.city.trolleyRiders(it) }
+        }
         if (fires) drawFires(map, camera, weather, weatherTime)
         drawWeather(weather, camera, clouds, weatherTime, sun.strength, graphics)
         // Modulate rather than Multiply: the same for an opaque tint, and Android before 10 has only this one.

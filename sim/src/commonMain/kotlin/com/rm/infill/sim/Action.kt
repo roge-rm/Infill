@@ -25,6 +25,37 @@ sealed interface Action {
         override fun hashCode() = tiles.contentHashCode()
     }
 
+    /** Tram track along the streets on [tiles], given as map indices in order. */
+    data class BuildTram(val tiles: IntArray) : Action {
+        override fun equals(other: Any?) = other is BuildTram && tiles.contentEquals(other.tiles)
+        override fun hashCode() = tiles.contentHashCode()
+    }
+
+    /** Overhead wire for trolleybuses along the roads on [tiles], given as map indices in order. */
+    data class BuildWire(val tiles: IntArray) : Action {
+        override fun equals(other: Any?) = other is BuildWire && tiles.contentEquals(other.tiles)
+        override fun hashCode() = tiles.contentHashCode()
+    }
+
+    /** Subway tunnel under [tiles], given as map indices in order. */
+    data class BuildSubway(val tiles: IntArray) : Action {
+        override fun equals(other: Any?) = other is BuildSubway && tiles.contentEquals(other.tiles)
+        override fun hashCode() = tiles.contentHashCode()
+    }
+
+    /** A tram or bus stop ([Stop]) on the road at [x], [y]. */
+    data class PlaceStop(val x: Int, val y: Int, val kind: Int) : Action
+
+    /** Takes up the tram track, overhead wire, stops and subway tunnels from [x0], [y0] to [x1], [y1]. */
+    data class RemoveTransit(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action
+
+    /**
+     * Relays everything worn from [x0], [y0] to [x1], [y1]: roads, pipes,
+     * track, tram track, wire and tunnels, a programme of works the crews go
+     * through a few tiles a day.
+     */
+    data class RenewArea(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action
+
     /** Takes up the water mains, sewers and storm drains from [x0], [y0] to [x1], [y1]. */
     data class RemovePipes(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action
 
@@ -74,7 +105,7 @@ sealed interface Action {
 enum class Pipe(val price: Long) { WATER(15), SEWER(20), STORM(18) }
 
 /** Why an action, an undo or a redo can't go ahead. */
-enum class Problem { NotEnoughMoney, NothingToDo, Blocked, TownBuiltThere, NeedsTrack, NeedsWater }
+enum class Problem { NotEnoughMoney, NothingToDo, Blocked, TownBuiltThere, NeedsTrack, NeedsWater, NeedsTramTrack, NeedsTunnel }
 
 /**
  * What an action would do: its [cost], the tiles it [changes] and the ones it
@@ -111,6 +142,14 @@ object Prices {
     const val WATER_TOWER = 700L
     const val OUTFALL = 400L
     const val SEWAGE_WORKS = 3_000L
+    const val TRAM_TRACK = 25L
+    const val WIRE = 15L
+    const val TUNNEL = 300L
+    const val STOP = 50L
+    const val REMOVE_TRANSIT = 5L
+    const val TRAM_DEPOT = 2_000L
+    const val BUS_GARAGE = 1_500L
+    const val SUBWAY_STATION = 2_500L
     const val CLEAN_UP = 150L
     const val TREATMENT_PLANT = 9_000L
     const val STORM_POND = 600L
@@ -133,6 +172,9 @@ object Prices {
         BuildingType.WATER_TOWER -> WATER_TOWER
         BuildingType.OUTFALL -> OUTFALL
         BuildingType.SEWAGE_WORKS -> SEWAGE_WORKS
+        BuildingType.TRAM_DEPOT -> TRAM_DEPOT
+        BuildingType.BUS_GARAGE -> BUS_GARAGE
+        BuildingType.SUBWAY_STATION -> SUBWAY_STATION
         BuildingType.TREATMENT_PLANT -> TREATMENT_PLANT
         BuildingType.STORM_POND -> STORM_POND
         BuildingType.STORM_OUTFALL -> STORM_OUTFALL

@@ -41,9 +41,13 @@ object Balance {
     const val POLICE_REACH = 14
     const val FIRE_REACH = 12
 
-    /** Chance in ten thousand each month that a building catches fire with no fire station near. */
-    const val FIRE_CHANCE = 30
-    const val FIRE_CHANCE_INDUSTRY = 80
+    /** Chance in ten thousand each month that a building catches fire with no fire station near, in 1900. */
+    const val FIRE_CHANCE = 10
+    const val FIRE_CHANCE_INDUSTRY = 25
+
+    /** How much more readily a wooden first-rung building catches, and how much less a solid one, in percent. */
+    const val WOODEN_FIRE = 140
+    const val SOLID_FIRE = 60
 
     /** Chance in a hundred each day that a fire spreads to a building next to it. */
     const val FIRE_SPREAD = 4
@@ -296,8 +300,11 @@ object Balance {
     const val FAIL_AT_LIFE = 400
     const val FAIL_MOST = 20_000
 
-    /** How long track lasts, in years. */
+    /** How long track lasts, in years; tram track, trolleybus wire and subway tunnel too. */
     const val TRACK_LIFE = 35
+    const val TRAM_TRACK_LIFE = 30
+    const val WIRE_LIFE = 25
+    const val TUNNEL_LIFE = 80
 
     // Days to mend a failure, and what it costs.
     const val MEND_MAIN = 4
@@ -311,6 +318,10 @@ object Balance {
     const val REPAIR_DRAIN = 120L
     const val REPAIR_ROAD = 30L
     const val REPAIR_TRACK = 90L
+    const val MEND_WIRE = 2
+    const val MEND_TUNNEL = 10
+    const val REPAIR_WIRE = 40L
+    const val REPAIR_TUNNEL = 600L
 
     /** A patch puts back a tenth of a thing's life; it doesn't make it new. */
     const val PATCH_SHARE = 10
@@ -346,6 +357,53 @@ object Balance {
     const val WORN_YEARS = 40
     const val WORN_APPEAL = 10
 
+    // Getting about: seconds to cross a tile on foot, by tram and by subway, and what a bus stopping adds a tile.
+    const val WALK_TIME = 60
+    const val TRAM_TIME = 20
+    const val SUBWAY_TIME = 8
+    const val BUS_STOPPING = 6
+
+    // Waits to board, in seconds, on a well served network, and how much one depot, garage or station serves:
+    // tiles of track, road or tunnel, and riders a month.
+    const val TRAM_WAIT = 240
+    const val BUS_WAIT = 300
+    const val SUBWAY_WAIT = 180
+    const val TRACK_PER_DEPOT = 120
+    const val ROAD_PER_GARAGE = 300
+    const val TUNNEL_PER_STATION = 15
+    const val TRAM_CAPACITY = 3_000
+    const val BUS_CAPACITY = 2_500
+    const val SUBWAY_CAPACITY = 5_000
+
+    /** Land value for a tram or bus stop within STOP_REACH tiles, and for a subway station within SUBWAY_REACH. */
+    const val STOP_REACH = 3
+    const val STOP_VALUE = 6
+    const val SUBWAY_REACH = 5
+    const val SUBWAY_VALUE = 12
+
+    /** Pollution on a road for every hundred vehicles over it a month, as dirty as a 1920s car; how far it spreads; what a bus counts for in cars. */
+    const val FUMES_PER_HUNDRED = 8
+    const val FUMES_REACH = 2
+    const val BUS_FUMES = 3
+
+    /** What a rider pays to board a tram, bus or subway train. */
+    const val FARE = 0.30
+
+    /** Trolleybuses' first year. */
+    const val TROLLEYBUS_YEAR = 1925
+
+    /** Riders a month on trams, trolleybuses and the subway for each point of pollution they add at each power station. */
+    const val RIDERS_PER_PLANT_POINT = 400
+
+    // Upkeep a month: a tile of tram track, of overhead wire, of subway tunnel, and a stop; depots, garages and stations.
+    const val TRAM_TRACK_UPKEEP = 0.3
+    const val WIRE_UPKEEP = 0.2
+    const val TUNNEL_UPKEEP = 1.5
+    const val STOP_UPKEEP = 1.0
+    const val DEPOT_UPKEEP = 40.0
+    const val GARAGE_UPKEEP = 30.0
+    const val SUBWAY_STATION_UPKEEP = 25.0
+
     // Eras' milestones.
     const val STREETCAR_PEOPLE = 1_500
     const val MOTOR_PEOPLE = 8_000
@@ -353,6 +411,8 @@ object Balance {
     const val MOTOR_POWERED = 75
     const val RENEWAL_PEOPLE = 25_000
     const val INFILL_LAND = 75
+    const val FUTURE_KEPT_UP = 90
+    const val FUTURE_GREEN_TRIPS = 33
 
     // What homes expect as the years go by: mains water, the sewer and power go
     // from a draw to expected, and going without counts against a home.

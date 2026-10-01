@@ -79,9 +79,8 @@ class Settings(private val store: Platform) {
         // Dev keys aren't saved; they always come from the defaults. Nor are
         // actions added since the keys were saved: they get their default key
         // if nothing else has taken it.
-        // Keys saved before this was kept came from 0.1, before the rail and water tools.
-        val known = store.setting(KNOWN)?.split(',')?.toSet()
-            ?: (KeyAction.entries.map { it.name } - setOf(KeyAction.ToolRail.name, KeyAction.ToolWater.name)).toSet()
+        // Keys saved before this was kept came from 0.1, which had only the actions it had then.
+        val known = store.setting(KNOWN)?.split(',')?.toSet() ?: FIRST_ACTIONS
         for ((k, a) in DefaultKeys) {
             val added = a.name !in known && a !in out.values
             if ((a.dev || added) && k !in out) out[k] = a
@@ -95,6 +94,13 @@ class Settings(private val store: Platform) {
     }
 
     companion object {
+        /** The actions there were in 0.1, when keys were first saved and before the list of known ones was kept. */
+        private val FIRST_ACTIONS = setOf(
+            "PanUp", "PanDown", "PanLeft", "PanRight", "ZoomIn", "ZoomOut",
+            "ToolInspect", "ToolBulldoze", "ToolRoad", "ToolZone", "ToolPower", "ToolServices",
+            "Budget", "Graphs", "NextOverlay", "Speed1", "Speed2", "Speed3", "Pause", "Back", "Undo", "Redo",
+        )
+
         val SCALES = listOf(1f, 1.1f, 1.2f, 1.3f)
         private const val GRAPHICS = "graphics"
         private const val THEME = "theme"

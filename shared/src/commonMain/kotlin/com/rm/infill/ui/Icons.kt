@@ -32,6 +32,7 @@ fun ToolIcon(tool: Tool, colour: Color, modifier: Modifier = Modifier) {
             Tool.Zone -> zone(u, colour)
             Tool.Power -> bolt(u, colour)
             Tool.Services -> civic(u, colour)
+            Tool.Transit -> tram(u, colour)
         }
     }
 }
@@ -223,6 +224,16 @@ private fun DrawScope.drop(u: Float, c: Color) {
         close()
     }
     drawPath(path, c)
+}
+
+/** A tram from the front: its body, windscreen, pole up to the wire, and wheels. */
+private fun DrawScope.tram(u: Float, c: Color) {
+    drawLine(c, Offset(12 * u, 2 * u), Offset(12 * u, 6 * u), 1.6f * u)
+    drawLine(c, Offset(7 * u, 2 * u), Offset(17 * u, 2 * u), 1.4f * u)
+    drawRoundRect(c, Offset(5 * u, 6 * u), Size(14 * u, 13 * u), androidx.compose.ui.geometry.CornerRadius(2.5f * u))
+    drawRect(c.copy(alpha = 0.35f), Offset(7 * u, 8 * u), Size(10 * u, 5 * u))
+    drawCircle(c, 1.6f * u, Offset(8 * u, 21 * u))
+    drawCircle(c, 1.6f * u, Offset(16 * u, 21 * u))
 }
 
 private fun DrawScope.rail(u: Float, c: Color) {

@@ -34,6 +34,11 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
             for (i in p.blocked) drawRect(BLOCKED, at(i), tile)
         }
         is Action.Bulldoze -> rect(a.x0, a.y0, a.x1, a.y1, camera, BULLDOZE_FILL, BULLDOZE_EDGE)
+        is Action.RenewArea -> {
+            // The area faintly, and the tiles that'll be relaid.
+            rect(a.x0, a.y0, a.x1, a.y1, camera, RENEW_FILL, RENEW_EDGE)
+            for (i in p.plan.changes) drawRect(RENEW_TILE, at(i), tile)
+        }
         is Action.PlaceParks -> {
             rect(a.x0, a.y0, a.x1, a.y1, camera, PARK_FILL, PARK_EDGE)
             for (i in p.blocked) drawRect(BLOCKED, at(i), tile)
@@ -51,8 +56,23 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
         is Action.BuildBank -> for (i in a.tiles) {
             drawRect(if (i in p.blocked) BLOCKED else BANK_FILL, at(i), tile)
         }
+        is Action.BuildTram -> for (i in a.tiles) {
+            drawRect(if (i in p.blocked) BLOCKED else RAIL_FILL, at(i), tile)
+        }
+        is Action.BuildWire -> for (i in a.tiles) {
+            drawRect(if (i in p.blocked) BLOCKED else LINE_FILL, at(i), tile)
+        }
+        is Action.BuildSubway -> for (i in a.tiles) {
+            drawRect(if (i in p.blocked) BLOCKED else PIPE_FILL, at(i), tile)
+        }
+        is Action.PlaceStop -> {
+            val ok = p.blocked.isEmpty()
+            rect(a.x, a.y, a.x, a.y, camera, if (ok) PLACE_FILL else BLOCKED, if (ok) PLACE_EDGE else BULLDOZE_EDGE)
+        }
+        is Action.RemoveTransit -> rect(a.x0, a.y0, a.x1, a.y1, camera, BULLDOZE_FILL, BULLDOZE_EDGE)
         is Action.PlaceBuilding -> {
-            val ok = p.plan.problem != Problem.Blocked && p.plan.problem != Problem.NeedsTrack && p.plan.problem != Problem.NeedsWater
+            val ok = p.plan.problem != Problem.Blocked && p.plan.problem != Problem.NeedsTrack && p.plan.problem != Problem.NeedsWater &&
+                p.plan.problem != Problem.NeedsTramTrack && p.plan.problem != Problem.NeedsTunnel
             rect(a.x, a.y, a.x + a.type.width - 1, a.y + a.type.height - 1, camera, if (ok) PLACE_FILL else BLOCKED, if (ok) PLACE_EDGE else BULLDOZE_EDGE)
         }
     }
@@ -96,6 +116,9 @@ private val PIPE_FILL = Color(0x664FA3E0)
 private val BANK_FILL = Color(0x66A0B060)
 private val BLOCKED = Color(0x80E53935)
 private val BULLDOZE_FILL = Color(0x40E53935)
+private val RENEW_FILL = Color(0x2240A0E0)
+private val RENEW_EDGE = Color(0xCC40A0E0)
+private val RENEW_TILE = Color(0x6640A0E0)
 private val BULLDOZE_EDGE = Color(0xE6E53935)
 private val HOVER = Color(0xCCFFFFFF)
 private val LINE_FILL = Color(0x66FFD54F)

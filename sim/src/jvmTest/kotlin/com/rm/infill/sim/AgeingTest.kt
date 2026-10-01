@@ -129,6 +129,29 @@ class AgeingTest {
     }
 
     @Test
+    fun renewingAnAreaRelaysWhatsWornAndLeavesTheRest() {
+        val c = city()
+        val m = c.map
+        // The west half of the street worn, the east half new.
+        for (x in 2..20) {
+            val i = m.index(x, 20)
+            m.roadLaid[i] = (c.monthNow - 20 * 12).toShort()
+            m.waterLaid[i] = (c.monthNow - 40 * 12).toShort()
+        }
+        val plan = c.plan(Action.RenewArea(0, 18, 47, 22))
+        assertTrue(plan.ok)
+        assertEquals(19, plan.changes.size, "the worn tiles only")
+        c.apply(Action.RenewArea(0, 18, 47, 22))
+        assertEquals(c.monthNow.toShort(), m.roadLaid[m.index(10, 20)])
+        assertEquals(c.monthNow.toShort(), m.waterLaid[m.index(10, 20)])
+        assertTrue(m.closed(m.index(2, 20)), "the first street dug up")
+        assertFalse(m.closed(m.index(20, 20)), "the last waiting its turn")
+        assertEquals(0, m.broken[m.index(30, 20)].toInt(), "new road left alone")
+        c.days(19 / Balance.WORKS_PER_DAY + Balance.WORKS_DAYS + 2)
+        assertEquals(0, (2..20).count { m.broken[m.index(it, 20)].toInt() != 0 })
+    }
+
+    @Test
     fun aWornOutPowerStationBreaksDown() {
         val c = city()
         c.apply(Action.PlaceBuilding(BuildingType.COAL_PLANT, 10, 30))

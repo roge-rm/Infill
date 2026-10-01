@@ -1,5 +1,9 @@
 package com.rm.infill.ui
 
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -82,6 +86,17 @@ import com.rm.infill.sim.Broken
 import com.rm.infill.sim.Material
 import com.rm.infill.sim.Pipe
 import com.rm.infill.res.track
+import com.rm.infill.res.tram_track
+import com.rm.infill.res.tram_stop
+import com.rm.infill.res.bus_stop
+import com.rm.infill.res.subway
+import com.rm.infill.res.trolley_wire
+import com.rm.infill.res.tram_depot
+import com.rm.infill.res.bus_garage
+import com.rm.infill.res.subway_station
+import com.rm.infill.res.no_service
+import com.rm.infill.res.stop_riders
+import com.rm.infill.sim.Stop
 import com.rm.infill.res.brownfield
 import com.rm.infill.res.heritage
 import com.rm.infill.res.sewage_works
@@ -97,6 +112,9 @@ import com.rm.infill.res.mend_sewer
 import com.rm.infill.res.mend_drain
 import com.rm.infill.res.mend_road
 import com.rm.infill.res.mend_track
+import com.rm.infill.res.mend_tram
+import com.rm.infill.res.mend_wire
+import com.rm.infill.res.mend_tunnel
 import com.rm.infill.res.material_cast_iron
 import com.rm.infill.res.material_wood
 import com.rm.infill.res.material_ductile_iron
@@ -188,8 +206,11 @@ fun <T> OptionPicker(
         ) {
             for (option in options) {
                 val on = option == selected
+                val inView = remember(option) { BringIntoViewRequester() }
+                if (on) LaunchedEffect(option) { inView.bringIntoView() }
                 Row(
                     Modifier
+                        .bringIntoViewRequester(inView)
                         .clip(RoundedCornerShape(8.dp))
                         .background(if (on) c.accent else c.button)
                         .semantics(mergeDescendants = true) { this.selected = on }
@@ -252,7 +273,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 else -> add(pluralStringResource(Res.plurals.jobs, t.capacity, t.capacity))
             }
             if (t.zone != Zone.NONE) densityName(map.density[i])?.let { add(stringResource(it)) }
-            if (t.needsPower || t == BuildingType.COAL_PLANT) {
+            if (t.needsPower || t == BuildingType.COAL_PLANT || t == BuildingType.TRAM_DEPOT || t == BuildingType.SUBWAY_STATION) {
                 add(stringResource(if (map.powered[i]) Res.string.has_power else Res.string.no_power))
             }
             if (building.burning > 0) add(stringResource(Res.string.on_fire))
@@ -319,6 +340,26 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 add(stringResource(Res.string.laid_in, stringResource(materialName(material)), yearOf(laid[i].toInt())))
             }
             brokenLine(map, i)?.let { add(it) }
+            // Transit: the track and stops on the street, the tunnel under it, and whether anything runs.
+            if (map.tram[i].toInt() != 0) {
+                add(stringResource(Res.string.laid_in, stringResource(Res.string.tram_track), yearOf(map.tramLaid[i].toInt())) +
+                    if (city.tramNetwork(i) < 0) ". " + stringResource(Res.string.no_service) else "")
+            }
+            if (map.wire[i].toInt() != 0) {
+                add(stringResource(Res.string.laid_in, stringResource(Res.string.trolley_wire), yearOf(map.wireLaid[i].toInt())) +
+                    if (city.trolleyNetwork(i) < 0) ". " + stringResource(Res.string.no_service) else "")
+            }
+            val stops = map.stop[i].toInt()
+            if (stops and Stop.TRAM != 0) add(stringResource(Res.string.tram_stop))
+            if (stops and Stop.BUS != 0) {
+                val served = city.busNetwork(i) >= 0 || city.trolleyNetwork(i) >= 0
+                add(stringResource(Res.string.bus_stop) + if (!served) ". " + stringResource(Res.string.no_service) else "")
+            }
+            if (stops != 0) city.stopRiders(i).let { add(pluralStringResource(Res.plurals.stop_riders, it, it)) }
+            if (map.subway[i].toInt() != 0) {
+                add(stringResource(Res.string.laid_in, stringResource(Res.string.subway), yearOf(map.subwayLaid[i].toInt())) +
+                    if (city.subwayNetwork(i) < 0) ". " + stringResource(Res.string.no_service) else "")
+            }
             if (map.brownfield[i].toInt() != 0) add(stringResource(Res.string.brownfield))
             if (road != null) {
                 if (map.terrain[i] == Terrain.WATER) add(stringResource(Res.string.inspect_bridge))
@@ -386,6 +427,9 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.WATER_TOWER -> Res.string.water_tower
     BuildingType.OUTFALL -> Res.string.sewer_outfall
     BuildingType.SEWAGE_WORKS -> Res.string.sewage_works
+    BuildingType.TRAM_DEPOT -> Res.string.tram_depot
+    BuildingType.BUS_GARAGE -> Res.string.bus_garage
+    BuildingType.SUBWAY_STATION -> Res.string.subway_station
     BuildingType.TREATMENT_PLANT -> Res.string.treatment_plant
     BuildingType.STORM_POND -> Res.string.storm_pond
     BuildingType.STORM_OUTFALL -> Res.string.storm_outfall
@@ -439,6 +483,9 @@ private fun brokenLine(map: com.rm.infill.sim.CityMap, i: Int): String? {
         bits and Broken.SEWER != 0 -> Res.plurals.mend_sewer
         bits and Broken.STORM != 0 -> Res.plurals.mend_drain
         bits and Broken.RAIL != 0 -> Res.plurals.mend_track
+        bits and Broken.TRAM != 0 -> Res.plurals.mend_tram
+        bits and Broken.WIRE != 0 -> Res.plurals.mend_wire
+        bits and Broken.SUBWAY != 0 -> Res.plurals.mend_tunnel
         else -> Res.plurals.mend_road
     }
     return pluralStringResource(which, days, days)

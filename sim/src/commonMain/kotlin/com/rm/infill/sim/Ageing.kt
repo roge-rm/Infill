@@ -11,8 +11,16 @@ object Broken {
     /** Not a failure but renewal: the crews are relaying what's marked, or waiting their turn to. */
     const val WORKS = 32
 
-    /** The pipes that shut the road above them while they're dug up. */
-    const val DUG = WATER or SEWER or STORM
+    /** Tram track, trolleybus wire and subway tunnel. */
+    const val TRAM = 64
+    const val WIRE = 128
+    const val SUBWAY = 256
+
+    /** What shuts the road above it while it's dug up: the pipes and the tram track. */
+    const val DUG = WATER or SEWER or STORM or TRAM
+
+    /** What takes a network out of use while it's broken, so the networks are worked out again. */
+    const val NETWORKS = DUG or RAIL or WIRE or SUBWAY
 }
 
 /**

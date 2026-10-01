@@ -47,6 +47,8 @@ object Stormwater {
         BuildingType.WATER_TOWER -> 40
         BuildingType.OUTFALL, BuildingType.STORM_OUTFALL -> 20
         BuildingType.SEWAGE_WORKS -> 55
+        BuildingType.TRAM_DEPOT, BuildingType.BUS_GARAGE -> 90
+        BuildingType.SUBWAY_STATION -> 60
         BuildingType.TREATMENT_PLANT -> 65
         BuildingType.STORM_POND -> 0
     }

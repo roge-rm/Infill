@@ -70,6 +70,14 @@ import com.rm.infill.res.event_sewer_collapsed
 import com.rm.infill.res.event_track_broken
 import com.rm.infill.res.event_broke_down
 import com.rm.infill.ui.waterKindsIn
+import com.rm.infill.ui.TransitKind
+import com.rm.infill.ui.BulldozeKind
+import com.rm.infill.res.event_tram_track_broken
+import com.rm.infill.res.event_wire_down
+import com.rm.infill.res.event_tunnel_shut
+import com.rm.infill.ui.transitKindsIn
+import com.rm.infill.res.needs_tram_track
+import com.rm.infill.res.needs_tunnel
 import com.rm.infill.res.road_only
 import com.rm.infill.res.road_with_pipes
 import com.rm.infill.res.nothing_to_undo
@@ -278,10 +286,12 @@ private fun GameScreen(
         var tool by remember { mutableStateOf(Tool.Inspect) }
         var zoneKind by remember { mutableStateOf(ZoneKind.Residential) }
         var densityKind by remember { mutableStateOf(DensityKind.Medium) }
+        var bulldozeKind by remember { mutableStateOf(BulldozeKind.Clear) }
         var powerKind by remember { mutableStateOf(PowerKind.Line) }
         var roadKind by remember { mutableStateOf(RoadType.DIRT) }
         var railKind by remember { mutableStateOf(RailKind.Track) }
         var waterKind by remember { mutableStateOf(WaterKind.Main) }
+        var transitKind by remember { mutableStateOf(TransitKind.TramTrack) }
         var roadPipes by remember { mutableStateOf(false) }
         var speed by remember { mutableIntStateOf(1) }
         var drag by remember { mutableStateOf<ToolDrag?>(null) }
@@ -372,6 +382,9 @@ private fun GameScreen(
                         EventKind.SewerCollapsed -> Message(Res.string.event_sewer_collapsed, x = e.x, y = e.y)
                         EventKind.TrackBroken -> Message(Res.string.event_track_broken, x = e.x, y = e.y)
                         EventKind.BrokeDown -> Message(Res.string.event_broke_down, e.type?.let { buildingName(it) }, e.x, e.y)
+                        EventKind.TramTrackBroken -> Message(Res.string.event_tram_track_broken, x = e.x, y = e.y)
+                        EventKind.WireDown -> Message(Res.string.event_wire_down, x = e.x, y = e.y)
+                        EventKind.TunnelShut -> Message(Res.string.event_tunnel_shut, x = e.x, y = e.y)
                         EventKind.EraArrived -> null
                     }
                 }
@@ -387,15 +400,17 @@ private fun GameScreen(
         }
 
         // What the drag would do, worked out again as it moves.
-        val preview = remember(drag, tool, zoneKind, densityKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, game.revision) {
+        val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, game.revision) {
             drag?.let { d ->
-                d.action(tool, zoneKind, densityKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
+                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
             }
         }
         val costText = preview?.let {
             if (it.plan.problem == Problem.NotEnoughMoney) stringResource(Res.string.not_enough_money)
             else if (it.plan.problem == Problem.NeedsTrack) stringResource(Res.string.needs_track)
             else if (it.plan.problem == Problem.NeedsWater) stringResource(Res.string.needs_water)
+            else if (it.plan.problem == Problem.NeedsTramTrack) stringResource(Res.string.needs_tram_track)
+            else if (it.plan.problem == Problem.NeedsTunnel) stringResource(Res.string.needs_tunnel)
             else stringResource(Res.string.money, groupThousands(it.plan.cost))
         } ?: ""
 
@@ -412,6 +427,11 @@ private fun GameScreen(
                 waterKind = kinds[(kinds.indexOf(waterKind) + 1) % kinds.size]
             }
             if (t == Tool.Power && tool == Tool.Power) powerKind = PowerKind.entries[(powerKind.ordinal + 1) % PowerKind.entries.size]
+            if (t == Tool.Bulldoze && tool == Tool.Bulldoze) bulldozeKind = BulldozeKind.entries[(bulldozeKind.ordinal + 1) % BulldozeKind.entries.size]
+            if (t == Tool.Transit && tool == Tool.Transit) {
+                val kinds = transitKindsIn(city)
+                transitKind = kinds[(kinds.indexOf(transitKind) + 1) % kinds.size]
+            }
             if (t == Tool.Services && tool == Tool.Services) {
                 val services = servicesIn(city)
                 serviceKind = services[(services.indexOf(serviceKind) + 1) % services.size]
@@ -428,6 +448,8 @@ private fun GameScreen(
                 Problem.Blocked -> Message(Res.string.blocked)
                 Problem.NeedsTrack -> Message(Res.string.needs_track)
                 Problem.NeedsWater -> Message(Res.string.needs_water)
+                Problem.NeedsTramTrack -> Message(Res.string.needs_tram_track)
+                Problem.NeedsTunnel -> Message(Res.string.needs_tunnel)
                 else -> message
             }
         }
@@ -465,7 +487,7 @@ private fun GameScreen(
             onToolUp = {
                 val d = drag
                 drag = null
-                val action = d?.action(tool, zoneKind, densityKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, city.map)
+                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map)
                 if (action != null) tell(game.apply(action).problem)
             },
             onToolCancel = { drag = null },
@@ -493,7 +515,9 @@ private fun GameScreen(
                 if (KeyAction.ZoomOut in keys.held) camera.zoomBy(1f / (1f + KEY_ZOOM * seconds), centre, viewSize)
             }
         }
-        LaunchedEffect(Unit) { focus.requestFocus() }
+        // The keys come back to the map whenever a window or panel over it closes, which takes the focus with it.
+        val anyOpen = windowOpen || budgetOpen || graphsOpen || peopleOpen || eraShown != null || inspected != null
+        LaunchedEffect(anyOpen) { if (!anyOpen) focus.requestFocus() }
 
         BoxWithConstraints(
             Modifier
@@ -512,6 +536,7 @@ private fun GameScreen(
                             KeyAction.ToolZone -> pick(Tool.Zone)
                             KeyAction.ToolPower -> pick(Tool.Power)
                             KeyAction.ToolServices -> pick(Tool.Services)
+                            KeyAction.ToolTransit -> pick(Tool.Transit)
                             KeyAction.Budget -> budgetOpen = !budgetOpen
                             KeyAction.Graphs -> graphsOpen = !graphsOpen
                             KeyAction.People -> peopleOpen = !peopleOpen
@@ -540,7 +565,7 @@ private fun GameScreen(
             viewSize = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
             MapView(
                 game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, graphics, gestures, preview, costText, overlay,
-                underground = tool == Tool.Water,
+                underground = tool == Tool.Water || (tool == Tool.Transit && (transitKind == TransitKind.Subway || transitKind == TransitKind.Station)),
                 modifier = Modifier.fillMaxSize(),
             )
 
@@ -613,6 +638,12 @@ private fun GameScreen(
                 }
                 if (tool == Tool.Power) {
                     OptionPicker(PowerKind.entries, powerKind, { it.title }, { null }, { powerKind = it }, compactTools)
+                }
+                if (tool == Tool.Bulldoze) {
+                    OptionPicker(BulldozeKind.entries, bulldozeKind, { it.title }, { null }, { bulldozeKind = it }, compactTools)
+                }
+                if (tool == Tool.Transit) {
+                    OptionPicker(transitKindsIn(city), transitKind, { it.title }, { null }, { transitKind = it }, compactTools)
                 }
                 if (tool == Tool.Services) {
                     OptionPicker(servicesIn(city), serviceKind, { it.title }, { null }, { serviceKind = it }, compactTools)

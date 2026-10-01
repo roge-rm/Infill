@@ -22,6 +22,16 @@ class CityMap(val width: Int, val height: Int) {
     /** Railway track ([Rail]). A tile with road and track is a level crossing. */
     val rail = ByteArray(size)
 
+    /** Tram track along a street, 1 where there's some, and subway tunnel under anything, 1 where there's one. */
+    val tram = ByteArray(size)
+    val subway = ByteArray(size)
+
+    /** Overhead wire for trolleybuses along a road, 1 where there's some. */
+    val wire = ByteArray(size)
+
+    /** Tram and bus stops on a road tile ([Stop]). */
+    val stop = ByteArray(size)
+
     /** Water mains, sewers and storm drains under each tile, laid by hand: 1 where there's one. */
     val waterPipe = ByteArray(size)
     val sewerPipe = ByteArray(size)
@@ -37,11 +47,16 @@ class CityMap(val width: Int, val height: Int) {
     val stormLaid = ShortArray(size)
     val railLaid = ShortArray(size)
 
+    /** When each tile's tram track, trolleybus wire and subway tunnel went in, the same way. */
+    val tramLaid = ShortArray(size)
+    val wireLaid = ShortArray(size)
+    val subwayLaid = ShortArray(size)
+
     /** Land left fouled where works closed down, 1 where it is: nothing's built on it until it's cleaned up. */
     val brownfield = ByteArray(size)
 
     /** What's broken on each tile ([Broken]), and the days left until it's mended or the works there are done. */
-    val broken = ByteArray(size)
+    val broken = ShortArray(size)
     val mending = ByteArray(size)
 
     fun mendingDays(i: Int): Int = mending[i].toInt() and 0xff
@@ -77,12 +92,22 @@ class CityMap(val width: Int, val height: Int) {
         }
     }
 
+    /** When the transit on tile [i] went in, packed for undo like [tileLaid]. */
+    fun tileTransitLaid(i: Int): Long =
+        ((tramLaid[i].toLong() and 0xfff) shl 24) or ((wireLaid[i].toLong() and 0xfff) shl 12) or (subwayLaid[i].toLong() and 0xfff)
+
+    fun setTileTransitLaid(i: Int, v: Long) {
+        tramLaid[i] = ((v shr 24) and 0xfff).toShort()
+        wireLaid[i] = ((v shr 12) and 0xfff).toShort()
+        subwayLaid[i] = (v and 0xfff).toShort()
+    }
+
     /** What's broken on tile [i] and the days to mend it, packed for undo. */
-    fun tileFix(i: Int): Int = (broken[i].toInt() and 0xff) or (mendingDays(i) shl 8)
+    fun tileFix(i: Int): Int = (broken[i].toInt() and 0xffff) or (mendingDays(i) shl 16)
 
     fun setTileFix(i: Int, v: Int) {
-        broken[i] = (v and 0xff).toByte()
-        mending[i] = (v shr 8).toByte()
+        broken[i] = (v and 0xffff).toShort()
+        mending[i] = (v shr 16).toByte()
     }
 
     /** Embankments along the water, 1 where there's one. A swollen river can't get past them. */
@@ -174,7 +199,7 @@ class CityMap(val width: Int, val height: Int) {
     /**
      * Everything on a tile that the player or the town can change, packed into
      * one number for undo: terrain, road, zone, power, track, the road's
-     * heading, the pipes and the zone's density in the low half, the building in the high half.
+     * heading, the pipes and the zone's density in the low half; the building, tram track, subway and stops in the high half.
      */
     fun tileState(i: Int): Long =
         (terrain[i].toLong() and 0x0f) or ((road[i].toLong() and 0x0f) shl 4) or ((zone[i].toLong() and 0x07) shl 8) or
@@ -182,7 +207,8 @@ class CityMap(val width: Int, val height: Int) {
             ((roadHeading[i].toLong() and 0x0f) shl 15) or ((waterPipe[i].toLong() and 0x07) shl 19) or
             ((sewerPipe[i].toLong() and 0x03) shl 22) or ((stormPipe[i].toLong() and 0x03) shl 24) or
             ((bank[i].toLong() and 0x01) shl 26) or ((density[i].toLong() and 0x03) shl 27) or
-            ((brownfield[i].toLong() and 0x01) shl 29) or (building[i].toLong() shl 32)
+            ((brownfield[i].toLong() and 0x01) shl 29) or ((wire[i].toLong() and 0x01) shl 30) or ((building[i].toLong() and 0x0fffffff) shl 32) or
+            ((tram[i].toLong() and 0x01) shl 60) or ((subway[i].toLong() and 0x01) shl 61) or ((stop[i].toLong() and 0x03) shl 62)
 
     fun setTileState(i: Int, state: Long) {
         terrain[i] = (state and 0x0f).toByte()
@@ -197,7 +223,11 @@ class CityMap(val width: Int, val height: Int) {
         bank[i] = ((state shr 26) and 0x01).toByte()
         density[i] = ((state shr 27) and 0x03).toByte()
         brownfield[i] = ((state shr 29) and 0x01).toByte()
-        building[i] = (state ushr 32).toInt()
+        wire[i] = ((state shr 30) and 0x01).toByte()
+        building[i] = ((state ushr 32) and 0x0fffffff).toInt()
+        tram[i] = ((state ushr 60) and 0x01).toByte()
+        subway[i] = ((state ushr 61) and 0x01).toByte()
+        stop[i] = ((state ushr 62) and 0x03).toByte()
     }
 
     /** FNV-1a over every layer. Two maps with the same hash are the same map. */
@@ -205,7 +235,7 @@ class CityMap(val width: Int, val height: Int) {
         var h = FNV_OFFSET
         h = mix(h, width.toLong())
         h = mix(h, height.toLong())
-        for (layer in arrayOf(terrain, road, roadHeading, zone, density, power, rail, waterPipe, sewerPipe, stormPipe, bank, grime, fire)) for (b in layer) h = mix(h, b.toLong())
+        for (layer in arrayOf(terrain, road, roadHeading, zone, density, power, rail, tram, wire, subway, stop, waterPipe, sewerPipe, stormPipe, bank, grime, fire)) for (b in layer) h = mix(h, b.toLong())
         for (b in building) h = mix(mix(h, b.toLong()), (b ushr 8).toLong())
         return h
     }

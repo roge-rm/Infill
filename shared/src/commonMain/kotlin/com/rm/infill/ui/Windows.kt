@@ -76,6 +76,18 @@ import com.rm.infill.res.upkeep_flood
 import com.rm.infill.res.upkeep_schools
 import com.rm.infill.res.upkeep_health
 import com.rm.infill.res.upkeep_repairs
+import com.rm.infill.res.upkeep_transit
+import com.rm.infill.res.income_fares
+import com.rm.infill.res.commutes
+import com.rm.infill.res.mode_walk
+import com.rm.infill.res.mode_car
+import com.rm.infill.res.mode_bus
+import com.rm.infill.res.mode_trolley
+import com.rm.infill.res.trolley_wire
+import com.rm.infill.sim.Balance
+import com.rm.infill.res.mode_tram
+import com.rm.infill.res.mode_subway
+import com.rm.infill.res.mode_train
 import com.rm.infill.sim.Series
 import com.rm.infill.res.era_township
 import com.rm.infill.res.era_streetcar
@@ -100,6 +112,8 @@ import com.rm.infill.res.goal_downtown
 import com.rm.infill.res.goal_high_school
 import com.rm.infill.res.goal_land_built
 import com.rm.infill.res.goal_met
+import com.rm.infill.res.goal_kept_up
+import com.rm.infill.res.goal_green_trips
 import com.rm.infill.res.goal_not_met
 import com.rm.infill.sim.Era
 import com.rm.infill.sim.Material
@@ -201,6 +215,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
             MoneyLine(Res.string.tax_residential, s.residentialIncome)
             MoneyLine(Res.string.tax_commercial, s.commercialIncome)
             MoneyLine(Res.string.tax_industrial, s.industrialIncome)
+            if (s.fareIncome > 0) MoneyLine(Res.string.income_fares, s.fareIncome)
             MoneyLine(Res.string.upkeep_roads, -s.roadUpkeep)
             if (s.railUpkeep > 0) MoneyLine(Res.string.upkeep_rail, -s.railUpkeep)
             if (s.waterUpkeep > 0) MoneyLine(Res.string.upkeep_water, -s.waterUpkeep)
@@ -212,6 +227,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
             if (s.schoolUpkeep > 0) MoneyLine(Res.string.upkeep_schools, -s.schoolUpkeep)
             if (s.healthUpkeep > 0) MoneyLine(Res.string.upkeep_health, -s.healthUpkeep)
             if (s.repairCost > 0) MoneyLine(Res.string.upkeep_repairs, -s.repairCost)
+            if (s.transitUpkeep > 0) MoneyLine(Res.string.upkeep_transit, -s.transitUpkeep)
             Box(Modifier.fillMaxWidth().height(1.dp).background(c.chromeEdge))
             MoneyLine(Res.string.net, s.income - s.upkeep, bold = true)
         }
@@ -377,6 +393,13 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
             CountLine(Res.string.died, n(s.deaths))
             CountLine(Res.string.moved_in, n(s.movedIn))
             CountLine(Res.string.moved_out, n(s.movedOut))
+            // How commutes are made, those used at all.
+            val trips = s.byMode.sum()
+            if (trips > 0) {
+                Heading(Res.string.commutes)
+                val names = listOf(Res.string.mode_walk, Res.string.mode_car, Res.string.mode_bus, Res.string.mode_trolley, Res.string.mode_tram, Res.string.mode_subway, Res.string.mode_train)
+                for (k in s.byMode.indices) if (s.byMode[k] > 0) CountLine(names[k], stringResource(Res.string.percent, s.byMode[k] * 100 / trips))
+            }
             Heading(Res.string.homes_by_wealth)
             for (w in 0 until Wealth.LEVELS) CountLine(wealthName(w), n(s.byWealth[w]))
             Heading(Res.string.work_by_schooling)
@@ -456,7 +479,8 @@ fun EraWindow(game: GameState, era: Era, onClose: () -> Unit) {
             Text(stringResource(eraLine(era)), color = c.text, fontSize = 15.sp)
             val roads = RoadType.entries.filter { Era.of(it.year) == era && era != Era.TOWNSHIP }.map { roadName(it) }
             val buildings = BuildingType.entries.filter { Era.of(it.year) == era && era != Era.TOWNSHIP }.map { buildingName(it) } +
-                Material.entries.filter { Era.of(it.year) == era && era != Era.TOWNSHIP }.map { materialName(it) }
+                Material.entries.filter { Era.of(it.year) == era && era != Era.TOWNSHIP }.map { materialName(it) } +
+                (if (Era.of(Balance.TROLLEYBUS_YEAR) == era) listOf(Res.string.trolley_wire) else emptyList())
             if (roads.isNotEmpty() || buildings.isNotEmpty()) {
                 Heading(Res.string.era_brings)
                 for (name in roads + buildings) Text(stringResource(name), color = c.text, fontSize = 14.sp)
@@ -489,12 +513,15 @@ private fun goalText(goal: Goal): String = when (goal.kind) {
     GoalKind.Downtown -> stringResource(Res.string.goal_downtown)
     GoalKind.HighSchool -> stringResource(Res.string.goal_high_school)
     GoalKind.LandBuilt -> stringResource(Res.string.goal_land_built, goal.need)
+    GoalKind.KeptUp -> stringResource(Res.string.goal_kept_up, goal.need)
+    GoalKind.GreenTrips -> stringResource(Res.string.goal_green_trips, goal.need)
 }
 
 /** How far the town is towards a goal: a count, a share, or a tick. */
 @Composable
 private fun goalHave(goal: Goal): String = when (goal.kind) {
     GoalKind.People -> groupThousands(goal.have.toLong())
-    GoalKind.OnMains, GoalKind.OnSewer, GoalKind.Powered, GoalKind.LandBuilt -> stringResource(Res.string.percent, goal.have)
+    GoalKind.OnMains, GoalKind.OnSewer, GoalKind.Powered, GoalKind.LandBuilt, GoalKind.KeptUp, GoalKind.GreenTrips ->
+        stringResource(Res.string.percent, goal.have)
     else -> stringResource(if (goal.met) Res.string.goal_met else Res.string.goal_not_met)
 }

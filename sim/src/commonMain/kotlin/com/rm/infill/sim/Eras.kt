@@ -50,6 +50,12 @@ enum class GoalKind {
 
     /** Percent of the land along the roads built on. */
     LandBuilt,
+
+    /** Percent of roads, pipes and track still within their expected life. */
+    KeptUp,
+
+    /** Percent of last month's commutes made other than by car. */
+    GreenTrips,
 }
 
 /**
@@ -59,7 +65,7 @@ enum class GoalKind {
  */
 object Economy {
     private val years = intArrayOf(1900, 1913, 1916, 1919, 1929, 1932, 1938, 1943, 1946, 1955, 1970, 1975, 1985, 1995, 2008, 2010, 2020)
-    private val factors = intArrayOf(100, 100, 125, 100, 120, 65, 85, 130, 105, 125, 125, 95, 80, 95, 100, 85, 95)
+    private val factors = intArrayOf(100, 100, 125, 100, 120, 75, 85, 130, 105, 125, 125, 95, 80, 95, 100, 85, 95)
 
     /** The outside market in [year], in percent of normal times. */
     fun market(year: Int, month: Int = 0): Int {

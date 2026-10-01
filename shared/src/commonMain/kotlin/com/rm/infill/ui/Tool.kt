@@ -48,6 +48,19 @@ import com.rm.infill.sim.Action
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.City
 import com.rm.infill.sim.CityMap
+import com.rm.infill.sim.Stop
+import com.rm.infill.res.tool_transit
+import com.rm.infill.res.tram_track
+import com.rm.infill.res.tram_stop
+import com.rm.infill.res.tram_depot
+import com.rm.infill.res.bus_stop
+import com.rm.infill.res.bus_garage
+import com.rm.infill.res.subway
+import com.rm.infill.res.trolley_wire
+import com.rm.infill.res.bulldoze_clear
+import com.rm.infill.res.bulldoze_renew
+import com.rm.infill.res.subway_station
+import com.rm.infill.res.remove_transit
 import com.rm.infill.sim.Material
 import com.rm.infill.res.material_wood
 import com.rm.infill.res.sewage_works
@@ -73,7 +86,35 @@ enum class Tool(val title: StringResource) {
     Power(Res.string.tool_power),
     Water(Res.string.tool_water),
     Services(Res.string.tool_services),
+    Transit(Res.string.tool_transit),
 }
+
+/**
+ * What the transit tool puts down. Track and tunnels are dragged, as is
+ * taking them up; stops, depots, garages and stations go where the finger ends up.
+ */
+enum class TransitKind(
+    val title: StringResource,
+    val building: BuildingType? = null,
+    val stop: Int = 0,
+    val needs: BuildingType? = null,
+    /** Overhead wire for trolleybuses, which has its own year. */
+    val wire: Boolean = false,
+) {
+    TramTrack(Res.string.tram_track),
+    TramStop(Res.string.tram_stop, stop = Stop.TRAM),
+    Depot(Res.string.tram_depot, building = BuildingType.TRAM_DEPOT),
+    BusStop(Res.string.bus_stop, stop = Stop.BUS, needs = BuildingType.BUS_GARAGE),
+    Garage(Res.string.bus_garage, building = BuildingType.BUS_GARAGE),
+    Wire(Res.string.trolley_wire, wire = true),
+    Subway(Res.string.subway, needs = BuildingType.SUBWAY_STATION),
+    Station(Res.string.subway_station, building = BuildingType.SUBWAY_STATION),
+    Remove(Res.string.remove_transit),
+}
+
+/** What the transit tool offers [city] in its era. */
+fun transitKindsIn(city: City): List<TransitKind> =
+    TransitKind.entries.filter { k -> if (k.wire) city.allowsTrolleybuses() else (k.building ?: k.needs)?.let { city.allows(it) } ?: true }
 
 /** What the services tool puts down. Parks are dragged out; stations go where the finger ends up. */
 enum class ServiceKind(val title: StringResource, val type: BuildingType) {
@@ -138,6 +179,12 @@ enum class WaterKind(
 fun waterKindsIn(city: City): List<WaterKind> =
     WaterKind.entries.filter { (it.material == null || city.allows(it.material)) && (it.building == null || city.allows(it.building)) }
 
+/** What the bulldozer does: clears everything, or relays what's worn. */
+enum class BulldozeKind(val title: StringResource) {
+    Clear(Res.string.bulldoze_clear),
+    Renew(Res.string.bulldoze_renew),
+}
+
 /** What the power tool puts down. */
 enum class PowerKind(val title: StringResource) {
     Line(Res.string.power_line),
@@ -193,9 +240,17 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
     }
 
     fun action(
-        tool: Tool, zone: ZoneKind, density: DensityKind, power: PowerKind, service: ServiceKind, road: RoadType, roadPipes: Boolean,
-        rail: RailKind, water: WaterKind, map: CityMap,
+        tool: Tool, zone: ZoneKind, density: DensityKind, bulldoze: BulldozeKind, power: PowerKind, service: ServiceKind, road: RoadType, roadPipes: Boolean,
+        rail: RailKind, water: WaterKind, transit: TransitKind, map: CityMap,
     ): Action? = when (tool) {
+        Tool.Transit -> when {
+            transit.building != null -> Action.PlaceBuilding(transit.building, x1, y1)
+            transit.stop != 0 -> Action.PlaceStop(x1, y1, transit.stop)
+            transit == TransitKind.TramTrack -> Action.BuildTram(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
+            transit.wire -> Action.BuildWire(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
+            transit == TransitKind.Subway -> Action.BuildSubway(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
+            else -> Action.RemoveTransit(x0, y0, x1, y1)
+        }
         Tool.Services -> if (service == ServiceKind.Park) Action.PlaceParks(x0, y0, x1, y1)
         else Action.PlaceBuilding(service.type, x1, y1)
         Tool.Inspect -> null
@@ -220,7 +275,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             else -> Action.RemovePipes(x0, y0, x1, y1)
         }
         Tool.Zone -> Action.PlaceZone(x0, y0, x1, y1, zone.zone, density.density)
-        Tool.Bulldoze -> Action.Bulldoze(x0, y0, x1, y1)
+        Tool.Bulldoze -> if (bulldoze == BulldozeKind.Renew) Action.RenewArea(x0, y0, x1, y1) else Action.Bulldoze(x0, y0, x1, y1)
         Tool.Power -> when (power) {
             PowerKind.Line -> Action.BuildPowerLine(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             // A building goes where the finger ends up, with that tile its top left.

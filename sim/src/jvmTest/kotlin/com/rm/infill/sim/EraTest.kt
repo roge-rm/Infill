@@ -80,6 +80,24 @@ class EraTest {
     }
 
     @Test
+    fun theFutureNeedsATownKeptUpThatMovesPeopleWell() {
+        val c = city()
+        c.era = Era.INFILL
+        c.setYear(2031)
+        c.stats.keptUp = 95
+        c.stats.greenTrips = 10
+        c.newEra()
+        assertEquals(Era.INFILL, c.era, "too many cars")
+        c.stats.greenTrips = 40
+        c.stats.keptUp = 70
+        c.newEra()
+        assertEquals(Era.INFILL, c.era, "too much worn out")
+        c.stats.keptUp = 95
+        c.newEra()
+        assertEquals(Era.FUTURE, c.era)
+    }
+
+    @Test
     fun homesExpectMoreAsTheYearsGoBy() {
         val c = city()
         val amenity = City::class.java.getDeclaredMethod("amenity", Boolean::class.java, Int::class.java, Int::class.java, Int::class.java, Int::class.java).apply { isAccessible = true }

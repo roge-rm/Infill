@@ -132,6 +132,78 @@ class City(
                     }
                 }
             }
+            is Action.BuildTram -> for (i in action.tiles) {
+                when {
+                    !inMap(i) -> {}
+                    // Tram track goes along a street, never on its own.
+                    m.road[i] == Road.NONE -> blocked += i
+                    // Worn track's relaid.
+                    m.tram[i].toInt() != 0 -> if (worn(m.tramLaid, i, Balance.TRAM_TRACK_LIFE)) {
+                        changes += i
+                        cost += Prices.TRAM_TRACK * Balance.RENEW_ROAD / 100
+                    }
+                    else -> {
+                        changes += i
+                        cost += Prices.TRAM_TRACK
+                    }
+                }
+            }
+            is Action.BuildWire -> for (i in action.tiles) {
+                when {
+                    !inMap(i) -> {}
+                    // Wire hangs over a road, and only once trolleybuses have come.
+                    m.road[i] == Road.NONE || !allowsTrolleybuses() -> blocked += i
+                    m.wire[i].toInt() != 0 -> if (worn(m.wireLaid, i, Balance.WIRE_LIFE)) {
+                        changes += i
+                        cost += Prices.WIRE * Balance.RENEW_ROAD / 100
+                    }
+                    else -> {
+                        changes += i
+                        cost += Prices.WIRE
+                    }
+                }
+            }
+            is Action.BuildSubway -> for (i in action.tiles) {
+                when {
+                    !inMap(i) -> {}
+                    m.terrain[i] == Terrain.WATER || !allows(BuildingType.SUBWAY_STATION) -> blocked += i
+                    m.subway[i].toInt() != 0 -> if (worn(m.subwayLaid, i, Balance.TUNNEL_LIFE)) {
+                        changes += i
+                        cost += Prices.TUNNEL * Balance.RENEW_ROAD / 100
+                    }
+                    else -> {
+                        changes += i
+                        cost += Prices.TUNNEL
+                    }
+                }
+            }
+            is Action.PlaceStop -> if (m.inside(action.x, action.y)) {
+                val i = m.index(action.x, action.y)
+                val ok = m.road[i] != Road.NONE &&
+                    (action.kind != Stop.TRAM || m.tram[i].toInt() != 0) &&
+                    (action.kind != Stop.BUS || allows(BuildingType.BUS_GARAGE))
+                when {
+                    !ok -> blocked += i
+                    m.stop[i].toInt() and action.kind != 0 -> {}
+                    else -> {
+                        changes += i
+                        cost += Prices.STOP
+                    }
+                }
+            }
+            is Action.RenewArea -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
+                val (bits, price) = renewal(i)
+                if (bits != 0) {
+                    changes += i
+                    cost += price
+                }
+            }
+            is Action.RemoveTransit -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
+                if (m.tram[i].toInt() != 0 || m.wire[i].toInt() != 0 || m.stop[i].toInt() != 0 || m.subway[i].toInt() != 0) {
+                    changes += i
+                    cost += Prices.REMOVE_TRANSIT
+                }
+            }
             is Action.BuildRail -> {
                 val path = action.tiles.filter { inMap(it) }
                 val (runs, turns) = runsOf(path)
@@ -262,6 +334,9 @@ class City(
             action is Action.PlaceBuilding && blocked.isNotEmpty() -> Problem.Blocked
             action is Action.PlaceBuilding && action.type.railway && Rail.trackSide(m, action.type, action.x, action.y) == 0 -> Problem.NeedsTrack
             action is Action.PlaceBuilding && action.type.onWater && !besideWater(action.type, action.x, action.y) -> Problem.NeedsWater
+            action is Action.PlaceBuilding && action.type == BuildingType.TRAM_DEPOT && besideTram(action.type, action.x, action.y).isEmpty() -> Problem.NeedsTramTrack
+            action is Action.PlaceBuilding && action.type == BuildingType.SUBWAY_STATION && m.inside(action.x, action.y) &&
+                m.subway[m.index(action.x, action.y)].toInt() == 0 -> Problem.NeedsTunnel
             changes.isEmpty() -> Problem.NothingToDo
             cost > funds -> Problem.NotEnoughMoney
             else -> null
@@ -292,6 +367,14 @@ class City(
             old.capacity > type.capacity && crossing(i, run) -> NO_CHANGE
             else -> max(Prices.REMOVE_ROAD, type.price - old.price) * bridge
         }
+    }
+
+    /** The tram track tiles beside a building of [type] at [x], [y], on its sides rather than its corners. */
+    fun besideTram(type: BuildingType, x: Int, y: Int): List<Int> {
+        val out = ArrayList<Int>()
+        for (ty in y until y + type.height) for (tx in listOf(x - 1, x + type.width)) if (map.inside(tx, ty) && map.tram[map.index(tx, ty)].toInt() != 0) out += map.index(tx, ty)
+        for (tx in x until x + type.width) for (ty in listOf(y - 1, y + type.height)) if (map.inside(tx, ty) && map.tram[map.index(tx, ty)].toInt() != 0) out += map.index(tx, ty)
+        return out
     }
 
     /** Whether a building of [type] at [x], [y] would have water next to it, on any side or corner. */
@@ -328,6 +411,48 @@ class City(
         Pipe.SEWER -> Broken.SEWER
         Pipe.STORM -> Broken.STORM
     }
+
+    /**
+     * What relaying tile [i] would take in hand, as [Broken] bits, and what it
+     * would cost: whatever's worn, and pipes of an older kind; pipes under a
+     * road being relaid for less. Nothing for what's already being worked on.
+     */
+    private fun renewal(i: Int): Pair<Int, Long> {
+        val m = map
+        if (m.broken[i].toInt() and Broken.WORKS != 0) return 0 to 0L
+        var bits = 0
+        var cost = 0L
+        val bridge = if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
+        val road = RoadType.of(m.road[i])
+        if (road != null && worn(m.roadLaid, i, road.life)) {
+            bits = bits or Broken.ROAD
+            cost += road.price * Balance.RENEW_ROAD / 100 * bridge
+        }
+        for (kind in Pipe.entries) if (pipeRenewable(kind, i)) {
+            bits = bits or bit(kind)
+            cost += best(kind).cost * (if (bits and Broken.ROAD != 0) Balance.PIPES_WITH_ROAD else 100) / 100
+        }
+        if (m.rail[i] != Rail.NONE && worn(m.railLaid, i, Balance.TRACK_LIFE)) {
+            bits = bits or Broken.RAIL
+            cost += Prices.RAIL * Balance.RENEW_ROAD / 100 * bridge
+        }
+        if (m.tram[i].toInt() != 0 && worn(m.tramLaid, i, Balance.TRAM_TRACK_LIFE)) {
+            bits = bits or Broken.TRAM
+            cost += Prices.TRAM_TRACK * Balance.RENEW_ROAD / 100
+        }
+        if (m.wire[i].toInt() != 0 && worn(m.wireLaid, i, Balance.WIRE_LIFE)) {
+            bits = bits or Broken.WIRE
+            cost += Prices.WIRE * Balance.RENEW_ROAD / 100
+        }
+        if (m.subway[i].toInt() != 0 && worn(m.subwayLaid, i, Balance.TUNNEL_LIFE)) {
+            bits = bits or Broken.SUBWAY
+            cost += Prices.TUNNEL * Balance.RENEW_ROAD / 100
+        }
+        return bits to cost
+    }
+
+    /** Whether what was laid on tile [i] in [laid], expected to last [life] years, is worn enough to relay. */
+    private fun worn(laid: ShortArray, i: Int, life: Int): Boolean = Ageing.wear(monthNow - laid[i], life) >= Balance.RENEWABLE_WEAR
 
     /** Months from January 1900 to now. */
     val monthNow: Int get() = Ageing.monthOf(year, month)
@@ -466,6 +591,8 @@ class City(
         /** When things on the tiles were laid, and what was broken there, before and after. */
         val laidBefore: LongArray,
         val laidAfter: LongArray,
+        val transitBefore: LongArray,
+        val transitAfter: LongArray,
         val fixBefore: IntArray,
         val fixAfter: IntArray,
     )
@@ -483,6 +610,7 @@ class City(
         val m = map
         val before = LongArray(plan.changes.size) { m.tileState(plan.changes[it]) }
         val laidBefore = LongArray(plan.changes.size) { m.tileLaid(plan.changes[it]) }
+        val transitBefore = LongArray(plan.changes.size) { m.tileTransitLaid(plan.changes[it]) }
         val fixBefore = IntArray(plan.changes.size) { m.tileFix(plan.changes[it]) }
         val now = monthNow
         var queued = 0
@@ -532,6 +660,47 @@ class City(
                     laid(action.kind)[i] = now.toShort()
                 }
             }
+            is Action.BuildTram -> for (i in plan.changes) {
+                if (m.tram[i].toInt() != 0) startWorks(i, Broken.TRAM, queued++ / Balance.WORKS_PER_DAY)
+                m.tram[i] = 1
+                m.tramLaid[i] = now.toShort()
+            }
+            is Action.BuildWire -> for (i in plan.changes) {
+                if (m.wire[i].toInt() != 0) startWorks(i, Broken.WIRE, queued++ / Balance.WORKS_PER_DAY)
+                m.wire[i] = 1
+                m.wireLaid[i] = now.toShort()
+            }
+            is Action.BuildSubway -> for (i in plan.changes) {
+                if (m.subway[i].toInt() != 0) startWorks(i, Broken.SUBWAY, queued++ / Balance.WORKS_PER_DAY)
+                m.subway[i] = 1
+                m.subwayLaid[i] = now.toShort()
+            }
+            is Action.PlaceStop -> for (i in plan.changes) m.stop[i] = (m.stop[i].toInt() or action.kind).toByte()
+            is Action.RenewArea -> for (i in plan.changes) {
+                val (bits, _) = renewal(i)
+                if (bits == 0) continue
+                val stamp = now.toShort()
+                if (bits and Broken.ROAD != 0) m.roadLaid[i] = stamp
+                for (kind in Pipe.entries) if (bits and bit(kind) != 0) {
+                    pipes(kind)[i] = best(kind).id
+                    laid(kind)[i] = stamp
+                }
+                if (bits and Broken.RAIL != 0) m.railLaid[i] = stamp
+                if (bits and Broken.TRAM != 0) m.tramLaid[i] = stamp
+                if (bits and Broken.WIRE != 0) m.wireLaid[i] = stamp
+                if (bits and Broken.SUBWAY != 0) m.subwayLaid[i] = stamp
+                startWorks(i, bits, queued++ / Balance.WORKS_PER_DAY)
+            }
+            is Action.RemoveTransit -> for (i in plan.changes) {
+                m.tram[i] = 0
+                m.wire[i] = 0
+                m.stop[i] = 0
+                m.subway[i] = 0
+                m.tramLaid[i] = 0
+                m.wireLaid[i] = 0
+                m.subwayLaid[i] = 0
+                clearBroken(i, Broken.TRAM or Broken.WIRE or Broken.SUBWAY)
+            }
             is Action.BuildRail -> for (i in plan.changes) {
                 if (m.rail[i] != Rail.NONE) startWorks(i, Broken.RAIL, queued++ / Balance.WORKS_PER_DAY)
                 m.rail[i] = Rail.TRACK
@@ -563,6 +732,13 @@ class City(
                 m.roadLaid[i] = 0
                 m.railLaid[i] = 0
                 m.brownfield[i] = 0
+                // The tram track, wire and stops go with the road.
+                m.tram[i] = 0
+                m.wire[i] = 0
+                m.tramLaid[i] = 0
+                m.wireLaid[i] = 0
+                clearBroken(i, Broken.TRAM or Broken.WIRE)
+                m.stop[i] = 0
                 clearBroken(i, Broken.ROAD or Broken.RAIL)
                 m.bank[i] = 0
                 m.zone[i] = Zone.NONE
@@ -588,6 +764,7 @@ class City(
             Edit(
                 plan.changes, before, LongArray(plan.changes.size) { m.tileState(plan.changes[it]) }, plan.cost, added, removed,
                 laidBefore, LongArray(plan.changes.size) { m.tileLaid(plan.changes[it]) },
+                transitBefore, LongArray(plan.changes.size) { m.tileTransitLaid(plan.changes[it]) },
                 fixBefore, IntArray(plan.changes.size) { m.tileFix(plan.changes[it]) },
             ),
         )
@@ -617,6 +794,7 @@ class City(
         for (k in e.tiles.indices) {
             map.setTileState(e.tiles[k], e.before[k])
             map.setTileLaid(e.tiles[k], e.laidBefore[k])
+            map.setTileTransitLaid(e.tiles[k], e.transitBefore[k])
             map.setTileFix(e.tiles[k], e.fixBefore[k])
             if (map.mendingDays(e.tiles[k]) > 0) mendingTiles += e.tiles[k] else mendingTiles -= e.tiles[k]
         }
@@ -643,6 +821,7 @@ class City(
         for (k in e.tiles.indices) {
             map.setTileState(e.tiles[k], e.after[k])
             map.setTileLaid(e.tiles[k], e.laidAfter[k])
+            map.setTileTransitLaid(e.tiles[k], e.transitAfter[k])
             map.setTileFix(e.tiles[k], e.fixAfter[k])
             if (map.mendingDays(e.tiles[k]) > 0) mendingTiles += e.tiles[k] else mendingTiles -= e.tiles[k]
         }
@@ -807,7 +986,7 @@ class City(
     /** Starts works relaying what [bits] marks on tile [i], once the crews get there in [wait] days. */
     private fun startWorks(i: Int, bits: Int, wait: Int) {
         val m = map
-        m.broken[i] = (m.broken[i].toInt() or bits or Broken.WORKS).toByte()
+        m.broken[i] = (m.broken[i].toInt() or bits or Broken.WORKS).toShort()
         m.mending[i] = min(255, max(m.mendingDays(i), Balance.WORKS_DAYS + wait)).toByte()
         mendingTiles += i
     }
@@ -821,7 +1000,7 @@ class City(
             m.mending[i] = 0
             mendingTiles -= i
         } else {
-            m.broken[i] = left.toByte()
+            m.broken[i] = left.toShort()
         }
     }
 
@@ -856,6 +1035,9 @@ class City(
         var burst = -1
         var collapsed = -1
         var track = -1
+        var tramBroke = -1
+        var wireDown = -1
+        var tunnelShut = -1
         for (i in 0 until m.size) {
             if (m.broken[i].toInt() != 0) continue
             val water = Material.of(Pipe.WATER, m.waterPipe[i])
@@ -887,11 +1069,29 @@ class City(
                 fail(i, Broken.RAIL, Balance.MEND_TRACK, Balance.REPAIR_TRACK)
                 railChanged = true
                 track = i
+                continue
+            }
+            if (m.tram[i].toInt() != 0 && givesWay(m.tramLaid[i].toInt(), Balance.TRAM_TRACK_LIFE)) {
+                fail(i, Broken.TRAM, Balance.MEND_TRACK, Balance.REPAIR_TRACK)
+                tramBroke = i
+                continue
+            }
+            if (m.wire[i].toInt() != 0 && givesWay(m.wireLaid[i].toInt(), Balance.WIRE_LIFE)) {
+                fail(i, Broken.WIRE, Balance.MEND_WIRE, Balance.REPAIR_WIRE)
+                wireDown = i
+                continue
+            }
+            if (m.subway[i].toInt() != 0 && givesWay(m.subwayLaid[i].toInt(), Balance.TUNNEL_LIFE)) {
+                fail(i, Broken.SUBWAY, Balance.MEND_TUNNEL, Balance.REPAIR_TUNNEL)
+                tunnelShut = i
             }
         }
         if (burst >= 0) events += CityEvent(EventKind.MainBurst, burst % m.width, burst / m.width, null)
         if (collapsed >= 0) events += CityEvent(EventKind.SewerCollapsed, collapsed % m.width, collapsed / m.width, null)
         if (track >= 0) events += CityEvent(EventKind.TrackBroken, track % m.width, track / m.width, null)
+        if (tramBroke >= 0) events += CityEvent(EventKind.TramTrackBroken, tramBroke % m.width, tramBroke / m.width, null)
+        if (wireDown >= 0) events += CityEvent(EventKind.WireDown, wireDown % m.width, wireDown / m.width, null)
+        if (tunnelShut >= 0) events += CityEvent(EventKind.TunnelShut, tunnelShut % m.width, tunnelShut / m.width, null)
         for (b in buildings.values.toList()) {
             if (b.type.life == 0 || b.outage > 0 || b.underway > 0) continue
             if (!givesWay(b.built, b.type.life)) continue
@@ -905,11 +1105,11 @@ class City(
 
     /** Marks [bit] broken on tile [i] for [days], and adds the [cost] of mending it to the month's bill. */
     private fun fail(i: Int, bit: Int, days: Int, cost: Long) {
-        map.broken[i] = (map.broken[i].toInt() or bit).toByte()
+        map.broken[i] = (map.broken[i].toInt() or bit).toShort()
         map.mending[i] = days.toByte()
         mendingTiles += i
         repairBill += cost
-        if (bit and (Broken.DUG or Broken.RAIL) != 0) networksDirty = true
+        if (bit and Broken.NETWORKS != 0) networksDirty = true
     }
 
     /**
@@ -937,7 +1137,7 @@ class City(
                 m.broken[i] = 0
                 m.mending[i] = 0
                 mendingTiles -= i
-                if (bits and (Broken.DUG or Broken.RAIL or Broken.WORKS) != 0) {
+                if (bits and (Broken.NETWORKS or Broken.WORKS) != 0) {
                     networksDirty = true
                     railChanged = true
                 }
@@ -976,6 +1176,9 @@ class City(
         Material.of(Pipe.SEWER, m.sewerPipe[i])?.let { most = max(most, Ageing.wear(now - m.sewerLaid[i], it.life)) }
         Material.of(Pipe.STORM, m.stormPipe[i])?.let { most = max(most, Ageing.wear(now - m.stormLaid[i], it.life)) }
         if (m.rail[i] != Rail.NONE) most = max(most, Ageing.wear(now - m.railLaid[i], Balance.TRACK_LIFE))
+        if (m.tram[i].toInt() != 0) most = max(most, Ageing.wear(now - m.tramLaid[i], Balance.TRAM_TRACK_LIFE))
+        if (m.wire[i].toInt() != 0) most = max(most, Ageing.wear(now - m.wireLaid[i], Balance.WIRE_LIFE))
+        if (m.subway[i].toInt() != 0) most = max(most, Ageing.wear(now - m.subwayLaid[i], Balance.TUNNEL_LIFE))
         buildings[m.building[i]]?.let { b ->
             val life = if (b.type.life > 0) b.type.life else Balance.WORN_YEARS * 2
             if (b.underway == 0) most = max(most, Ageing.wear(now - b.built, life))
@@ -994,6 +1197,9 @@ class City(
         if (bits and Broken.STORM != 0) Material.of(Pipe.STORM, m.stormPipe[i])?.let { younger(m.stormLaid, it.life) }
         if (bits and Broken.ROAD != 0) RoadType.of(m.road[i])?.let { younger(m.roadLaid, it.life) }
         if (bits and Broken.RAIL != 0) younger(m.railLaid, Balance.TRACK_LIFE)
+        if (bits and Broken.TRAM != 0) younger(m.tramLaid, Balance.TRAM_TRACK_LIFE)
+        if (bits and Broken.WIRE != 0) younger(m.wireLaid, Balance.WIRE_LIFE)
+        if (bits and Broken.SUBWAY != 0) younger(m.subwayLaid, Balance.TUNNEL_LIFE)
     }
 
     // ---- eras ----------------------------------------------------------------------
@@ -1019,9 +1225,41 @@ class City(
                 Goal(GoalKind.HighSchool, s.highSchools, 1),
             )
             Era.INFILL -> listOf(Goal(GoalKind.LandBuilt, s.landBuilt, Balance.INFILL_LAND))
-            // To decide.
-            Era.FUTURE -> emptyList()
+            // A town that's kept up what it inherited, and moves its people well.
+            Era.FUTURE -> listOf(
+                Goal(GoalKind.KeptUp, s.keptUp, Balance.FUTURE_KEPT_UP),
+                Goal(GoalKind.GreenTrips, s.greenTrips, Balance.FUTURE_GREEN_TRIPS),
+            )
         }
+    }
+
+    /** Percent of roads, pipes and track within their expected life, 100 if there are none. */
+    private fun keptUp(): Int {
+        val m = map
+        val now = monthNow
+        var all = 0
+        var fine = 0
+        fun count(laid: Int, life: Int) {
+            all++
+            if (Ageing.wear(now - laid, life) < 100) fine++
+        }
+        for (i in 0 until m.size) {
+            RoadType.of(m.road[i])?.let { count(m.roadLaid[i].toInt(), it.life) }
+            Material.of(Pipe.WATER, m.waterPipe[i])?.let { count(m.waterLaid[i].toInt(), it.life) }
+            Material.of(Pipe.SEWER, m.sewerPipe[i])?.let { count(m.sewerLaid[i].toInt(), it.life) }
+            Material.of(Pipe.STORM, m.stormPipe[i])?.let { count(m.stormLaid[i].toInt(), it.life) }
+            if (m.rail[i] != Rail.NONE) count(m.railLaid[i].toInt(), Balance.TRACK_LIFE)
+            if (m.tram[i].toInt() != 0) count(m.tramLaid[i].toInt(), Balance.TRAM_TRACK_LIFE)
+            if (m.wire[i].toInt() != 0) count(m.wireLaid[i].toInt(), Balance.WIRE_LIFE)
+            if (m.subway[i].toInt() != 0) count(m.subwayLaid[i].toInt(), Balance.TUNNEL_LIFE)
+        }
+        return if (all == 0) 100 else fine * 100 / all
+    }
+
+    /** Percent of last month's commutes made other than by car. */
+    private fun greenTrips(): Int {
+        val all = traffic.lastModes.sum()
+        return if (all == 0) 0 else (all - traffic.lastModes[Mode.CAR.ordinal]) * 100 / all
     }
 
     /** Railway stations standing, for the Streetcar city's milestone. */
@@ -1162,6 +1400,9 @@ class City(
         val freightAt = IntArray(n)
         val jobsAt = IntArray(n)
         val shopsAt = IntArray(n)
+        // Who has a car, in hundredths of a person, rounded once each tile's added up.
+        val carWorkers = IntArray(n)
+        val carShoppers = IntArray(n)
         for (b in buildings.values) {
             if (b.underway > 0) continue
             val node = accessOf(b)
@@ -1169,8 +1410,14 @@ class City(
             val c = b.type.capacity
             when (b.type.zone) {
                 Zone.RESIDENTIAL -> {
-                    workersAt[node] += b.people?.workers() ?: 0
-                    shoppersAt[node] += (b.people?.size ?: 0) * Demography.SPENDING_BY_WEALTH[b.people?.wealth ?: Wealth.MIDDLE] / 100 / Balance.RESIDENTS_PER_SHOPPER
+                    val wealth = b.people?.wealth ?: Wealth.MIDDLE
+                    val share = Cars.share(year, wealth)
+                    val workers = b.people?.workers() ?: 0
+                    val shoppers = (b.people?.size ?: 0) * Demography.SPENDING_BY_WEALTH[wealth] / 100 / Balance.RESIDENTS_PER_SHOPPER
+                    workersAt[node] += workers
+                    shoppersAt[node] += shoppers
+                    carWorkers[node] += workers * share
+                    carShoppers[node] += shoppers * share
                 }
                 Zone.COMMERCIAL -> {
                     jobsAt[node] += c
@@ -1183,7 +1430,14 @@ class City(
                 else -> jobsAt[node] += c
             }
         }
-        traffic.newMonth(workersAt, shoppersAt, freightAt, jobsAt, shopsAt, year * 12 + month)
+        traffic.newMonth(
+            workersAt, shoppersAt, freightAt, jobsAt, shopsAt, year * 12 + month,
+            IntArray(n) { (carWorkers[it] + 50) / 100 }, IntArray(n) { (carShoppers[it] + 50) / 100 },
+        )
+        // The waits follow last month's riders.
+        updateTransit()
+        traffic.lastModes.copyInto(stats.byMode)
+        stats.greenTrips = greenTrips()
         updateTrains()
 
         val s = stats
@@ -1225,12 +1479,30 @@ class City(
      * fire station. Power stations and services don't, until disasters come.
      */
     private fun startFires() {
+        val era = fireRisk(year)
         for (b in buildings.values.toList()) {
-            if (b.type.zone == Zone.NONE || b.burning > 0) continue
-            val chance = if (b.type.zone == Zone.INDUSTRIAL) Balance.FIRE_CHANCE_INDUSTRY else Balance.FIRE_CHANCE
+            if (b.type.zone == Zone.NONE || b.burning > 0 || b.underway > 0) continue
+            val base = if (b.type.zone == Zone.INDUSTRIAL) Balance.FIRE_CHANCE_INDUSTRY else Balance.FIRE_CHANCE
+            // Wooden first rungs catch readily; solid brick and stone less so.
+            val built = when {
+                b.type.stage == 1 -> Balance.WOODEN_FIRE
+                b.type.heritage -> Balance.SOLID_FIRE
+                else -> 100
+            }
+            val chance = base * era / 100 * built / 100
             val cover = map.fireCover[map.index(b.x, b.y)].toInt() and 0xff
             if (rng.nextInt(10_000) < chance * (255 - cover * 85 / 100) / 255) ignite(b)
         }
+    }
+
+    /**
+     * How likely fires are in [year], in percent of 1900's: gas, oil lamps and
+     * coal stoves give way to electric light and building codes.
+     */
+    private fun fireRisk(year: Int): Int = when {
+        year <= 1910 -> 100
+        year >= 1980 -> 40
+        else -> 100 - (year - 1910) * 60 / 70
     }
 
     /**
@@ -1393,7 +1665,54 @@ class City(
                 queue[tail++] = j
             }
         }
+        updateTransit()
     }
+
+    // ---- transit -------------------------------------------------------------------
+
+    private val transit = TransitNetwork(map)
+
+    /** Tram, bus and subway networks: what's served by a working depot, garage or station with power. */
+    private fun updateTransit() {
+        val depots = ArrayList<Int>()
+        val garages = ArrayList<Int>()
+        val poweredGarages = ArrayList<Int>()
+        val stations = ArrayList<Pair<Int, Int>>()
+        for (b in buildings.values) {
+            if (b.underway > 0 || b.outage > 0) continue
+            val powered = map.powered[map.index(b.x, b.y)]
+            when (b.type) {
+                BuildingType.TRAM_DEPOT -> if (powered) depots += besideTram(b.type, b.x, b.y)
+                BuildingType.BUS_GARAGE -> accessOf(b).let {
+                    if (it >= 0) garages += it
+                    // Trolleybuses need the garage to have power and the wire to reach its road.
+                    if (it >= 0 && powered) poweredGarages += it
+                }
+                BuildingType.SUBWAY_STATION -> if (powered) accessOf(b).let { if (it >= 0) stations += it to map.index(b.x, b.y) }
+                else -> {}
+            }
+        }
+        transit.update(depots, garages, poweredGarages, stations) { mode, net -> traffic.ridersOn(mode, net) }
+        traffic.useTransit(transit)
+    }
+
+    /** Which tram, bus and subway network each tile's on, -1 for none with a service. For drawing and inspect. */
+    fun tramNetwork(i: Int): Int = transit.tram[i]
+    fun busNetwork(i: Int): Int = transit.bus[i]
+    fun trolleyNetwork(i: Int): Int = transit.trolley[i]
+
+    /** Whether the town can string wire for trolleybuses yet. */
+    fun allowsTrolleybuses(): Boolean = everything || (year >= Balance.TROLLEYBUS_YEAR && era >= Era.of(Balance.TROLLEYBUS_YEAR))
+    fun subwayNetwork(i: Int): Int = transit.subway[i]
+
+    /** Last month's riders getting on or off at a stop or station's road tile. */
+    fun stopRiders(i: Int): Int = traffic.lastStopRiders[i]
+
+    /** Last month's riders on each tile of bus route, tram track and tunnel. */
+    fun busRiders(i: Int): Int = traffic.lastBusVolume[i]
+    fun trolleyRiders(i: Int): Int = traffic.lastTrolleyVolume[i]
+    fun tramRiders(i: Int): Int = traffic.lastTramVolume[i]
+    fun subwayRiders(i: Int): Int = traffic.lastSubwayVolume[i]
 
     // ---- water -------------------------------------------------------------------
 
@@ -2548,7 +2867,7 @@ class City(
                 score += 28 + value / 4 + min(people / 8, 30) - crime / 6 - pollution / 5
                 buildings[m.building[i]]?.let { score += ageAppeal(it) }
                 // Passing trade.
-                if (access[i] >= 0) score += min(Balance.PASSING_TRADE, traffic.lastVolume[access[i]] / Balance.TRIPS_PER_PASSING_POINT)
+                if (access[i] >= 0) score += min(Balance.PASSING_TRADE, traffic.lastFootfall[access[i]] / Balance.TRIPS_PER_PASSING_POINT)
             }
             Zone.INDUSTRIAL -> {
                 var water = false
@@ -2599,16 +2918,28 @@ class City(
 
     // ---- the month -----------------------------------------------------------
 
-    /** Pollution spreads from each building that makes it, fading with distance. */
+    /** Pollution spreads from each building that makes it, and from busy roads, fading with distance. */
     private fun updatePollution() {
         val m = map
         val field = IntArray(m.size)
+        // Trams, trolleybuses and the subway run on the power stations, which burn the more for them.
+        val plants = buildings.values.count { it.type == BuildingType.COAL_PLANT && it.outage == 0 }
+        val traction = if (plants == 0) 0 else traffic.electricRiders() / (plants * Balance.RIDERS_PER_PLANT_POINT)
         for (b in buildings.values) {
-            val p = b.type.pollution
+            val p = b.type.pollution + if (b.type == BuildingType.COAL_PLANT && b.outage == 0) traction else 0
             if (p == 0 || b.underway > 0) continue
             val cx = b.x + b.type.width / 2
             val cy = b.y + b.type.height / 2
             around(cx, cy, POLLUTION_REACH) { j, d -> field[j] += p * 4 * (POLLUTION_REACH + 1 - d) / (POLLUTION_REACH + 1) }
+        }
+        // Fumes from last month's traffic, along the road and a little either side. Buses count for several cars.
+        val fumes = Fumes.level(year)
+        for (i in 0 until m.size) {
+            if (m.road[i] == Road.NONE) continue
+            val vehicles = traffic.lastVolume[i] + traffic.lastBusVolume[i] * Balance.BUS_FUMES / Traffic.BUS_RIDERS
+            val p = vehicles * fumes / 100 * Balance.FUMES_PER_HUNDRED / 100
+            if (p == 0) continue
+            around(i % m.width, i / m.width, Balance.FUMES_REACH) { j, d -> field[j] += p * (Balance.FUMES_REACH + 1 - d) / (Balance.FUMES_REACH + 1) }
         }
         for (i in 0 until m.size) m.pollution[i] = min(255, field[i]).toByte()
     }
@@ -2716,6 +3047,7 @@ class City(
             if (map.building[i] != 0) built++
         }
         s.landBuilt = if (land == 0) 0 else built * 100 / land
+        s.keptUp = keptUp()
         s.shopJobs = shopJobs
         s.industryJobs = industryJobs
         s.otherJobs = otherJobs
@@ -2869,14 +3201,33 @@ class City(
         s.policeUpkeep = (police * Balance.POLICE_UPKEEP * policeFunding / 100).roundToLong()
         s.fireUpkeep = (fire * Balance.FIRE_UPKEEP * fireFunding / 100).roundToLong()
         s.parkUpkeep = (parks * Balance.PARK_UPKEEP * parkFunding / 100).roundToLong()
-        s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome
+        s.fareIncome = (traffic.boardings() * Balance.FARE).roundToLong()
+        s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.fareIncome
+        var tramTiles = 0
+        var wires = 0
+        var tunnels = 0
+        var stops = 0
+        for (i in 0 until map.size) {
+            tramTiles += map.tram[i]
+            wires += map.wire[i]
+            tunnels += map.subway[i]
+            if (map.stop[i].toInt() != 0) stops++
+        }
+        var transitWorks = 0.0
+        for (b in buildings.values) transitWorks += when (b.type) {
+            BuildingType.TRAM_DEPOT -> Balance.DEPOT_UPKEEP
+            BuildingType.BUS_GARAGE -> Balance.GARAGE_UPKEEP
+            BuildingType.SUBWAY_STATION -> Balance.SUBWAY_STATION_UPKEEP
+            else -> 0.0
+        }
+        s.transitUpkeep = (tramTiles * Balance.TRAM_TRACK_UPKEEP + wires * Balance.WIRE_UPKEEP + tunnels * Balance.TUNNEL_UPKEEP + stops * Balance.STOP_UPKEEP + transitWorks).roundToLong()
         s.floodCost = floodBill
         floodBill = 0
         s.repairCost = repairBill
         repairBill = 0
         s.schoolUpkeep = (schools * schoolFunding / 100).roundToLong()
         s.healthUpkeep = (care * healthFunding / 100).roundToLong()
-        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost
+        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep
         funds += s.income - s.upkeep
     }
 
@@ -2989,11 +3340,17 @@ class City(
         w.int(era.ordinal)
         for (v in intArrayOf(s.onMains, s.onSewer, s.powered, s.downtown, s.highSchools, s.landBuilt)) w.int(v)
         for (a in arrayOf(map.roadLaid, map.waterLaid, map.sewerLaid, map.stormLaid, map.railLaid)) w.shorts(a)
-        w.layer(map.broken); w.layer(map.mending)
+        w.shorts(map.broken); w.layer(map.mending)
         w.count(buildings.size)
         for (b in buildings.values) { w.int(b.id); w.int(b.built); w.int(b.outage) }
         w.long(repairBill); w.long(s.repairCost)
         w.layer(map.brownfield)
+        // Since version 8.
+        w.layer(map.tram); w.layer(map.wire); w.layer(map.subway); w.layer(map.stop)
+        for (a in arrayOf(map.tramLaid, map.wireLaid, map.subwayLaid)) w.shorts(a)
+        traffic.writeTransit(w)
+        w.long(s.fareIncome); w.long(s.transitUpkeep)
+        for (v in s.byMode) w.int(v)
     }
 
     companion object {
@@ -3111,7 +3468,7 @@ class City(
                 c.era = Era.entries.getOrNull(r.int()) ?: throw SaveError("an era this version doesn't know")
                 s.onMains = r.int(); s.onSewer = r.int(); s.powered = r.int(); s.downtown = r.int(); s.highSchools = r.int(); s.landBuilt = r.int()
                 for (a in arrayOf(m.roadLaid, m.waterLaid, m.sewerLaid, m.stormLaid, m.railLaid)) r.shorts(a)
-                r.layer(m.broken); r.layer(m.mending)
+                r.shorts(m.broken); r.layer(m.mending)
                 for (i in 0 until m.size) if (m.mendingDays(i) > 0) c.mendingTiles += i
                 repeat(r.count()) {
                     val b = c.buildings[r.int()] ?: throw SaveError("the age of a building that isn't there")
@@ -3120,7 +3477,17 @@ class City(
                     if (b.outage > 0) c.outages += b.id
                 }
                 c.repairBill = r.long(); s.repairCost = r.long()
+                // Not saved; they follow from what was.
+                s.keptUp = c.keptUp()
+                s.greenTrips = c.greenTrips()
                 r.layer(m.brownfield)
+                if (version >= 8) {
+                    r.layer(m.tram); r.layer(m.wire); r.layer(m.subway); r.layer(m.stop)
+                    for (a in arrayOf(m.tramLaid, m.wireLaid, m.subwayLaid)) r.shorts(a)
+                    c.traffic.readTransit(r)
+                    s.fareIncome = r.long(); s.transitUpkeep = r.long()
+                    for (k in s.byMode.indices) s.byMode[k] = r.int()
+                }
                 c.updateNetworks()
             } else {
                 // Before ageing nothing kept its age: count everything as laid half the town's life ago.
@@ -3218,6 +3585,10 @@ class Stats {
     var highSchools = 0
     var landBuilt = 0
 
+    /** For the Future: percent of roads, pipes and track within their expected life, and of commutes made other than by car. */
+    var keptUp = 0
+    var greenTrips = 0
+
     /** Buildings going up, and the room for people and jobs they'll bring. */
     var sites = 0
     var homesComing = 0
@@ -3277,6 +3648,13 @@ class Stats {
 
     /** Last month's mending of what broke. */
     var repairCost = 0L
+
+    /** Last month's fares, and the upkeep of the tram track, tunnels, stops, depots, garages and stations. */
+    var fareIncome = 0L
+    var transitUpkeep = 0L
+
+    /** Last month's commutes by [Mode]. */
+    val byMode = IntArray(Mode.entries.size)
     var upkeep = 0L
 
     /** Averages: crime and pollution where there are buildings, land value over all the land. 0 to 255. */
@@ -3290,7 +3668,7 @@ class Stats {
 /** A line a train ran last month: the track from end to end, and whether it carried passengers or freight, and how many. */
 class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int)
 
-enum class EventKind { FireStarted, FireSaved, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, MainBurst, SewerCollapsed, TrackBroken, BrokeDown }
+enum class EventKind { FireStarted, FireSaved, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut }
 
 /** Something that happened at [x], [y], to a building of [type] if it's about one. */
 class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType?, val era: Era? = null)

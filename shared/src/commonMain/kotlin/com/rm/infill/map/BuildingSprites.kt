@@ -49,6 +49,9 @@ internal object BuildingSprites {
                 BuildingType.DEPARTMENT_STORE -> Atlas.DEPARTMENT_STORE to Atlas.DEPARTMENT_STORE_COUNT
                 BuildingType.WORKS -> Atlas.WORKS to Atlas.WORKS_COUNT
                 BuildingType.SEWAGE_WORKS -> Atlas.SEWAGE_WORKS to Atlas.SEWAGE_WORKS_COUNT
+                BuildingType.TRAM_DEPOT -> Atlas.TRAM_DEPOT to Atlas.TRAM_DEPOT_COUNT
+                BuildingType.BUS_GARAGE -> Atlas.BUS_GARAGE to Atlas.BUS_GARAGE_COUNT
+                BuildingType.SUBWAY_STATION -> Atlas.SUBWAY_STATION to Atlas.SUBWAY_STATION_COUNT
                 BuildingType.TREATMENT_PLANT -> Atlas.TREATMENT_PLANT to Atlas.TREATMENT_PLANT_COUNT
             }
             first[t.ordinal] = f

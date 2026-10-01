@@ -3,6 +3,7 @@ package com.rm.infill.map
 import androidx.compose.ui.graphics.ImageBitmap
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.Density
+import com.rm.infill.sim.Stop
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Heading
 import com.rm.infill.sim.Power
@@ -248,6 +249,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 val zone = map.zone[i]
                 if (zone != Zone.NONE && map.building[i] == 0) zoneTint(surface, zone, map.density[i], tx, ty, dx, dy, s, level)
                 if (road != null) roadTile(surface, base, road, i, tx, ty, roadMask(tx, ty), dx, dy, level)
+                if (road != null) transitOn(surface, base, i, tx, ty, dx, dy)
                 if (map.bank[i].toInt() != 0) embankment(surface, tx, ty, dx, dy, s, r.look == Atlas.SNOW)
                 if (rail && road != null) {
                     // A level crossing, drawn over the road the way the track runs.
@@ -495,6 +497,37 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         if (track(x + 1, y)) m = m or 2
         if (track(x, y + 1)) m = m or 4
         if (track(x - 1, y)) m = m or 8
+        return m
+    }
+
+    /** Tram track set in the street, and the stops at its kerb. */
+    private fun transitOn(surface: BakeSurface, base: Int, i: Int, tx: Int, ty: Int, dx: Int, dy: Int) {
+        if (map.tram[i].toInt() != 0) surface.blend(base + Atlas.TRAMWAY + tramMask(tx, ty), dx, dy)
+        if (map.wire[i].toInt() != 0) surface.blend(base + Atlas.TROLLEY_WIRE + layerMask(map.wire, tx, ty), dx, dy)
+        val stops = map.stop[i].toInt()
+        if (stops and Stop.TRAM != 0) surface.blend(base + Atlas.TRAM_STOP, dx, dy)
+        else if (stops and Stop.BUS != 0) surface.blend(base + Atlas.BUS_STOP, dx, dy)
+    }
+
+    /** Which neighbours have something in [layer]: north 1, east 2, south 4, west 8. */
+    private fun layerMask(layer: ByteArray, x: Int, y: Int): Int {
+        fun on(tx: Int, ty: Int) = map.inside(tx, ty) && layer[map.index(tx, ty)].toInt() != 0
+        var m = 0
+        if (on(x, y - 1)) m = m or 1
+        if (on(x + 1, y)) m = m or 2
+        if (on(x, y + 1)) m = m or 4
+        if (on(x - 1, y)) m = m or 8
+        return m
+    }
+
+    /** Which neighbours have tram track: north 1, east 2, south 4, west 8. */
+    private fun tramMask(x: Int, y: Int): Int {
+        fun tram(tx: Int, ty: Int) = map.inside(tx, ty) && map.tram[map.index(tx, ty)].toInt() != 0
+        var m = 0
+        if (tram(x, y - 1)) m = m or 1
+        if (tram(x + 1, y)) m = m or 2
+        if (tram(x, y + 1)) m = m or 4
+        if (tram(x - 1, y)) m = m or 8
         return m
     }
 

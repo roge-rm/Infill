@@ -204,6 +204,8 @@
     <string name="goal_downtown">High density shops or offices</string>
     <string name="goal_high_school">A high school</string>
     <string name="goal_land_built">%1$d% of the land by the roads built on</string>
+    <string name="goal_kept_up">%1$d% of roads, pipes and track within their life</string>
+    <string name="goal_green_trips">%1$d% of commutes on foot, by bike or by transit</string>
     <string name="goal_met">✓</string>
     <string name="goal_not_met">–</string>
     <string name="material_cast_iron">Cast iron main</string>
@@ -259,6 +261,51 @@
     <string name="treatment_plant">Treatment plant</string>
     <string name="brownfield">Brownfield, to be cleaned up</string>
     <string name="heritage">Heritage</string>
+    <string name="tool_transit">Transit</string>
+    <string name="tram_track">Tram track</string>
+    <string name="tram_stop">Tram stop</string>
+    <string name="tram_depot">Tram depot</string>
+    <string name="bus_stop">Bus stop</string>
+    <string name="bus_garage">Bus garage</string>
+    <string name="subway">Subway</string>
+    <string name="trolley_wire">Trolleybus wire</string>
+    <string name="mode_trolley">By trolleybus</string>
+    <string name="subway_station">Subway station</string>
+    <string name="remove_transit">Take up</string>
+    <string name="needs_tram_track">A tram depot goes beside tram track</string>
+    <string name="needs_tunnel">A subway station goes over a subway tunnel</string>
+    <string name="no_service">Nothing runs here yet</string>
+    <plurals name="stop_riders">
+        <item quantity="one">%1$d rider on or off last month</item>
+        <item quantity="other">%1$d riders on or off last month</item>
+    </plurals>
+    <string name="overlay_transit">Transit</string>
+    <string name="commutes">Getting to work</string>
+    <string name="mode_walk">On foot</string>
+    <string name="mode_car">By car</string>
+    <string name="mode_bus">By bus</string>
+    <string name="mode_tram">By tram</string>
+    <string name="mode_subway">By subway</string>
+    <string name="mode_train">By train</string>
+    <string name="income_fares">Fares</string>
+    <string name="upkeep_transit">Transit</string>
+    <string name="bulldoze_clear">Clear</string>
+    <string name="bulldoze_renew">Relay what's worn</string>
+    <string name="event_tram_track_broken">Tram track broke</string>
+    <string name="event_wire_down">Trolleybus wire came down</string>
+    <string name="event_tunnel_shut">A subway tunnel's shut for repairs</string>
+    <plurals name="mend_tram">
+        <item quantity="one">Tram track broken, a day to mend</item>
+        <item quantity="other">Tram track broken, %1$d days to mend</item>
+    </plurals>
+    <plurals name="mend_wire">
+        <item quantity="one">Wire down, a day to mend</item>
+        <item quantity="other">Wire down, %1$d days to mend</item>
+    </plurals>
+    <plurals name="mend_tunnel">
+        <item quantity="one">Tunnel shut, a day to mend</item>
+        <item quantity="other">Tunnel shut, %1$d days to mend</item>
+    </plurals>
     <string name="has_power">Has power</string>
     <string name="no_power">No power</string>
     <string name="inspect_power_line">Power line</string>

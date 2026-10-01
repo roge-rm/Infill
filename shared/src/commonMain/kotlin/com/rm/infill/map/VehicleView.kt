@@ -8,6 +8,7 @@ import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Heading
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.max
 import kotlin.math.min
 
 /**
@@ -71,6 +72,82 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
     }
 }
 
+/**
+ * Trams along their track, and buses and trolleybuses on their roads, more
+ * of them the more riders there were, on straight runs where the riding was:
+ * [tramAt], [busAt] and [trolleyAt] give last month's riders on a tile.
+ */
+internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, tramAt: (Int) -> Int, busAt: (Int) -> Int, trolleyAt: (Int) -> Int) {
+    val t = camera.tilePx
+    if (t < MIN_TILE_PX) return
+    val topLeft = camera.screenToTile(Offset.Zero, size)
+    val bottomRight = camera.screenToTile(Offset(size.width, size.height), size)
+    val x0 = floor(topLeft.x).toInt().coerceAtLeast(0)
+    val y0 = floor(topLeft.y).toInt().coerceAtLeast(0)
+    val x1 = ceil(bottomRight.x).toInt().coerceAtMost(map.width - 1)
+    val y1 = ceil(bottomRight.y).toInt().coerceAtMost(map.height - 1)
+    fun road(x: Int, y: Int) = map.inside(x, y) && map.road[map.index(x, y)].toInt() != 0
+    for (y in y0..y1) for (x in x0..x1) {
+        val i = map.index(x, y)
+        if (map.road[i].toInt() == 0 || map.closed(i)) continue
+        val across = road(x - 1, y) || road(x + 1, y)
+        val down = road(x, y - 1) || road(x, y + 1)
+        if (across == down) continue
+        val seed = x * 7919 + y * 104729
+        val trams = tramAt(i)
+        if (trams > 0 && map.tram[i].toInt() != 0) {
+            // A tram every few tiles, sliding along; the busier the line, the closer they come.
+            val gap = if (trams > 2000) 3 else if (trams > 500) 5 else 8
+            val u = (time * TRAM_SPEED + (if (across) x else y) / gap.toFloat() + unit(seed) * 0.1f) % 1f
+            if (u < 1f / gap * 3) {
+                val along = u * gap / 3
+                val cx = if (across) x + along else x + 0.5f
+                val cy = if (across) y + 0.5f else y + along
+                car(camera.tileToScreen(cx, cy, size), t, across, 0.7f, 0.24f, TRAM_BODY, TRAM_ENDS)
+            }
+        }
+        val trolleys = trolleyAt(i)
+        if (trolleys > 0) {
+            val gap = if (trolleys > 1500) 4 else if (trolleys > 400) 6 else 10
+            val u = (time * BASE_SPEED * 0.8f + (if (across) x else y) / gap.toFloat() + unit(seed * 11) * 0.2f) % 1f
+            if (u < 1f / gap * 2) {
+                val along = u * gap / 2
+                val cx = if (across) x + along else x + NEAR
+                val cy = if (across) y + NEAR else y + along
+                val at = camera.tileToScreen(cx, cy, size)
+                car(at, t, across, 0.45f, 0.17f, TROLLEY_BODY, GLASS)
+                // Its two poles up to the wire.
+                val back = if (across) Offset(at.x - t * 0.15f, at.y) else Offset(at.x, at.y - t * 0.15f)
+                val up = if (across) Offset(back.x - t * 0.2f, back.y - t * 0.05f) else Offset(back.x - t * 0.05f, back.y - t * 0.2f)
+                drawLine(POLE, back, up, max(1f, t * 0.03f))
+            }
+        }
+        val buses = busAt(i)
+        if (buses > 0) {
+            val gap = if (buses > 1500) 4 else if (buses > 400) 6 else 10
+            val u = (time * BASE_SPEED * 0.8f + (if (across) x else y) / gap.toFloat() + unit(seed * 7) * 0.2f) % 1f
+            if (u < 1f / gap * 2) {
+                val along = u * gap / 2
+                val cx = if (across) x + along else x + NEAR
+                val cy = if (across) y + NEAR else y + along
+                car(camera.tileToScreen(cx, cy, size), t, across, 0.45f, 0.17f, BUS_BODY, GLASS)
+            }
+        }
+    }
+}
+
+/** A long vehicle lying [across] or down, [length] and [width] in tiles, with its ends in [ends]. */
+private fun DrawScope.car(at: Offset, t: Float, across: Boolean, length: Float, width: Float, body: Color, ends: Color) {
+    val l = t * length
+    val w = t * width
+    val size = if (across) Size(l, w) else Size(w, l)
+    val topLeft = Offset(at.x - size.width / 2, at.y - size.height / 2)
+    drawRect(body, topLeft, size)
+    val end = if (across) Size(l * 0.12f, w) else Size(w, l * 0.12f)
+    drawRect(ends, topLeft, end)
+    drawRect(ends, if (across) Offset(topLeft.x + l - end.width, topLeft.y) else Offset(topLeft.x, topLeft.y + l - end.height), end)
+}
+
 /** One vehicle centred on [at], facing [dir]: a horse and cart, or a car. */
 private fun DrawScope.vehicle(at: Offset, t: Float, dir: Int, car: Boolean, seed: Int) {
     val along = dir == Heading.EAST.toInt() || dir == Heading.WEST.toInt()
@@ -110,6 +187,14 @@ private const val FAR = 0.38f
 /** Too small to see below this. */
 private const val MIN_TILE_PX = 12f
 
+/** How far a tram slides along its run each second, as a share of the gap between trams. */
+private const val TRAM_SPEED = 0.06f
+
+private val TRAM_BODY = Color(0xFFE8DCC0)
+private val TRAM_ENDS = Color(0xFF8E2A2A)
+private val BUS_BODY = Color(0xFF2F7A5A)
+private val TROLLEY_BODY = Color(0xFF2F5F9A)
+private val POLE = Color(0xFF2A2A2E)
 private val HORSE = Color(0xFF4E3322)
 private val GLASS = Color(0xFF2B3440)
 private val CART_COLOURS = listOf(Color(0xFF8B6B45), Color(0xFF6E5236), Color(0xFFA07A4A), Color(0xFF3F3A34))

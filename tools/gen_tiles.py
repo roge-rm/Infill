@@ -1465,6 +1465,89 @@ def track(look, mask):
     return img
 
 
+# Tramways: rails set in the street along the track's pieces, with the poles
+# for the overhead wire at the kerb. Drawn over the road tile.
+
+TRAM_RAIL = c("#4a4c50")
+TRAM_GROOVE = c("#2c2d30")
+WIRE_POLE = c("#3a3c42")
+
+
+def tramway(look, mask):
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    px = img.load()
+    parts = pieces(mask)
+    for y in range(T):
+        for x in range(T):
+            for p in parts:
+                col = p.rail(x, y)
+                if col is not None:
+                    px[x, y] = TRAM_RAIL if col == RAIL_STEEL else TRAM_GROOVE
+                    break
+    d = ImageDraw.Draw(img)
+    # Poles for the wire, at the kerb either side of a straight run, and the wire between them.
+    # The span wire between the poles crosses the street; the contact wire runs along the track.
+    if mask in (5, 1, 4):
+        for x in (1, T - 2):
+            d.rectangle([x, 14, x + 1, 15], WIRE_POLE)
+        d.line([1, 15, T - 2, 15], (40, 42, 46, 120))
+        d.line([15, 0, 15, T - 1], (40, 42, 46, 90))
+    if mask in (10, 2, 8):
+        for y in (1, T - 2):
+            d.rectangle([14, y, 15, y + 1], WIRE_POLE)
+        d.line([15, 1, 15, T - 2], (40, 42, 46, 120))
+        d.line([0, 15, T - 1, 15], (40, 42, 46, 90))
+    return img
+
+
+def trolley_wire(look, mask):
+    """Trolleybus wire over a road: a pair of wires along each way it's joined, and poles at the kerb on straight runs."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    wire = (36, 38, 42, 170)
+    mid = T // 2
+    ends = {1: (mid, 0), 2: (T - 1, mid), 4: (mid, T - 1), 8: (0, mid)}
+    joined = [b for b in (1, 2, 4, 8) if mask & b] or [1, 4]
+    for b in joined:
+        ex, ey = ends[b]
+        for off in (-2, 2):
+            if b in (1, 4):
+                d.line([mid + off, mid, ex + off, ey], wire)
+            else:
+                d.line([mid, mid + off, ex, ey + off], wire)
+    if mask in (5, 1, 4):
+        for x in (1, T - 2):
+            d.rectangle([x, 14, x + 1, 15], WIRE_POLE)
+        d.line([1, 15, T - 2, 15], (40, 42, 46, 110))
+    if mask in (10, 2, 8):
+        for y in (1, T - 2):
+            d.rectangle([14, y, 15, y + 1], WIRE_POLE)
+        d.line([15, 1, 15, T - 2], (40, 42, 46, 110))
+    return img
+
+
+def tram_stop(look):
+    """A shelter at the kerb and a stop sign, at the tile's north west corner."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rectangle([1, 1, 9, 4], SNOW_ROOF[0] if look == "snow" else c("#3f6a4a"), OUTLINE)
+    d.line([2, 5, 2, 6], OUTLINE)
+    d.line([8, 5, 8, 6], OUTLINE)
+    d.rectangle([11, 1, 13, 3], c("#e8e0c8"), OUTLINE)
+    d.point((12, 2), c("#c0392b"))
+    return img
+
+
+def bus_stop(look):
+    """A bench and a post with the stop's sign, at the tile's north west corner."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rectangle([2, 2, 8, 3], c("#7a5a3a"), OUTLINE)
+    d.line([11, 1, 11, 6], c("#5a5c60"))
+    d.rectangle([10, 0, 13, 2], c("#e0b83a"), OUTLINE)
+    return img
+
+
 def crossing(look, vertical):
     """A level crossing drawn over the road: planks between and beside the rails, and two crossbucks."""
     img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
@@ -2310,6 +2393,85 @@ def treatment_plant(look, v):
     return b
 
 
+# Transit buildings: a tram depot, a bus garage and a subway station's entrance.
+
+def tram_depot(look, v):
+    """A brick car shed on 2 by 2 tiles, three arched doors to the south and rails out of each across the apron."""
+    b = Building(2, 2, height=2 * STOREY + 8)
+    d = b.d
+    gx0, gy0 = b.ground(2, 44)
+    gx1, gy1 = b.ground(61, 63)
+    d.rectangle([gx0, gy0, gx1, gy1], c("#a8a49a") if look != "snow" else SNOW_GROUND)
+    roof, wall = b.box(2, 6, 61, 42, 2 * STOREY + 2)
+    brick(d, wall, c("#8e4a3a"))
+    x0, y0, x1, y1 = wall
+    for k in range(3):
+        cx = x0 + 10 + k * 20
+        d.rectangle([cx - 6, y1 - 10, cx + 6, y1], c("#2a2a30"))
+        d.arc([cx - 6, y1 - 14, cx + 6, y1 - 6], 180, 360, STONE)
+        # Rails out across the apron.
+        for rx in (cx - 3, cx + 3):
+            d.line([rx, y1 + 1, rx, gy1], TRAM_RAIL)
+    d.rectangle([x0, y0 + 1, x1, y0 + 2], STONE)
+    d.rectangle(wall, outline=OUTLINE)
+    rx0, ry0, rx1, ry1 = roof
+    # A long roof with a lantern of skylights down the ridge.
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#5f6570"))
+    d.rectangle([rx0 + 4, (ry0 + ry1) // 2 - 2, rx1 - 4, (ry0 + ry1) // 2 + 2], SNOW_ROOF[1] if look == "snow" else SKYLIGHT)
+    d.rectangle(roof, outline=OUTLINE)
+    return b
+
+
+def bus_garage(look, v):
+    """A wide garage on 2 by 2 tiles with roller doors, a forecourt and a bus waiting on it."""
+    b = Building(2, 2, height=2 * STOREY + 4)
+    d = b.d
+    gx0, gy0 = b.ground(2, 40)
+    gx1, gy1 = b.ground(61, 63)
+    d.rectangle([gx0, gy0, gx1, gy1], c("#9a9890") if look != "snow" else SNOW_GROUND)
+    roof, wall = b.box(2, 6, 61, 38, 2 * STOREY)
+    brick(d, wall, c("#a8583f")) if v == 0 else d.rectangle(wall, c("#c8c4b8"))
+    x0, y0, x1, y1 = wall
+    for k in range(4):
+        dx = x0 + 4 + k * 14
+        d.rectangle([dx, y1 - 8, dx + 10, y1], c("#7d8288"))
+        for yy in range(y1 - 7, y1, 2):
+            d.line([dx + 1, yy, dx + 9, yy], c("#6a6f75"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(8500), [("vent", 8, 6), ("vent", 40, 6), ("skylight", 24, 14)], parapet=STONE)
+    # A bus on the forecourt.
+    bx, by = b.ground(10, 48)
+    d.rectangle([bx, by, bx + 22, by + 8], c("#2f7a5a") if v == 0 else c("#c0392b"), OUTLINE)
+    d.rectangle([bx + 2, by + 2, bx + 20, by + 4], c("#d8e4ea"))
+    return b
+
+
+def subway_station(look, v):
+    """A subway entrance: stairs down under a glass canopy, railings round, and the line's sign on a post."""
+    b = Building(height=STOREY + 8)
+    d = b.d
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(30, 30)
+    d.rectangle([gx0, gy0, gx1, gy1], c("#b8b2a6") if look != "snow" else SNOW_GROUND)
+    # The stairwell, getting darker as it goes down.
+    sx0, sy0 = b.ground(8, 10)
+    for k in range(6):
+        shade_ = 160 - k * 22
+        d.rectangle([sx0, sy0 + k * 2, sx0 + 15, sy0 + k * 2 + 1], (shade_, shade_ - 6, shade_ - 14, 255))
+    d.rectangle([sx0 - 1, sy0 - 1, sx0 + 16, sy0 + 12], outline=c("#3a3c42"))
+    # The canopy over it, on two posts.
+    roof, wall = b.box(6, 6, 25, 9, STOREY + 2)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#9fc3d8"), OUTLINE)
+    d.line([wall[0] + 1, wall[1], wall[0] + 1, wall[3]], c("#3a3c42"))
+    d.line([wall[2] - 1, wall[1], wall[2] - 1, wall[3]], c("#3a3c42"))
+    # The sign: a blue plate with a white bar.
+    px_, py_ = b.ground(26, 24)
+    d.line([px_, py_, px_, py_ - 12], c("#5a5c60"))
+    d.rectangle([px_ - 3, py_ - 16, px_ + 3, py_ - 11], c("#2f5f9a"), OUTLINE)
+    d.line([px_ - 2, py_ - 14, px_ + 2, py_ - 14], c("#ffffff"))
+    return b
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -2324,6 +2486,7 @@ BUILDINGS = [
     ("main_street", main_street, 4), ("office_block", office_block, 3), ("department_store", department_store, 2),
     ("works", works, 2), ("site_small", site_small, 2), ("site_large", site_large, 2),
     ("sewage_works", sewage_works, 1), ("treatment_plant", treatment_plant, 1),
+    ("tram_depot", tram_depot, 1), ("bus_garage", bus_garage, 2), ("subway_station", subway_station, 1),
 ]
 
 
@@ -2552,6 +2715,12 @@ def sprites_for(look):
         out.append((f"power_line_{mask}", img, lift, casters))
     sign = for_sale(look)
     out.append(("for_sale_0", sign.img, sign.lift, []))
+    for mask in range(16):
+        out.append((f"tramway_{mask}", tramway(look, mask), 0, []))
+    for mask in range(16):
+        out.append((f"trolley_wire_{mask}", trolley_wire(look, mask), 0, []))
+    out.append(("tram_stop_0", tram_stop(look), 0, []))
+    out.append(("bus_stop_0", bus_stop(look), 0, []))
     for i, (name, img, lift, casters) in enumerate(out):
         override = OVERRIDES / look / f"{name}.png"
         if override.exists():
@@ -2616,13 +2785,16 @@ def write_kotlin(names, flat, pos, size):
         for caster in cs:
             casters += [round(v) for v in caster]
 
-    def ints(values, per_line=20):
+    def ints(values, per_line=40):
+        # As text, read once at start-up: a class's start-up code can't hold thousands of numbers.
+        # Each string constant stays well under the class file's limit for one.
+        text = ",".join(str(v) for v in values)
         lines = []
-        for i in range(0, len(values), per_line):
-            lines.append("        " + ", ".join(str(v) for v in values[i:i + per_line]) + ",")
-        return "\n".join(lines)
+        for i in range(0, len(text), 2000):
+            lines.append('            "' + text[i:i + 2000] + '"')
+        return "decode(\n" + " +\n".join(lines or ['            ""']) + ",\n        )"
 
-    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "for_sale"]
+    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
     # A sprite's name must start with exactly one group's, or the counts go wrong.
     for n in names:
         owners = [g for g in groups if n.startswith(g + "_")]
@@ -2656,26 +2828,20 @@ internal object Atlas {{
     const val HEIGHT = {size[1]}
 
     /** Five numbers a sprite, at 32 px: x and y in the atlas, width, height, and how far above its tile it starts. */
-    val rects = intArrayOf(
-{ints(rects)}
-    )
+    val rects = {ints(rects)}
 
     /** For each sprite in a look, where its casters start in [casters], and how many. */
-    val casterStart = intArrayOf(
-{ints(starts)}
-    )
-    val casterCount = intArrayOf(
-{ints(counts)}
-    )
+    val casterStart = {ints(starts)}
+    val casterCount = {ints(counts)}
 
     /**
      * Six numbers a caster, at 32 px, relative to the top left of the sprite's
      * first tile. A round one (0) is a tree: foot x, foot y, height of its
      * middle, radius. A box (1) is a building: left, top, right, bottom, height.
      */
-    val casters = intArrayOf(
-{ints(casters)}
-    )
+    val casters = {ints(casters)}
+
+    private fun decode(text: String): IntArray = if (text.isEmpty()) IntArray(0) else text.split(',').map {{ it.toInt() }}.toIntArray()
 }}
 """
     OUT_KT.write_text(text)

@@ -4,16 +4,17 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Trips on the roads. Each month every home's workers look for the nearest
- * jobs with room, its residents go to the nearest shops, and works send
- * freight to the edge of the map. Trips start and end on road tiles, the one
- * each building is reached from. The search runs over road tiles: one-way
- * tiles can't be driven backwards, and each tile takes its road's time to
- * cross, longer the busier it was last month.
+ * Trips on the roads and by transit. Each month every home's workers look for
+ * the nearest jobs with room, its residents go to the nearest shops, and works
+ * send freight to the edge of the map. Trips start and end on road tiles, the
+ * one each building is reached from.
  *
- * Stations on the same line are joined by train: a trip can board at one and
- * get off at another, for the wait and the time on the train, when that's
- * quicker. A freight yard on a line to the edge takes freight like the edge.
+ * The search runs over layers of the map: on foot along any road, driving
+ * (for those with a car, and freight), and riding the buses, trolleybuses,
+ * trams and subway, joined at their stops and stations, where boarding costs a wait.
+ * Each trip goes the quickest way. Driving keeps to one-way roads and slows
+ * as a road fills; walking and riding don't add to the traffic, buses do a
+ * little. Stations on the same railway line are joined by train.
  *
  * The trips are spread over the month, a slice of the starting tiles each
  * day, and big groups go in parts. They add up on every tile they cross, and
@@ -21,14 +22,55 @@ import kotlin.math.min
  * traffic finds its way round busy roads.
  */
 internal class Traffic(private val map: CityMap) {
-    /** Trips across each tile this month so far, and a running average of past months. */
+    private val n = map.size
+
+    /** Vehicles across each tile this month so far, and a running average of past months. */
     val volume = IntArray(map.size)
     val lastVolume = IntArray(map.size)
 
-    /** This month's travellers by the road tile they start from, in the order they're sent. */
+    /** People going by each tile this month so far, on foot, by car or by bus, and last month's. */
+    private val footfall = IntArray(map.size)
+    val lastFootfall = IntArray(map.size)
+
+    /** Riders on each tile of bus route, tram track and tunnel this month so far, and last month's. */
+    private val busVolume = IntArray(map.size)
+    val lastBusVolume = IntArray(map.size)
+    private val trolleyVolume = IntArray(map.size)
+    val lastTrolleyVolume = IntArray(map.size)
+    private val tramVolume = IntArray(map.size)
+    val lastTramVolume = IntArray(map.size)
+    private val subwayVolume = IntArray(map.size)
+    val lastSubwayVolume = IntArray(map.size)
+
+    /** Riders getting on or off at each stop or station's road tile, this month and last. */
+    private val stopRiders = IntArray(map.size)
+    val lastStopRiders = IntArray(map.size)
+
+    /** Workers' trips by [Mode] this month so far, and last month's. */
+    private val modes = IntArray(Mode.entries.size)
+    val lastModes = IntArray(Mode.entries.size)
+
+    /** Riders boarding each transit network, by mode and network, this month and last. */
+    private val networkRiders = HashMap<Int, Int>()
+    private var lastNetworkRiders: Map<Int, Int> = emptyMap()
+
+    fun ridersOn(mode: Int, network: Int): Int = lastNetworkRiders[mode * 65536 + network] ?: 0
+
+    /** Last month's riders boarding a bus, trolleybus, tram or subway train, all told. */
+    fun boardings(): Int = lastNetworkRiders.values.sum()
+
+    /** Last month's riders on what runs on electricity: trams, trolleybuses and the subway. */
+    fun electricRiders(): Int = lastNetworkRiders.entries.sumOf { (k, v) ->
+        val mode = k / 65536
+        if (mode == Mode.TRAM.ordinal || mode == Mode.TROLLEY.ordinal || mode == Mode.SUBWAY.ordinal) v else 0
+    }
+
+    /** This month's travellers by the road tile they start from, in the order they're sent, those with cars as well as all. */
     private var origins = IntArray(0)
     private var workers = IntArray(0)
+    private var carWorkers = IntArray(0)
     private var shoppers = IntArray(0)
+    private var carShoppers = IntArray(0)
     private var freight = IntArray(0)
 
     /** Room left for workers and shoppers at each road tile. */
@@ -79,6 +121,30 @@ internal class Traffic(private val map: CityMap) {
     var lastJourneys: Map<Long, Int> = emptyMap()
         private set
 
+    /** The buses, trams and subway, set by the city whenever they change. */
+    var transit: TransitNetwork? = null
+        private set
+
+    /** For each subway tunnel tile with a station over it, the station's road tile; -1 elsewhere. */
+    private val stationAbove = IntArray(map.size) { -1 }
+
+    /** For each road tile that's a subway station's, the tunnel tile under it; -1 elsewhere. */
+    private val tunnelBelow = IntArray(map.size) { -1 }
+
+    /** Takes the stations from [transit], after it's been worked out again. */
+    fun useTransit(net: TransitNetwork) {
+        transit = net
+        stationAbove.fill(-1)
+        tunnelBelow.fill(-1)
+        for (k in net.stationRoad.indices) {
+            val road = net.stationRoad[k]
+            val tunnel = net.stationTunnel[k]
+            if (road < 0 || tunnel < 0) continue
+            if (stationAbove[tunnel] < 0) stationAbove[tunnel] = road
+            if (tunnelBelow[road] < 0) tunnelBelow[road] = tunnel
+        }
+    }
+
     /**
      * Sets the railway: for each stop the road tile it's reached from (-1 if
      * none), the track tile trains stop at, seconds by train to each other
@@ -100,14 +166,15 @@ internal class Traffic(private val map: CityMap) {
         for (a in node.indices) for (b in node.indices) if (!passengers[a] || !passengers[b]) times[a][b] = -1
     }
 
-    // Search state, reused. A tile's distance counts only if its stamp is this search's.
-    private val dist = IntArray(map.size)
-    private val from = IntArray(map.size)
+    // Search state, reused, over every tile in every layer: a state is the layer times the map's size, plus the tile.
+    // A state's distance counts only if its stamp is this search's.
+    private val dist = IntArray(LAYERS * map.size)
+    private val from = IntArray(LAYERS * map.size)
 
-    /** The stops a tile was reached between by train, or -1 if it was reached by road. */
-    private val boarded = IntArray(map.size)
-    private val alighted = IntArray(map.size)
-    private val stamp = IntArray(map.size)
+    /** The rail stops a state was reached between by train, or -1 if it wasn't. */
+    private val boarded = IntArray(LAYERS * map.size)
+    private val alighted = IntArray(LAYERS * map.size)
+    private val stamp = IntArray(LAYERS * map.size)
     private var search = 0
     private var heap = IntArray(256)
     private var heapKeys = IntArray(256)
@@ -116,16 +183,30 @@ internal class Traffic(private val map: CityMap) {
     /**
      * Ends one month and starts the next. Last month's trips become the
      * congestion layer and the results above; then this month's travellers
-     * and places to go are taken from the arrays, each by road tile.
-     * [salt] shuffles who goes first, so no corner of the map always does.
+     * and places to go are taken from the arrays, each by road tile, with how
+     * many of the workers and shoppers have a car. [salt] shuffles who goes
+     * first, so no corner of the map always does.
      */
-    fun newMonth(workersAt: IntArray, shoppersAt: IntArray, freightAt: IntArray, jobsAt: IntArray, shopsAt: IntArray, salt: Int) {
+    fun newMonth(
+        workersAt: IntArray, shoppersAt: IntArray, freightAt: IntArray, jobsAt: IntArray, shopsAt: IntArray, salt: Int,
+        carWorkersAt: IntArray = IntArray(n), carShoppersAt: IntArray = IntArray(n),
+    ) {
         for (i in 0 until map.size) lastVolume[i] = (lastVolume[i] + volume[i] + 1) / 2
         volume.fill(0)
         for (i in 0 until map.size) {
             val road = RoadType.of(map.road[i])
-            map.congestion[i] = if (road == null) 0 else min(255, lastVolume[i] * 128 / road.capacity).toByte()
+            map.congestion[i] = if (road == null) 0 else min(255, (lastVolume[i] + (busVolume[i] + trolleyVolume[i]) / BUS_RIDERS) * 128 / road.capacity).toByte()
         }
+        footfall.copyInto(lastFootfall)
+        footfall.fill(0)
+        for ((now, last) in listOf(busVolume to lastBusVolume, trolleyVolume to lastTrolleyVolume, tramVolume to lastTramVolume, subwayVolume to lastSubwayVolume, stopRiders to lastStopRiders)) {
+            now.copyInto(last)
+            now.fill(0)
+        }
+        modes.copyInto(lastModes)
+        modes.fill(0)
+        lastNetworkRiders = HashMap(networkRiders)
+        networkRiders.clear()
 
         var sent = 0
         var got = 0
@@ -157,63 +238,97 @@ internal class Traffic(private val map: CityMap) {
         starts.sortBy { mixed(it, salt) }
         origins = starts.toIntArray()
         workers = IntArray(origins.size) { workersAt[origins[it]] }
+        carWorkers = IntArray(origins.size) { min(workersAt[origins[it]], carWorkersAt[origins[it]]) }
         shoppers = IntArray(origins.size) { shoppersAt[origins[it]] }
+        carShoppers = IntArray(origins.size) { min(shoppersAt[origins[it]], carShoppersAt[origins[it]]) }
         freight = IntArray(origins.size) { freightAt[origins[it]] }
     }
 
     /** Sends the travellers in slice [day] of [days], so the whole month's have gone by its end. */
     fun sendDay(day: Int, days: Int) {
-        val n = origins.size
-        for (k in n * (day - 1) / days until n * day / days) send(k)
+        val count = origins.size
+        for (k in count * (day - 1) / days until count * day / days) send(k)
     }
 
-    /** One tile's trips, in parts of no more than [PART] so the later parts see the roads the first ones filled. */
+    /**
+     * One tile's trips, in parts of no more than [PART] so the later parts see
+     * the roads the first ones filled. Those with cars and those without go
+     * separately, since they have different ways to get there.
+     */
     private fun send(k: Int) {
         val total = workers[k] + shoppers[k] + freight[k]
         val parts = (total + PART - 1) / PART
         fun share(v: Int, p: Int) = v * (p + 1) / parts - v * p / parts
-        for (p in 0 until parts) send(origins[k], share(workers[k], p), share(shoppers[k], p), share(freight[k], p))
+        for (p in 0 until parts) {
+            val wCar = share(carWorkers[k], p)
+            val sCar = share(carShoppers[k], p)
+            val w = share(workers[k] - carWorkers[k], p)
+            val s = share(shoppers[k] - carShoppers[k], p)
+            val f = share(freight[k], p)
+            if (w + s > 0) send(origins[k], w, s, 0, car = false)
+            if (wCar + sCar + f > 0) send(origins[k], wCar, sCar, f, car = true)
+        }
     }
 
-    /** A single search outward from [start], taking the nearest room first. */
-    private fun send(start: Int, workers: Int, shoppers: Int, freight: Int) {
+    private fun state(layer: Int, tile: Int) = layer * n + tile
+
+    /** Reaches state [st] at [nd] from [at] if that's sooner than any way found yet. */
+    private fun reach(st: Int, nd: Int, at: Int, train: Int = -1, off: Int = -1) {
+        if (stamp[st] == search && nd >= dist[st]) return
+        stamp[st] = search
+        dist[st] = nd
+        from[st] = at
+        boarded[st] = train
+        alighted[st] = off
+        push(st, nd)
+    }
+
+    /**
+     * A single search outward from [start], taking the nearest room first.
+     * With a [car], the travellers can drive as well as walk and ride, and
+     * freight goes along; without, they walk and ride.
+     */
+    private fun send(start: Int, workers: Int, shoppers: Int, freight: Int, car: Boolean) {
         var w = workers
         var s = shoppers
         var f = freight
+        val net = transit?.takeIf { it.any }
         search++
         heapSize = 0
-        dist[start] = 0
-        from[start] = -1
-        boarded[start] = -1
-        stamp[start] = search
-        push(start, 0)
+        if (w + s > 0) reach(state(WALK, start), 0, -1)
+        if (car) reach(state(CAR, start), 0, -1)
         while (heapSize > 0 && (w > 0 || s > 0 || f > 0)) {
             val d = heapKeys[0]
-            val a = pop()
-            if (d > dist[a]) continue
+            val st = pop()
+            if (d > dist[st]) continue
             if (d > Balance.LONGEST_TRIP) {
                 // Too far to go every day; freight goes further.
                 w = 0
                 s = 0
                 if (d > Balance.LONGEST_FREIGHT) break
             }
-            if (w > 0 && jobsLeft[a] > 0) {
-                val t = min(w, jobsLeft[a])
-                jobsLeft[a] -= t
-                w -= t
-                placed[start] += t
-                travel[start] += t.toLong() * d
-                carry(a, t)
+            val layer = st / n
+            val a = st % n
+            // People get where they're going on foot or by car; the transit layers only carry them between stops.
+            if (layer == WALK || layer == CAR) {
+                if (w > 0 && jobsLeft[a] > 0) {
+                    val t = min(w, jobsLeft[a])
+                    jobsLeft[a] -= t
+                    w -= t
+                    placed[start] += t
+                    travel[start] += t.toLong() * d
+                    carry(st, t, WORKER)
+                }
+                if (s > 0 && shopsLeft[a] > 0) {
+                    val t = min(s, shopsLeft[a])
+                    shopsLeft[a] -= t
+                    s -= t
+                    carry(st, t, SHOPPER)
+                }
             }
-            if (s > 0 && shopsLeft[a] > 0) {
-                val t = min(s, shopsLeft[a])
-                shopsLeft[a] -= t
-                s -= t
-                carry(a, t)
-            }
-            if (f > 0 && (edge(a) || outlet[a] >= 0)) {
+            if (layer == CAR && f > 0 && (edge(a) || outlet[a] >= 0)) {
                 shipped[start] += f
-                carry(a, f)
+                carry(st, f, FREIGHT)
                 if (!edge(a)) {
                     // Out through the yard.
                     railFreight[a] += f
@@ -222,66 +337,229 @@ internal class Traffic(private val map: CityMap) {
                 }
                 f = 0
             }
-            val x = a % map.width
-            val y = a / map.width
-            for (h in 1..4) {
-                val nx = x + Heading.DX[h]
-                val ny = y + Heading.DY[h]
-                if (!map.inside(nx, ny)) continue
-                val b = ny * map.width + nx
-                val road = RoadType.of(map.road[b]) ?: continue
-                // Deep floodwater closes the road.
-                if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE) continue
-                // As does digging it up.
-                if (map.closed(b)) continue
-                if (!canMove(map, a, b, h)) continue
-                val nd = d + timeToCross(b, road)
-                if (stamp[b] == search && nd >= dist[b]) continue
-                stamp[b] = search
-                dist[b] = nd
-                from[b] = a
-                boarded[b] = -1
-                push(b, nd)
-            }
-            // By train to the other stations on the line.
-            val here = stopHere[a]
-            if (here >= 0 && (w > 0 || s > 0)) {
-                val times = stopTimes[here]
-                for (k in times.indices) {
-                    val b = stopNode[k]
-                    if (times[k] < 0 || k == here || b < 0 || b == a) continue
-                    val nd = d + Balance.RAIL_WAIT + times[k]
-                    if (stamp[b] == search && nd >= dist[b]) continue
-                    stamp[b] = search
-                    dist[b] = nd
-                    from[b] = a
-                    boarded[b] = here
-                    alighted[b] = k
-                    push(b, nd)
-                }
+            when (layer) {
+                WALK -> walkFrom(a, d, st, net)
+                CAR -> driveFrom(a, d, st)
+                BUS -> busFrom(a, d, st, net!!)
+                TROLLEY -> trolleyFrom(a, d, st, net!!)
+                TRAM -> tramFrom(a, d, st, net!!)
+                SUBWAY -> subwayFrom(a, d, st, net!!)
             }
         }
     }
 
-    /** Adds [trips] to every tile on the way back from [end] to where the search began, and to the trains they took. */
-    private fun carry(end: Int, trips: Int) {
-        var at = end
-        while (at >= 0) {
-            volume[at] += trips
-            val on = boarded[at]
+    /** On foot: along any road either way, onto a train, a tram, a bus or the subway. */
+    private fun walkFrom(a: Int, d: Int, st: Int, net: TransitNetwork?) {
+        val x = a % map.width
+        val y = a / map.width
+        for (h in 1..4) {
+            val nx = x + Heading.DX[h]
+            val ny = y + Heading.DY[h]
+            if (!map.inside(nx, ny)) continue
+            val b = ny * map.width + nx
+            if (map.road[b] == Road.NONE) continue
+            // Deep floodwater stops walkers too; a dug-up street doesn't.
+            if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE) continue
+            reach(state(WALK, b), d + walkTime(b), st)
+        }
+        // By train to the other stations on the line.
+        val here = stopHere[a]
+        if (here >= 0) {
+            val times = stopTimes[here]
+            for (k in times.indices) {
+                val b = stopNode[k]
+                if (times[k] < 0 || k == here || b < 0 || b == a) continue
+                reach(state(WALK, b), d + Balance.RAIL_WAIT + times[k], st, here, k)
+            }
+        }
+        if (net == null) return
+        val stops = map.stop[a].toInt()
+        if (stops and Stop.TRAM != 0 && net.tram[a] >= 0) reach(state(TRAM, a), d + net.tramWait[net.tram[a]], st)
+        // Under the wire the buses are trolleybuses; elsewhere they're diesel.
+        if (stops and Stop.BUS != 0 && net.trolley[a] >= 0) reach(state(TROLLEY, a), d + net.trolleyWait[net.trolley[a]], st)
+        else if (stops and Stop.BUS != 0 && net.bus[a] >= 0) reach(state(BUS, a), d + net.busWait[net.bus[a]], st)
+        val tunnel = tunnelBelow[a]
+        if (tunnel >= 0 && net.subway[tunnel] >= 0) reach(state(SUBWAY, tunnel), d + net.subwayWait[net.subway[tunnel]], st)
+    }
+
+    /** Driving: along the roads the way they run, slowed by traffic. */
+    private fun driveFrom(a: Int, d: Int, st: Int) {
+        val x = a % map.width
+        val y = a / map.width
+        for (h in 1..4) {
+            val nx = x + Heading.DX[h]
+            val ny = y + Heading.DY[h]
+            if (!map.inside(nx, ny)) continue
+            val b = ny * map.width + nx
+            val road = RoadType.of(map.road[b]) ?: continue
+            // Deep floodwater closes the road.
+            if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE) continue
+            // As does digging it up.
+            if (map.closed(b)) continue
+            if (!canMove(map, a, b, h)) continue
+            reach(state(CAR, b), d + timeToCross(b, road), st)
+        }
+    }
+
+    /** On a diesel bus: along its network's roads with the traffic, a stop's time added, never under the wire; off again at a bus stop. */
+    private fun busFrom(a: Int, d: Int, st: Int, net: TransitNetwork) {
+        if (map.stop[a].toInt() and Stop.BUS != 0) reach(state(WALK, a), d, st)
+        val x = a % map.width
+        val y = a / map.width
+        for (h in 1..4) {
+            val nx = x + Heading.DX[h]
+            val ny = y + Heading.DY[h]
+            if (!map.inside(nx, ny)) continue
+            val b = ny * map.width + nx
+            if (net.bus[b] != net.bus[a] || net.trolley[b] >= 0) continue
+            val road = RoadType.of(map.road[b]) ?: continue
+            if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE || map.closed(b)) continue
+            if (!canMove(map, a, b, h)) continue
+            reach(state(BUS, b), d + timeToCross(b, road) + Balance.BUS_STOPPING, st)
+        }
+    }
+
+    /** On a trolleybus: along its wire with the traffic, a stop's time added; off again at a bus stop. */
+    private fun trolleyFrom(a: Int, d: Int, st: Int, net: TransitNetwork) {
+        if (map.stop[a].toInt() and Stop.BUS != 0) reach(state(WALK, a), d, st)
+        val x = a % map.width
+        val y = a / map.width
+        for (h in 1..4) {
+            val nx = x + Heading.DX[h]
+            val ny = y + Heading.DY[h]
+            if (!map.inside(nx, ny)) continue
+            val b = ny * map.width + nx
+            if (net.trolley[b] != net.trolley[a]) continue
+            val road = RoadType.of(map.road[b]) ?: continue
+            if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE || map.closed(b)) continue
+            if (!canMove(map, a, b, h)) continue
+            reach(state(TROLLEY, b), d + timeToCross(b, road) + Balance.BUS_STOPPING, st)
+        }
+    }
+
+    /** On a tram: along its track, held up a little by busy streets; off again at a tram stop. */
+    private fun tramFrom(a: Int, d: Int, st: Int, net: TransitNetwork) {
+        if (map.stop[a].toInt() and Stop.TRAM != 0) reach(state(WALK, a), d, st)
+        val x = a % map.width
+        val y = a / map.width
+        for (h in 1..4) {
+            val nx = x + Heading.DX[h]
+            val ny = y + Heading.DY[h]
+            if (!map.inside(nx, ny)) continue
+            val b = ny * map.width + nx
+            if (net.tram[b] != net.tram[a]) continue
+            if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE || map.closed(b)) continue
+            val busy = (map.congestion[b].toInt() and 0xff) * Balance.TRAM_TIME / 512
+            reach(state(TRAM, b), d + Balance.TRAM_TIME + busy, st)
+        }
+    }
+
+    /** On the subway: along its tunnels, quick and clear of everything; off again at a station. */
+    private fun subwayFrom(a: Int, d: Int, st: Int, net: TransitNetwork) {
+        val above = stationAbove[a]
+        if (above >= 0) reach(state(WALK, above), d, st)
+        val x = a % map.width
+        val y = a / map.width
+        for (h in 1..4) {
+            val nx = x + Heading.DX[h]
+            val ny = y + Heading.DY[h]
+            if (!map.inside(nx, ny)) continue
+            val b = ny * map.width + nx
+            if (net.subway[b] != net.subway[a]) continue
+            reach(state(SUBWAY, b), d + Balance.SUBWAY_TIME, st)
+        }
+    }
+
+    /**
+     * Adds [trips] to every tile on the way back from state [end] to where the
+     * search began: vehicles to the traffic, people to the footfall, riders to
+     * the buses, trams, subway and trains they took. Workers' trips are
+     * counted by the fastest thing they used.
+     */
+    private fun carry(end: Int, trips: Int, kind: Int) {
+        var st = end
+        var mode = Mode.WALK.ordinal
+        while (st >= 0) {
+            val layer = st / n
+            val at = st % n
+            when (layer) {
+                WALK -> footfall[at] += trips
+                CAR -> {
+                    footfall[at] += trips
+                    volume[at] += trips
+                    mode = max(mode, Mode.CAR.ordinal)
+                }
+                BUS -> {
+                    footfall[at] += trips
+                    busVolume[at] += trips
+                    mode = max(mode, Mode.BUS.ordinal)
+                }
+                TROLLEY -> {
+                    footfall[at] += trips
+                    trolleyVolume[at] += trips
+                    mode = max(mode, Mode.TROLLEY.ordinal)
+                }
+                TRAM -> {
+                    tramVolume[at] += trips
+                    mode = max(mode, Mode.TRAM.ordinal)
+                }
+                SUBWAY -> {
+                    subwayVolume[at] += trips
+                    mode = max(mode, Mode.SUBWAY.ordinal)
+                }
+            }
+            val prev = from[st]
+            // Getting on or off: counted at the stop's road tile, and boarding against the network.
+            if (prev >= 0) {
+                val pl = prev / n
+                if (pl != layer && (pl == WALK || layer == WALK)) {
+                    val rideLayer = if (pl == WALK) layer else pl
+                    val rideTile = if (pl == WALK) at else prev % n
+                    val road = if (rideLayer == SUBWAY) stationAbove[rideTile] else rideTile
+                    if (road >= 0) stopRiders[road] += trips
+                    if (pl == WALK) transit?.let { net ->
+                        val network = when (rideLayer) {
+                            BUS -> net.bus[rideTile]
+                            TROLLEY -> net.trolley[rideTile]
+                            TRAM -> net.tram[rideTile]
+                            else -> net.subway[rideTile]
+                        }
+                        val m = when (rideLayer) {
+                            BUS -> Mode.BUS
+                            TROLLEY -> Mode.TROLLEY
+                            TRAM -> Mode.TRAM
+                            else -> Mode.SUBWAY
+                        }
+                        if (network >= 0) {
+                            val key = m.ordinal * 65536 + network
+                            networkRiders[key] = (networkRiders[key] ?: 0) + trips
+                        }
+                    }
+                }
+            }
+            val on = boarded[st]
             if (on >= 0) {
                 riders[at] += trips
                 riders[stopNode[on]] += trips
-                val key = (stopTrack[on].toLong() shl 32) or (stopTrack[alighted[at]].toLong() and 0xffffffffL)
+                val key = (stopTrack[on].toLong() shl 32) or (stopTrack[alighted[st]].toLong() and 0xffffffffL)
                 journeys[key] = (journeys[key] ?: 0) + trips
+                mode = Mode.TRAIN.ordinal
             }
-            at = from[at]
+            st = prev
         }
+        if (kind == WORKER) modes[mode] += trips
+    }
+
+    /** Seconds to walk across a tile, more over a level crossing or through floodwater. */
+    private fun walkTime(b: Int): Int {
+        val time = Balance.WALK_TIME + if (map.rail[b] != Rail.NONE) Balance.CROSSING_DELAY else 0
+        return if ((map.flood[b].toInt() and 0xff) >= Balance.FLOODED) time * Balance.FLOOD_SLOW else time
     }
 
     /** Seconds to cross a tile: its road's time when clear, half as long again at capacity, up to three times, and slower still flooded. */
     private fun timeToCross(b: Int, road: RoadType): Int {
-        val load = max(lastVolume[b], volume[b]) * 32 / road.capacity
+        val buses = max(lastBusVolume[b], busVolume[b]) + max(lastTrolleyVolume[b], trolleyVolume[b])
+        val load = (max(lastVolume[b], volume[b]) + buses / BUS_RIDERS) * 32 / road.capacity
         val slow = min(2 * 1024, load * load / 2)
         val time = road.time + road.time * slow / 1024 + if (map.rail[b] != Rail.NONE) Balance.CROSSING_DELAY else 0
         // Wading through floodwater, or picking a way round the potholes.
@@ -359,10 +637,35 @@ internal class Traffic(private val map: CityMap) {
         repeat(r.count()) { travel[tile(r)] = r.long() }
         val n = r.count()
         origins = IntArray(n); workers = IntArray(n); shoppers = IntArray(n); freight = IntArray(n)
+        carWorkers = IntArray(n); carShoppers = IntArray(n)
         for (k in 0 until n) { origins[k] = tile(r); workers[k] = r.int(); shoppers[k] = r.int(); freight[k] = r.int() }
         freightStuck.fill(false)
         repeat(r.count()) { freightStuck[tile(r)] = true }
         workersSent = r.int(); workersPlaced = r.int()
+    }
+
+    /** Since save version 8. */
+    internal fun writeTransit(w: SaveWriter) {
+        for (a in arrayOf(footfall, lastFootfall, busVolume, lastBusVolume, trolleyVolume, lastTrolleyVolume, tramVolume, lastTramVolume, subwayVolume, lastSubwayVolume, stopRiders, lastStopRiders)) sparse(w, a)
+        for (a in arrayOf(modes, lastModes)) for (v in a) w.int(v)
+        for (m in listOf(networkRiders, lastNetworkRiders)) {
+            w.count(m.size)
+            for ((k, v) in m.entries.sortedBy { it.key }) { w.int(k); w.int(v) }
+        }
+        w.count(origins.size)
+        for (k in origins.indices) { w.int(carWorkers[k]); w.int(carShoppers[k]) }
+    }
+
+    internal fun readTransit(r: SaveReader) {
+        for (a in arrayOf(footfall, lastFootfall, busVolume, lastBusVolume, trolleyVolume, lastTrolleyVolume, tramVolume, lastTramVolume, subwayVolume, lastSubwayVolume, stopRiders, lastStopRiders)) sparse(r, a)
+        for (a in arrayOf(modes, lastModes)) for (k in a.indices) a[k] = r.int()
+        networkRiders.clear()
+        repeat(r.count()) { networkRiders[r.int()] = r.int() }
+        val last = HashMap<Int, Int>()
+        repeat(r.count()) { last[r.int()] = r.int() }
+        lastNetworkRiders = last
+        if (r.count() != origins.size) throw SaveError("the travellers don't add up")
+        for (k in origins.indices) { carWorkers[k] = r.int(); carShoppers[k] = r.int() }
     }
 
     /** Since save version 3. */
@@ -398,6 +701,23 @@ internal class Traffic(private val map: CityMap) {
     companion object {
         /** Trips sent together from one tile at most. */
         const val PART = 100
+
+        // The layers of the trip search.
+        const val WALK = 0
+        const val CAR = 1
+        const val BUS = 2
+        const val TRAM = 3
+        const val SUBWAY = 4
+        const val TROLLEY = 5
+        const val LAYERS = 6
+
+        // What a trip's for.
+        private const val WORKER = 0
+        private const val SHOPPER = 1
+        private const val FREIGHT = 2
+
+        /** Riders a bus carries, for what buses add to the traffic. */
+        const val BUS_RIDERS = 20
 
         /**
          * Whether a trip can go from tile [a] to its neighbour [b], heading [h].

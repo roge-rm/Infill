@@ -82,6 +82,11 @@ enum class BuildingType(
     STORM_POND(Zone.NONE, 0, 0, width = 2, height = 2),
     STORM_OUTFALL(Zone.NONE, 0, 0),
 
+    /** Transit: a tram depot beside its track, a bus garage (from 1920) and a subway station over its tunnel (from 1910). */
+    TRAM_DEPOT(Zone.NONE, 0, 20, width = 2, height = 2, life = 50),
+    BUS_GARAGE(Zone.NONE, 0, 25, width = 2, height = 2, year = 1920, life = 40),
+    SUBWAY_STATION(Zone.NONE, 0, 4, year = 1910),
+
     /** Schooling and health: a school, a high school (from 1910), a doctor's clinic and a hospital. */
     SCHOOL(Zone.NONE, 0, 8, width = 2, height = 2),
     HIGH_SCHOOL(Zone.NONE, 0, 16, width = 3, height = 2, year = 1910),

@@ -1,5 +1,9 @@
 package com.rm.infill.ui
 
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -252,9 +256,14 @@ fun ToolBar(
 ) {
     val c = Infill.colors
     val side = if (compact) 36.dp else 40.dp
+    // The picked tool scrolls into view, so one picked by key is always seen.
+    val inView = remember { Tool.entries.associateWith { BringIntoViewRequester() } }
+    LaunchedEffect(selected) { inView.getValue(selected).bringIntoView() }
     val buttons = @Composable {
         for (tool in Tool.entries) {
-            ToolButton(tool, tool == selected, compact) { onSelect(tool) }
+            Box(Modifier.bringIntoViewRequester(inView.getValue(tool))) {
+                ToolButton(tool, tool == selected, compact) { onSelect(tool) }
+            }
         }
         if (withHistory) {
             Box(
