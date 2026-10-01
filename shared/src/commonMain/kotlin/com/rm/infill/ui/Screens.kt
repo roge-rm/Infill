@@ -1,5 +1,7 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.app_icon
+import org.jetbrains.compose.resources.painterResource
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -133,7 +135,10 @@ fun StartScreen(
     val c = Infill.colors
     val backdrop = remember { terrainImage(TerrainGen.let { CityMap(96, 160).also { m -> it.generate(m, 1900) } }) }
     Page(backdrop) {
-        Text(stringResource(Res.string.app_name), color = c.text, fontSize = 44.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
+        Row(Modifier.padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Image(painterResource(Res.drawable.app_icon), null, Modifier.size(64.dp).clip(RoundedCornerShape(14.dp)))
+            Text(stringResource(Res.string.app_name), color = c.text, fontSize = 44.sp, fontWeight = FontWeight.Bold)
+        }
         if (lastSave != null) {
             BigButton(stringResource(Res.string.continue_town, lastSave.name), primary = true, onClick = onContinue)
             Text(summaryLine(lastSave), color = c.textDim, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
