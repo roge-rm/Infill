@@ -1,11 +1,21 @@
 package com.rm.infill.sim
 
+/** How dense a zone may build: each zoned tile has one, and it caps how far up the ladder its buildings go. */
+object Density {
+    const val NONE: Byte = 0
+    const val LOW: Byte = 1
+    const val MEDIUM: Byte = 2
+    const val HIGH: Byte = 3
+}
+
 /**
- * Every kind of building. Zoned ones grow through four stages on a 1 by 1 lot;
- * [capacity] is residents for homes and jobs for everything else. Stage 1 needs
- * no power, since plenty of homes in 1900 had none, and later stages do. A well
- * and a septic tank do for the first two stages; the third needs mains water
- * and the fourth the sewer as well.
+ * Every kind of building. Zoned ones climb a ladder of [stage]s, one ladder a
+ * zone running up through the densities, a few rungs with a choice of two.
+ * [capacity] is residents for homes and jobs for everything else. A rung
+ * needs the lot zoned for its [density], the utilities in [needs] (1 power, 2
+ * mains water as well, 3 the sewer as well), its [year], the [appeal] and the
+ * land [value] to pay for it, and takes [buildDays] to put up. Most stand on
+ * one lot; the biggest take four.
  */
 enum class BuildingType(
     val zone: Byte,
@@ -15,21 +25,34 @@ enum class BuildingType(
     val height: Int = 1,
     /** Pollution it gives off, spread over the tiles around it. */
     val pollution: Int = 0,
+    val density: Byte = Density.NONE,
+    val needs: Int = 0,
+    val year: Int = 1900,
+    val appeal: Int = 0,
+    val value: Int = 0,
+    val buildDays: Int = 0,
 ) {
-    COTTAGE(Zone.RESIDENTIAL, 1, 5),
-    HOUSE(Zone.RESIDENTIAL, 2, 9),
-    LARGE_HOUSE(Zone.RESIDENTIAL, 3, 14),
-    TENEMENT(Zone.RESIDENTIAL, 4, 32),
+    COTTAGE(Zone.RESIDENTIAL, 1, 5, density = Density.LOW, buildDays = 20),
+    HOUSE(Zone.RESIDENTIAL, 2, 9, density = Density.LOW, needs = 1, appeal = 55, buildDays = 30),
+    LARGE_HOUSE(Zone.RESIDENTIAL, 3, 14, density = Density.LOW, needs = 2, appeal = 63, buildDays = 45),
+    ROW_HOUSES(Zone.RESIDENTIAL, 4, 22, density = Density.MEDIUM, needs = 2, appeal = 66, value = 70, buildDays = 60),
+    TENEMENT(Zone.RESIDENTIAL, 5, 32, density = Density.MEDIUM, needs = 3, appeal = 70, value = 75, buildDays = 75),
+    APARTMENTS(Zone.RESIDENTIAL, 6, 60, density = Density.HIGH, needs = 3, year = 1905, appeal = 72, value = 100, buildDays = 120),
+    APARTMENT_COURT(Zone.RESIDENTIAL, 7, 260, width = 2, height = 2, density = Density.HIGH, needs = 3, year = 1915, appeal = 74, value = 120, buildDays = 200),
 
-    GENERAL_STORE(Zone.COMMERCIAL, 1, 3),
-    SHOP(Zone.COMMERCIAL, 2, 6),
-    BANK(Zone.COMMERCIAL, 3, 10),
-    HOTEL(Zone.COMMERCIAL, 4, 16),
+    GENERAL_STORE(Zone.COMMERCIAL, 1, 3, density = Density.LOW, buildDays = 20),
+    SHOP(Zone.COMMERCIAL, 2, 6, density = Density.LOW, needs = 1, appeal = 50, buildDays = 30),
+    MAIN_STREET(Zone.COMMERCIAL, 3, 12, density = Density.MEDIUM, needs = 2, appeal = 60, value = 70, buildDays = 60),
+    BANK(Zone.COMMERCIAL, 3, 10, density = Density.MEDIUM, needs = 2, appeal = 60, value = 95, buildDays = 70),
+    HOTEL(Zone.COMMERCIAL, 4, 16, density = Density.MEDIUM, needs = 3, appeal = 68, value = 80, buildDays = 90),
+    OFFICE_BLOCK(Zone.COMMERCIAL, 5, 50, density = Density.HIGH, needs = 3, year = 1910, appeal = 70, value = 110, buildDays = 150),
+    DEPARTMENT_STORE(Zone.COMMERCIAL, 6, 160, width = 2, height = 2, density = Density.HIGH, needs = 3, year = 1910, appeal = 72, value = 120, buildDays = 220),
 
-    WORKSHOP(Zone.INDUSTRIAL, 1, 6, pollution = 4),
-    MILL(Zone.INDUSTRIAL, 2, 12, pollution = 10),
-    WAREHOUSE(Zone.INDUSTRIAL, 3, 16, pollution = 6),
-    FACTORY(Zone.INDUSTRIAL, 4, 30, pollution = 18),
+    WORKSHOP(Zone.INDUSTRIAL, 1, 6, pollution = 4, density = Density.LOW, buildDays = 20),
+    MILL(Zone.INDUSTRIAL, 2, 12, pollution = 10, density = Density.LOW, needs = 1, appeal = 55, buildDays = 40),
+    WAREHOUSE(Zone.INDUSTRIAL, 3, 16, pollution = 6, density = Density.MEDIUM, needs = 2, appeal = 58, buildDays = 50),
+    FACTORY(Zone.INDUSTRIAL, 4, 30, pollution = 18, density = Density.MEDIUM, needs = 3, appeal = 62, buildDays = 90),
+    WORKS(Zone.INDUSTRIAL, 5, 140, width = 2, height = 2, pollution = 40, density = Density.HIGH, needs = 3, appeal = 64, buildDays = 200),
 
     COAL_PLANT(Zone.NONE, 0, 8, width = 2, height = 2, pollution = 30),
 
@@ -78,9 +101,9 @@ enum class BuildingType(
     /** Has to go beside the track. */
     val railway get() = station || yard
 
-    val needsPower get() = stage >= 2
-    val needsWater get() = stage >= 3
-    val needsSewer get() = stage >= 4
+    val needsPower get() = needs >= 1
+    val needsWater get() = needs >= 2
+    val needsSewer get() = needs >= 3
 
     /** Has to be beside water. */
     val onWater get() = this == PUMPING_STATION || this == OUTFALL || this == STORM_OUTFALL
@@ -88,14 +111,24 @@ enum class BuildingType(
     /** Where mains water comes from. */
     val waterSource get() = this == PUMPING_STATION || this == WELL_FIELD
 
-    /** The next stage up in the same zone, or null at the top. */
-    val next: BuildingType? get() = entries.firstOrNull { it.zone == zone && zone != Zone.NONE && it.stage == stage + 1 }
+    /** The rung up in the same zone, the choices there if it has more than one, empty at the top. */
+    val next: List<BuildingType> get() = rung(zone, stage + 1)
 
-    /** The stage below, or null if it's the first. */
-    val previous: BuildingType? get() = entries.firstOrNull { it.zone == zone && zone != Zone.NONE && it.stage == stage - 1 }
+    /** The rung below, the first choice there, or null if this is the first. */
+    val previous: BuildingType? get() = rung(zone, stage - 1).firstOrNull()
+
+    /** Takes more than one lot. */
+    val large get() = width > 1 || height > 1
 
     companion object {
-        fun firstFor(zone: Byte): BuildingType = entries.first { it.zone == zone && it.stage == 1 }
+        private val rungs = HashMap<Int, List<BuildingType>>()
+
+        /** The kinds of building on rung [stage] of [zone]'s ladder. */
+        fun rung(zone: Byte, stage: Int): List<BuildingType> =
+            if (zone == Zone.NONE) emptyList()
+            else rungs.getOrPut(zone * 100 + stage) { entries.filter { it.zone == zone && it.stage == stage } }
+
+        fun firstFor(zone: Byte): BuildingType = rung(zone, 1).first()
     }
 }
 
@@ -112,6 +145,9 @@ class Building(val id: Int, var type: BuildingType, val x: Int, val y: Int, val 
 
     /** Days this month a shop or works has been shut by floodwater. */
     var closedDays = 0
+
+    /** Days left before it's built, 0 once it's standing. Nobody lives or works in it until then. */
+    var underway = 0
 }
 
 /** The power line on a tile, if any. */

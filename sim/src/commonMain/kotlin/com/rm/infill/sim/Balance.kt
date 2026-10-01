@@ -290,6 +290,11 @@ object Balance {
     /** Share of a skill's jobs going unfilled from which businesses wanting it can't grow, in percent. */
     const val SKILL_SHORT = 25
 
+    // Land value for people and jobs within ACTIVITY_REACH tiles: a point for every ACTIVITY_PER_VALUE of them, up to ACTIVITY_VALUE.
+    const val ACTIVITY_REACH = 6
+    const val ACTIVITY_PER_VALUE = 25
+    const val ACTIVITY_VALUE = 45
+
     // An empty home's chance of selling each month, in percent: SALE_BASE with
     // no one looking, SALE_PER_DEMAND more for every percent of the town that's
     // looking for a home, between SALE_LEAST and SALE_MOST.
@@ -307,16 +312,10 @@ object Balance {
     /** How many lots are looked at for each thing that grows, picking the best. */
     const val CANDIDATES = 8
 
-    /**
-     * How attractive a lot has to be for each stage, by zone (residential,
-     * commercial, industrial): the busier buildings only go up in the best spots.
-     */
-    val STAGE_ATTRACTION = arrayOf(
-        intArrayOf(0, 0, 55, 63, 70),
-        intArrayOf(0, 0, 50, 60, 68),
-        intArrayOf(0, 0, 55, 58, 62),
-    )
 
     /** Days a building waits after growing before it grows again. */
     const val SETTLE_DAYS = 20
+
+    /** How long a building stands before it's pulled down for something bigger. */
+    const val REBUILD_DAYS = 180
 }

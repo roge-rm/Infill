@@ -68,7 +68,7 @@ internal object Effects {
      * pollution, crime, industry next door, busy roads, track and freight
      * yards lower it.
      */
-    fun landValue(map: CityMap, buildingTypes: (Int) -> BuildingType?, nearRoad: BooleanArray, out: ByteArray) {
+    fun landValue(map: CityMap, buildingTypes: (Int) -> BuildingType?, nearRoad: BooleanArray, out: ByteArray, activity: (Int) -> Int = { 0 }) {
         val w = map.width
         val h = map.height
         val water = SummedArea(w, h) { if (map.terrain[it] == Terrain.WATER) 1 else 0 }
@@ -78,6 +78,7 @@ internal object Effects {
         val shops = SummedArea(w, h) { buildingTypes(it)?.let { t -> if (t.zone == Zone.COMMERCIAL) t.capacity else 0 } ?: 0 }
         val industry = SummedArea(w, h) { if (buildingTypes(it)?.zone == Zone.INDUSTRIAL) 1 else 0 }
         val traffic = SummedArea(w, h) { map.congestion[it].toInt() and 0xff }
+        val busy = SummedArea(w, h, activity)
         // The railway, if there is one, read straight off the map.
         val railway = map.rail.any { it != Rail.NONE }
         fun typeOn(i: Int) = map.buildingType[i].toInt() - 1
@@ -97,6 +98,8 @@ internal object Effects {
             v += min(trees.around(x, y, 2) * 3, 18)
             v += min(parks.around(x, y, 4) * 8, 32)
             v += min(shops.around(x, y, 8) / 3, 40)
+            // Where much goes on, the land's wanted: a busy centre grows dear.
+            v += min(busy.around(x, y, Balance.ACTIVITY_REACH) / Balance.ACTIVITY_PER_VALUE, Balance.ACTIVITY_VALUE)
             if (nearRoad[i]) v += 10
             v += (map.policeCover[i].toInt() and 0xff) / 10 + (map.fireCover[i].toInt() and 0xff) / 12
             v -= (map.pollution[i].toInt() and 0xff) / 2

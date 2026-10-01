@@ -172,6 +172,20 @@
     <string name="care_places">Care</string>
     <string name="schools_and_care">Schools and care</string>
     <string name="taken_of">%1$s of %2$s</string>
+    <string name="density_low">Low density</string>
+    <string name="density_medium">Medium density</string>
+    <string name="density_high">High density</string>
+    <string name="building_row_houses">Row houses</string>
+    <string name="building_apartments">Apartments</string>
+    <string name="building_apartment_court">Apartment court</string>
+    <string name="building_main_street">Main street block</string>
+    <string name="building_office_block">Office block</string>
+    <string name="building_department_store">Department store</string>
+    <string name="building_works">Works</string>
+    <plurals name="going_up">
+        <item quantity="one">Going up, a day to go</item>
+        <item quantity="other">Going up, %1$d days to go</item>
+    </plurals>
     <string name="has_power">Has power</string>
     <string name="no_power">No power</string>
     <string name="inspect_power_line">Power line</string>

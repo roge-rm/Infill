@@ -78,6 +78,18 @@ import com.rm.infill.res.high_school
 import com.rm.infill.res.clinic
 import com.rm.infill.res.hospital
 import com.rm.infill.sim.Education
+import com.rm.infill.sim.Density
+import com.rm.infill.res.density_low
+import com.rm.infill.res.density_medium
+import com.rm.infill.res.density_high
+import com.rm.infill.res.going_up
+import com.rm.infill.res.building_row_houses
+import com.rm.infill.res.building_apartments
+import com.rm.infill.res.building_apartment_court
+import com.rm.infill.res.building_main_street
+import com.rm.infill.res.building_office_block
+import com.rm.infill.res.building_department_store
+import com.rm.infill.res.building_works
 import com.rm.infill.sim.Wealth
 import com.rm.infill.res.inspect_bridge
 import com.rm.infill.res.inspect_crossing
@@ -187,6 +199,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
             add(stringResource(buildingName(t)))
             val h = building.people
             when {
+                building.underway > 0 -> add(pluralStringResource(Res.plurals.going_up, building.underway, building.underway))
                 h != null && h.empty -> add(
                     if (h.forSale == 0) stringResource(Res.string.for_sale)
                     else pluralStringResource(Res.plurals.for_sale_months, h.forSale, h.forSale),
@@ -213,6 +226,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 }
                 else -> add(pluralStringResource(Res.plurals.jobs, t.capacity, t.capacity))
             }
+            if (t.zone != Zone.NONE) densityName(map.density[i])?.let { add(stringResource(it)) }
             if (t.needsPower || t == BuildingType.COAL_PLANT) {
                 add(stringResource(if (map.powered[i]) Res.string.has_power else Res.string.no_power))
             }
@@ -232,8 +246,8 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 add(stringResource(if (city.railLinked(building)) Res.string.inspect_linked else Res.string.inspect_not_linked))
                 if (!city.reachable(building)) add(stringResource(Res.string.inspect_no_road))
             }
-            // No one commutes from an empty home.
-            when (val commute = if (building.people?.empty == true) 0 else map.commute[i].toInt() and 0xff) {
+            // No one commutes from an empty home or a site.
+            when (val commute = if (building.underway > 0 || building.people?.empty == true) 0 else map.commute[i].toInt() and 0xff) {
                 0 -> {}
                 255 -> add(stringResource(Res.string.inspect_no_commute))
                 // Half minutes, from one up.
@@ -277,6 +291,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 Zone.COMMERCIAL -> add(stringResource(Res.string.inspect_zone_commercial))
                 Zone.INDUSTRIAL -> add(stringResource(Res.string.inspect_zone_industrial))
             }
+            densityName(map.density[i])?.let { add(stringResource(it)) }
         }
     }
     val value = level(map.landValue[i].toInt() and 0xff)
@@ -338,6 +353,20 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.HIGH_SCHOOL -> Res.string.high_school
     BuildingType.CLINIC -> Res.string.clinic
     BuildingType.HOSPITAL -> Res.string.hospital
+    BuildingType.ROW_HOUSES -> Res.string.building_row_houses
+    BuildingType.APARTMENTS -> Res.string.building_apartments
+    BuildingType.APARTMENT_COURT -> Res.string.building_apartment_court
+    BuildingType.MAIN_STREET -> Res.string.building_main_street
+    BuildingType.OFFICE_BLOCK -> Res.string.building_office_block
+    BuildingType.DEPARTMENT_STORE -> Res.string.building_department_store
+    BuildingType.WORKS -> Res.string.building_works
+}
+
+fun densityName(density: Byte): StringResource? = when (density) {
+    Density.LOW -> Res.string.density_low
+    Density.MEDIUM -> Res.string.density_medium
+    Density.HIGH -> Res.string.density_high
+    else -> null
 }
 
 fun wealthName(wealth: Int): StringResource = when (wealth) {

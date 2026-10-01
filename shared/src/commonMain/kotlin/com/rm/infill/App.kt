@@ -74,6 +74,7 @@ import com.rm.infill.ui.MessageChip
 import com.rm.infill.ui.Preview
 import com.rm.infill.ui.ToolDrag
 import com.rm.infill.ui.ZoneKind
+import com.rm.infill.ui.DensityKind
 import com.rm.infill.ui.OptionPicker
 import com.rm.infill.ui.PowerKind
 import com.rm.infill.ui.RailKind
@@ -269,6 +270,7 @@ private fun GameScreen(
         }
         var tool by remember { mutableStateOf(Tool.Inspect) }
         var zoneKind by remember { mutableStateOf(ZoneKind.Residential) }
+        var densityKind by remember { mutableStateOf(DensityKind.Medium) }
         var powerKind by remember { mutableStateOf(PowerKind.Line) }
         var roadKind by remember { mutableStateOf(RoadType.DIRT) }
         var railKind by remember { mutableStateOf(RailKind.Track) }
@@ -366,9 +368,9 @@ private fun GameScreen(
         }
 
         // What the drag would do, worked out again as it moves.
-        val preview = remember(drag, tool, zoneKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, game.revision) {
+        val preview = remember(drag, tool, zoneKind, densityKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, game.revision) {
             drag?.let { d ->
-                d.action(tool, zoneKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
+                d.action(tool, zoneKind, densityKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
             }
         }
         val costText = preview?.let {
@@ -441,7 +443,7 @@ private fun GameScreen(
             onToolUp = {
                 val d = drag
                 drag = null
-                val action = d?.action(tool, zoneKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, city.map)
+                val action = d?.action(tool, zoneKind, densityKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, city.map)
                 if (action != null) tell(game.apply(action).problem)
             },
             onToolCancel = { drag = null },
@@ -572,6 +574,7 @@ private fun GameScreen(
             ) {
                 inspected?.let { (x, y) -> InspectPanel(game, x, y, onClose = { inspected = null }) }
                 if (tool == Tool.Zone) {
+                    OptionPicker(DensityKind.entries, densityKind, { it.title }, { null }, { densityKind = it }, compactTools)
                     OptionPicker(ZoneKind.entries, zoneKind, { it.title }, { zoneColour(it.zone) }, { zoneKind = it }, compactTools)
                 }
                 if (tool == Tool.Road) {

@@ -1972,6 +1972,282 @@ def hospital(look, v):
     return b
 
 
+# Denser buildings: row houses, apartments and an apartment court for homes;
+# a main street block, an office block and a department store for shops; and
+# works on four lots for industry. Then building sites, in two steps.
+
+CORNICE = c("#d8cfba")
+PIER = c("#c4bba6")
+EARTH = [c("#8a6a48"), c("#7a5c3e"), c("#96765a")]
+SCAFFOLD = c("#b89a6a")
+STEEL = c("#5a4a44")
+
+
+def cornice(d, wall, col=CORNICE):
+    x0, y0, x1, _ = wall
+    d.rectangle([x0 - 1, y0, x1 + 1, y0 + 1], col)
+    d.line([x0 - 1, y0 + 2, x1 + 1, y0 + 2], shade(col, 0.7))
+
+
+def row_houses(look, v):
+    """A terrace of three narrow brick houses, two storeys and an attic, each with its own door and stoop."""
+    b = Building(height=2 * STOREY + 10)
+    d = b.d
+    cols = [[BRICK, BRICK20, c("#8a5a44")], [c("#b0704e"), BRICK, c("#a8583f")], [c("#7a4a3c"), c("#9a5a42"), BRICK20]][v]
+    gabled = v != 1
+    for k, (x0, x1) in enumerate(((2, 10), (11, 20), (21, 29))):
+        roof, wall = b.box(x0, 7, x1, 25, 2 * STOREY + 2)
+        brick(d, wall, cols[k])
+        wx0, wy0, wx1, wy1 = wall
+        d.rectangle([wx0 + 2, wy0 + 2, wx0 + 3, wy0 + 4], WINDOW)
+        d.rectangle([wx1 - 3, wy0 + 2, wx1 - 2, wy0 + 4], WINDOW)
+        d.rectangle([wx1 - 3, wy1 - 5, wx1 - 2, wy1 - 3], WINDOW)
+        d.rectangle([wx0 + 2, wy1 - 5, wx0 + 3, wy1], DOOR)
+        d.line([wx0 + 1, wy1 + 1, wx0 + 4, wy1 + 1], STONE)
+        d.rectangle(wall, outline=OUTLINE)
+        if gabled:
+            gable_ew(d, roof, SHINGLE[(k + v) % 3], look)
+            dormers(d, roof, SHINGLE[(k + v) % 3], look, 1)
+        else:
+            flat_roof(b.img, roof, look, random.Random(7700 + k), [("stack", 2, 2)], parapet=PARAPET)
+    return b
+
+
+def apartments(look, v):
+    """Five storeys of flats in brick or stone, a cornice along the top, a canopy over the door, a tank on the roof."""
+    b = Building(height=5 * STOREY + 8)
+    d = b.d
+    roof, wall = b.box(2, 3, 29, 28, 5 * STOREY + 2)
+    col = [c("#9a5a42"), c("#cfc6b0"), c("#7a4a3c")][v]
+    if v == 1:
+        d.rectangle(wall, col)
+        for yy in range(wall[1] + 3, wall[3], STOREY):
+            d.line([wall[0] + 1, yy, wall[2] - 1, yy], shade(col, 0.9))
+    else:
+        brick(d, wall, col)
+    windows(d, wall, 5, sill=TRIM, every=4, skip_door=True)
+    cx = (wall[0] + wall[2]) // 2
+    d.rectangle([cx - 1, wall[3] - 4, cx + 1, wall[3]], DOOR)
+    d.rectangle([cx - 3, wall[3] - 6, cx + 3, wall[3] - 5], c("#3a3c42"))
+    d.rectangle(wall, outline=OUTLINE)
+    cornice(d, wall)
+    flat_roof(b.img, roof, look, random.Random(7800 + v), [("tank", 16, 9), ("stack", 3, 3), ("hatch", 6, 14)], parapet=CORNICE)
+    return b
+
+
+def apartment_court(look, v):
+    """A block of flats round a courtyard on 2 by 2 tiles, open to the street through an arch on the south side."""
+    b = Building(2, 2, height=5 * STOREY + 8)
+    d = b.d
+    rng = random.Random(7900 + v)
+    col = [c("#a8583f"), c("#c9b48a")][v]
+    gx0, gy0 = b.ground(16, 16)
+    gx1, gy1 = b.ground(47, 46)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else c("#7fa05a"))
+    if look != "snow":
+        for (tx, ty) in ((24, 26), (38, 30)):
+            px, py = b.ground(tx, ty)
+            d.ellipse([px - 4, py - 4, px + 4, py + 3], c("#4f7a3a"), OUTLINE)
+    h = 5 * STOREY + 2
+
+    def wing(x0, y0, x1, y1, door_at=None):
+        roof, wall = b.box(x0, y0, x1, y1, h)
+        brick(d, wall, col) if v == 0 else d.rectangle(wall, col)
+        windows(d, wall, 5, sill=TRIM, every=4)
+        if door_at is not None:
+            d.rectangle([door_at - 3, wall[3] - 7, door_at + 3, wall[3]], c("#2a2a30"))
+            d.arc([door_at - 3, wall[3] - 10, door_at + 3, wall[3] - 4], 180, 360, STONE)
+        d.rectangle(wall, outline=OUTLINE)
+        cornice(d, wall)
+        flat_roof(b.img, roof, look, rng, [("stack", 3, 3)], parapet=CORNICE)
+
+    wing(2, 2, 61, 15)
+    wing(2, 16, 15, 47)
+    wing(48, 16, 61, 47)
+    wing(2, 48, 61, 61, door_at=32)
+    return b
+
+
+def main_street(look, v):
+    """Three storeys on the street: a shop front with an awning below, two floors of offices or rooms above, a sign under the cornice."""
+    b = Building(height=3 * STOREY + 6)
+    d = b.d
+    col = [BRICKS[0], BRICKS[2], GREY_STONE, BRICKS[4]][v]
+    roof, wall = b.box(1, 5, 30, 27, 3 * STOREY + 2)
+    if col == GREY_STONE:
+        d.rectangle(wall, col)
+    else:
+        brick(d, wall, col)
+    wx0, wy0, wx1, wy1 = wall
+    windows(d, (wx0, wy0 + 3, wx1, wy0 + 2 * STOREY + 2), 2, sill=TRIM, every=4)
+    d.rectangle([wx0 + 2, wy1 - 5, wx1 - 2, wy1 - 1], PLATE_GLASS)
+    for xx in (wx0 + 10, wx0 + 19):
+        d.line([xx, wy1 - 5, xx, wy1 - 1], shade(col, 0.6))
+    awning(d, wall, AWNINGS[(v + 2) % len(AWNINGS)], look)
+    sign(d, wx0 + 4, wx1 - 4, wy0 + 1, [c("#2b3440"), c("#6b2330"), c("#2f5f5a"), c("#4a3226")][v])
+    d.rectangle(wall, outline=OUTLINE)
+    cornice(d, wall)
+    flat_roof(b.img, roof, look, random.Random(8000 + v), [("skylight", 6, 6), ("stack", 22, 3)], parapet=CORNICE)
+    return b
+
+
+def office_block(look, v):
+    """Eight storeys of offices in pale stone or terracotta, piers running up between the windows, a tank on the roof."""
+    b = Building(height=8 * STOREY + 8)
+    d = b.d
+    col = [c("#d6cdb8"), c("#c98f6e"), c("#b9b8b0")][v]
+    roof, wall = b.box(3, 4, 28, 27, 8 * STOREY + 2)
+    d.rectangle(wall, col)
+    wx0, wy0, wx1, wy1 = wall
+    for xx in range(wx0 + 2, wx1 - 1, 4):
+        d.rectangle([xx, wy0 + 3, xx + 1, wy1 - 6], c("#4a5866"))
+    for yy in range(wy0 + 3, wy1 - 6, STOREY):
+        d.line([wx0 + 1, yy, wx1 - 1, yy], shade(col, 0.85))
+    # The ground floor: a stone base and a revolving door.
+    d.rectangle([wx0, wy1 - 5, wx1, wy1], shade(col, 0.8))
+    cx = (wx0 + wx1) // 2
+    d.rectangle([cx - 2, wy1 - 4, cx + 2, wy1], c("#2a2a30"))
+    d.rectangle(wall, outline=OUTLINE)
+    cornice(d, wall, shade(col, 1.1))
+    flat_roof(b.img, roof, look, random.Random(8100 + v), [("tank", 14, 8), ("vent", 4, 4), ("hatch", 4, 14)], parapet=shade(col, 1.1))
+    return b
+
+
+def department_store(look, v):
+    """Five storeys of pale stone on 2 by 2 tiles: display windows and awnings along the street, a clock at the corner, a flag on the roof."""
+    b = Building(2, 2, height=5 * STOREY + 16)
+    d = b.d
+    col = [c("#ddd5c2"), c("#cfa98a")][v]
+    roof, wall = b.box(2, 4, 61, 58, 5 * STOREY + 2)
+    d.rectangle(wall, col)
+    wx0, wy0, wx1, wy1 = wall
+    windows(d, (wx0, wy0, wx1, wy1 - 8), 4, glass=c("#46586a"), sill=TRIM, every=4, width=2, height=3)
+    d.rectangle([wx0 + 2, wy1 - 6, wx1 - 2, wy1 - 1], PLATE_GLASS)
+    for xx in range(wx0 + 10, wx1 - 2, 10):
+        d.line([xx, wy1 - 6, xx, wy1 - 1], shade(col, 0.6))
+    for k, xx in enumerate(range(wx0 + 2, wx1 - 10, 12)):
+        awning(d, (xx, wy0, xx + 10, wy1), AWNINGS[(k + v) % 2 * 3], look, y_up=8)
+    cx = (wx0 + wx1) // 2
+    d.rectangle([cx - 3, wy1 - 6, cx + 3, wy1], c("#2a2a30"))
+    sign(d, cx - 14, cx + 14, wy0 + 2, c("#2b3440"))
+    # The corner clock.
+    d.ellipse([wx1 - 8, wy0 + 6, wx1 - 2, wy0 + 12], TRIM, OUTLINE)
+    d.line([wx1 - 5, wy0 + 9, wx1 - 5, wy0 + 7], OUTLINE)
+    d.rectangle(wall, outline=OUTLINE)
+    cornice(d, wall)
+    flat_roof(b.img, roof, look, random.Random(8200 + v), [("skylight", 10, 12), ("skylight", 30, 12), ("skylight", 10, 30), ("skylight", 30, 30), ("tank", 46, 10), ("stack", 4, 4)], parapet=CORNICE)
+    fx, fy = roof[0] + 30, roof[1] + 4
+    d.line([fx, fy, fx, fy - 12], c("#d0d0d0"))
+    d.rectangle([fx + 1, fy - 12, fx + 6, fy - 9], c("#2f5f8a"))
+    return b
+
+
+def works(look, v):
+    """Works on 2 by 2 tiles: long sawtooth sheds, a boiler house with a tall chimney, a yard of coal and goods."""
+    b = Building(2, 2, height=44)
+    d = b.d
+    col = [BRICKS[1], BRICKS[3]][v]
+    gx0, gy0 = b.ground(2, 46)
+    gx1, gy1 = b.ground(61, 61)
+    d.rectangle([gx0, gy0, gx1, gy1], c("#8a8478") if look != "snow" else SNOW_GROUND)
+    for k, col_ in enumerate(COAL):
+        d.ellipse([gx0 + 4 + k, gy0 + 3 - k, gx0 + 18 - k, gy0 + 10 - k], col_)
+    yard(b, look, "crates", 30, 58, 58)
+    for (y0, y1) in ((4, 22), (24, 42)):
+        roof, wall = b.box(2, y0, 44, y1, 2 * STOREY + 2)
+        brick(d, wall, col)
+        windows(d, wall, 2, glass=c("#6c7f8a"), every=5, width=3)
+        d.rectangle(wall, outline=OUTLINE)
+        rx0, ry0, rx1, ry1 = roof
+        for xx in range(rx0, rx1 - 4, 7):
+            d.rectangle([xx, ry0, xx + 3, ry1], SNOW_ROOF[0] if look == "snow" else SAW[0])
+            d.rectangle([xx + 4, ry0, min(xx + 6, rx1), ry1], SNOW_ROOF[2] if look == "snow" else c("#b8c4ca"))
+        d.rectangle(roof, outline=OUTLINE)
+    roof, wall = b.box(47, 8, 61, 40, 3 * STOREY)
+    brick(d, wall, shade(col, 0.9))
+    windows(d, wall, 3, glass=c("#6c7f8a"), every=5)
+    d.rectangle(wall, outline=OUTLINE)
+    gable_ew(d, roof, c("#5f6570"), look)
+    chimney(b, 54, 6, 44, look=look)
+    if v == 1:
+        chimney(b, 50, 6, 38, look=look)
+    return b
+
+
+def site_ground(b, look, w, h):
+    """Dug earth over the lot inside a board fence."""
+    d = b.d
+    rng = random.Random(8300 + w)
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(w * T - 2, h * T - 2)
+    for y in range(gy0, gy1 + 1):
+        for x in range(gx0, gx1 + 1):
+            d.point((x, y), SNOW_GROUND if look == "snow" and rng.random() < 0.7 else rng.choice(EARTH))
+    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#a08a64"))
+    for xx in range(gx0, gx1, 3):
+        d.point((xx, gy1), c("#6b5a44"))
+
+
+def site_small(look, phase):
+    """A building site on one tile: a hole and a pile of timber, then a frame in scaffolding."""
+    b = Building(height=2 * STOREY + 8)
+    d = b.d
+    site_ground(b, look, 1, 1)
+    if phase == 0:
+        hx0, hy0 = b.ground(7, 8)
+        d.rectangle([hx0, hy0, hx0 + 16, hy0 + 12], c("#5a4430"), OUTLINE)
+        yard(b, look, "lumber", 4, 16, 27)
+        px, py = b.ground(24, 26)
+        d.rectangle([px, py - 2, px + 3, py], c("#6b6f74"), OUTLINE)
+    else:
+        top = b.lift
+        h = 2 * STOREY + 4
+        x0, x1, y0, y1 = 5, 26, 8, 24
+        # The frame's posts and floors, and the scaffold poles in front.
+        for xx in range(x0, x1 + 1, 4):
+            d.line([xx, y1 + top, xx, y1 + top - h], TIMBER)
+        for k in range(0, h + 1, STOREY):
+            d.line([x0, y1 + top - k, x1, y1 + top - k], TIMBER)
+            d.line([x0, y0 + top - k, x1, y0 + top - k], shade(TIMBER, 0.8))
+        for xx in (x0, x1):
+            d.line([xx, y0 + top - h, xx, y1 + top - h], shade(TIMBER, 0.8))
+        for xx in range(x0 - 1, x1 + 2, 6):
+            d.line([xx, y1 + top + 2, xx, y1 + top - h - 2], SCAFFOLD)
+        b.casters.append((1, x0, y0, x1 + 1, y1 + 1, h // 2))
+    return b
+
+
+def site_large(look, phase):
+    """A building site on 2 by 2 tiles: a deep hole and a derrick, then a steel frame going up."""
+    b = Building(2, 2, height=5 * STOREY + 12)
+    d = b.d
+    site_ground(b, look, 2, 2)
+    top = b.lift
+    if phase == 0:
+        hx0, hy0 = b.ground(8, 10)
+        d.rectangle([hx0, hy0, hx0 + 44, hy0 + 36], c("#4a3828"), OUTLINE)
+        d.rectangle([hx0 + 4, hy0 + 4, hx0 + 40, hy0 + 32], c("#3f3022"))
+        yard(b, look, "lumber", 6, 30, 58)
+        yard(b, look, "crates", 36, 58, 58)
+    else:
+        h = 5 * STOREY
+        x0, x1, y0, y1 = 6, 56, 8, 52
+        for xx in range(x0, x1 + 1, 8):
+            d.line([xx, y1 + top, xx, y1 + top - h], STEEL)
+            d.line([xx, y0 + top - h, xx, y1 + top - h], shade(STEEL, 1.2))
+        for k in range(0, h + 1, STOREY):
+            d.line([x0, y1 + top - k, x1, y1 + top - k], STEEL)
+        d.line([x0, y0 + top - h, x1, y0 + top - h], shade(STEEL, 1.2))
+        b.casters.append((1, x0, y0, x1 + 1, y1 + 1, h // 2))
+    # The derrick: a mast and a boom over the site.
+    mx, my = 58, 6
+    d.line([mx, my + top, mx, my + top - 5 * STOREY - 8], c("#3a3c42"))
+    d.line([mx, my + top - 5 * STOREY - 8, mx - 30, my + top - 5 * STOREY + 4], c("#3a3c42"))
+    d.line([mx - 30, my + top - 5 * STOREY + 4, mx - 30, my + top - 3 * STOREY], c("#8a8a90"))
+    b.casters.append((1, mx - 1, my - 1, mx + 1, my + 1, 5 * STOREY + 8))
+    return b
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -1982,6 +2258,9 @@ BUILDINGS = [
     ("pumping_station", pumping_station, 1), ("well_field", well_field, 1), ("tower", water_tower, 1),
     ("sewer_outfall", sewer_outfall, 1), ("storm_pond", storm_pond, 1), ("storm_outfall", storm_outfall, 1),
     ("school", school, 2), ("high_school", high_school, 2), ("clinic", clinic, 2), ("hospital", hospital, 1),
+    ("row_houses", row_houses, 3), ("apartments", apartments, 3), ("apartment_court", apartment_court, 2),
+    ("main_street", main_street, 4), ("office_block", office_block, 3), ("department_store", department_store, 2),
+    ("works", works, 2), ("site_small", site_small, 2), ("site_large", site_large, 2),
 ]
 
 

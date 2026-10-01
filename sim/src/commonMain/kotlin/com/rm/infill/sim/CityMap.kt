@@ -14,6 +14,9 @@ class CityMap(val width: Int, val height: Int) {
     /** Which way traffic runs on a one-way road tile ([Heading]), 0 on a road both ways. */
     val roadHeading = ByteArray(size)
     val zone = ByteArray(size)
+
+    /** How dense each zoned tile may build ([Density]), 0 where it isn't zoned. */
+    val density = ByteArray(size)
     val power = ByteArray(size)
 
     /** Railway track ([Rail]). A tile with road and track is a level crossing. */
@@ -46,6 +49,9 @@ class CityMap(val width: Int, val height: Int) {
 
     /** Homes standing empty for sale. Follows from the buildings. */
     val forSale = BooleanArray(size)
+
+    /** A building going up: 0 when it stands, 1 while the ground's dug, 2 once the frame's up. Follows from the buildings. */
+    val site = ByteArray(size)
 
     /** Pollution, 0 to 255, worked out each month. Not saved; it follows from the buildings. */
     val pollution = ByteArray(size)
@@ -110,14 +116,14 @@ class CityMap(val width: Int, val height: Int) {
     /**
      * Everything on a tile that the player or the town can change, packed into
      * one number for undo: terrain, road, zone, power, track, the road's
-     * heading and the pipes in the low half, the building in the high half.
+     * heading, the pipes and the zone's density in the low half, the building in the high half.
      */
     fun tileState(i: Int): Long =
         (terrain[i].toLong() and 0x0f) or ((road[i].toLong() and 0x0f) shl 4) or ((zone[i].toLong() and 0x07) shl 8) or
             ((power[i].toLong() and 0x03) shl 11) or ((rail[i].toLong() and 0x03) shl 13) or
             ((roadHeading[i].toLong() and 0x0f) shl 15) or ((waterPipe[i].toLong() and 0x01) shl 19) or
             ((sewerPipe[i].toLong() and 0x01) shl 20) or ((stormPipe[i].toLong() and 0x01) shl 21) or
-            ((bank[i].toLong() and 0x01) shl 22) or (building[i].toLong() shl 32)
+            ((bank[i].toLong() and 0x01) shl 22) or ((density[i].toLong() and 0x03) shl 23) or (building[i].toLong() shl 32)
 
     fun setTileState(i: Int, state: Long) {
         terrain[i] = (state and 0x0f).toByte()
@@ -130,6 +136,7 @@ class CityMap(val width: Int, val height: Int) {
         sewerPipe[i] = ((state shr 20) and 0x01).toByte()
         stormPipe[i] = ((state shr 21) and 0x01).toByte()
         bank[i] = ((state shr 22) and 0x01).toByte()
+        density[i] = ((state shr 23) and 0x03).toByte()
         building[i] = (state ushr 32).toInt()
     }
 
@@ -138,7 +145,7 @@ class CityMap(val width: Int, val height: Int) {
         var h = FNV_OFFSET
         h = mix(h, width.toLong())
         h = mix(h, height.toLong())
-        for (layer in arrayOf(terrain, road, roadHeading, zone, power, rail, waterPipe, sewerPipe, stormPipe, bank, grime, fire)) for (b in layer) h = mix(h, b.toLong())
+        for (layer in arrayOf(terrain, road, roadHeading, zone, density, power, rail, waterPipe, sewerPipe, stormPipe, bank, grime, fire)) for (b in layer) h = mix(h, b.toLong())
         for (b in building) h = mix(mix(h, b.toLong()), (b ushr 8).toLong())
         return h
     }

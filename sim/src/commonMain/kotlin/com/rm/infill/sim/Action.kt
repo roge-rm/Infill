@@ -14,7 +14,7 @@ sealed interface Action {
     }
 
     /** Zones every tile from [x0], [y0] to [x1], [y1] as [zone]. */
-    data class PlaceZone(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val zone: Byte) : Action
+    data class PlaceZone(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val zone: Byte, val density: Byte = Density.MEDIUM) : Action
 
     /** Clears roads, track, zones, power lines, buildings and trees from [x0], [y0] to [x1], [y1]. Pipes stay. */
     data class Bulldoze(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action

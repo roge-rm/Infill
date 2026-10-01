@@ -41,6 +41,13 @@ internal object BuildingSprites {
                 BuildingType.HIGH_SCHOOL -> Atlas.HIGH_SCHOOL to Atlas.HIGH_SCHOOL_COUNT
                 BuildingType.CLINIC -> Atlas.CLINIC to Atlas.CLINIC_COUNT
                 BuildingType.HOSPITAL -> Atlas.HOSPITAL to Atlas.HOSPITAL_COUNT
+                BuildingType.ROW_HOUSES -> Atlas.ROW_HOUSES to Atlas.ROW_HOUSES_COUNT
+                BuildingType.APARTMENTS -> Atlas.APARTMENTS to Atlas.APARTMENTS_COUNT
+                BuildingType.APARTMENT_COURT -> Atlas.APARTMENT_COURT to Atlas.APARTMENT_COURT_COUNT
+                BuildingType.MAIN_STREET -> Atlas.MAIN_STREET to Atlas.MAIN_STREET_COUNT
+                BuildingType.OFFICE_BLOCK -> Atlas.OFFICE_BLOCK to Atlas.OFFICE_BLOCK_COUNT
+                BuildingType.DEPARTMENT_STORE -> Atlas.DEPARTMENT_STORE to Atlas.DEPARTMENT_STORE_COUNT
+                BuildingType.WORKS -> Atlas.WORKS to Atlas.WORKS_COUNT
             }
             first[t.ordinal] = f
             count[t.ordinal] = n

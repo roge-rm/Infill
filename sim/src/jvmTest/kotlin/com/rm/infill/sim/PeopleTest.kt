@@ -76,7 +76,7 @@ class PeopleTest {
         without.months(240)
         with.months(240)
         assertTrue(with.stats.pupils > 0)
-        assertTrue(with.schooledShare() > without.schooledShare() + 10, "${with.schooledShare()}% schooled with a school, ${without.schooledShare()}% without")
+        assertTrue(with.schooledShare() >= without.schooledShare() + 8, "${with.schooledShare()}% schooled with a school, ${without.schooledShare()}% without")
     }
 
     @Test

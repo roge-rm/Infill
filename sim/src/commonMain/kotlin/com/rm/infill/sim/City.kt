@@ -155,7 +155,9 @@ class City(
                 when {
                     m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE || m.rail[i] != Rail.NONE ||
                         m.bank[i].toInt() != 0 -> blocked += i
-                    m.zone[i] == action.zone -> {}
+                    m.zone[i] == action.zone && m.density[i] == action.density -> {}
+                    // A zone's density can change under its buildings; they stay, but grow no further than it allows.
+                    m.zone[i] == action.zone -> changes += i
                     m.building[i] != 0 -> blocked += i
                     else -> {
                         changes += i
@@ -440,7 +442,10 @@ class City(
                 m.power[i] = Power.LINE
                 clearTrees(i)
             }
-            is Action.PlaceZone -> for (i in plan.changes) m.zone[i] = action.zone
+            is Action.PlaceZone -> for (i in plan.changes) {
+                m.zone[i] = action.zone
+                m.density[i] = action.density
+            }
             is Action.PlaceBuilding -> {
                 for (i in plan.changes) clearTrees(i)
                 added += addBuilding(action.type, action.x, action.y, rng.nextInt(1000))
@@ -456,6 +461,7 @@ class City(
                 m.rail[i] = Rail.NONE
                 m.bank[i] = 0
                 m.zone[i] = Zone.NONE
+                m.density[i] = Density.NONE
                 m.power[i] = Power.NONE
                 clearTrees(i)
             }
@@ -526,8 +532,10 @@ class City(
         if (map.terrain[i] == Terrain.TREES) map.terrain[i] = Terrain.GRASS
     }
 
-    private fun addBuilding(type: BuildingType, x: Int, y: Int, variant: Int): Building {
+    private fun addBuilding(type: BuildingType, x: Int, y: Int, variant: Int, underway: Int = 0): Building {
         val b = Building(nextId++, type, x, y, variant)
+        b.underway = underway
+        if (underway > 0) sites += b.id
         buildings[b.id] = b
         stamp(b)
         fitHousehold(b)
@@ -537,10 +545,12 @@ class City(
     private fun removeBuilding(b: Building) {
         b.people?.let { departures += it.size }
         buildings.remove(b.id)
+        sites.remove(b.id)
         forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { i ->
             map.building[i] = 0
             map.buildingType[i] = 0
             map.forSale[i] = false
+            map.site[i] = 0
             map.buildingVariant[i] = 0
             map.fire[i] = 0
         }
@@ -554,8 +564,16 @@ class City(
             map.buildingVariant[i] = b.variant.toByte()
             map.fire[i] = min(b.burning, 127).toByte()
             map.forSale[i] = b.people?.empty == true
+            map.site[i] = sitePhase(b)
         }
     }
+
+    /** How far along a building going up is, for the map: 1 while the ground's dug, 2 once the frame's up, 0 when it stands. */
+    private fun sitePhase(b: Building): Byte = when {
+        b.underway == 0 -> 0
+        b.underway * 2 > b.type.buildDays -> 1
+        else -> 2
+    }.toByte()
 
     /** Puts a home's for sale sign up or takes it down, and has the map drawn again there. */
     private fun markForSale(b: Building) {
@@ -573,6 +591,7 @@ class City(
             map.buildingVariant[i] = if (b == null) 0 else b.variant.toByte()
             map.fire[i] = if (b == null) 0 else min(b.burning, 127).toByte()
             map.forSale[i] = b?.people?.empty == true
+            map.site[i] = if (b == null) 0 else sitePhase(b)
         }
     }
 
@@ -583,6 +602,7 @@ class City(
         if (networksDirty) updateNetworks()
         for (b in buildings.values) b.age++
         burnDay()
+        buildDay()
         growDay()
         traffic.sendDay(day, daysIn(month, year))
         drainFloods()
@@ -630,7 +650,11 @@ class City(
             map, { i -> buildings[map.building[i]]?.people?.size ?: 0 },
             { i -> map.building[i] != 0 }, stats.unemployment, map.crime,
         )
-        Effects.landValue(map, { i -> buildings[map.building[i]]?.type }, nearRoad, map.landValue)
+        Effects.landValue(map, { i -> buildings[map.building[i]]?.type }, nearRoad, map.landValue) { i ->
+            // People and jobs on the tile, a building's shared over its lots.
+            val b = buildings[map.building[i]]
+            if (b == null || b.underway > 0) 0 else (b.people?.size ?: b.type.capacity) / (b.type.width * b.type.height)
+        }
         startFires()
         demand()
         money()
@@ -746,6 +770,7 @@ class City(
         val jobsAt = IntArray(n)
         val shopsAt = IntArray(n)
         for (b in buildings.values) {
+            if (b.underway > 0) continue
             val node = accessOf(b)
             if (node < 0) continue
             val c = b.type.capacity
@@ -1511,7 +1536,7 @@ class City(
     private fun waterCuts() {
         val out = buildings.values.filter {
             val i = map.index(it.x, it.y)
-            (it.type.needsWater && !map.watered[i]) || (it.type.needsSewer && !map.sewered[i])
+            it.underway == 0 && ((it.type.needsWater && !map.watered[i]) || (it.type.needsSewer && !map.sewered[i]))
         }
         for (b in out) if (rng.nextInt(3) == 0) shrink(b)
     }
@@ -1560,7 +1585,7 @@ class City(
 
     /** Fills a home with newcomers as it grows, or has some move out as it shrinks. Nothing for other buildings. */
     private fun fitHousehold(b: Building) {
-        if (b.type.zone != Zone.RESIDENTIAL) {
+        if (b.type.zone != Zone.RESIDENTIAL || b.underway > 0) {
             b.people = null
             return
         }
@@ -1842,52 +1867,158 @@ class City(
         }
     }
 
-    /** Grows one building a stage, or puts up a new one, on the best of a few lots. Returns the capacity it added. */
+    /**
+     * Builds up the best of a few lots a rung: a new building on an empty lot,
+     * or the one there pulled down and something bigger put up in its place.
+     * Returns the room for people or jobs it'll have, which is what the
+     * month's growth is counted in: a rebuilding takes its people away for a
+     * while, so a town rebuilds only a few at a time.
+     */
     private fun growOnce(zone: Byte): Int {
         val lots = zoneLots(zone)
         if (lots.isEmpty()) return 0
         var best = -1
         var bestScore = Int.MIN_VALUE
+        var bestOptions = emptyList<BuildingType>()
         repeat(Balance.CANDIDATES) {
             val i = lots[rng.nextInt(lots.size)]
             if (!nearRoad[i]) return@repeat
             val b = buildings[map.building[i]]
-            val next = if (b == null) BuildingType.firstFor(zone) else b.type.next
-            if (next == null) return@repeat
-            if (b != null && b.age < Balance.SETTLE_DAYS) return@repeat
+            if (b != null && (b.age < Balance.REBUILD_DAYS || b.underway > 0 || b.burning > 0)) return@repeat
             // No one to build on to an empty home.
             if (b?.people?.empty == true) return@repeat
-            if (next.needsPower && !map.powered[i]) return@repeat
-            if ((next.needsWater && !map.watered[i]) || (next.needsSewer && !map.sewered[i])) return@repeat
-            // Businesses can't grow into what the town hasn't the people to staff.
-            if (zone != Zone.RESIDENTIAL && skillsShort(next)) return@repeat
             val pull = attraction(i, zone)
-            if (pull < Balance.STAGE_ATTRACTION[zone - 1][next.stage]) return@repeat
-            val score = pull + rng.nextInt(10) + if (b != null) 4 else 0
+            val options = choices(b, i, zone, pull)
+            if (options.isEmpty()) return@repeat
+            // An empty lot before pulling something down.
+            val score = pull + rng.nextInt(10) + if (b == null) 4 else 0
             if (score > bestScore) {
                 bestScore = score
                 best = i
+                bestOptions = options
             }
         }
         if (best < 0) return 0
+        // The rung's usual building, now and then the other choice where it's allowed: a bank among the shops.
+        val type = if (bestOptions.size == 1 || rng.nextInt(4) != 0) bestOptions[0] else bestOptions[1 + rng.nextInt(bestOptions.size - 1)]
         val b = buildings[map.building[best]]
-        val added: Int
-        if (b == null) {
-            clearTrees(best)
-            val type = BuildingType.firstFor(zone)
-            addBuilding(type, best % map.width, best / map.width, rng.nextInt(1000))
-            added = type.capacity
-            networksChanged()
-        } else {
-            val next = b.type.next!!
-            added = next.capacity - b.type.capacity
-            b.type = next
-            b.age = 0
-            stamp(b)
-            fitHousehold(b)
+        val added = when {
+            type.large -> assemble(type, best)
+            b == null -> {
+                clearTrees(best)
+                addBuilding(type, best % map.width, best / map.width, rng.nextInt(1000), underway = type.buildDays)
+                networksChanged()
+                type.capacity
+            }
+            else -> {
+                rebuild(b, type)
+                type.capacity
+            }
         }
         townChanges += best
         return added
+    }
+
+    /**
+     * What could go up on lot [i] next, in place of [b] if it's there: the next
+     * rung's buildings that the zone's density, the year, the utilities, the
+     * lot's appeal [pull] and its land value allow, and that the town has the
+     * people to staff.
+     */
+    private fun choices(b: Building?, i: Int, zone: Byte, pull: Int): List<BuildingType> {
+        val rung = if (b == null) BuildingType.rung(zone, 1) else b.type.next
+        if (rung.isEmpty()) return rung
+        val value = map.landValue[i].toInt() and 0xff
+        return rung.filter { t ->
+            t.density <= map.density[i] && t.year <= year && pull >= t.appeal &&
+                // Industry goes where it's let; homes and shops go up where the land's dear enough to pay for them.
+                (zone == Zone.INDUSTRIAL || value >= t.value) &&
+                (!t.needsPower || map.powered[i]) && (!t.needsWater || map.watered[i]) && (!t.needsSewer || map.sewered[i]) &&
+                // Businesses can't grow into what the town hasn't the people to staff.
+                (zone == Zone.RESIDENTIAL || !skillsShort(t)) &&
+                (!t.large || assemblyAt(t, i) >= 0)
+        }
+    }
+
+    /**
+     * The top left lot of a block of [t]'s size taking in lot [i], where every
+     * lot is zoned for it and holds nothing that can't come down; -1 if there's none.
+     */
+    private fun assemblyAt(t: BuildingType, i: Int): Int {
+        val x = i % map.width
+        val y = i / map.width
+        for (dy in 0 until t.height) for (dx in 0 until t.width) {
+            val ax = x - dx
+            val ay = y - dy
+            if (ax < 0 || ay < 0 || ax + t.width > map.width || ay + t.height > map.height) continue
+            var ok = true
+            forRect(ax, ay, ax + t.width - 1, ay + t.height - 1) { j ->
+                if (map.zone[j] != t.zone || map.density[j] < t.density) ok = false
+                val there = buildings[map.building[j]]
+                if (there != null && (there.type.large || there.underway > 0 || there.burning > 0)) ok = false
+            }
+            if (ok) return map.index(ax, ay)
+        }
+        return -1
+    }
+
+    /** Clears the lots for [t] around lot [i] and starts it going up. Returns the room it'll have. */
+    private fun assemble(t: BuildingType, i: Int): Int {
+        val at = assemblyAt(t, i)
+        val ax = at % map.width
+        val ay = at / map.width
+        forRect(ax, ay, ax + t.width - 1, ay + t.height - 1) { j ->
+            buildings[map.building[j]]?.let { removeBuilding(it) }
+            clearTrees(j)
+            townChanges += j
+        }
+        addBuilding(t, ax, ay, rng.nextInt(1000), underway = t.buildDays)
+        networksChanged()
+        return t.capacity
+    }
+
+    /** Pulls [b] down and starts [type] going up on its lot. Its people move out. */
+    private fun rebuild(b: Building, type: BuildingType) {
+        b.people?.let { departures += it.size }
+        b.people = null
+        b.type = type
+        b.age = 0
+        b.underway = type.buildDays
+        sites += b.id
+        stamp(b)
+    }
+
+    /** Buildings going up, by id. */
+    private val sites = LinkedHashSet<Int>()
+
+    /**
+     * Every site moves on a day, every other day while it's freezing. Those
+     * finished take in their people or open for work.
+     */
+    private fun buildDay() {
+        if (sites.isEmpty()) return
+        if (weather.temperature <= 0 && day % 2 == 0) return
+        var done: ArrayList<Building>? = null
+        for (id in sites) {
+            val b = buildings[id] ?: continue
+            val before = sitePhase(b)
+            b.underway--
+            if (b.underway <= 0) {
+                b.underway = 0
+                (done ?: ArrayList<Building>().also { done = it }) += b
+            } else if (sitePhase(b) != before) {
+                stamp(b)
+                forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { townChanges += it }
+            }
+        }
+        // In order of id, so a loaded town finishes them in the same order as one that wasn't saved.
+        for (b in done?.sortedBy { it.id } ?: return) {
+            sites.remove(b.id)
+            b.age = 0
+            stamp(b)
+            fitHousehold(b)
+            forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { townChanges += it }
+        }
     }
 
     /** Shrinks the least attractive building a stage, or clears its lot. Returns the capacity it took away. */
@@ -1898,8 +2029,9 @@ class City(
         repeat(Balance.CANDIDATES) {
             if (lots.isEmpty()) return@repeat
             val i = lots[rng.nextInt(lots.size)]
-            if (map.building[i] == 0) return@repeat
-            val empty = buildings[map.building[i]]?.people?.empty == true
+            val b = buildings[map.building[i]] ?: return@repeat
+            if (b.underway > 0) return@repeat
+            val empty = b.people?.empty == true
             val score = attraction(i, zone) - if (empty) Balance.EMPTY_SHRINK else 0
             if (score < worstScore) {
                 worstScore = score
@@ -1910,19 +2042,36 @@ class City(
         return shrink(buildings[map.building[worst]]!!)
     }
 
+    /**
+     * Brings a building down a rung, or clears its lot at the bottom. A site is
+     * given up. A building on more than one lot goes back to one on its first.
+     */
     private fun shrink(b: Building): Int {
         val previous = b.type.previous
         val removed: Int
-        if (previous == null) {
-            removed = b.type.capacity
-            removeBuilding(b)
-            networksChanged()
-        } else {
-            removed = b.type.capacity - previous.capacity
-            b.type = previous
-            b.age = 0
-            stamp(b)
-            fitHousehold(b)
+        when {
+            previous == null || b.underway > 0 -> {
+                removed = b.type.capacity
+                removeBuilding(b)
+                networksChanged()
+                forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { townChanges += it }
+                return removed
+            }
+            b.type.large -> {
+                removed = b.type.capacity - previous.capacity
+                removeBuilding(b)
+                forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { townChanges += it }
+                addBuilding(previous, b.x, b.y, b.variant)
+                networksChanged()
+                return removed
+            }
+            else -> {
+                removed = b.type.capacity - previous.capacity
+                b.type = previous
+                b.age = 0
+                stamp(b)
+                fitHousehold(b)
+            }
         }
         townChanges += map.index(b.x, b.y)
         return removed
@@ -1930,7 +2079,7 @@ class City(
 
     /** Buildings that need power and have lost it come down a stage now and then. */
     private fun powerCuts() {
-        val out = buildings.values.filter { it.type.needsPower && !map.powered[map.index(it.x, it.y)] }
+        val out = buildings.values.filter { it.underway == 0 && it.type.needsPower && !map.powered[map.index(it.x, it.y)] }
         for (b in out) if (rng.nextInt(3) == 0) shrink(b)
     }
 
@@ -2033,7 +2182,7 @@ class City(
         val field = IntArray(m.size)
         for (b in buildings.values) {
             val p = b.type.pollution
-            if (p == 0) continue
+            if (p == 0 || b.underway > 0) continue
             val cx = b.x + b.type.width / 2
             val cy = b.y + b.type.height / 2
             around(cx, cy, POLLUTION_REACH) { j, d -> field[j] += p * 4 * (POLLUTION_REACH + 1 - d) / (POLLUTION_REACH + 1) }
@@ -2079,8 +2228,18 @@ class City(
         s.children = 0; s.adults = 0; s.elderly = 0; s.workers = 0; s.emptyHomes = 0; s.emptyRoom = 0
         s.workersBy.fill(0); s.byWealth.fill(0)
         val jobsBy = LongArray(Education.LEVELS)
+        s.sites = 0; s.homesComing = 0; s.shopJobsComing = 0; s.industryJobsComing = 0
         for (b in buildings.values) {
             val c = b.type.capacity
+            if (b.underway > 0) {
+                s.sites++
+                when (b.type.zone) {
+                    Zone.RESIDENTIAL -> s.homesComing += c
+                    Zone.COMMERCIAL -> s.shopJobsComing += c
+                    Zone.INDUSTRIAL -> s.industryJobsComing += c
+                }
+                continue
+            }
             when (b.type.zone) {
                 Zone.RESIDENTIAL -> residents += b.people?.size ?: 0
                 Zone.COMMERCIAL -> shopJobs += c
@@ -2146,20 +2305,28 @@ class City(
             (1 + Balance.EXPORT_GROWTH * years) * (if (connected) 1.0 else Balance.UNCONNECTED_EXPORTS) *
             (if (railFreight) Balance.RAIL_EXPORTS else 1.0)
         val jobs = s.shopJobs + s.industryJobs + s.otherJobs
-        s.industryDemand = taxed(market - s.industryJobs, industrialTax)
+        // What's going up already counts against demand.
+        val industryGap = market - s.industryJobs
+        s.industryDemand = taxed(industryGap - s.industryJobsComing, industrialTax)
         // The shops answer what people spend, more the better off they are.
-        s.commercialDemand = taxed(s.spending / Balance.RESIDENTS_PER_SHOP_JOB - s.shopJobs, commercialTax)
+        val shopGap = s.spending / Balance.RESIDENTS_PER_SHOP_JOB - s.shopJobs.toDouble()
+        s.commercialDemand = taxed(shopGap - s.shopJobsComing, commercialTax)
         val settlers = (Balance.SETTLERS + Balance.SETTLERS_PER_RESIDENT * s.population) * (if (railPassengers) Balance.RAIL_SETTLERS else 1.0)
         // Homes for the people the jobs need, children and the elderly with them.
         val workersPerResident = if (s.population == 0) Balance.LABOUR_SHARE else (s.workers.toDouble() / s.population).coerceIn(0.25, 0.6)
         val seekers = jobs / workersPerResident + settlers - s.population
         s.homeSeekers = taxed(seekers, residentialTax)
         // The empty homes take what they can of it before anyone builds.
-        s.residentialDemand = taxed(seekers - s.emptyRoom, residentialTax)
-        quota[Zone.RESIDENTIAL.toInt()] = cap(s.residentialDemand, s.population)
-        quota[Zone.COMMERCIAL.toInt()] = cap(s.commercialDemand, s.shopJobs)
-        quota[Zone.INDUSTRIAL.toInt()] = cap(s.industryDemand, s.industryJobs)
+        val homeGap = seekers - s.emptyRoom
+        s.residentialDemand = taxed(homeGap - s.homesComing, residentialTax)
+        // A town with too much comes down; one with enough on the way only stops building.
+        quota[Zone.RESIDENTIAL.toInt()] = cap(growOrShrink(taxed(homeGap, residentialTax), s.residentialDemand), s.population)
+        quota[Zone.COMMERCIAL.toInt()] = cap(growOrShrink(taxed(shopGap, commercialTax), s.commercialDemand), s.shopJobs)
+        quota[Zone.INDUSTRIAL.toInt()] = cap(growOrShrink(taxed(industryGap, industrialTax), s.industryDemand), s.industryJobs)
     }
+
+    /** What a zone does this month: shrink by [standing] if what stands is already too much, else grow by [coming], or not at all. */
+    private fun growOrShrink(standing: Int, coming: Int): Int = if (standing < 0) standing else max(0, coming)
 
     private fun taxed(gap: Double, tax: Int): Int {
         val factor = (1 + (Balance.DEFAULT_TAX - tax) * Balance.TAX_DEMAND).coerceIn(0.1, 2.0)
@@ -2209,6 +2376,8 @@ class City(
                 BuildingType.STORM_OUTFALL -> Balance.STORM_OUTFALL_UPKEEP
                 else -> 0.0
             }
+            // A site pays nothing until it's built.
+            if (b.underway > 0) continue
             // Shops and works pay nothing for the days they were shut by floods.
             val open = 1.0 - min(b.closedDays.toDouble(), days) / days
             b.closedDays = 0
@@ -2354,6 +2523,12 @@ class City(
         for (b in homes) { w.int(b.id); b.people!!.writeTo(w) }
         for (v in s.peopleNumbers()) w.int(v)
         w.long(s.schoolUpkeep); w.long(s.healthUpkeep)
+        // Since version 6.
+        w.layer(map.density)
+        val going = buildings.values.filter { it.underway > 0 }
+        w.count(going.size)
+        for (b in going) { w.int(b.id); w.int(b.underway) }
+        for (v in intArrayOf(s.sites, s.homesComing, s.shopJobsComing, s.industryJobsComing)) w.int(v)
     }
 
     companion object {
@@ -2445,7 +2620,21 @@ class City(
                 }
                 s.readPeopleNumbers(r)
                 s.schoolUpkeep = r.long(); s.healthUpkeep = r.long()
+            }
+            if (version >= 6) {
+                r.layer(m.density)
+                repeat(r.count()) {
+                    val b = c.buildings[r.int()] ?: throw SaveError("a site for a building that isn't there")
+                    b.underway = r.int()
+                    c.sites += b.id
+                    c.stamp(b)
+                }
+                s.sites = r.int(); s.homesComing = r.int(); s.shopJobsComing = r.int(); s.industryJobsComing = r.int()
             } else {
+                // Before densities every zone built as high as medium does now.
+                for (i in 0 until m.size) if (m.zone[i] != Zone.NONE) m.density[i] = Density.MEDIUM
+            }
+            if (version < 5) {
                 // Older towns had no people as such, only room for them: each home is filled as newcomers would fill it.
                 for (b in c.buildings.values.sortedBy { it.id }) c.fitHousehold(b)
                 c.arrivals = 0
@@ -2521,6 +2710,12 @@ class Stats {
 
     /** People looking for a home, in residents, before the empty homes take any. */
     var homeSeekers = 0
+
+    /** Buildings going up, and the room for people and jobs they'll bring. */
+    var sites = 0
+    var homesComing = 0
+    var shopJobsComing = 0
+    var industryJobsComing = 0
 
     internal fun peopleNumbers(): IntArray = intArrayOf(
         children, adults, elderly, *byWealth, *workersBy, *jobsBy, *filledBy, health, spending,

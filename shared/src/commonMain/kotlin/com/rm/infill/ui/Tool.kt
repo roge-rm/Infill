@@ -47,6 +47,10 @@ import androidx.compose.ui.graphics.Color
 import com.rm.infill.sim.Action
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.CityMap
+import com.rm.infill.sim.Density
+import com.rm.infill.res.density_low
+import com.rm.infill.res.density_medium
+import com.rm.infill.res.density_high
 import com.rm.infill.sim.Pipe
 import com.rm.infill.sim.Plan
 import com.rm.infill.sim.Rail
@@ -144,6 +148,13 @@ fun roadColour(t: RoadType): Color = when (t) {
 /** The roads that can be built in [year]. */
 fun roadsIn(year: Int): List<RoadType> = RoadType.entries.filter { it.year <= year }
 
+/** How dense a zone may build, in the order the picker shows them. */
+enum class DensityKind(val density: Byte, val title: StringResource) {
+    Low(Density.LOW, Res.string.density_low),
+    Medium(Density.MEDIUM, Res.string.density_medium),
+    High(Density.HIGH, Res.string.density_high),
+}
+
 /** The kinds of zone, in the order the picker shows them. */
 enum class ZoneKind(val zone: Byte, val title: StringResource) {
     Residential(Zone.RESIDENTIAL, Res.string.zone_residential),
@@ -163,7 +174,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
     }
 
     fun action(
-        tool: Tool, zone: ZoneKind, power: PowerKind, service: ServiceKind, road: RoadType, roadPipes: Boolean,
+        tool: Tool, zone: ZoneKind, density: DensityKind, power: PowerKind, service: ServiceKind, road: RoadType, roadPipes: Boolean,
         rail: RailKind, water: WaterKind, map: CityMap,
     ): Action? = when (tool) {
         Tool.Services -> if (service == ServiceKind.Park) Action.PlaceParks(x0, y0, x1, y1)
@@ -189,7 +200,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             water.bank -> Action.BuildBank(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             else -> Action.RemovePipes(x0, y0, x1, y1)
         }
-        Tool.Zone -> Action.PlaceZone(x0, y0, x1, y1, zone.zone)
+        Tool.Zone -> Action.PlaceZone(x0, y0, x1, y1, zone.zone, density.density)
         Tool.Bulldoze -> Action.Bulldoze(x0, y0, x1, y1)
         Tool.Power -> when (power) {
             PowerKind.Line -> Action.BuildPowerLine(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))

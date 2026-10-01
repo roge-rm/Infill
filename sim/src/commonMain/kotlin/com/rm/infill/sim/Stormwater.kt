@@ -20,14 +20,19 @@ object Stormwater {
         BuildingType.COTTAGE -> 40
         BuildingType.HOUSE -> 50
         BuildingType.LARGE_HOUSE -> 60
+        BuildingType.ROW_HOUSES -> 70
         BuildingType.TENEMENT -> 85
+        BuildingType.APARTMENTS -> 90
+        BuildingType.APARTMENT_COURT -> 85
         BuildingType.GENERAL_STORE -> 60
         BuildingType.SHOP -> 80
+        BuildingType.MAIN_STREET -> 90
+        BuildingType.OFFICE_BLOCK, BuildingType.DEPARTMENT_STORE -> 95
         BuildingType.BANK, BuildingType.HOTEL -> 90
         BuildingType.WORKSHOP -> 70
         BuildingType.MILL -> 80
         BuildingType.WAREHOUSE -> 90
-        BuildingType.FACTORY -> 95
+        BuildingType.FACTORY, BuildingType.WORKS -> 95
         BuildingType.COAL_PLANT -> 85
         BuildingType.POLICE_STATION, BuildingType.FIRE_STATION -> 80
         // Schools and hospitals have their yards and lawns.

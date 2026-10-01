@@ -2,6 +2,7 @@ package com.rm.infill.map
 
 import androidx.compose.ui.graphics.ImageBitmap
 import com.rm.infill.sim.BuildingType
+import com.rm.infill.sim.Density
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Heading
 import com.rm.infill.sim.Power
@@ -244,7 +245,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 surface.copy(base + Atlas.GRASS + h % Atlas.GRASS_COUNT, dx, dy)
                 if (grime > 0) soot(surface, grime, h, dx, dy, s, level)
                 val zone = map.zone[i]
-                if (zone != Zone.NONE && map.building[i] == 0) zoneTint(surface, zone, tx, ty, dx, dy, s, level)
+                if (zone != Zone.NONE && map.building[i] == 0) zoneTint(surface, zone, map.density[i], tx, ty, dx, dy, s, level)
                 if (road != null) roadTile(surface, base, road, i, tx, ty, roadMask(tx, ty), dx, dy, level)
                 if (map.bank[i].toInt() != 0) embankment(surface, tx, ty, dx, dy, s, r.look == Atlas.SNOW)
                 if (rail && road != null) {
@@ -337,6 +338,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     private fun buildingSprite(x: Int, y: Int): Int {
         val type = map.buildingType[map.index(x, y)].toInt() - 1
         val t = BuildingType.entries[type]
+        // A building still going up is its site, dug or framed.
+        val site = map.site[map.index(x, y)].toInt()
+        if (site > 0) return (if (t.large) Atlas.SITE_LARGE else Atlas.SITE_SMALL) + site - 1
         if (t.railway) {
             // The pair of looks for the side the track is on, south or east being the second pair.
             val side = Rail.trackSide(map, t, x, y)
@@ -496,13 +500,14 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
 
     /**
      * A zone is a wash of its colour dotted with it, so it reads as zoned on any
-     * ground, with a line along the sides where the zone ends.
+     * ground, with a line along the sides where the zone ends. Low density has
+     * sparse dots, high density big ones.
      */
-    private fun zoneTint(surface: BakeSurface, zone: Byte, tx: Int, ty: Int, dx: Int, dy: Int, s: Int, level: Int) {
+    private fun zoneTint(surface: BakeSurface, zone: Byte, density: Byte, tx: Int, ty: Int, dx: Int, dy: Int, s: Int, level: Int) {
         val colour = ZONE_COLOURS[zone.toInt()]
         surface.fill(dx, dy, s, s, ZONE_WASHES[zone.toInt()], ZONE_WASH)
-        val spacing = ZONE_DOTS shr level
-        val dot = max(1, 2 shr level)
+        val spacing = (if (density == Density.LOW) ZONE_DOTS * 2 else ZONE_DOTS) shr level
+        val dot = max(1, (if (density == Density.HIGH) 4 else 2) shr level)
         if (spacing >= 4) {
             for (row in 0 until s / spacing) for (col in 0 until s / spacing) {
                 val shift = if (row % 2 == 0) 0 else spacing / 2
