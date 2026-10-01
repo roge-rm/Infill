@@ -23,8 +23,8 @@ android {
         applicationId = "com.rm.infill"
         minSdk = 27
         targetSdk = 37
-        versionCode = 700
-        versionName = "0.7.0"
+        versionCode = 800
+        versionName = "0.8.0"
     }
 
     signingConfigs {
