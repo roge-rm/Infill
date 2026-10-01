@@ -526,4 +526,11 @@
     <string name="trade">Trade</string>
     <string name="trade_out">Sold out of town</string>
     <string name="trade_in">Brought in</string>
+    <string name="zone_office">Offices</string>
+    <string name="inspect_zone_office">Zoned for offices</string>
+    <string name="building_offices">Offices</string>
+    <string name="building_office_building">Office building</string>
+    <string name="building_office_tower">Office tower</string>
+    <string name="building_glass_tower">Glass tower</string>
+    <string name="income_offices">Offices</string>
 </resources>

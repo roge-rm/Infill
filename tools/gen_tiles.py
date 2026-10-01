@@ -2973,6 +2973,104 @@ def seam(look, kind):
     return img
 
 
+# Offices, on their own zone: rooms over a shop, an office building, a tower and a glass tower.
+
+def offices(look, v):
+    """Two or three storeys of brick with a shop front below and offices above, a brass plate by the door."""
+    storeys = 2 + v % 2
+    col = [BRICKS[1], c("#b8a888"), BRICKS[3]][v % 3]
+    b = Building(height=storeys * STOREY + 6)
+    d = b.d
+    roof, wall = b.box(3, 6, 28, 27, storeys * STOREY + 2)
+    brick(d, wall, col) if v != 1 else d.rectangle(wall, col)
+    wx0, wy0, wx1, wy1 = wall
+    windows(d, (wx0, wy0, wx1, wy1 - STOREY), storeys - 1, every=4, sill=TRIM)
+    d.rectangle([wx0 + 1, wy1 - 5, wx1 - 1, wy1 - 1], c("#4a5866"))
+    d.rectangle([wx0 + 12, wy1 - 6, wx0 + 16, wy1], DOOR)
+    d.point((wx0 + 17, wy1 - 3), c("#d8b84a"))
+    d.rectangle(wall, outline=OUTLINE)
+    cornice(d, wall, TRIM)
+    flat_roof(b.img, roof, look, random.Random(8600 + v), [("vent", 6, 4), ("hatch", 16, 10)], parapet=shade(col, 1.15))
+    return b
+
+
+def office_building(look, v):
+    """Six storeys of pale stone, tall windows in bays, a rusticated base and a grand door."""
+    col = [c("#d8d0bc"), c("#c4b49a")][v]
+    b = Building(height=6 * STOREY + 8)
+    d = b.d
+    roof, wall = b.box(2, 4, 29, 27, 6 * STOREY + 2)
+    d.rectangle(wall, col)
+    wx0, wy0, wx1, wy1 = wall
+    for xx in range(wx0 + 3, wx1 - 2, 5):
+        for yy in range(wy0 + 4, wy1 - 7, STOREY):
+            d.rectangle([xx, yy, xx + 2, yy + 3], c("#3e4a56"))
+    for yy in range(wy1 - 6, wy1, 2):
+        d.line([wx0 + 1, yy, wx1 - 1, yy], shade(col, 0.82))
+    cx = (wx0 + wx1) // 2
+    d.rectangle([cx - 3, wy1 - 6, cx + 3, wy1], c("#2a2a30"))
+    d.arc([cx - 3, wy1 - 9, cx + 3, wy1 - 3], 180, 360, shade(col, 0.7))
+    d.rectangle(wall, outline=OUTLINE)
+    cornice(d, wall, shade(col, 1.12))
+    flat_roof(b.img, roof, look, random.Random(8700 + v), [("tank", 18, 8), ("vent", 4, 4)], parapet=shade(col, 1.12))
+    return b
+
+
+def office_tower(look, v):
+    """A 1920s tower on 2 by 2 tiles: a wide base, a shaft set back in stages, and a crown on top."""
+    col = [c("#cfc4a8"), c("#b8876a")][v]
+    b = Building(2, 2, height=22 * STOREY)
+    d = b.d
+    # The base, five storeys over the whole lot.
+    roof, wall = b.box(2, 30, 61, 61, 5 * STOREY)
+    d.rectangle(wall, col)
+    wx0, wy0, wx1, wy1 = wall
+    for xx in range(wx0 + 3, wx1 - 2, 4):
+        d.line([xx, wy0 + 3, xx, wy1 - 6], c("#3e4a56"), 2)
+    d.rectangle([wx0 + 24, wy1 - 6, wx0 + 34, wy1], c("#2a2a30"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(8800 + v), [], parapet=shade(col, 1.1))
+    # The shaft, set back, and higher still a narrower crown.
+    for (x0, y0, x1, y1, h) in ((12, 8, 51, 40, 16 * STOREY), (22, 12, 41, 30, 20 * STOREY)):
+        roof, wall = b.box(x0, y0, x1, y1, h)
+        d.rectangle(wall, shade(col, 0.95))
+        wx0, wy0, wx1, wy1 = wall
+        for xx in range(wx0 + 2, wx1 - 1, 3):
+            d.line([xx, wy0 + 2, xx, wy1 - 1], c("#3e4a56"))
+        d.rectangle(wall, outline=OUTLINE)
+        d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else shade(col, 1.05), OUTLINE)
+    # A spire.
+    sx, sy = roof[0] + (roof[2] - roof[0]) // 2, roof[1] + (roof[3] - roof[1]) // 2
+    d.polygon([(sx - 3, sy), (sx + 3, sy), (sx, sy - 14)], shade(col, 0.8), OUTLINE)
+    return b
+
+
+def glass_tower(look, v):
+    """A 1960s slab of glass on 2 by 2 tiles over a plaza, a dark band at each mechanical floor."""
+    b = Building(2, 2, height=26 * STOREY)
+    d = b.d
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(62, 62)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else c("#c8c4b8"))
+    for xx in range(gx0 + 4, gx1, 8):
+        d.line([xx, gy0 + 1, xx, gy1 - 1], c("#b8b4a8"))
+    roof, wall = b.box(10, 10, 53, 44, 24 * STOREY)
+    glass = [c("#5f7f94"), c("#4f6f86")][v % 2]
+    d.rectangle(wall, glass)
+    wx0, wy0, wx1, wy1 = wall
+    for xx in range(wx0 + 3, wx1, 4):
+        d.line([xx, wy0, xx, wy1], shade(glass, 1.25))
+    for yy in range(wy0 + 3, wy1, 3):
+        d.line([wx0, yy, wx1, yy], shade(glass, 0.85))
+    for yy in (wy0 + 2, wy0 + (wy1 - wy0) // 2):
+        d.rectangle([wx0, yy, wx1, yy + 2], c("#2a3036"))
+    # Sky in the glass.
+    d.line([wx0 + 2, wy0 + 6, wx0 + 14, wy0 + 30], (220, 235, 245, 140))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(8900 + v), [("vent", 8, 8), ("vent", 30, 8), ("hatch", 20, 20)], parapet=c("#3a4048"))
+    return b
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -2991,6 +3089,7 @@ BUILDINGS = [
     ("oil_plant", oil_plant, 1), ("gas_plant", gas_plant, 1), ("hydro_plant", hydro_plant, 1), ("nuclear_plant", nuclear_plant, 1),
     ("substation", substation, 1), ("dump", dump, 2), ("incinerator", incinerator, 1), ("recycling", recycling, 1),
     ("farm", farm, 2), ("woodlot", woodlot, 3), ("mine", mine, 1), ("colliery", colliery, 1), ("oil_well", oil_well, 1),
+    ("offices", offices, 3), ("office_building", office_building, 2), ("office_tower", office_tower, 2), ("glass_tower", glass_tower, 2),
 ]
 
 

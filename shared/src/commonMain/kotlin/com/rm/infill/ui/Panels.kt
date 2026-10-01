@@ -32,6 +32,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
 import com.rm.infill.map.MapRenderer
+import com.rm.infill.res.building_offices
+import com.rm.infill.res.building_office_building
+import com.rm.infill.res.building_office_tower
+import com.rm.infill.res.building_glass_tower
+import com.rm.infill.res.inspect_zone_office
 import com.rm.infill.res.building_oil_well
 import com.rm.infill.res.good_oil
 import com.rm.infill.res.good_fuel
@@ -347,7 +352,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 add(stringResource(Res.string.inspect_coal_local, building.local))
             } else if (t == BuildingType.OIL_PLANT && city.stationOutput(building) > 0) {
                 add(stringResource(Res.string.inspect_fuel_local, building.local))
-            } else if (t.zone == Zone.COMMERCIAL && building.underway == 0) {
+            } else if (t.zone == Zone.COMMERCIAL && !t.office && building.underway == 0) {
                 add(stringResource(if (city.shortOfStock(building)) Res.string.inspect_short_of_stock else Res.string.inspect_stock_local, building.local))
             }
             if (building.uncollected) add(stringResource(Res.string.inspect_garbage))
@@ -360,7 +365,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 add(stringResource(if (map.sewered[i]) Res.string.inspect_sewer else Res.string.inspect_septic))
             }
             if ((map.flood[i].toInt() and 0xff) >= Balance.FLOODED) {
-                add(stringResource(if (t.zone == Zone.COMMERCIAL || t.zone == Zone.INDUSTRIAL) Res.string.inspect_shut else Res.string.inspect_flooded))
+                add(stringResource(if (t.zone == Zone.COMMERCIAL || t.zone == Zone.INDUSTRIAL || t.zone == Zone.OFFICE) Res.string.inspect_shut else Res.string.inspect_flooded))
             } else if ((map.floodMemory[i].toInt() and 0xff) >= FLOODED_BEFORE) {
                 add(stringResource(Res.string.inspect_flooded_before))
             }
@@ -454,6 +459,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 Zone.COMMERCIAL -> add(stringResource(Res.string.inspect_zone_commercial))
                 Zone.INDUSTRIAL -> add(stringResource(Res.string.inspect_zone_industrial))
                 Zone.FARMLAND -> add(stringResource(Res.string.inspect_zone_farmland))
+                Zone.OFFICE -> add(stringResource(Res.string.inspect_zone_office))
             }
             densityName(map.density[i])?.let { add(stringResource(it)) }
         }
@@ -542,6 +548,10 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.MINE -> Res.string.building_mine
     BuildingType.COLLIERY -> Res.string.building_colliery
     BuildingType.OIL_WELL -> Res.string.building_oil_well
+    BuildingType.OFFICES -> Res.string.building_offices
+    BuildingType.OFFICE_BUILDING -> Res.string.building_office_building
+    BuildingType.OFFICE_TOWER -> Res.string.building_office_tower
+    BuildingType.GLASS_TOWER -> Res.string.building_glass_tower
 }
 
 fun goodName(g: Good): StringResource = when (g) {

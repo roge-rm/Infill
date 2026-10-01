@@ -38,6 +38,8 @@ object Stormwater {
         BuildingType.COAL_PLANT, BuildingType.OIL_PLANT, BuildingType.GAS_PLANT -> 85
         BuildingType.HYDRO_PLANT -> 70
         BuildingType.FARM -> 10
+        BuildingType.OFFICES -> 80
+        BuildingType.OFFICE_BUILDING, BuildingType.OFFICE_TOWER, BuildingType.GLASS_TOWER -> 95
         BuildingType.WOODLOT -> 0
         BuildingType.MINE, BuildingType.COLLIERY -> 60
         BuildingType.OIL_WELL -> 30

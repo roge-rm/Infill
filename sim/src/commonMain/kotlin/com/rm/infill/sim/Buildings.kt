@@ -56,6 +56,12 @@ enum class BuildingType(
     FACTORY(Zone.INDUSTRIAL, 4, 30, pollution = 18, density = Density.MEDIUM, needs = 3, appeal = 62, buildDays = 90),
     WORKS(Zone.INDUSTRIAL, 5, 140, width = 2, height = 2, pollution = 40, density = Density.HIGH, needs = 3, appeal = 64, buildDays = 200),
 
+    /** Offices: rooms over a shop, an office building, a tower from the 1920s, and a glass one from the 1960s. */
+    OFFICES(Zone.OFFICE, 1, 10, density = Density.LOW, needs = 1, appeal = 52, value = 55, buildDays = 30),
+    OFFICE_BUILDING(Zone.OFFICE, 2, 30, density = Density.MEDIUM, needs = 2, year = 1905, appeal = 62, value = 80, buildDays = 80),
+    OFFICE_TOWER(Zone.OFFICE, 3, 200, width = 2, height = 2, density = Density.HIGH, needs = 3, year = 1920, appeal = 70, value = 115, buildDays = 240),
+    GLASS_TOWER(Zone.OFFICE, 4, 480, width = 2, height = 2, density = Density.HIGH, needs = 3, year = 1960, appeal = 74, value = 135, buildDays = 300),
+
     /** On farmland, by what's under the lot: a mine on ore, a colliery on coal, a well on oil, a woodlot in the woods, otherwise a farm. */
     MINE(Zone.FARMLAND, 1, 20, width = 2, height = 2, pollution = 8, density = Density.LOW, buildDays = 90),
     COLLIERY(Zone.FARMLAND, 1, 20, width = 2, height = 2, pollution = 12, density = Density.LOW, buildDays = 90),
@@ -163,7 +169,11 @@ enum class BuildingType(
 
     /** Built of brick or stone to last, so that once it's old enough it's valued as heritage. */
     val heritage get() = this == LARGE_HOUSE || this == ROW_HOUSES || this == TENEMENT || this == APARTMENTS || this == APARTMENT_COURT ||
-        this == MAIN_STREET || this == BANK || this == HOTEL || this == OFFICE_BLOCK || this == DEPARTMENT_STORE
+        this == MAIN_STREET || this == BANK || this == HOTEL || this == OFFICE_BLOCK || this == DEPARTMENT_STORE ||
+        this == OFFICE_BUILDING || this == OFFICE_TOWER
+
+    /** Office work, wherever it stands: the office zone's, and office blocks and banks among the shops. */
+    val office get() = zone == Zone.OFFICE || this == OFFICE_BLOCK || this == BANK
 
     companion object {
         private val rungs = HashMap<Int, List<BuildingType>>()

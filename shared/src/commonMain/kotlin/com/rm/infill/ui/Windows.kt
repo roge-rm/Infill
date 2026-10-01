@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
+import com.rm.infill.res.income_offices
 import com.rm.infill.res.trade
 import com.rm.infill.res.trade_out
 import com.rm.infill.res.trade_in
@@ -248,6 +249,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
             MoneyLine(Res.string.tax_residential, s.residentialIncome)
             MoneyLine(Res.string.tax_commercial, s.commercialIncome)
             MoneyLine(Res.string.tax_industrial, s.industrialIncome)
+            if (s.officeIncome > 0) MoneyLine(Res.string.income_offices, s.officeIncome)
             if (s.fareIncome > 0) MoneyLine(Res.string.income_fares, s.fareIncome)
             MoneyLine(Res.string.upkeep_roads, -s.roadUpkeep)
             if (s.railUpkeep > 0) MoneyLine(Res.string.upkeep_rail, -s.railUpkeep)

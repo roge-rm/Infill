@@ -18,8 +18,11 @@ object Zone {
     /** Farms, woodlots and mines on the outskirts, by what's under each lot. */
     const val FARMLAND: Byte = 4
 
+    /** Office work, wanting schooled people and dear land near the centre. */
+    const val OFFICE: Byte = 5
+
     /** The zones that grow, in order. */
-    const val COUNT = 5
+    const val COUNT = 6
 }
 
 /** What's in the ground, for farms, mines and wells: good soil, iron ore, a coal seam or an oil field. Stored as a byte. */

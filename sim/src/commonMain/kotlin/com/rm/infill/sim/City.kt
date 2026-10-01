@@ -1886,7 +1886,7 @@ class City(
     private fun needs(b: Building): List<Pair<Good, Int>> {
         b.worksKind?.let { k -> return k.inputs.map { (g, rate) -> g to b.type.capacity * rate } }
         burns(b)?.let { (g, per) -> return listOf(g to (stationOutput(b).toLong() * per / 10_000).toInt()) }
-        if (b.type.zone == Zone.COMMERCIAL) {
+        if (b.type.zone == Zone.COMMERCIAL && !b.type.office) {
             val c = b.type.capacity
             val needs = arrayListOf(Good.FOOD to c * Balance.SHOP_FOOD, Good.GOODS to c * Balance.SHOP_GOODS)
             // Fuel for the cars, as there come to be more of them.
@@ -2046,6 +2046,7 @@ class City(
                     jobsAt[node] += c
                     shopsAt[node] += c * Balance.SHOPPERS_PER_SHOP_JOB
                 }
+                Zone.OFFICE -> jobsAt[node] += c
                 Zone.INDUSTRIAL -> {
                     jobsAt[node] += c
                     freightAt[node] += c * Balance.FREIGHT_PER_TEN_JOBS / 10
@@ -2912,7 +2913,7 @@ class City(
         if (!floodsStanding) return
         // Shops and works under water are shut today.
         for (b in buildings.values) {
-            if ((b.type.zone == Zone.COMMERCIAL || b.type.zone == Zone.INDUSTRIAL) && flooded(b)) b.closedDays++
+            if ((b.type.zone == Zone.COMMERCIAL || b.type.zone == Zone.INDUSTRIAL || b.type.zone == Zone.OFFICE) && flooded(b)) b.closedDays++
         }
         val f = map.flood
         var any = false
@@ -3596,6 +3597,14 @@ class City(
                 buildings[m.building[i]]?.let { score += it.local * Balance.LOCAL_APPEAL / 100 }
                 if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
             }
+            Zone.OFFICE -> {
+                // Dear land in the busy middle of town, close to the shops, clean and safe.
+                var shops = 0
+                around(x, y, 6) { j, _ -> if (buildings[m.building[j]]?.type?.zone == Zone.COMMERCIAL) shops++ }
+                score += 24 + value / 3 + min(shops, 15) - crime / 5 - pollution / 4
+                buildings[m.building[i]]?.let { score += ageAppeal(it) }
+                if (access[i] >= 0) score += min(Balance.PASSING_TRADE, traffic.lastFootfall[access[i]] / Balance.TRIPS_PER_PASSING_POINT)
+            }
             Zone.INDUSTRIAL -> {
                 var water = false
                 around(x, y, 3) { j, _ -> if (m.terrain[j] == Terrain.WATER) water = true }
@@ -3715,13 +3724,14 @@ class City(
         var shopJobs = 0
         var industryJobs = 0
         var farmJobs = 0
+        var officeJobs = 0
         var otherJobs = 0
         var health = 0L
         var spending = 0L
         s.children = 0; s.adults = 0; s.elderly = 0; s.workers = 0; s.emptyHomes = 0; s.emptyRoom = 0
         s.workersBy.fill(0); s.byWealth.fill(0)
         val jobsBy = LongArray(Education.LEVELS)
-        s.sites = 0; s.homesComing = 0; s.shopJobsComing = 0; s.industryJobsComing = 0; s.farmJobsComing = 0
+        s.sites = 0; s.homesComing = 0; s.shopJobsComing = 0; s.industryJobsComing = 0; s.farmJobsComing = 0; s.officeJobsComing = 0
         for (b in buildings.values) {
             val c = b.type.capacity
             if (b.underway > 0) {
@@ -3729,6 +3739,7 @@ class City(
                 when (b.type.zone) {
                     Zone.RESIDENTIAL -> s.homesComing += c
                     Zone.COMMERCIAL -> s.shopJobsComing += c
+                    Zone.OFFICE -> s.officeJobsComing += c
                     Zone.INDUSTRIAL -> s.industryJobsComing += c
                     Zone.FARMLAND -> s.farmJobsComing += c
                 }
@@ -3736,7 +3747,8 @@ class City(
             }
             when (b.type.zone) {
                 Zone.RESIDENTIAL -> residents += b.people?.size ?: 0
-                Zone.COMMERCIAL -> shopJobs += c
+                Zone.COMMERCIAL -> if (b.type.office) officeJobs += c else shopJobs += c
+                Zone.OFFICE -> officeJobs += c
                 Zone.INDUSTRIAL -> industryJobs += c
                 Zone.FARMLAND -> farmJobs += c
                 else -> otherJobs += c
@@ -3774,7 +3786,7 @@ class City(
                 buildingsCount++
                 if (map.powered[i]) powered++
             }
-            if (b.type.zone == Zone.COMMERCIAL && b.type.density == Density.HIGH && b.underway == 0) s.downtown++
+            if ((b.type.zone == Zone.COMMERCIAL || b.type.zone == Zone.OFFICE) && b.type.density == Density.HIGH && b.underway == 0) s.downtown++
             if (b.type == BuildingType.HIGH_SCHOOL) s.highSchools++
         }
         s.onMains = if (residents == 0) 0 else onMains * 100 / residents
@@ -3792,6 +3804,7 @@ class City(
         s.shopJobs = shopJobs
         s.industryJobs = industryJobs
         s.farmJobs = farmJobs
+        s.officeJobs = officeJobs
         s.otherJobs = otherJobs
         s.health = if (residents == 0) 0 else (health / residents).toInt()
         s.spending = spending.toInt()
@@ -3830,7 +3843,7 @@ class City(
         val market = (Balance.EXPORT_BASE + Balance.EXPORT_PER_RESIDENT * s.population) *
             (1 + Balance.EXPORT_GROWTH * years) * (if (connected) 1.0 else Balance.UNCONNECTED_EXPORTS) *
             (if (railFreight) Balance.RAIL_EXPORTS else 1.0) * Economy.market(year, month) / 100.0
-        val jobs = s.shopJobs + s.industryJobs + s.farmJobs + s.otherJobs
+        val jobs = s.shopJobs + s.industryJobs + s.farmJobs + s.officeJobs + s.otherJobs
         // What the town brings in that it could make: from the land, and from the works.
         var fromLand = 0.0
         var fromWorks = 0.0
@@ -3843,6 +3856,10 @@ class City(
         s.industryDemand = taxed(industryGap - s.industryJobsComing, industrialTax)
         val farmGap = market * Balance.FARM_MARKET + fromLand - s.farmJobs
         s.farmDemand = taxed(farmGap - s.farmJobsComing, industrialTax)
+        // Office work grows with the town and with the century.
+        val perHundred = Balance.OFFICES_1900 + (Balance.OFFICES_2000 - Balance.OFFICES_1900) * (years / 100.0).coerceIn(0.0, 1.0)
+        val officeGap = Balance.OFFICE_BASE + s.population * perHundred / 100.0 - s.officeJobs
+        s.officeDemand = taxed(officeGap - s.officeJobsComing, commercialTax)
         // The shops answer what people spend, more the better off they are.
         val shopGap = s.spending / Balance.RESIDENTS_PER_SHOP_JOB - s.shopJobs.toDouble()
         s.commercialDemand = taxed(shopGap - s.shopJobsComing, commercialTax)
@@ -3859,6 +3876,7 @@ class City(
         quota[Zone.COMMERCIAL.toInt()] = cap(growOrShrink(taxed(shopGap, commercialTax), s.commercialDemand), s.shopJobs)
         quota[Zone.INDUSTRIAL.toInt()] = cap(growOrShrink(taxed(industryGap, industrialTax), s.industryDemand), s.industryJobs)
         quota[Zone.FARMLAND.toInt()] = cap(growOrShrink(taxed(farmGap, industrialTax), s.farmDemand), s.farmJobs)
+        quota[Zone.OFFICE.toInt()] = cap(growOrShrink(taxed(officeGap, commercialTax), s.officeDemand), s.officeJobs)
     }
 
     /** What a zone does this month: shrink by [standing] if what stands is already too much, else grow by [coming], or not at all. */
@@ -3884,6 +3902,7 @@ class City(
         val s = stats
         var homes = 0.0
         var shops = 0.0
+        var offices = 0.0
         var works = 0.0
         var police = 0
         var fire = 0
@@ -3922,6 +3941,7 @@ class City(
             val worth = (0.5 + (map.landValue[map.index(b.x, b.y)].toInt() and 0xff) / 200.0) * open
             when {
                 b.type.zone == Zone.RESIDENTIAL -> homes += b.type.capacity * worth * Demography.TAX_BY_WEALTH[b.people?.wealth ?: Wealth.MIDDLE] / 100.0
+                b.type.office -> offices += b.type.capacity * worth
                 b.type.zone == Zone.COMMERCIAL -> {
                     // A shop that has to bring in what it sells makes less, and one that can't get stock makes little.
                     val margin = if (shortOfStock(b)) Balance.NO_STOCK else 100 - (100 - b.local) * Balance.IMPORT_DRAG / 100
@@ -3945,6 +3965,7 @@ class City(
         }
         s.residentialIncome = (homes * residentialTax * Balance.RESIDENT_TAX).roundToLong()
         s.commercialIncome = (shops * commercialTax * Balance.JOB_TAX).roundToLong()
+        s.officeIncome = (offices * commercialTax * Balance.JOB_TAX * Balance.OFFICE_TAX).roundToLong()
         s.industrialIncome = (works * industrialTax * Balance.JOB_TAX).roundToLong()
         var roads = 0.0
         var lines = 0
@@ -3967,7 +3988,7 @@ class City(
         s.fireUpkeep = (fire * Balance.FIRE_UPKEEP * fireFunding / 100).roundToLong()
         s.parkUpkeep = (parks * Balance.PARK_UPKEEP * parkFunding / 100).roundToLong()
         s.fareIncome = (traffic.boardings() * Balance.FARE).roundToLong()
-        s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.fareIncome
+        s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.officeIncome + s.fareIncome
         var tramTiles = 0
         var wires = 0
         var tunnels = 0
@@ -4151,6 +4172,10 @@ class City(
         for (v in intArrayOf(s.farmJobs, s.farmJobsComing, s.farmDemand, quota[Zone.FARMLAND.toInt()])) w.int(v)
         for (a in arrayOf(s.goodsMade, s.goodsSold, s.goodsExported, s.goodsImported)) for (v in a) w.int(v)
         traffic.writeGoods(w)
+        // Since version 11.
+        w.int(quota[Zone.OFFICE.toInt()])
+        for (v in intArrayOf(s.officeJobs, s.officeJobsComing, s.officeDemand)) w.int(v)
+        w.long(s.officeIncome)
     }
 
     companion object {
@@ -4315,6 +4340,11 @@ class City(
                     for (a in arrayOf(s.goodsMade, s.goodsSold, s.goodsExported, s.goodsImported)) for (k in a.indices) a[k] = r.int()
                     c.traffic.readGoods(r)
                 }
+                if (version >= 11) {
+                    c.quota[Zone.OFFICE.toInt()] = r.int()
+                    s.officeJobs = r.int(); s.officeJobsComing = r.int(); s.officeDemand = r.int()
+                    s.officeIncome = r.long()
+                }
                 c.updateNetworks()
             } else {
                 // Before ageing nothing kept its age: count everything as laid half the town's life ago.
@@ -4427,6 +4457,7 @@ class Stats {
     var shopJobsComing = 0
     var industryJobsComing = 0
     var farmJobsComing = 0
+    var officeJobsComing = 0
 
     internal fun peopleNumbers(): IntArray = intArrayOf(
         children, adults, elderly, *byWealth, *workersBy, *jobsBy, *filledBy, health, spending,
@@ -4447,6 +4478,7 @@ class Stats {
     var shopJobs = 0
     var industryJobs = 0
     var farmJobs = 0
+    var officeJobs = 0
     var otherJobs = 0
     /** Percent of workers without a job, or without a way to get to one. */
     var unemployment = 0
@@ -4457,6 +4489,10 @@ class Stats {
     var commercialDemand = 0
     var industryDemand = 0
     var farmDemand = 0
+    var officeDemand = 0
+
+    /** Last month's taxes from office work. */
+    var officeIncome = 0L
 
     /**
      * Last month's goods, in loads by [Good]: made in town, taken by buyers in
@@ -4527,7 +4563,7 @@ class Stats {
     var pollution = 0
     var landValue = 0
 
-    val jobs get() = shopJobs + industryJobs + farmJobs + otherJobs
+    val jobs get() = shopJobs + industryJobs + farmJobs + officeJobs + otherJobs
 }
 
 /** A line a train ran last month: the track from end to end, and whether it carried passengers or freight, and how many. */

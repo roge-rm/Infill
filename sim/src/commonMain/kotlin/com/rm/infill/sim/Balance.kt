@@ -577,6 +577,12 @@ object Balance {
     const val LOCAL_APPEAL = 10
     const val FARMLAND_APPEAL = 45
     const val POOR_SOIL = 50
+    /** Office jobs the town wants for each hundred people, in 1900 and by 2000, and a few to start. */
+    const val OFFICES_1900 = 2.0
+    const val OFFICES_2000 = 16.0
+    const val OFFICE_BASE = 10.0
+    /** Office work pays more tax a job than a shop's, for the same land. */
+    const val OFFICE_TAX = 1.5
     /** At most how much a farmland lot appeals more for making what the town's short of. */
     const val SHORT_APPEAL = 25
 

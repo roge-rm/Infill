@@ -75,7 +75,7 @@ internal object Effects {
         val trees = SummedArea(w, h) { if (map.terrain[it] == Terrain.TREES) 1 else 0 }
         val foul = if (map.foul.any { it.toInt() != 0 }) SummedArea(w, h) { map.foul[it].toInt() and 0xff } else null
         val parks = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.PARK) 1 else 0 }
-        val shops = SummedArea(w, h) { buildingTypes(it)?.let { t -> if (t.zone == Zone.COMMERCIAL) t.capacity else 0 } ?: 0 }
+        val shops = SummedArea(w, h) { buildingTypes(it)?.let { t -> if (t.zone == Zone.COMMERCIAL || t.zone == Zone.OFFICE) t.capacity else 0 } ?: 0 }
         val industry = SummedArea(w, h) { if (buildingTypes(it)?.zone == Zone.INDUSTRIAL) 1 else 0 }
         val traffic = SummedArea(w, h) { map.congestion[it].toInt() and 0xff }
         val busy = SummedArea(w, h, activity)

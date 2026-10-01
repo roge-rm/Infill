@@ -1,5 +1,6 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.zone_office
 import com.rm.infill.res.zone_farmland
 import com.rm.infill.res.Res
 import com.rm.infill.res.tool_bulldoze
@@ -251,6 +252,7 @@ enum class ZoneKind(val zone: Byte, val title: StringResource) {
     Residential(Zone.RESIDENTIAL, Res.string.zone_residential),
     Commercial(Zone.COMMERCIAL, Res.string.zone_commercial),
     Industrial(Zone.INDUSTRIAL, Res.string.zone_industrial),
+    Office(Zone.OFFICE, Res.string.zone_office),
     Farmland(Zone.FARMLAND, Res.string.zone_farmland),
 }
 
