@@ -775,7 +775,7 @@ internal class Traffic(private val map: CityMap) {
      * Seconds by road from road tile [start] to every other, driving as the
      * traffic is now, or -1 where it can't be reached within a long trip.
      */
-    fun travelTimes(start: Int): IntArray {
+    fun travelTimes(start: Int, limit: Int = Balance.LONGEST_TRIP): IntArray {
         val t = IntArray(n) { -1 }
         if (map.road[start] == Road.NONE) return t
         val heap = LongHeap()
@@ -796,7 +796,7 @@ internal class Traffic(private val map: CityMap) {
                 val road = RoadType.of(map.road[b]) ?: continue
                 if (map.closed(b) || !canMove(map, a, b, h)) continue
                 val nd = d + timeToCross(b, road)
-                if (nd > Balance.LONGEST_TRIP || (t[b] in 0..nd)) continue
+                if (nd > limit || (t[b] in 0..nd)) continue
                 t[b] = nd
                 heap.push(nd.toLong() shl 32 or b.toLong())
             }

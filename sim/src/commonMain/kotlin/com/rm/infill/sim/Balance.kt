@@ -151,6 +151,20 @@ object Balance {
     const val POLICE_REACH = 14
     const val FIRE_REACH = 12
 
+    // Once they have motors, fire engines and police cars drive from their stations: full cover within the
+    // first of these many seconds by road, fading to none at the second. Police cars from this year.
+    const val FIRE_RESPONSE_FULL = 360
+    const val FIRE_RESPONSE_MOST = 600
+    const val POLICE_RESPONSE_FULL = 360
+    const val POLICE_RESPONSE_MOST = 600
+    const val PATROL_CAR_YEAR = 1920
+
+    // Crowding: how far past its places a school or doctor takes people in, in percent; each then gets
+    // the share its places make of those it takes.
+    const val OVERFILL = 140
+    /** A service runs at no less than this share of its strength, however short of staff the town is. */
+    const val LEAST_STAFF = 30
+
     /** Motor fire engines, from this year, reach further. */
     const val MOTOR_FIRE_YEAR = 1915
     const val MOTOR_FIRE_REACH = 18

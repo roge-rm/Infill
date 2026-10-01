@@ -44,17 +44,45 @@ class ServicesTest {
     }
 
     @Test
-    fun motorFireEnginesReachFurther() {
-        fun coverIn(year: Int): Int {
-            val c = City(1, 64, 64, TerrainOptions(water = 0, trees = 0, river = false))
+    fun motorFireEnginesDriveToFires() {
+        fun coverAt(year: Int, x: Int, avenue: Boolean = false): Int {
+            val c = City(1, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true }
             City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, year)
+            c.apply(Action.BuildRoad(Action.roadPath(c.map, 0, 12, 63, 12, true), if (avenue) RoadType.AVENUE else RoadType.STREET))
             c.apply(Action.PlaceBuilding(BuildingType.FIRE_STATION, 10, 10))
             repeat(32) { c.tick() }
-            // 14 tiles east of the hall: past a horse-drawn engine's reach, within a motor one's.
-            return c.map.fireCover[c.map.index(25, 11)].toInt() and 0xff
+            return c.map.fireCover[c.map.index(x, 11)].toInt() and 0xff
         }
-        assertEquals(0, coverIn(1905))
-        assertTrue(coverIn(1925) > 0)
+        // A horse-drawn engine reaches round its hall; nothing 16 tiles off.
+        assertEquals(0, coverAt(1905, 27))
+        // A motor engine drives along the street and gets there.
+        assertTrue(coverAt(1925, 27) > 0)
+        // A quicker road reaches further.
+        assertTrue(coverAt(1925, 34, avenue = true) > coverAt(1925, 34))
+        // And off any road it can't reach at all.
+        val c = City(1, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true }
+        City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, 1925)
+        c.apply(Action.BuildRoad(Action.roadPath(c.map, 0, 12, 63, 12, true), RoadType.STREET))
+        c.apply(Action.PlaceBuilding(BuildingType.FIRE_STATION, 10, 10))
+        repeat(32) { c.tick() }
+        assertEquals(0, c.map.fireCover[c.map.index(12, 30)].toInt() and 0xff)
+    }
+
+    @Test
+    fun aCrowdedSchoolTeachesLessAndShortStaffWeakensIt() {
+        val c = town()
+        c.everything = true
+        City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, 1930)
+        c.apply(Action.PlaceBuilding(BuildingType.SCHOOL, 20, 24))
+        c.run(3)
+        val school = c.buildingAt(20, 24)!!
+        assertTrue(school.room > 0)
+        // Short of educated people to teach, it's weaker.
+        val shortage = City::class.java.getDeclaredField("skillShortage").apply { isAccessible = true }.get(c) as IntArray
+        val full = c.strength(BuildingType.SCHOOL, 100)
+        shortage[Education.EDUCATED] = 80
+        assertTrue(c.strength(BuildingType.SCHOOL, 100) < full)
+        assertTrue(c.staffed(BuildingType.SCHOOL) >= Balance.LEAST_STAFF)
     }
 
     @Test

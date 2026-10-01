@@ -2323,12 +2323,61 @@ class City(
 
     private fun reach(base: Int, funding: Int) = base * (40 + 60 * funding.coerceIn(0, 100) / 100) / 100
 
+    /**
+     * Police and fire cover. On foot and by horse it reaches so far round each
+     * station; once they have motors, the crews drive, and cover is how long
+     * it takes them to get there by road, the traffic and the crossings as
+     * they are. Either way it's as much as the funding and the staff allow.
+     */
     private fun updateServices() {
-        val police = buildings.values.filter { it.type == BuildingType.POLICE_STATION }
-        val fire = buildings.values.filter { it.type == BuildingType.FIRE_STATION }
-        Effects.cover(map, police, reach(Balance.POLICE_REACH, policeFunding), map.policeCover)
-        val engines = if (year >= Balance.MOTOR_FIRE_YEAR) Balance.MOTOR_FIRE_REACH else Balance.FIRE_REACH
-        Effects.cover(map, fire, reach(engines, fireFunding), map.fireCover)
+        val police = buildings.values.filter { it.type == BuildingType.POLICE_STATION && it.underway == 0 }
+        val fire = buildings.values.filter { it.type == BuildingType.FIRE_STATION && it.underway == 0 }
+        val policeStrength = strength(BuildingType.POLICE_STATION, policeFunding)
+        val fireStrength = strength(BuildingType.FIRE_STATION, fireFunding)
+        if (year >= Balance.PATROL_CAR_YEAR) responseCover(police, Balance.POLICE_RESPONSE_FULL, Balance.POLICE_RESPONSE_MOST, policeStrength, map.policeCover)
+        else Effects.cover(map, police, Balance.POLICE_REACH * policeStrength / 100, map.policeCover)
+        if (year >= Balance.MOTOR_FIRE_YEAR) responseCover(fire, Balance.FIRE_RESPONSE_FULL, Balance.FIRE_RESPONSE_MOST, fireStrength, map.fireCover)
+        else Effects.cover(map, fire, Balance.FIRE_REACH * fireStrength / 100, map.fireCover)
+    }
+
+    /**
+     * How strong a service is, in percent: its funding (40% at none) and the
+     * share of its staff the town can find, by the schooling the work needs.
+     */
+    internal fun strength(type: BuildingType, funding: Int): Int {
+        val funded = 40 + 60 * funding.coerceIn(0, 100) / 100
+        return funded * staffed(type) / 100
+    }
+
+    /** The share of [type]'s staff the town has, in percent, by the schooling its work needs. */
+    fun staffed(type: BuildingType): Int {
+        val skills = Demography.jobSkills(type)
+        var share = 0
+        for (k in 0 until Education.LEVELS) share += skills[k] * (100 - skillShortage[k])
+        return (share / 100).coerceIn(Balance.LEAST_STAFF, 100)
+    }
+
+    /** Cover by road from [stations]: full within [full] seconds' drive, none past [most], both stretched by [strength]. */
+    private fun responseCover(stations: List<Building>, full: Int, most: Int, strength: Int, out: ByteArray) {
+        out.fill(0)
+        // Fewer crews are slower to get out, but they still drive at the speed of the roads.
+        val stretch = 50 + strength / 2
+        val f = full * stretch / 100
+        val l = max(f + 1, most * stretch / 100)
+        val best = IntArray(map.size) { Int.MAX_VALUE }
+        for (b in stations.sortedBy { it.id }) {
+            val node = accessOf(b)
+            if (node < 0) continue
+            val times = traffic.travelTimes(node, l)
+            for (i in 0 until map.size) if (times[i] in 0 until best[i]) best[i] = times[i]
+        }
+        for (i in 0 until map.size) {
+            val road = access[i]
+            if (road < 0) continue
+            val t = best[road]
+            if (t == Int.MAX_VALUE) continue
+            out[i] = (if (t <= f) 255 else 255 * (l - t) / (l - f)).coerceIn(0, 255).toByte()
+        }
     }
 
     /**
@@ -3428,24 +3477,39 @@ class City(
      * Places for [need] in each home at the buildings of [type], each taking
      * [places] fully funded, within [reach] of it, nearest homes first. By home.
      */
+    /**
+     * Shares out the places at each building of [type] among the [homes]
+     * within its reach, nearest first. A place takes in more than it has
+     * room for, up to [Balance.OVERFILL] percent, and then each gets as
+     * much as the room makes of the crowd: a crowded school teaches each
+     * child less. Funding and staff set the room and the reach.
+     */
     private fun allot(type: BuildingType, places: Int, reach: Int, funding: Int, homes: List<Building>, need: (Building) -> Int): HashMap<Int, Int> {
         val got = HashMap<Int, Int>()
-        val r = reach(reach, funding)
-        for (place in buildings.values) {
-            if (place.type != type) continue
-            var room = places * funding / 100
+        val strong = strength(type, funding)
+        val r = reach * strong / 100
+        for (place in buildings.values.sortedBy { it.id }) {
+            if (place.type != type || place.underway > 0) continue
+            val room = places * strong / 100
+            var left = room * Balance.OVERFILL / 100
             val cx = place.x + place.type.width / 2
             val cy = place.y + place.type.height / 2
             val near = homes.filter { abs(it.x - cx) + abs(it.y - cy) <= r }
                 .sortedWith(compareBy<Building>({ abs(it.x - cx) + abs(it.y - cy) }, { it.id }))
+            val taken = HashMap<Int, Int>()
             for (b in near) {
-                if (room == 0) break
-                val want = need(b) - (got[b.id] ?: 0)
+                if (left == 0) break
+                val want = need(b) - (got[b.id] ?: 0) - (taken[b.id] ?: 0)
                 if (want <= 0) continue
-                val t = min(room, want)
-                got[b.id] = (got[b.id] ?: 0) + t
-                room -= t
+                val t = min(left, want)
+                taken[b.id] = t
+                left -= t
             }
+            val all = taken.values.sum()
+            place.served = all
+            place.room = room
+            // Crowded, each gets the share the room makes of those taken in.
+            for ((id, t) in taken) got[id] = (got[id] ?: 0) + if (all > room) t * room / all else t
         }
         return got
     }

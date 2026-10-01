@@ -597,4 +597,7 @@
     <string name="clean_works">Pollution limit on works</string>
     <string name="rent_control">Rent control</string>
     <string name="inspect_district">District: %1$s</string>
+    <string name="inspect_staffed">Staffed %1$d%</string>
+    <string name="inspect_crowded">Crowded: %1$s in room for %2$s</string>
+    <string name="inspect_taking">%1$s of %2$s places taken</string>
 </resources>

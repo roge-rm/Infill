@@ -216,6 +216,10 @@ class Building(val id: Int, var type: BuildingType, val x: Int, val y: Int, val 
     /** Last month nobody took its garbage away. */
     var uncollected = false
 
+    /** For a school or doctor, last month: those it took in, and the room it had for them. */
+    var served = 0
+    var room = 0
+
     /** For a coal or oil station, scrubbers fitted to clean its smoke. */
     var scrubbed = false
 

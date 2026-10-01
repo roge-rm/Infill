@@ -34,6 +34,9 @@ import com.rm.infill.GameState
 import com.rm.infill.map.MapRenderer
 import com.rm.infill.res.inspect_district
 import com.rm.infill.res.inspect_scrubbed
+import com.rm.infill.res.inspect_staffed
+import com.rm.infill.res.inspect_crowded
+import com.rm.infill.res.inspect_taking
 import com.rm.infill.res.inspect_line_load
 import com.rm.infill.res.inspect_line_overloaded
 import com.rm.infill.res.inspect_lines
@@ -375,6 +378,17 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 add(stringResource(if (map.powered[i]) Res.string.has_power else Res.string.no_power))
             }
             if (building.scrubbed) add(stringResource(Res.string.inspect_scrubbed))
+            // A service: how well staffed the town can keep it, and how crowded it is.
+            if (t.service && t != BuildingType.PARK && building.underway == 0) {
+                val staffed = city.staffed(t)
+                if (staffed < 100) add(stringResource(Res.string.inspect_staffed, staffed))
+            }
+            if ((t.school || t.health) && building.room > 0) {
+                add(
+                    if (building.served > building.room) stringResource(Res.string.inspect_crowded, groupThousands(building.served.toLong()), groupThousands(building.room.toLong()))
+                    else stringResource(Res.string.inspect_taking, groupThousands(building.served.toLong()), groupThousands(building.room.toLong())),
+                )
+            }
             if (t == BuildingType.DUMP) add(stringResource(Res.string.dump_fill, (building.fill.toLong() * 100 / Balance.DUMP_ROOM).toInt()))
             // What it makes, from what, and how much of that's the town's.
             val kind = building.worksKind
