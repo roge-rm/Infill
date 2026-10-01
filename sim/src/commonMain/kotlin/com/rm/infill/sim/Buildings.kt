@@ -84,8 +84,20 @@ enum class BuildingType(
     INCINERATOR(Zone.NONE, 0, 12, width = 2, height = 2, year = 1930, life = 40),
     RECYCLING(Zone.NONE, 0, 15, width = 2, height = 2, year = 1975),
 
-    POLICE_STATION(Zone.NONE, 0, 10, width = 2, height = 1),
-    FIRE_STATION(Zone.NONE, 0, 12, width = 2, height = 2),
+    POLICE_STATION(Zone.NONE, 0, 10, width = 2, height = 1, life = 50),
+    FIRE_STATION(Zone.NONE, 0, 12, width = 2, height = 2, life = 50),
+
+    /** Fire: a volunteer hall, cheap and half as strong; a ladder company (from 1905), which tall buildings need. */
+    VOLUNTEER_HALL(Zone.NONE, 0, 2, life = 40),
+    LADDER_COMPANY(Zone.NONE, 0, 14, width = 2, height = 2, year = 1905, life = 50),
+
+    /** Health: an ambulance station (from 1910), and a nursing home for the elderly. */
+    AMBULANCE_STATION(Zone.NONE, 0, 10, width = 2, height = 1, year = 1910, life = 40),
+    NURSING_HOME(Zone.NONE, 0, 20, width = 2, height = 2, life = 50),
+
+    /** Learning: a library, and a college. */
+    LIBRARY(Zone.NONE, 0, 4, life = 60),
+    COLLEGE(Zone.NONE, 0, 50, width = 3, height = 3, life = 70),
     PARK(Zone.NONE, 0, 0),
 
     /** Stations and freight yards, placed beside the track, lying east to west or north to south. */
@@ -114,20 +126,23 @@ enum class BuildingType(
     SUBWAY_STATION(Zone.NONE, 0, 4, year = 1910),
 
     /** Schooling and health: a school, a high school (from 1910), a doctor's clinic and a hospital. */
-    SCHOOL(Zone.NONE, 0, 8, width = 2, height = 2),
-    HIGH_SCHOOL(Zone.NONE, 0, 16, width = 3, height = 2, year = 1910),
-    CLINIC(Zone.NONE, 0, 4),
-    HOSPITAL(Zone.NONE, 0, 60, width = 3, height = 3),
+    SCHOOL(Zone.NONE, 0, 8, width = 2, height = 2, life = 50),
+    HIGH_SCHOOL(Zone.NONE, 0, 16, width = 3, height = 2, year = 1910, life = 60),
+    CLINIC(Zone.NONE, 0, 4, life = 40),
+    HOSPITAL(Zone.NONE, 0, 60, width = 3, height = 3, life = 50),
     ;
 
     /** A building the city runs rather than one that grows on zoned land. */
-    val service get() = this == POLICE_STATION || this == FIRE_STATION || this == PARK || school || health
+    val service get() = this == POLICE_STATION || this == PARK || fire || school || health || this == LIBRARY
 
-    /** Teaches children. */
-    val school get() = this == SCHOOL || this == HIGH_SCHOOL
+    /** Fights fires. */
+    val fire get() = this == FIRE_STATION || this == VOLUNTEER_HALL || this == LADDER_COMPANY
+
+    /** Teaches. */
+    val school get() = this == SCHOOL || this == HIGH_SCHOOL || this == COLLEGE
 
     /** Looks after people's health. */
-    val health get() = this == CLINIC || this == HOSPITAL
+    val health get() = this == CLINIC || this == HOSPITAL || this == NURSING_HOME || this == AMBULANCE_STATION
 
     /** Passengers board here. */
     val station get() = this == STATION || this == STATION_NS

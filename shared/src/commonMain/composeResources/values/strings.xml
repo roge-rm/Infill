@@ -248,6 +248,20 @@
         <item quantity="other">Being relaid, %1$d days to go</item>
     </plurals>
     <string name="works_waiting">Waiting to be relaid</string>
+    <plurals name="renovating">
+        <item quantity="one">Being renovated, a day to go</item>
+        <item quantity="other">Being renovated, %1$d days to go</item>
+    </plurals>
+    <string name="inspect_worn">Worn out, working at %1$d%: renew it to renovate</string>
+    <string name="inspect_renovatable">Getting old: renew it to renovate</string>
+    <string name="volunteer_hall">Volunteer fire hall</string>
+    <string name="ladder_company">Ladder company</string>
+    <string name="ambulance_station">Ambulance station</string>
+    <string name="nursing_home">Nursing home</string>
+    <string name="library">Library</string>
+    <string name="college">College</string>
+    <string name="overlay_ambulance">Ambulances</string>
+    <string name="overlay_ladders">Ladders</string>
     <plurals name="broken_down">
         <item quantity="one">Broken down, a day to mend</item>
         <item quantity="other">Broken down, %1$d days to mend</item>

@@ -245,6 +245,12 @@ object Prices {
         BuildingType.HIGH_SCHOOL -> HIGH_SCHOOL
         BuildingType.CLINIC -> CLINIC
         BuildingType.HOSPITAL -> HOSPITAL
+        BuildingType.VOLUNTEER_HALL -> 500L
+        BuildingType.LADDER_COMPANY -> 2_500L
+        BuildingType.AMBULANCE_STATION -> 2_000L
+        BuildingType.NURSING_HOME -> 4_000L
+        BuildingType.LIBRARY -> 1_500L
+        BuildingType.COLLEGE -> 25_000L
         else -> 0L
     }
 }

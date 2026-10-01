@@ -256,7 +256,7 @@ enum class Glyph {
     Inspect, Bulldoze, Road, Rail, Drop, Zone, Bolt, Civic, Tram, Lights, District, Utilities,
     Plus, Erase, List, Remove, Renew, Pipe, Bank, Tunnel, Route, Auto, Scrubber, Low, Medium, High,
     Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
-    Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole,
+    Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance,
 }
 
 /** The drawing for [tool]. */
@@ -464,6 +464,18 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
             for (k in 0 until 4) drawRect(c.copy(alpha = 0.35f), Offset((4 + k * 4.5f) * u, 8 * u), Size(3.2f * u, 4 * u))
             drawCircle(c, 2.4f * u, Offset(7 * u, 19 * u))
             drawCircle(c, 2.4f * u, Offset(17 * u, 19 * u))
+        }
+        Glyph.Ladder -> {
+            line(7f, 2f, 9f, 22f, 2.2f * u); line(17f, 2f, 15f, 22f, 2.2f * u)
+            for (k in 0 until 5) line(7.4f + k * 0.1f, 5f + k * 4f, 16.6f - k * 0.1f, 5f + k * 4f, 1.8f * u)
+        }
+        Glyph.Ambulance -> {
+            drawRoundRect(c, Offset(2 * u, 7 * u), Size(20 * u, 11 * u), CornerRadius(2 * u))
+            drawCircle(c, 2.4f * u, Offset(7 * u, 19 * u))
+            drawCircle(c, 2.4f * u, Offset(17 * u, 19 * u))
+            drawRect(c.copy(alpha = 0.35f), Offset(10.5f * u, 8.5f * u), Size(3 * u, 8 * u))
+            drawRect(c.copy(alpha = 0.35f), Offset(8 * u, 11 * u), Size(8 * u, 3 * u))
+            drawRect(c, Offset(10 * u, 4 * u), Size(4 * u, 3 * u))
         }
         Glyph.Manhole -> {
             drawCircle(c, 9 * u, Offset(12 * u, 12 * u), style = Stroke(2.2f * u))

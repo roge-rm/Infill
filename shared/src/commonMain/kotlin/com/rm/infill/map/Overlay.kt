@@ -9,6 +9,8 @@ import androidx.compose.ui.unit.IntSize
 import com.rm.infill.res.Res
 import com.rm.infill.res.overlay_crime
 import com.rm.infill.res.overlay_fire
+import com.rm.infill.res.overlay_ladders
+import com.rm.infill.res.overlay_ambulance
 import com.rm.infill.res.overlay_land_value
 import com.rm.infill.res.overlay_none
 import com.rm.infill.res.overlay_police
@@ -53,6 +55,10 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     LineLoad(Res.string.overlay_line_load, Color(0xFF4CAF50), Color(0xFFD8302F)),
     Police(Res.string.overlay_police, Color(0x001E5AC8), Color(0xFF1E5AC8)),
     Fire(Res.string.overlay_fire, Color(0x00E67E22), Color(0xFFE67E22)),
+    /** Where a ladder company gets to in time, which a tall building's fire needs. */
+    Ladders(Res.string.overlay_ladders, Color(0x00C0392B), Color(0xFFC0392B)),
+    /** Where an ambulance gets to in time. */
+    Ambulance(Res.string.overlay_ambulance, Color(0x002FA8A0), Color(0xFF2FA8A0)),
     Traffic(Res.string.overlay_traffic, Color(0xFFFFF1B8), Color(0xFFD8302F)),
     Railway(Res.string.overlay_rail, Color(0xFFE6E1F5), Color(0xFF5B3FB5)),
     Water(Res.string.overlay_water, Color(0xFFD84343), Color(0xFF3F8FD8)),
@@ -95,6 +101,8 @@ internal fun overlayImage(
             Overlay.Crime -> map.crime[i].toInt() and 0xff
             Overlay.Police -> map.policeCover[i].toInt() and 0xff
             Overlay.Fire -> map.fireCover[i].toInt() and 0xff
+            Overlay.Ladders -> map.ladderCover[i].toInt() and 0xff
+            Overlay.Ambulance -> map.ambulanceCover[i].toInt() and 0xff
             Overlay.Power -> {
                 // Only what wants power: buildings, zones and lines.
                 if (map.building[i] == 0 && map.zone[i] == Zone.NONE && map.power[i].toInt() == 0) continue

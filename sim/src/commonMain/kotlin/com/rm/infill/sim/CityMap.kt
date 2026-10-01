@@ -181,6 +181,10 @@ class CityMap(val width: Int, val height: Int) {
     val policeCover = ByteArray(size)
     val fireCover = ByteArray(size)
 
+    /** Cover by ladder companies, which a tall building's fire needs, and by ambulances. */
+    val ladderCover = ByteArray(size)
+    val ambulanceCover = ByteArray(size)
+
     /** Days left burning on each tile of a building on fire, 0 for none. The map draws the flames from it. */
     val fire = ByteArray(size)
 

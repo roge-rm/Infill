@@ -41,6 +41,12 @@ import com.rm.infill.res.school
 import com.rm.infill.res.high_school
 import com.rm.infill.res.clinic
 import com.rm.infill.res.hospital
+import com.rm.infill.res.volunteer_hall
+import com.rm.infill.res.ladder_company
+import com.rm.infill.res.ambulance_station
+import com.rm.infill.res.nursing_home
+import com.rm.infill.res.library
+import com.rm.infill.res.college
 import com.rm.infill.res.tool_road
 import com.rm.infill.res.tool_rail
 import com.rm.infill.res.tool_water
@@ -239,12 +245,18 @@ enum class ServiceGroup(val title: StringResource) {
 enum class ServiceKind(val title: StringResource, val type: BuildingType?, val group: ServiceGroup) {
     Police(Res.string.police_station, BuildingType.POLICE_STATION, ServiceGroup.Police),
     Fire(Res.string.fire_station, BuildingType.FIRE_STATION, ServiceGroup.Fire),
+    Volunteers(Res.string.volunteer_hall, BuildingType.VOLUNTEER_HALL, ServiceGroup.Fire),
+    Ladders(Res.string.ladder_company, BuildingType.LADDER_COMPANY, ServiceGroup.Fire),
     Park(Res.string.park, BuildingType.PARK, ServiceGroup.Parks),
     StreetTrees(Res.string.street_trees, null, ServiceGroup.Parks),
     School(Res.string.school, BuildingType.SCHOOL, ServiceGroup.Schools),
     HighSchool(Res.string.high_school, BuildingType.HIGH_SCHOOL, ServiceGroup.Schools),
+    Library(Res.string.library, BuildingType.LIBRARY, ServiceGroup.Schools),
+    College(Res.string.college, BuildingType.COLLEGE, ServiceGroup.Schools),
     Clinic(Res.string.clinic, BuildingType.CLINIC, ServiceGroup.Health),
     Hospital(Res.string.hospital, BuildingType.HOSPITAL, ServiceGroup.Health),
+    Ambulance(Res.string.ambulance_station, BuildingType.AMBULANCE_STATION, ServiceGroup.Health),
+    Nursing(Res.string.nursing_home, BuildingType.NURSING_HOME, ServiceGroup.Health),
     Dump(Res.string.dump, BuildingType.DUMP, ServiceGroup.Waste),
     Incinerator(Res.string.incinerator, BuildingType.INCINERATOR, ServiceGroup.Waste),
     Recycling(Res.string.recycling, BuildingType.RECYCLING, ServiceGroup.Waste),

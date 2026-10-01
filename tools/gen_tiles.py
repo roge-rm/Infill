@@ -3142,6 +3142,217 @@ def glass_tower(look, v):
     return b
 
 
+# The deeper services: a volunteer fire hall, a ladder company, an ambulance
+# station, a nursing home, a library and a college round its green.
+
+FIRE_RED = c("#c0392b")
+
+
+def volunteer_hall(look, v):
+    """A small timber hall on one tile with a single red door and a siren on a pole."""
+    b = Building(height=STOREY + 14)
+    d = b.d
+    gx0, gy0 = b.ground(6, 24)
+    gx1, gy1 = b.ground(26, 31)
+    d.rectangle([gx0, gy0, gx1, gy1], c("#b8b2a6") if look != "snow" else c("#dfe5ea"))
+    roof, wall = b.box(5, 6, 27, 23, STOREY + 3)
+    siding(d, wall, c("#d8cdb2") if v == 0 else c("#9a5a3e"))
+    x0, y0, x1, y1 = wall
+    d.rectangle([x0 + 6, y1 - 8, x1 - 6, y1], FIRE_RED)
+    d.line([(x0 + x1) // 2, y1 - 8, (x0 + x1) // 2, y1], c("#8e2a20"))
+    d.rectangle(wall, outline=OUTLINE)
+    gable_ew(d, roof, SHINGLE[1] if v == 0 else SHINGLE[0], look)
+    # The siren on its pole.
+    px, py = b.ground(28, 10)
+    d.line([px, py, px, py - 16], c("#6a6a70"))
+    d.rectangle([px - 1, py - 18, px + 1, py - 16], c("#d9b44a"), OUTLINE)
+    b.casters.append((1, 27, 9, 29, 11, 16))
+    return b
+
+
+def ladder_company(look, v):
+    """A wide brick hall on 2 by 2 tiles, one tall door, a drill tower, and the ladder truck out on the apron."""
+    b = Building(2, 2, height=5 * STOREY + 4)
+    d = b.d
+    gx0, gy0 = b.ground(4, 46)
+    gx1, gy1 = b.ground(52, 61)
+    d.rectangle([gx0, gy0, gx1, gy1], c("#b8b2a6") if look != "snow" else c("#dfe5ea"))
+    roof, wall = b.box(4, 8, 44, 44, 2 * STOREY + 4)
+    brick(d, wall, c("#8a4234"))
+    x0, y0, x1, y1 = wall
+    windows(d, (x0, y0, x1, y0 + STOREY), 1, sill=TRIM, every=5)
+    d.rectangle([x0 + 8, y1 - 11, x1 - 8, y1], FIRE_RED)
+    for k in range(x0 + 12, x1 - 8, 6):
+        d.line([k, y1 - 11, k, y1], c("#8e2a20"))
+    d.rectangle([x0 + 8, y1 - 12, x1 - 8, y1 - 12], STONE)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(8700), [("vent", 8, 6), ("stack", 30, 4)], parapet=STONE)
+    # The drill tower, open at the top.
+    troof, twall = b.box(48, 10, 58, 22, 5 * STOREY)
+    brick(d, twall, c("#7a3a2e"))
+    tx0, ty0, tx1, ty1 = twall
+    for k in range(5):
+        d.rectangle([tx0 + 3, ty0 + 3 + k * 7, tx0 + 6, ty0 + 5 + k * 7], WINDOW)
+    d.rectangle(twall, outline=OUTLINE)
+    d.rectangle(troof, SNOW_ROOF[0] if look == "snow" else c("#5a5a60"), OUTLINE)
+    # The ladder truck: a long red body with the ladder along its top.
+    tx, ty = b.ground(10, 50)
+    d.rectangle([tx, ty, tx + 30, ty + 6], FIRE_RED, OUTLINE)
+    d.rectangle([tx + 24, ty + 1, tx + 29, ty + 4], c("#6c7f8a"))
+    d.line([tx + 2, ty + 2, tx + 22, ty + 2], c("#e6e6e6"))
+    d.line([tx + 2, ty + 4, tx + 22, ty + 4], c("#e6e6e6"))
+    for k in range(tx + 3, tx + 22, 3):
+        d.line([k, ty + 2, k, ty + 4], c("#e6e6e6"))
+    b.casters.append((1, 10, 50, 41, 57, 4))
+    return b
+
+
+def ambulance_station(look, v):
+    """A low pale brick station on 2 by 1 tiles with two bay doors and an ambulance by them."""
+    b = Building(2, 1, height=STOREY + 6)
+    d = b.d
+    gx0, gy0 = b.ground(4, 23)
+    gx1, gy1 = b.ground(60, 31)
+    d.rectangle([gx0, gy0, gx1, gy1], c("#b8b2a6") if look != "snow" else c("#dfe5ea"))
+    roof, wall = b.box(4, 4, 60, 22, STOREY + 4)
+    brick(d, wall, c("#c9b89a"))
+    x0, y0, x1, y1 = wall
+    for dx in (4, 20):
+        d.rectangle([x0 + dx, y1 - 8, x0 + dx + 12, y1], c("#e8e8e4"))
+        for k in range(1, 4):
+            d.line([x0 + dx, y1 - 8 + k * 2, x0 + dx + 12, y1 - 8 + k * 2], c("#b0b0ac"))
+    door(d, (x0 + 36, y0, x1, y1), c("#3a4f6a"))
+    d.rectangle([x1 - 10, y0 + 2, x1 - 4, y0 + 6], c("#ffffff"), OUTLINE)
+    d.line([x1 - 7, y0 + 3, x1 - 7, y0 + 5], FIRE_RED)
+    d.line([x1 - 8, y0 + 4, x1 - 6, y0 + 4], FIRE_RED)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(8710), [("vent", 10, 4), ("vent", 40, 6)], parapet=STONE)
+    # The ambulance, white with a red stripe.
+    ax, ay = b.ground(40, 24)
+    d.rectangle([ax, ay, ax + 14, ay + 5], c("#f2f2ee"), OUTLINE)
+    d.line([ax + 1, ay + 3, ax + 13, ay + 3], FIRE_RED)
+    d.rectangle([ax + 10, ay + 1, ax + 13, ay + 2], c("#6c7f8a"))
+    return b
+
+
+def nursing_home(look, v):
+    """A long two storey home on 2 by 2 tiles with a deep porch, set in a garden with paths and benches."""
+    b = Building(2, 2, height=2 * STOREY + 10)
+    d = b.d
+    gx0, gy0 = b.ground(2, 2)
+    gx1, gy1 = b.ground(61, 61)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else c("#86a85e"))
+    px, py = b.ground(28, 40)
+    d.rectangle([px, py, px + 6, gy1], PATH if look != "snow" else c("#cfd8df"))
+    d.rectangle([gx0 + 6, gy1 - 8, gx1 - 6, gy1 - 6], PATH if look != "snow" else c("#cfd8df"))
+    roof, wall = b.box(6, 8, 58, 36, 2 * STOREY + 2)
+    if v == 0:
+        siding(d, wall, c("#eee6d2"))
+    else:
+        brick(d, wall, c("#a86a4e"))
+    windows(d, wall, 2, sill=TRIM, every=5, skip_door=True)
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    # The porch along the front, under its own roof.
+    d.rectangle([x0 + 6, y1 - 7, x1 - 6, y1 - 6], TRIM)
+    for k in range(x0 + 6, x1 - 5, 6):
+        d.line([k, y1 - 5, k, y1], TRIM)
+    d.rectangle([cx - 2, y1 - 5, cx + 2, y1], c("#5a3a2a"))
+    d.rectangle(wall, outline=OUTLINE)
+    gable_ew(d, roof, SHINGLE[2] if v == 0 else SHINGLE[0], look)
+    if look != "snow":
+        for (fx, fy) in ((10, 44), (48, 44), (14, 54), (44, 54)):
+            x, y = b.ground(fx, fy)
+            d.rectangle([x, y, x + 4, y + 1], c("#6b4a2a"))
+        for k, (fx, fy) in enumerate(((4, 42), (56, 50), (6, 56))):
+            x, y = b.ground(fx, fy)
+            d.ellipse([x, y, x + 3, y + 3], FLOWERS[k % len(FLOWERS)])
+    return b
+
+
+def library(look, v):
+    """A small library on one tile: stone or brick, columns at the door, steps, and a dome or a pediment."""
+    b = Building(height=2 * STOREY + 8)
+    d = b.d
+    gx0, gy0 = b.ground(3, 25)
+    gx1, gy1 = b.ground(28, 30)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else c("#86a85e"))
+    roof, wall = b.box(4, 6, 28, 24, 2 * STOREY)
+    wall_col = c("#d8cfb8") if v == 0 else c("#9a5040")
+    d.rectangle(wall, wall_col)
+    x0, y0, x1, y1 = wall
+    for yy in range(y0 + 3, y1, 4):
+        d.line([x0 + 1, yy, x1 - 1, yy], shade(wall_col, 0.92))
+    cx = (x0 + x1) // 2
+    windows(d, wall, 2, glass=c("#46586a"), sill=TRIM, every=6, width=2, height=4, skip=[(cx - 6, cx + 6)])
+    d.rectangle([cx - 5, y1 - 10, cx + 5, y1], c("#e6dfcc"))
+    for k in (-4, -1, 2, 4):
+        d.line([cx + k, y1 - 9, cx + k, y1], c("#bfb7a4"))
+    d.rectangle([cx - 1, y1 - 5, cx + 1, y1], c("#4a3226"))
+    d.polygon([(cx - 6, y1 - 10), (cx, y1 - 14), (cx + 6, y1 - 10)], TRIM, OUTLINE)
+    d.rectangle([cx - 6, y1 + 1, cx + 6, y1 + 2], STONE)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(8720 + v), [], parapet=STONE)
+    if v == 0:
+        rx0, ry0, rx1, ry1 = roof
+        mx, my = (rx0 + rx1) // 2, (ry0 + ry1) // 2
+        d.ellipse([mx - 5, my - 5, mx + 5, my + 5], SNOW_ROOF[0] if look == "snow" else c("#6e8f86"), OUTLINE)
+        d.ellipse([mx - 2, my - 3, mx + 1, my], c("#8fb0a6") if look != "snow" else c("#ffffff"))
+    return b
+
+
+def college(look, v):
+    """A college on 3 by 3 tiles: halls round three sides of a green, with a clock tower on the hall at the back."""
+    b = Building(3, 3, height=5 * STOREY + 10)
+    d = b.d
+    rng = random.Random(8730 + v)
+    gx0, gy0 = b.ground(2, 2)
+    gx1, gy1 = b.ground(93, 93)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else c("#7fa05a"))
+    wall_col = c("#c9b893") if v == 0 else c("#8e4a3a")
+    roof_col = SHINGLE[0] if v == 0 else SHINGLE[2]
+
+    def hall(x0_, y0_, x1_, y1_, storeys):
+        roof, wall = b.box(x0_, y0_, x1_, y1_, storeys * STOREY + 2)
+        if v == 0:
+            d.rectangle(wall, wall_col)
+            wx0, wy0, wx1, wy1 = wall
+            for yy in range(wy0 + 3, wy1, 4):
+                d.line([wx0 + 1, yy, wx1 - 1, yy], shade(wall_col, 0.92))
+        else:
+            brick(d, wall, wall_col)
+        windows(d, wall, storeys, glass=c("#46586a"), sill=TRIM, every=5, width=2, height=4)
+        d.rectangle(wall, outline=OUTLINE)
+        return roof, wall
+
+    # The back hall, then the two side halls in front of it.
+    roof, wall = hall(6, 6, 90, 30, 3)
+    gable_ew(d, roof, roof_col, look)
+    for (x0_, x1_) in ((6, 26), (70, 90)):
+        roof, wall = hall(x0_, 28, x1_, 80, 2)
+        flat_roof(b.img, roof, look, rng, [("vent", 6, 10)], parapet=STONE)
+    # The green in the middle, crossed by paths.
+    qx0, qy0 = b.ground(30, 36)
+    qx1, qy1 = b.ground(66, 90)
+    if look != "snow":
+        d.rectangle([qx0, qy0, qx1, qy1], c("#8db866"))
+        d.line([qx0, qy0, qx1, qy1], PATH)
+        d.line([qx1, qy0, qx0, qy1], PATH)
+        d.rectangle([(qx0 + qx1) // 2 - 1, qy0, (qx0 + qx1) // 2 + 1, qy1], PATH)
+    # The clock tower over the middle of the back hall.
+    troof, twall = b.box(42, 14, 54, 26, 5 * STOREY + 6)
+    d.rectangle(twall, wall_col)
+    tx0, ty0, tx1, ty1 = twall
+    tcx = (tx0 + tx1) // 2
+    d.ellipse([tcx - 3, ty0 + 3, tcx + 3, ty0 + 9], c("#f2f2ea"), OUTLINE)
+    d.line([tcx, ty0 + 6, tcx, ty0 + 4], OUTLINE)
+    d.line([tcx, ty0 + 6, tcx + 2, ty0 + 6], OUTLINE)
+    d.rectangle(twall, outline=OUTLINE)
+    rx0, ry0, rx1, ry1 = troof
+    d.polygon([(rx0, ry1), ((rx0 + rx1) // 2, ry0 - 6), (rx1, ry1)], SNOW_ROOF[0] if look == "snow" else c("#5a6a70"), OUTLINE)
+    return b
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -3161,6 +3372,8 @@ BUILDINGS = [
     ("substation", substation, 1), ("dump", dump, 2), ("incinerator", incinerator, 1), ("recycling", recycling, 1),
     ("farm", farm, 2), ("woodlot", woodlot, 3), ("mine", mine, 1), ("colliery", colliery, 1), ("oil_well", oil_well, 1),
     ("offices", offices, 3), ("office_building", office_building, 2), ("office_tower", office_tower, 2), ("glass_tower", glass_tower, 2),
+    ("volunteer_hall", volunteer_hall, 2), ("ladder_company", ladder_company, 1), ("ambulance_station", ambulance_station, 1),
+    ("nursing_home", nursing_home, 2), ("library", library, 2), ("college", college, 2),
 ]
 
 

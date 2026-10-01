@@ -162,6 +162,38 @@ object Balance {
     // Crowding: how far past its places a school or doctor takes people in, in percent; each then gets
     // the share its places make of those it takes.
     const val OVERFILL = 140
+
+    // The new services. A volunteer hall's strength against a fire station's, in percent. Ladders from
+    // 1905, without which a tall building's fire can't be fought. Ambulances: health they add at full cover,
+    // and the share of adult and elderly deaths they save. A nursing home's places and the share of its
+    // residents' deaths it saves. A library's reach and the schooling it adds. A college's places and reach,
+    // and the appeal it lends offices nearby.
+    const val VOLUNTEER_STRENGTH = 50
+    const val LADDER_YEAR = 1905
+    const val AMBULANCE_HEALTH = 8
+    const val AMBULANCE_SAVES = 25
+    const val NURSING_PLACES = 150
+    const val NURSING_REACH = 14
+    const val NURSING_SAVES = 30
+    const val LIBRARY_REACH = 10
+    const val LIBRARY_SCHOOLING = 15
+    const val COLLEGE_PLACES = 600
+    const val COLLEGE_REACH = 30
+    const val COLLEGE_OFFICES = 8
+
+    // Upkeep a month.
+    const val VOLUNTEER_UPKEEP = 8.0
+    const val LADDER_UPKEEP = 40.0
+    const val AMBULANCE_UPKEEP = 35.0
+    const val NURSING_UPKEEP = 40.0
+    const val LIBRARY_UPKEEP = 12.0
+    const val COLLEGE_UPKEEP = 150.0
+
+    // A service past its expected life works at less, by half a point a point of wear past it, down to this;
+    // renovating one costs this share of its price and shuts it for this many days.
+    const val WORN_SERVICE = 60
+    const val RENOVATE_SHARE = 30
+    const val RENOVATE_DAYS = 30
     /** A service runs at no less than this share of its strength, however short of staff the town is. */
     const val LEAST_STAFF = 30
 

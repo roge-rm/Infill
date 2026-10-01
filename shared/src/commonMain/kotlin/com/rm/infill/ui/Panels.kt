@@ -28,6 +28,15 @@ import com.rm.infill.map.MapRenderer
 import com.rm.infill.res.inspect_district
 import com.rm.infill.res.inspect_scrubbed
 import com.rm.infill.res.inspect_staffed
+import com.rm.infill.res.inspect_worn
+import com.rm.infill.res.inspect_renovatable
+import com.rm.infill.res.renovating
+import com.rm.infill.res.volunteer_hall
+import com.rm.infill.res.ladder_company
+import com.rm.infill.res.ambulance_station
+import com.rm.infill.res.nursing_home
+import com.rm.infill.res.library
+import com.rm.infill.res.college
 import com.rm.infill.res.inspect_crowded
 import com.rm.infill.res.inspect_taking
 import com.rm.infill.res.inspect_line_load
@@ -234,6 +243,7 @@ import com.rm.infill.res.inspect_zone_residential
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.Power
 import com.rm.infill.sim.Balance
+import com.rm.infill.sim.Ageing
 import com.rm.infill.sim.Junction
 import com.rm.infill.sim.Resource
 import com.rm.infill.sim.Land
@@ -333,7 +343,14 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
             }
             if (building.uncollected) add(stringResource(Res.string.inspect_garbage))
             if (building.burning > 0) add(stringResource(Res.string.on_fire))
-            if (building.outage > 0) add(pluralStringResource(Res.plurals.broken_down, building.outage, building.outage))
+            // A service shut and new again is being renovated; anything else shut has broken down.
+            if (building.outage > 0 && t.service && building.built >= city.monthNow - 1) add(pluralStringResource(Res.plurals.renovating, building.outage, building.outage))
+            else if (building.outage > 0) add(pluralStringResource(Res.plurals.broken_down, building.outage, building.outage))
+            else if (t.service && t.life > 0 && building.underway == 0) {
+                val condition = city.condition(building)
+                if (condition < 100) add(stringResource(Res.string.inspect_worn, condition))
+                else if (city.renovatable(building) && Ageing.wear(city.monthNow - building.built, t.life) >= GETTING_OLD) add(stringResource(Res.string.inspect_renovatable))
+            }
             if (building.underway == 0 && t != BuildingType.PARK) add(stringResource(Res.string.built_in, yearOf(building.built)))
             if (city.isHeritage(building)) add(stringResource(Res.string.heritage))
             if (town) {
@@ -527,6 +544,12 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.HIGH_SCHOOL -> Res.string.high_school
     BuildingType.CLINIC -> Res.string.clinic
     BuildingType.HOSPITAL -> Res.string.hospital
+    BuildingType.VOLUNTEER_HALL -> Res.string.volunteer_hall
+    BuildingType.LADDER_COMPANY -> Res.string.ladder_company
+    BuildingType.AMBULANCE_STATION -> Res.string.ambulance_station
+    BuildingType.NURSING_HOME -> Res.string.nursing_home
+    BuildingType.LIBRARY -> Res.string.library
+    BuildingType.COLLEGE -> Res.string.college
     BuildingType.ROW_HOUSES -> Res.string.building_row_houses
     BuildingType.APARTMENTS -> Res.string.building_apartments
     BuildingType.APARTMENT_COURT -> Res.string.building_apartment_court
@@ -658,6 +681,9 @@ internal fun level(v: Int): String = stringResource(
 )
 
 fun zoneColour(zone: Byte): Color = Color(0xFF000000.toInt() or MapRenderer.ZONE_COLOURS[zone.toInt()])
+
+/** How far through its life, in percent, a service is before inspect suggests renovating it. */
+private const val GETTING_OLD = 80
 
 /** How much a tile has to remember of a flood for inspect to mention it. */
 private const val FLOODED_BEFORE = 32

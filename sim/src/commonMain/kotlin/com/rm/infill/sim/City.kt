@@ -270,11 +270,19 @@ class City(
                     }
                 }
             }
-            is Action.RenewArea -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
-                val (bits, price) = renewal(i)
-                if (bits != 0) {
-                    changes += i
-                    cost += price
+            is Action.RenewArea -> {
+                forRect(action.x0, action.y0, action.x1, action.y1) { i ->
+                    val (bits, price) = renewal(i)
+                    if (bits != 0) {
+                        changes += i
+                        cost += price
+                    }
+                }
+                // Worn services under it are renovated, by their first tile.
+                for (b in renovations(action)) {
+                    val i = m.index(b.x, b.y)
+                    if (i !in changes) changes += i
+                    cost += Prices.of(b.type) * Balance.RENOVATE_SHARE / 100
                 }
             }
             is Action.RemoveTransit -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
@@ -539,6 +547,25 @@ class City(
         return bits to cost
     }
 
+    /** Puts [b]'s age and closure back to [built] and [outage], for undo and redo. */
+    private fun reopen(b: Building, built: Int, outage: Int) {
+        b.built = built
+        b.outage = outage
+        if (outage > 0) outages += b.id else outages -= b.id
+    }
+
+    /** The worn services with a tile under [action]'s rectangle, which it renovates. */
+    private fun renovations(action: Action.RenewArea): List<Building> {
+        val m = map
+        val ids = HashSet<Int>()
+        forRect(action.x0, action.y0, action.x1, action.y1) { i -> if (m.building[i] != 0) ids += m.building[i] }
+        return ids.sorted().mapNotNull { buildings[it] }.filter { renovatable(it) }
+    }
+
+    /** Whether [b] is a service worn enough to renovate, and open. */
+    fun renovatable(b: Building): Boolean =
+        b.type.service && b.type.life > 0 && b.outage == 0 && b.underway == 0 && Ageing.wear(monthNow - b.built, b.type.life) >= Balance.RENEWABLE_WEAR
+
     /** Whether what was laid on tile [i] in [laid], expected to last [life] years, is worn enough to relay. */
     private fun worn(laid: ShortArray, i: Int, life: Int): Boolean = Ageing.wear(monthNow - laid[i], life) >= Balance.RENEWABLE_WEAR
 
@@ -691,6 +718,8 @@ class City(
         /** The stations with scrubbers before and after. */
         val scrubbedBefore: Set<Int>,
         val scrubbedAfter: Set<Int>,
+        /** Each building renovated: its id, and when it was built and how long it's shut, before and after. */
+        val renovated: List<IntArray> = emptyList(),
     )
 
     private val undoable = ArrayDeque<Edit>()
@@ -711,6 +740,7 @@ class City(
         val linesBefore = lines.map { it.copy() }
         val districtsBefore = districts.map { it.copy() }
         val scrubbedBefore = buildings.values.filter { it.scrubbed }.map { it.id }.toSet()
+        val renovated = ArrayList<IntArray>()
         val now = monthNow
         var queued = 0
         val added = ArrayList<Building>()
@@ -805,6 +835,17 @@ class City(
             }
             is Action.PlaceStop -> for (i in plan.changes) m.stop[i] = (m.stop[i].toInt() or action.kind).toByte()
             is Action.RenewArea -> for (i in plan.changes) {
+                // A renovated service is as good as new, once it opens again.
+                val b = buildings[m.building[i]]
+                if (b != null && b.x == i % m.width && b.y == i / m.width && renovatable(b)) {
+                    val was = intArrayOf(b.id, b.built, b.outage, 0, 0)
+                    b.built = now
+                    b.outage = Balance.RENOVATE_DAYS
+                    outages += b.id
+                    was[3] = b.built
+                    was[4] = b.outage
+                    renovated += was
+                }
                 val (bits, _) = renewal(i)
                 if (bits == 0) continue
                 val stamp = now.toShort()
@@ -912,6 +953,7 @@ class City(
                 linesBefore, lines.map { it.copy() },
                 districtsBefore, districts.map { it.copy() },
                 scrubbedBefore, buildings.values.filter { it.scrubbed }.map { it.id }.toSet(),
+                renovated,
             ),
         )
         if (undoable.size > MAX_UNDO) undoable.removeFirst()
@@ -955,6 +997,7 @@ class City(
         districts.clear()
         districts += e.districtsBefore.map { it.copy() }
         for (b in buildings.values) b.scrubbed = b.id in e.scrubbedBefore
+        for (r in e.renovated) buildings[r[0]]?.let { reopen(it, r[1], r[2]) }
         updateTransit()
         funds += e.cost
         redoable.addLast(e)
@@ -989,6 +1032,7 @@ class City(
         districts.clear()
         districts += e.districtsAfter.map { it.copy() }
         for (b in buildings.values) b.scrubbed = b.id in e.scrubbedAfter
+        for (r in e.renovated) buildings[r[0]]?.let { reopen(it, r[3], r[4]) }
         updateTransit()
         funds -= e.cost
         undoable.addLast(e)
@@ -2330,15 +2374,48 @@ class City(
      * they are. Either way it's as much as the funding and the staff allow.
      */
     private fun updateServices() {
-        val police = buildings.values.filter { it.type == BuildingType.POLICE_STATION && it.underway == 0 }
-        val fire = buildings.values.filter { it.type == BuildingType.FIRE_STATION && it.underway == 0 }
-        val policeStrength = strength(BuildingType.POLICE_STATION, policeFunding)
-        val fireStrength = strength(BuildingType.FIRE_STATION, fireFunding)
-        if (year >= Balance.PATROL_CAR_YEAR) responseCover(police, Balance.POLICE_RESPONSE_FULL, Balance.POLICE_RESPONSE_MOST, policeStrength, map.policeCover)
-        else Effects.cover(map, police, Balance.POLICE_REACH * policeStrength / 100, map.policeCover)
-        if (year >= Balance.MOTOR_FIRE_YEAR) responseCover(fire, Balance.FIRE_RESPONSE_FULL, Balance.FIRE_RESPONSE_MOST, fireStrength, map.fireCover)
-        else Effects.cover(map, fire, Balance.FIRE_REACH * fireStrength / 100, map.fireCover)
+        fun of(t: BuildingType) = buildings.values.filter { it.type == t }.sortedBy { it.id }
+        val motor = year >= Balance.MOTOR_FIRE_YEAR
+        cover(of(BuildingType.POLICE_STATION), year >= Balance.PATROL_CAR_YEAR, Balance.POLICE_REACH, Balance.POLICE_RESPONSE_FULL, Balance.POLICE_RESPONSE_MOST, policeFunding, 100, map.policeCover)
+        // Fire halls, and volunteer halls at half the strength.
+        cover(of(BuildingType.FIRE_STATION), motor, Balance.FIRE_REACH, Balance.FIRE_RESPONSE_FULL, Balance.FIRE_RESPONSE_MOST, fireFunding, 100, map.fireCover)
+        val volunteers = ByteArray(map.size)
+        cover(of(BuildingType.VOLUNTEER_HALL), motor, Balance.FIRE_REACH, Balance.FIRE_RESPONSE_FULL, Balance.FIRE_RESPONSE_MOST, fireFunding, Balance.VOLUNTEER_STRENGTH, volunteers)
+        for (i in 0 until map.size) if ((volunteers[i].toInt() and 0xff) > (map.fireCover[i].toInt() and 0xff)) map.fireCover[i] = volunteers[i]
+        cover(of(BuildingType.LADDER_COMPANY), motor, Balance.FIRE_REACH, Balance.FIRE_RESPONSE_FULL, Balance.FIRE_RESPONSE_MOST, fireFunding, 100, map.ladderCover)
+        cover(of(BuildingType.AMBULANCE_STATION), true, Balance.FIRE_REACH, Balance.FIRE_RESPONSE_FULL, Balance.FIRE_RESPONSE_MOST, healthFunding, 100, map.ambulanceCover)
     }
+
+    /**
+     * Cover from [stations] into [out]: by road once they [drive], within
+     * [full] to [most] seconds, else round each within [reach] tiles; each
+     * as strong as its funding, staff and age allow, times [share] percent.
+     */
+    private fun cover(stations: List<Building>, drive: Boolean, reach: Int, full: Int, most: Int, funding: Int, share: Int, out: ByteArray) {
+        out.fill(0)
+        val each = ByteArray(map.size)
+        for (b in stations) {
+            val strong = strengthOf(b, funding) * share / 100
+            if (strong <= 0) continue
+            if (drive) responseCover(listOf(b), full, most, strong, each)
+            else Effects.cover(map, listOf(b), reach * strong / 100, each)
+            for (i in 0 until map.size) if ((each[i].toInt() and 0xff) > (out[i].toInt() and 0xff)) out[i] = each[i]
+        }
+    }
+
+    /** The colleges, for offices to be near. */
+    private val colleges get() = buildings.values.filter { it.type == BuildingType.COLLEGE && it.underway == 0 }
+
+    /** How well [b] still works for its age, in percent: fully until its expected life, less past it. */
+    fun condition(b: Building): Int {
+        if (b.type.life == 0) return 100
+        val wear = Ageing.wear(monthNow - b.built, b.type.life)
+        return if (wear <= 100) 100 else max(Balance.WORN_SERVICE, 100 - (wear - 100) / 2)
+    }
+
+    /** [b]'s strength: its kind's, for its age, nothing while it's shut. */
+    private fun strengthOf(b: Building, funding: Int): Int =
+        if (b.outage > 0 || b.underway > 0) 0 else strength(b.type, funding) * condition(b) / 100
 
     /**
      * How strong a service is, in percent: its funding (40% at none) and the
@@ -2359,6 +2436,10 @@ class City(
 
     /** Cover by road from [stations]: full within [full] seconds' drive, none past [most], both stretched by [strength]. */
     private fun responseCover(stations: List<Building>, full: Int, most: Int, strength: Int, out: ByteArray) {
+        if (stations.isEmpty()) {
+            out.fill(0)
+            return
+        }
         out.fill(0)
         // Fewer crews are slower to get out, but they still drive at the speed of the roads.
         val stretch = 50 + strength / 2
@@ -2449,7 +2530,10 @@ class City(
         val burning = buildings.values.filter { it.burning > 0 }
         for (b in burning) {
             val i = map.index(b.x, b.y)
-            val cover = fireCoverAt(i)
+            // A tall building's fire needs ladders too.
+            // Without them the hall can do a third as much.
+            val fire = fireCoverAt(i)
+            val cover = if (b.type.density == Density.HIGH) min(fire, max(map.ladderCover[i].toInt() and 0xff, fire / 3)) else fire
             // A covered fire burns out twice as fast.
             b.burning -= if (cover >= Balance.FIRE_SAVED) 2 else 1
             if (rng.nextInt(100) < Balance.FIRE_SPREAD && cover < 160) {
@@ -3489,8 +3573,9 @@ class City(
         val strong = strength(type, funding)
         val r = reach * strong / 100
         for (place in buildings.values.sortedBy { it.id }) {
-            if (place.type != type || place.underway > 0) continue
-            val room = places * strong / 100
+            if (place.type != type || place.underway > 0 || place.outage > 0) continue
+            val good = condition(place)
+            val room = places * strong / 100 * good / 100
             var left = room * Balance.OVERFILL / 100
             val cx = place.x + place.type.width / 2
             val cy = place.y + place.type.height / 2
@@ -3531,6 +3616,12 @@ class City(
         val teens = allot(BuildingType.HIGH_SCHOOL, Balance.HIGH_SCHOOL_PLACES, Balance.HIGH_SCHOOL_REACH, schoolFunding, homes) { it.people!!.children / Balance.TEENS }
         val clinic = allot(BuildingType.CLINIC, Balance.CLINIC_CARES, Balance.CLINIC_REACH, healthFunding, homes) { it.people!!.size }
         val hospital = allot(BuildingType.HOSPITAL, Balance.HOSPITAL_CARES, Balance.HOSPITAL_REACH, healthFunding, homes) { it.people!!.size - (clinic[it.id] ?: 0) }
+        val nursing = allot(BuildingType.NURSING_HOME, Balance.NURSING_PLACES, Balance.NURSING_REACH, healthFunding, homes) { it.people!!.elderly }
+        val college = allot(BuildingType.COLLEGE, Balance.COLLEGE_PLACES, Balance.COLLEGE_REACH, schoolFunding, homes) { it.people!!.children / Balance.TEENS }
+        val libraries = SummedArea(m.width, m.height) { j ->
+            val b = buildings[m.building[j]]
+            if (b != null && b.type == BuildingType.LIBRARY && b.x == j % m.width && b.y == j / m.width && b.outage == 0 && b.underway == 0) 1 else 0
+        }
         val parks = SummedArea(m.width, m.height) { if (m.buildingType[it].toInt() - 1 == BuildingType.PARK.ordinal) 1 else 0 }
         val fouled = if (m.brownfield.any { it.toInt() != 0 }) SummedArea(m.width, m.height) { m.brownfield[it].toInt() } else null
         val dumpsNear = SummedArea(m.width, m.height) { if (m.buildingType[it].toInt() - 1 == BuildingType.DUMP.ordinal) 1 else 0 }
@@ -3544,10 +3635,12 @@ class City(
             val i = m.index(b.x, b.y)
             // School: the share of the children with a place, which their schooling follows.
             val kids = h.children
-            val atSchool = if (kids == 0) 0 else min(100, (pupils[b.id] ?: 0) * 100 / kids)
+            // A library nearby teaches some more, at school and after.
+            val library = if (libraries.around(b.x, b.y, Balance.LIBRARY_REACH) > 0) Balance.LIBRARY_SCHOOLING * strength(BuildingType.LIBRARY, schoolFunding) / 100 else 0
+            val atSchool = if (kids == 0) 0 else min(100, (pupils[b.id] ?: 0) * 100 / kids + library)
             h.schooling = towards(h.schooling, atSchool, Balance.SCHOOLING_PACE)
             val older = kids / Balance.TEENS
-            val atHighSchool = if (older == 0) 0 else min(100, (teens[b.id] ?: 0) * 100 / older)
+            val atHighSchool = if (older == 0) 0 else min(100, (teens[b.id] ?: 0) * 100 / older + library)
             h.highSchooling = towards(h.highSchooling, atHighSchool, Balance.SCHOOLING_PACE)
 
             // Health, towards what the place gives it.
@@ -3556,6 +3649,9 @@ class City(
             if (m.watered[i]) target += Balance.MAINS_HEALTH
             if (m.sewered[i]) target += Balance.MAINS_HEALTH
             if (parks.around(b.x, b.y, 4) > 0) target += Balance.PARK_HEALTH
+            // An ambulance that can get there in time.
+            val ambulance = m.ambulanceCover[i].toInt() and 0xff
+            target += Balance.AMBULANCE_HEALTH * ambulance / 255
             target -= (m.pollution[i].toInt() and 0xff) / Balance.POLLUTION_HEALTH + m.grimeLevel(i) * Balance.GRIME_HEALTH
             if (b.type == BuildingType.TENEMENT) target -= Balance.CROWDING_HEALTH
             // Smog, fouled land or a dump next door, and garbage nobody takes.
@@ -3570,8 +3666,11 @@ class City(
             val born = flow(h.adults, Demography.births(year, h.wealth))
             val grown = min(h.children, flow(h.children, Demography.GROWING_UP))
             val aged = min(h.adults, flow(h.adults, Demography.GROWING_OLD))
-            val adultDied = min(h.adults - aged, flow(h.adults, Demography.adultDeaths(year) * factor / 100))
-            var elderDied = min(h.elderly, flow(h.elderly, Demography.elderlyDeaths(year) * factor / 100))
+            val adultDied = min(h.adults - aged, flow(h.adults, Demography.adultDeaths(year) * factor / 100 * (100 - Balance.AMBULANCE_SAVES * ambulance / 255) / 100))
+            // Ambulances save some of the grown and old; a nursing home some more of the old in it.
+            val saved = 100 - Balance.AMBULANCE_SAVES * ambulance / 255
+            val nursed = if (h.elderly == 0) 0 else min(100, (nursing[b.id] ?: 0) * 100 / h.elderly)
+            var elderDied = min(h.elderly, flow(h.elderly, Demography.elderlyDeaths(year) * factor / 100 * saved / 100 * (100 - Balance.NURSING_SAVES * nursed / 100) / 100))
             var childDied = min(h.children - grown, flow(h.children, Demography.childDeaths(year) * factor / 100))
             // A heat wave takes the elderly in the hottest homes, the less so with a doctor.
             if (heatWaveDays > 0) {
@@ -3598,10 +3697,12 @@ class City(
             }
             removeAdults(h, aged + adultDied)
             // Each child grown up has had the schooling the home's children get, as far as chance goes.
+            // College takes some of those who'd have stopped at school on to be educated.
+            val atCollege = if (older == 0) 0 else min(100, (college[b.id] ?: 0) * 100 / older)
             repeat(grown) {
                 val level = when {
                     rng.nextInt(100) >= h.schooling -> Education.UNSCHOOLED
-                    rng.nextInt(100) >= h.highSchooling -> Education.SCHOOLED
+                    rng.nextInt(100) >= h.highSchooling -> if (rng.nextInt(100) < atCollege) Education.EDUCATED else Education.SCHOOLED
                     else -> Education.EDUCATED
                 }
                 h.schooled[level]++
@@ -3981,6 +4082,8 @@ class City(
                 var shops = 0
                 around(x, y, 6) { j, _ -> if (buildings[m.building[j]]?.type?.zone == Zone.COMMERCIAL) shops++ }
                 score += 24 + value / 3 + min(shops, 15) - crime / 5 - pollution / 4 + flowAppeal()
+                // A college nearby, for the people and the ideas.
+                if (colleges.any { abs(it.x - x) + abs(it.y - y) <= Balance.COLLEGE_REACH }) score += Balance.COLLEGE_OFFICES
                 buildings[m.building[i]]?.let { score += ageAppeal(it) }
                 if (access[i] >= 0) score += min(Balance.PASSING_TRADE, traffic.lastFootfall[access[i]] / Balance.TRIPS_PER_PASSING_POINT)
             }
@@ -4332,6 +4435,7 @@ class City(
         var waterworks = 0.0
         var schools = 0.0
         var care = 0.0
+        var fireExtra = 0.0
         val days = daysIn(if (month == 0) 11 else month - 1, year).toDouble()
         for (b in buildings.values) {
             when (b.type) {
@@ -4339,6 +4443,12 @@ class City(
                 BuildingType.HIGH_SCHOOL -> schools += Balance.HIGH_SCHOOL_UPKEEP
                 BuildingType.CLINIC -> care += Balance.CLINIC_UPKEEP
                 BuildingType.HOSPITAL -> care += Balance.HOSPITAL_UPKEEP
+                BuildingType.NURSING_HOME -> care += Balance.NURSING_UPKEEP
+                BuildingType.AMBULANCE_STATION -> care += Balance.AMBULANCE_UPKEEP
+                BuildingType.LIBRARY -> schools += Balance.LIBRARY_UPKEEP
+                BuildingType.COLLEGE -> schools += Balance.COLLEGE_UPKEEP
+                BuildingType.VOLUNTEER_HALL -> fireExtra += Balance.VOLUNTEER_UPKEEP
+                BuildingType.LADDER_COMPANY -> fireExtra += Balance.LADDER_UPKEEP
                 else -> {}
             }
             waterworks += when (b.type) {
@@ -4408,7 +4518,7 @@ class City(
         s.railUpkeep = (track + stations * Balance.STATION_UPKEEP + yards * Balance.YARD_UPKEEP).roundToLong()
         s.powerUpkeep = plants.roundToLong()
         s.policeUpkeep = (police * Balance.POLICE_UPKEEP * policeFunding / 100).roundToLong()
-        s.fireUpkeep = (fire * Balance.FIRE_UPKEEP * fireFunding / 100).roundToLong()
+        s.fireUpkeep = ((fire * Balance.FIRE_UPKEEP + fireExtra) * fireFunding / 100).roundToLong()
         s.parkUpkeep = (parks * Balance.PARK_UPKEEP * parkFunding / 100).roundToLong()
         // Rides from stops with free fares bring in nothing.
         s.fareIncome = (max(0, traffic.boardings() - traffic.lastFreeBoardings) * Balance.FARE).roundToLong()
@@ -4627,6 +4737,11 @@ class City(
         val scrubbed = buildings.values.filter { it.scrubbed }
         w.count(scrubbed.size)
         for (b in scrubbed) w.int(b.id)
+        // Since version 18: the services' cover, worked out each month from the roads as they were.
+        w.layer(map.policeCover)
+        w.layer(map.fireCover)
+        w.layer(map.ladderCover)
+        w.layer(map.ambulanceCover)
     }
 
     companion object {
@@ -4826,6 +4941,12 @@ class City(
                 if (version >= 17) {
                     repeat(r.count()) { c.buildings[r.int()]?.scrubbed = true }
                 }
+                if (version >= 18) {
+                    r.layer(m.policeCover)
+                    r.layer(m.fireCover)
+                    r.layer(m.ladderCover)
+                    r.layer(m.ambulanceCover)
+                }
                 c.updateNetworks()
             } else {
                 // Before ageing nothing kept its age: count everything as laid half the town's life ago.
@@ -4846,6 +4967,8 @@ class City(
                     c.era = next
                 }
             }
+            // Before the cover was saved, a loaded town had none till the month turned.
+            if (version < 18) c.updateServices()
             if (version < 14) {
                 // Before lines: the stops the depots and garages served, made into lines.
                 c.autoLines()
