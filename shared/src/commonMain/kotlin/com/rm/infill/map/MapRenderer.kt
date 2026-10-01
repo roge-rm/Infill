@@ -7,6 +7,7 @@ import com.rm.infill.sim.Density
 import com.rm.infill.sim.Stop
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Heading
+import com.rm.infill.sim.Junction
 import com.rm.infill.sim.Power
 import com.rm.infill.sim.Rail
 import com.rm.infill.sim.Resource
@@ -256,6 +257,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 val zone = map.zone[i]
                 if (zone != Zone.NONE && map.building[i] == 0) zoneTint(surface, zone, map.density[i], tx, ty, dx, dy, s, level)
                 if (road != null) roadTile(surface, base, road, i, tx, ty, roadMask(tx, ty), dx, dy, level)
+                // What the crossing has: stop signs, lights, a roundabout or an overpass.
+                val control = map.control[i]
+                if (road != null && control >= Junction.STOP) surface.blend(base + Atlas.JUNCTION + control - Junction.STOP, dx, dy)
                 if (road != null) transitOn(surface, base, i, tx, ty, dx, dy)
                 if (map.bank[i].toInt() != 0) embankment(surface, tx, ty, dx, dy, s, r.look == Atlas.SNOW)
                 if (rail && road != null) {

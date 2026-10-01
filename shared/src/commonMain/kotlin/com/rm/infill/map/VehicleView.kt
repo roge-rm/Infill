@@ -180,9 +180,12 @@ private fun unit(n: Int): Float {
 /** Tiles a second on a clear road. */
 private const val BASE_SPEED = 0.5f
 
-/** Where the two lanes run across a tile. */
-private const val NEAR = 0.56f
-private const val FAR = 0.38f
+/**
+ * Where the two lanes run across a tile: either side of the centre line,
+ * which is at the tile's middle, with room for a car between it and the kerb.
+ */
+private const val NEAR = 0.65f
+private const val FAR = 0.35f
 
 /** Too small to see below this. */
 private const val MIN_TILE_PX = 12f

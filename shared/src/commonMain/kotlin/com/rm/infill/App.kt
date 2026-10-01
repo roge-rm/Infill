@@ -109,6 +109,8 @@ import com.rm.infill.sim.RoadType
 import com.rm.infill.ui.ServiceKind
 import com.rm.infill.ui.servicesIn
 import com.rm.infill.ui.powerKindsIn
+import com.rm.infill.ui.JunctionKind
+import com.rm.infill.ui.junctionKindsIn
 import com.rm.infill.ui.PeopleWindow
 import com.rm.infill.ui.EraWindow
 import com.rm.infill.sim.Era
@@ -305,6 +307,7 @@ private fun GameScreen(
         var railKind by remember { mutableStateOf(RailKind.Track) }
         var waterKind by remember { mutableStateOf(WaterKind.Main) }
         var transitKind by remember { mutableStateOf(TransitKind.TramTrack) }
+        var junctionKind by remember { mutableStateOf(JunctionKind.Lights) }
         var roadPipes by remember { mutableStateOf(false) }
         var speed by remember { mutableIntStateOf(1) }
         var drag by remember { mutableStateOf<ToolDrag?>(null) }
@@ -425,7 +428,7 @@ private fun GameScreen(
         // What the drag would do, worked out again as it moves.
         val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, game.revision) {
             drag?.let { d ->
-                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
+                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
             }
         }
         val costText = preview?.let {
@@ -454,6 +457,10 @@ private fun GameScreen(
                 powerKind = kinds[(kinds.indexOf(powerKind) + 1) % kinds.size]
             }
             if (t == Tool.Bulldoze && tool == Tool.Bulldoze) bulldozeKind = BulldozeKind.entries[(bulldozeKind.ordinal + 1) % BulldozeKind.entries.size]
+            if (t == Tool.Traffic && tool == Tool.Traffic) {
+                val kinds = junctionKindsIn(city)
+                junctionKind = kinds[(kinds.indexOf(junctionKind) + 1) % kinds.size]
+            }
             if (t == Tool.Transit && tool == Tool.Transit) {
                 val kinds = transitKindsIn(city)
                 transitKind = kinds[(kinds.indexOf(transitKind) + 1) % kinds.size]
@@ -513,7 +520,7 @@ private fun GameScreen(
             onToolUp = {
                 val d = drag
                 drag = null
-                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map)
+                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind)
                 if (action != null) tell(game.apply(action).problem)
             },
             onToolCancel = { drag = null },
@@ -563,6 +570,7 @@ private fun GameScreen(
                             KeyAction.ToolPower -> pick(Tool.Power)
                             KeyAction.ToolServices -> pick(Tool.Services)
                             KeyAction.ToolTransit -> pick(Tool.Transit)
+                            KeyAction.ToolTraffic -> pick(Tool.Traffic)
                             KeyAction.Budget -> budgetOpen = !budgetOpen
                             KeyAction.Graphs -> graphsOpen = !graphsOpen
                             KeyAction.People -> peopleOpen = !peopleOpen
@@ -670,6 +678,9 @@ private fun GameScreen(
                 }
                 if (tool == Tool.Bulldoze) {
                     OptionPicker(BulldozeKind.entries, bulldozeKind, { it.title }, { null }, { bulldozeKind = it }, compactTools)
+                }
+                if (tool == Tool.Traffic) {
+                    OptionPicker(junctionKindsIn(city), junctionKind, { it.title }, { null }, { junctionKind = it }, compactTools)
                 }
                 if (tool == Tool.Transit) {
                     OptionPicker(transitKindsIn(city), transitKind, { it.title }, { null }, { transitKind = it }, compactTools)

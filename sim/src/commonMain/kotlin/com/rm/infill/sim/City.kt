@@ -148,6 +148,17 @@ class City(
                     }
                 }
             }
+            is Action.SetJunction -> for (i in action.tiles) {
+                when {
+                    !inMap(i) || !Junction.at(m, i) -> {}
+                    !everything && year < Junction.year(action.control) -> blocked += i
+                    m.junction[i] == action.control -> {}
+                    else -> {
+                        changes += i
+                        cost += Junction.price(action.control)
+                    }
+                }
+            }
             is Action.PlantStreetTrees -> for (i in action.tiles) {
                 when {
                     !inMap(i) -> {}
@@ -685,6 +696,7 @@ class City(
                 m.tramLaid[i] = now.toShort()
             }
             is Action.PlantStreetTrees -> for (i in plan.changes) m.streetTrees[i] = 1
+            is Action.SetJunction -> for (i in plan.changes) m.junction[i] = action.control
             is Action.BuildWire -> for (i in plan.changes) {
                 if (m.wire[i].toInt() != 0) startWorks(i, Broken.WIRE, queued++ / Balance.WORKS_PER_DAY)
                 m.wire[i] = 1
@@ -763,8 +775,9 @@ class City(
                 m.roadLaid[i] = 0
                 m.railLaid[i] = 0
                 m.brownfield[i] = 0
-                // The tram track, wire, stops and street trees go with the road.
+                // The tram track, wire, stops, street trees and the crossing's control go with the road.
                 m.streetTrees[i] = 0
+                m.junction[i] = Junction.AUTO
                 m.tram[i] = 0
                 m.wire[i] = 0
                 m.tramLaid[i] = 0
@@ -805,6 +818,7 @@ class City(
         networksChanged()
         railChanged = true
         zonesChanged = true
+        updateJunctions()
         return plan
     }
 
@@ -831,6 +845,7 @@ class City(
             if (map.mendingDays(e.tiles[k]) > 0) mendingTiles += e.tiles[k] else mendingTiles -= e.tiles[k]
         }
         restamp(e.tiles)
+        updateJunctions()
         funds += e.cost
         redoable.addLast(e)
         networksChanged()
@@ -858,6 +873,7 @@ class City(
             if (map.mendingDays(e.tiles[k]) > 0) mendingTiles += e.tiles[k] else mendingTiles -= e.tiles[k]
         }
         restamp(e.tiles)
+        updateJunctions()
         funds -= e.cost
         undoable.addLast(e)
         networksChanged()
@@ -2003,6 +2019,40 @@ class City(
         }
     }
 
+    /**
+     * Each crossing's control: the player's choice, or the town's. The town
+     * puts stop signs at a crossing as busy as [Balance.AUTO_STOP] percent of
+     * its road's capacity, and from the 1920s lights at [Balance.AUTO_LIGHTS].
+     */
+    private fun updateJunctions() {
+        val m = map
+        for (i in 0 until m.size) {
+            val was = m.control[i]
+            val now = when {
+                !Junction.at(m, i) -> Junction.NONE
+                m.junction[i] != Junction.AUTO -> m.junction[i]
+                else -> {
+                    val road = RoadType.of(m.road[i])
+                    val busy = if (road == null) 0 else traffic.lastVolume[i] * 100 / road.capacity
+                    when {
+                        busy >= Balance.AUTO_LIGHTS && year >= Junction.year(Junction.LIGHTS) -> Junction.LIGHTS
+                        busy >= Balance.AUTO_STOP -> Junction.STOP
+                        // Lights once up stay up while it's still busy.
+                        was == Junction.LIGHTS && busy >= Balance.AUTO_STOP -> Junction.LIGHTS
+                        else -> Junction.FREE
+                    }
+                }
+            }
+            if (now != was) {
+                m.control[i] = now
+                townChanges += i
+            }
+        }
+    }
+
+    /** Seconds a car waits at the crossing on tile [i] now, 0 if it isn't one. */
+    fun junctionWait(i: Int): Int = RoadType.of(map.road[i])?.let { traffic.junctionWait(i, it) } ?: 0
+
     /** The road tile a building is reached from, or -1. */
     private fun accessOf(b: Building): Int {
         var node = -1
@@ -2080,6 +2130,7 @@ class City(
             goodsAt, wantedAt,
         )
         settleGoods()
+        updateJunctions()
         // The waits follow last month's riders.
         updateTransit()
         traffic.lastModes.copyInto(stats.byMode)
@@ -3970,6 +4021,7 @@ class City(
         var roads = 0.0
         var lines = 0
         var highLines = 0
+        var junctions = 0.0
         var track = 0.0
         for (i in 0 until map.size) {
             val bridge = if (map.terrain[i] == Terrain.WATER) Balance.BRIDGE_UPKEEP else 1.0
@@ -3977,11 +4029,12 @@ class City(
             if (road != null) roads += road.upkeep * bridge
             if (map.power[i] == Power.LINE) lines++
             if (map.power[i] == Power.HIGH) highLines++
+            junctions += Junction.upkeep(map.control[i])
             if (map.rail[i] != Rail.NONE) track += Balance.RAIL_UPKEEP * bridge
             waterworks += (map.waterPipe[i] + map.sewerPipe[i] + map.stormPipe[i] + map.bank[i]) * Balance.PIPE_UPKEEP
         }
         s.waterUpkeep = waterworks.roundToLong()
-        s.roadUpkeep = (roads + lines * Balance.LINE_UPKEEP + highLines * Balance.HIGH_LINE_UPKEEP).roundToLong()
+        s.roadUpkeep = (roads + lines * Balance.LINE_UPKEEP + highLines * Balance.HIGH_LINE_UPKEEP + junctions).roundToLong()
         s.railUpkeep = (track + stations * Balance.STATION_UPKEEP + yards * Balance.YARD_UPKEEP).roundToLong()
         s.powerUpkeep = plants.roundToLong()
         s.policeUpkeep = (police * Balance.POLICE_UPKEEP * policeFunding / 100).roundToLong()
@@ -4176,6 +4229,8 @@ class City(
         w.int(quota[Zone.OFFICE.toInt()])
         for (v in intArrayOf(s.officeJobs, s.officeJobsComing, s.officeDemand)) w.int(v)
         w.long(s.officeIncome)
+        // Since version 12.
+        w.layer(map.junction); w.layer(map.control)
     }
 
     companion object {
@@ -4344,6 +4399,12 @@ class City(
                     c.quota[Zone.OFFICE.toInt()] = r.int()
                     s.officeJobs = r.int(); s.officeJobsComing = r.int(); s.officeDemand = r.int()
                     s.officeIncome = r.long()
+                }
+                if (version >= 12) {
+                    r.layer(m.junction); r.layer(m.control)
+                } else {
+                    // Before junctions: the town's controls for last month's traffic.
+                    c.updateJunctions()
                 }
                 c.updateNetworks()
             } else {

@@ -1,5 +1,12 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.tool_traffic
+import com.rm.infill.res.junction_auto
+import com.rm.infill.res.junction_free
+import com.rm.infill.res.junction_stop
+import com.rm.infill.res.junction_lights
+import com.rm.infill.res.junction_roundabout
+import com.rm.infill.res.junction_interchange
 import com.rm.infill.res.zone_office
 import com.rm.infill.res.zone_farmland
 import com.rm.infill.res.Res
@@ -60,6 +67,7 @@ import com.rm.infill.sim.Action
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.City
 import com.rm.infill.sim.CityMap
+import com.rm.infill.sim.Junction
 import com.rm.infill.sim.Stop
 import com.rm.infill.res.tool_transit
 import com.rm.infill.res.tram_track
@@ -99,6 +107,27 @@ enum class Tool(val title: StringResource) {
     Water(Res.string.tool_water),
     Services(Res.string.tool_services),
     Transit(Res.string.tool_transit),
+    Traffic(Res.string.tool_traffic),
+}
+
+/** What the traffic tool sets at the crossings dragged over. */
+enum class JunctionKind(val title: StringResource, val control: Byte) {
+    Lights(Res.string.junction_lights, Junction.LIGHTS),
+    Roundabout(Res.string.junction_roundabout, Junction.ROUNDABOUT),
+    Interchange(Res.string.junction_interchange, Junction.INTERCHANGE),
+    Stop(Res.string.junction_stop, Junction.STOP),
+    Auto(Res.string.junction_auto, Junction.AUTO),
+}
+
+/** The controls [city] can put up in its year. */
+fun junctionKindsIn(city: City): List<JunctionKind> = JunctionKind.entries.filter { city.everything || city.year >= Junction.year(it.control) }
+
+fun junctionName(control: Byte): StringResource = when (control) {
+    Junction.STOP -> Res.string.junction_stop
+    Junction.LIGHTS -> Res.string.junction_lights
+    Junction.ROUNDABOUT -> Res.string.junction_roundabout
+    Junction.INTERCHANGE -> Res.string.junction_interchange
+    else -> Res.string.junction_free
 }
 
 /**
@@ -269,8 +298,9 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
 
     fun action(
         tool: Tool, zone: ZoneKind, density: DensityKind, bulldoze: BulldozeKind, power: PowerKind, service: ServiceKind, road: RoadType, roadPipes: Boolean,
-        rail: RailKind, water: WaterKind, transit: TransitKind, map: CityMap,
+        rail: RailKind, water: WaterKind, transit: TransitKind, map: CityMap, junction: JunctionKind = JunctionKind.Lights,
     ): Action? = when (tool) {
+        Tool.Traffic -> Action.SetJunction(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), junction.control)
         Tool.Transit -> when {
             transit.building != null -> Action.PlaceBuilding(transit.building, x1, y1)
             transit.stop != 0 -> Action.PlaceStop(x1, y1, transit.stop)

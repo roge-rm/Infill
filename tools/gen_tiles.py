@@ -2952,6 +2952,47 @@ def oil_well(look, v):
     return b
 
 
+def junction(look, kind):
+    """What a crossing has on it, drawn over the road: stop signs, lights, a roundabout's island, or an overpass."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    white = c("#f2f2ea") if look != "snow" else c("#c8d0d8")
+    if kind == "stop":
+        for x, y in ((4, 4), (27, 4), (4, 27), (27, 27)):
+            d.line([x, y, x, y + 3], c("#5a5c60"))
+            d.regular_polygon((x, y - 1, 2), 8, fill=c("#c0392b"))
+        for k in (6, 25):
+            d.line([k, 9, k, 22], white)
+            d.line([9, k, 22, k], white)
+    elif kind == "lights":
+        for x, y, lit in ((5, 5, "#3fbf5a"), (26, 5, "#d84343"), (5, 26, "#d84343"), (26, 26, "#3fbf5a")):
+            d.line([x, y, x, y + 4], c("#3a3c40"))
+            d.rectangle([x - 1, y - 3, x + 1, y + 1], c("#2a2a2f"))
+            d.point((x, y - 2), c(lit))
+        for k in range(8, 24, 3):
+            d.line([k, 3, k + 1, 3], white)
+            d.line([k, 28, k + 1, 28], white)
+            d.line([3, k, 3, k + 1], white)
+            d.line([28, k, 28, k + 1], white)
+    elif kind == "roundabout":
+        # The road round it, then a kerbed island with a tree.
+        d.ellipse([2, 2, 29, 29], c("#8a8780"))
+        d.ellipse([4, 4, 27, 27], outline=white)
+        island = c("#5a9a3c") if look != "snow" else c("#e4ebf0")
+        d.ellipse([9, 9, 22, 22], island, c("#d8d4c8"))
+        if look in ("spring", "summer", "autumn"):
+            d.ellipse([12, 12, 19, 19], c("#3d8233") if look != "autumn" else c("#cf6e28"))
+    else:
+        # An overpass carrying the road east to west over the one below, its shadow under it.
+        d.rectangle([0, 19, 31, 22], (0, 0, 0, 70))
+        d.rectangle([0, 9, 31, 18], c("#8a8780"))
+        d.line([0, 9, 31, 9], c("#c8c4b8"))
+        d.line([0, 18, 31, 18], c("#c8c4b8"))
+        for x in range(2, 31, 4):
+            d.line([x, 13, x + 1, 13], c("#e8e4c0"))
+    return img
+
+
 def seam(look, kind):
     """Stones showing through the grass where there's a seam underneath: rusty for ore, black for coal."""
     img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
@@ -3382,6 +3423,8 @@ def sprites_for(look):
     out.append(("seam_0", seam(look, "ore"), 0, []))
     out.append(("seam_1", seam(look, "coal"), 0, []))
     out.append(("seam_2", seam(look, "oil"), 0, []))
+    for k, kind in enumerate(("stop", "lights", "roundabout", "overpass")):
+        out.append((f"junction_{k}", junction(look, kind), 0, []))
     sign = for_sale(look)
     out.append(("for_sale_0", sign.img, sign.lift, []))
     for mask in range(16):
@@ -3463,7 +3506,7 @@ def write_kotlin(names, flat, pos, size):
             lines.append('            "' + text[i:i + 2000] + '"')
         return "decode(\n" + " +\n".join(lines or ['            ""']) + ",\n        )"
 
-    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "street_trees", "seam", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
+    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "street_trees", "seam", "junction", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
     # A sprite's name must start with exactly one group's, or the counts go wrong.
     for n in names:
         owners = [g for g in groups if n.startswith(g + "_")]

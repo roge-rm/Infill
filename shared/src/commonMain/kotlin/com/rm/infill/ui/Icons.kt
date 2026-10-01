@@ -33,6 +33,7 @@ fun ToolIcon(tool: Tool, colour: Color, modifier: Modifier = Modifier) {
             Tool.Power -> bolt(u, colour)
             Tool.Services -> civic(u, colour)
             Tool.Transit -> tram(u, colour)
+            Tool.Traffic -> lights(u, colour)
         }
     }
 }
@@ -234,6 +235,12 @@ private fun DrawScope.tram(u: Float, c: Color) {
     drawRect(c.copy(alpha = 0.35f), Offset(7 * u, 8 * u), Size(10 * u, 5 * u))
     drawCircle(c, 1.6f * u, Offset(8 * u, 21 * u))
     drawCircle(c, 1.6f * u, Offset(16 * u, 21 * u))
+}
+
+private fun DrawScope.lights(u: Float, c: Color) {
+    drawRoundRect(c, Offset(8 * u, 2 * u), Size(8 * u, 17 * u), androidx.compose.ui.geometry.CornerRadius(2.5f * u), style = Stroke(1.8f * u))
+    for (k in 0 until 3) drawCircle(c, 1.9f * u, Offset(12 * u, (5.5f + k * 5f) * u))
+    drawLine(c, Offset(12 * u, 19 * u), Offset(12 * u, 23 * u), 1.8f * u)
 }
 
 private fun DrawScope.rail(u: Float, c: Color) {

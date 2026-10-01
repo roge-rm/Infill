@@ -533,4 +533,13 @@
     <string name="building_office_tower">Office tower</string>
     <string name="building_glass_tower">Glass tower</string>
     <string name="income_offices">Offices</string>
+    <string name="tool_traffic">Traffic</string>
+    <string name="junction_auto">Town's choice</string>
+    <string name="junction_free">No control</string>
+    <string name="junction_stop">Stop signs</string>
+    <string name="junction_lights">Traffic lights</string>
+    <string name="junction_roundabout">Roundabout</string>
+    <string name="junction_interchange">Interchange</string>
+    <string name="inspect_junction">%1$s, %2$d s to get through</string>
+    <string name="overlay_junctions">Junctions</string>
 </resources>

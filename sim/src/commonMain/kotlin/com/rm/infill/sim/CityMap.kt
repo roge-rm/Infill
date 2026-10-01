@@ -61,6 +61,10 @@ class CityMap(val width: Int, val height: Int) {
     /** Land left fouled where works closed down, 1 where it is: nothing's built on it until it's cleaned up. */
     val brownfield = ByteArray(size)
 
+    /** At each crossing, the control the player chose ([Junction], [Junction.AUTO] for the town's), and the one it has now. */
+    val junction = ByteArray(size)
+    val control = ByteArray(size)
+
     /** What's in the ground ([Resource]), laid down with the land. */
     val resource = ByteArray(size)
 
@@ -101,11 +105,13 @@ class CityMap(val width: Int, val height: Int) {
         }
     }
 
-    /** When the transit on tile [i] went in, packed for undo like [tileLaid]. */
+    /** When the transit on tile [i] went in, and its crossing's control, packed for undo like [tileLaid]. */
     fun tileTransitLaid(i: Int): Long =
-        ((tramLaid[i].toLong() and 0xfff) shl 24) or ((wireLaid[i].toLong() and 0xfff) shl 12) or (subwayLaid[i].toLong() and 0xfff)
+        ((junction[i].toLong() and 0x7) shl 36) or
+            ((tramLaid[i].toLong() and 0xfff) shl 24) or ((wireLaid[i].toLong() and 0xfff) shl 12) or (subwayLaid[i].toLong() and 0xfff)
 
     fun setTileTransitLaid(i: Int, v: Long) {
+        junction[i] = ((v shr 36) and 0x7).toByte()
         tramLaid[i] = ((v shr 24) and 0xfff).toShort()
         wireLaid[i] = ((v shr 12) and 0xfff).toShort()
         subwayLaid[i] = (v and 0xfff).toShort()
@@ -245,7 +251,7 @@ class CityMap(val width: Int, val height: Int) {
         var h = FNV_OFFSET
         h = mix(h, width.toLong())
         h = mix(h, height.toLong())
-        for (layer in arrayOf(terrain, road, roadHeading, zone, density, power, rail, tram, wire, subway, stop, streetTrees, waterPipe, sewerPipe, stormPipe, bank, grime, fire)) for (b in layer) h = mix(h, b.toLong())
+        for (layer in arrayOf(terrain, road, roadHeading, zone, density, power, rail, tram, wire, subway, stop, streetTrees, waterPipe, sewerPipe, stormPipe, bank, grime, fire, junction, control)) for (b in layer) h = mix(h, b.toLong())
         for (b in building) h = mix(mix(h, b.toLong()), (b ushr 8).toLong())
         return h
     }

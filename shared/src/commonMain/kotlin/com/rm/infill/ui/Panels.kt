@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
 import com.rm.infill.map.MapRenderer
+import com.rm.infill.res.inspect_junction
 import com.rm.infill.res.building_offices
 import com.rm.infill.res.building_office_building
 import com.rm.infill.res.building_office_tower
@@ -228,6 +229,7 @@ import com.rm.infill.res.inspect_zone_residential
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.Power
 import com.rm.infill.sim.Balance
+import com.rm.infill.sim.Junction
 import com.rm.infill.sim.Resource
 import com.rm.infill.sim.Land
 import com.rm.infill.sim.Good
@@ -450,6 +452,9 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
             }
             if (map.streetTrees[i].toInt() != 0) add(stringResource(Res.string.street_trees))
             if (road != null && city.snowedIn > 0) add(stringResource(Res.string.snowed_in))
+            if (road != null && map.control[i] != Junction.NONE) {
+                add(stringResource(Res.string.inspect_junction, stringResource(junctionName(map.control[i])), city.junctionWait(i)))
+            }
             if (road != null) {
                 if (map.terrain[i] == Terrain.WATER) add(stringResource(Res.string.inspect_bridge))
                 add(stringResource(Res.string.inspect_traffic, level(map.congestion[i].toInt() and 0xff)))

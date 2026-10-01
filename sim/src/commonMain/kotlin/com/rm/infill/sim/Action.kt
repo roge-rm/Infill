@@ -37,6 +37,12 @@ sealed interface Action {
         override fun hashCode() = tiles.contentHashCode()
     }
 
+    /** Sets the crossings on [tiles] to [control] ([Junction]), or back to the town's choice with [Junction.AUTO]. */
+    data class SetJunction(val tiles: IntArray, val control: Byte) : Action {
+        override fun equals(other: Any?) = other is SetJunction && control == other.control && tiles.contentEquals(other.tiles)
+        override fun hashCode() = tiles.contentHashCode() * 31 + control
+    }
+
     /** Street trees along the roads on [tiles], given as map indices in order. */
     data class PlantStreetTrees(val tiles: IntArray) : Action {
         override fun equals(other: Any?) = other is PlantStreetTrees && tiles.contentEquals(other.tiles)

@@ -586,6 +586,13 @@ object Balance {
     /** At most how much a farmland lot appeals more for making what the town's short of. */
     const val SHORT_APPEAL = 25
 
+    // Junctions: how much longer a car waits at a full crossing, and at most; how busy, against the road's
+    // capacity, a crossing gets stop signs and then lights on its own, in percent.
+    const val JUNCTION_SLOPE = 40
+    const val JUNCTION_MOST = 240
+    const val AUTO_STOP = 30
+    const val AUTO_LIGHTS = 70
+
     /** How far a lot can be from a road and still grow, in tiles. */
     const val ROAD_REACH = 3
 

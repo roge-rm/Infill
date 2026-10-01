@@ -558,7 +558,9 @@ internal class Traffic(private val map: CityMap) {
             if (net.tram[b] != net.tram[a]) continue
             if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE || map.closed(b)) continue
             val busy = (map.congestion[b].toInt() and 0xff) * Balance.TRAM_TIME / 512
-            reach(state(TRAM, b), d + Balance.TRAM_TIME + busy, st)
+            // Trams in the street wait at the crossings with the rest.
+            val wait = RoadType.of(map.road[b])?.let { junctionWait(b, it) } ?: 0
+            reach(state(TRAM, b), d + Balance.TRAM_TIME + busy + wait, st)
         }
     }
 
@@ -669,10 +671,17 @@ internal class Traffic(private val map: CityMap) {
         val buses = max(lastBusVolume[b], busVolume[b]) + max(lastTrolleyVolume[b], trolleyVolume[b])
         val load = (max(lastVolume[b], volume[b]) + buses / BUS_RIDERS) * 32 / road.capacity
         val slow = min(2 * 1024, load * load / 2)
-        val time = road.time + road.time * slow / 1024 + if (map.rail[b] != Rail.NONE) Balance.CROSSING_DELAY else 0
+        val time = road.time + road.time * slow / 1024 + (if (map.rail[b] != Rail.NONE) Balance.CROSSING_DELAY else 0) + junctionWait(b, road)
         // Wading through floodwater, or picking a way round the potholes.
         val wading = if ((map.flood[b].toInt() and 0xff) >= Balance.FLOODED) time * Balance.FLOOD_SLOW else time
         return if (map.potholed(b)) wading * Balance.POTHOLE_SLOW else wading
+    }
+
+    /** Seconds to get through the crossing at [b], if it is one, by its control and how busy it is. */
+    fun junctionWait(b: Int, road: RoadType): Int {
+        val control = map.control[b]
+        if (control == Junction.NONE) return 0
+        return Junction.wait(control, road.capacity, max(lastVolume[b], volume[b]))
     }
 
     private fun edge(a: Int): Boolean {

@@ -27,6 +27,7 @@ import com.rm.infill.res.overlay_heat
 import com.rm.infill.res.overlay_garbage
 import com.rm.infill.res.overlay_land
 import com.rm.infill.res.overlay_goods
+import com.rm.infill.res.overlay_junctions
 import com.rm.infill.sim.Resource
 import com.rm.infill.sim.Household
 import com.rm.infill.sim.Balance
@@ -60,6 +61,7 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Garbage(Res.string.overlay_garbage, Color(0xFF4CAF50), Color(0xFF8A5A2A)),
     Land(Res.string.overlay_land, Color(0xFF6FA848), Color(0xFF2E2E34)),
     Goods(Res.string.overlay_goods, Color(0xFFD84343), Color(0xFF4CAF50)),
+    Junctions(Res.string.overlay_junctions, Color(0xFF4CAF50), Color(0xFFD8302F)),
 }
 
 /**
@@ -68,7 +70,7 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
  */
 internal fun overlayImage(
     overlay: Overlay, map: CityMap, homeAt: (Int) -> Household?, wearAt: (Int) -> Int, uncollectedAt: (Int) -> Boolean,
-    localAt: (Int) -> Int, ridersAt: (Int) -> Int,
+    localAt: (Int) -> Int, waitAt: (Int) -> Int, ridersAt: (Int) -> Int,
 ): ImageBitmap? {
     if (overlay == Overlay.None) return null
     val pixels = IntArray(map.size)
@@ -143,12 +145,17 @@ internal fun overlayImage(
             }
             // Works, farms, mines and coal stations: red where it all comes from or goes out of town, green where it's the town's own.
             Overlay.Goods -> localAt(i).takeIf { it >= 0 }?.let { it * 255 / 100 } ?: continue
+            // Each crossing, green when it's quick to get through and red when traffic backs up: a minute or more.
+            Overlay.Junctions -> {
+                if (map.control[i].toInt() == 0) continue
+                min(255, waitAt(i) * 255 / 60)
+            }
             Overlay.None -> 0
         }
         val everywhere = overlay == Overlay.LandValue || overlay == Overlay.Power || overlay == Overlay.Traffic ||
             overlay == Overlay.Railway || overlay == Overlay.Water || overlay == Overlay.Runoff ||
             overlay == Overlay.Schooling || overlay == Overlay.Health || overlay == Overlay.Wealth || overlay == Overlay.Age ||
-            overlay == Overlay.Heat || overlay == Overlay.Garbage || overlay == Overlay.Goods
+            overlay == Overlay.Heat || overlay == Overlay.Garbage || overlay == Overlay.Goods || overlay == Overlay.Junctions
         if (!everywhere && v == 0) continue
         pixels[i] = mix(overlay.low, overlay.high, v / 255f)
     }
