@@ -205,6 +205,7 @@
     <string name="goal_high_school">A high school</string>
     <string name="goal_land_built">%1$d% of the land by the roads built on</string>
     <string name="goal_kept_up">%1$d% of roads, pipes and track within their life</string>
+    <string name="goal_flow">Traffic flowing at %1$d% or better</string>
     <string name="goal_green_trips">%1$d% of commutes on foot, by bike or by transit</string>
     <string name="goal_met">✓</string>
     <string name="goal_not_met">–</string>
@@ -453,6 +454,7 @@
     <string name="incinerator">Incinerator</string>
     <string name="recycling">Recycling depot</string>
     <string name="street_trees">Street trees</string>
+    <string name="event_dump_full">A dump is full</string>
     <string name="event_smog">Smog over the town</string>
     <string name="event_gale">A gale brought down lines and trees</string>
     <string name="event_blizzard">A blizzard: the roads are snowed in</string>
@@ -524,8 +526,8 @@
     <string name="inspect_short_of_stock">Can't get stock</string>
     <string name="inspect_fuel_local">%1$d% of its fuel oil from town</string>
     <string name="trade">Trade</string>
-    <string name="trade_out">Sold out of town</string>
-    <string name="trade_in">Brought in</string>
+    <string name="trade_out">Goods sold out of town</string>
+    <string name="trade_in">Goods brought in</string>
     <string name="zone_office">Offices</string>
     <string name="inspect_zone_office">Zoned for offices</string>
     <string name="building_offices">Offices</string>

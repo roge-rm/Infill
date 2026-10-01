@@ -1471,7 +1471,8 @@ class City(
             built++
         }
         val w = weather
-        var smog = if (built == 0) 0L else pollution / built * (100 - w.windSpeed) / 100
+        // Spread over the town, and over at least a small town's land, so one smoking chimney in a field is no smog.
+        var smog = if (built == 0) 0L else pollution / maxOf(built, Balance.SMOG_TOWN) * (100 - w.windSpeed) / 100
         if (w.temperature <= 5) smog = smog * Balance.SMOG_COLD / 100
         if (w.fog) smog = smog * Balance.SMOG_FOG / 100
         val before = s.smog
@@ -1480,6 +1481,7 @@ class City(
 
         // Garbage.
         val dumps = buildings.values.filter { it.type == BuildingType.DUMP && it.underway == 0 }.sortedBy { it.id }
+        val fullBefore = dumps.filter { it.fill > Balance.DUMP_ROOM - Balance.DUMP_FULL }.map { it.id }.toSet()
         val burners = buildings.values.filter { it.type == BuildingType.INCINERATOR && it.underway == 0 && it.outage == 0 }.sortedBy { it.id }
         val recyclers = buildings.values.filter { it.type == BuildingType.RECYCLING && it.underway == 0 }.sortedBy { it.id }
         val burnt = HashMap<Int, Int>()
@@ -1525,6 +1527,10 @@ class City(
         s.waste = (made / 1000).toInt()
         s.wasteCollected = if (made == 0L) 100 else (taken * 100 / made).toInt()
         s.dumpRoom = dumps.sumOf { (Balance.DUMP_ROOM - it.fill).toLong() / 1000 }.toInt()
+        // Say so when a dump's filled up this month.
+        for (d in dumps) if (d.fill > Balance.DUMP_ROOM - Balance.DUMP_FULL && d.id !in fullBefore) {
+            events += CityEvent(EventKind.DumpFull, d.x, d.y, d.type)
+        }
     }
 
     /** Last month's garbage burnt at each incinerator, in kilograms, for its smoke. */
@@ -1782,6 +1788,8 @@ class City(
                 Goal(GoalKind.People, s.population, Balance.RENEWAL_PEOPLE),
                 Goal(GoalKind.Downtown, s.downtown, 1),
                 Goal(GoalKind.HighSchool, s.highSchools, 1),
+                // The motor age's jams kept in hand.
+                Goal(GoalKind.Flow, s.flow, Balance.RENEWAL_FLOW),
             )
             Era.INFILL -> listOf(Goal(GoalKind.LandBuilt, s.landBuilt, Balance.INFILL_LAND))
             // A town that's kept up what it inherited, and moves its people well.
@@ -4792,7 +4800,7 @@ class Stats {
 /** A line a train ran last month: the track from end to end, and whether it carried passengers or freight, and how many. */
 class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int)
 
-enum class EventKind { FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut }
+enum class EventKind { FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut }
 
 /** Something that happened at [x], [y], to a building of [type] if it's about one. */
 class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType?, val era: Era? = null)

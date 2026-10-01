@@ -113,4 +113,16 @@ class EnvironmentTest {
         // Away from water it can't go.
         assertEquals(Problem.NeedsWater, c.plan(Action.PlaceBuilding(BuildingType.HYDRO_PLANT, 10, 10)).problem)
     }
+
+    @Test
+    fun aFullDumpSaysSo() {
+        val c = city()
+        c.garbageTown = 0
+        town(c, dump = true)
+        val dump = (0 until c.map.size).mapNotNull { c.building(c.map.building[it]) }.first { it.type == BuildingType.DUMP }
+        dump.fill = Balance.DUMP_ROOM - Balance.DUMP_FULL - 1
+        var told = 0
+        repeat(6) { c.month(); c.takeEvents { if (it.kind == EventKind.DumpFull) told++ } }
+        assertEquals(1, told, "said once")
+    }
 }

@@ -70,6 +70,8 @@ object Balance {
     const val SMOG_HEALTH = 6
     const val SMOG_APPEAL = 8
     const val SMOG_WARNING = 60
+    /** The fewest built tiles smog is spread over. */
+    const val SMOG_TOWN = 300
 
     // Heat: green or water within reach of a tile cools it this much each; what a hot summer home loses in appeal.
     const val HEAT_REACH = 2
@@ -92,6 +94,8 @@ object Balance {
     const val GARBAGE_REACH = 60
     /** Below this many people, each home burns or buries its own garbage. */
     const val GARBAGE_TOWN = 1500
+    /** A dump this close to full, in kilograms, counts as full. */
+    const val DUMP_FULL = 200_000
     const val RECYCLED = 30
     const val DUMP_UPKEEP = 20.0
     const val INCINERATOR_UPKEEP = 80.0
@@ -618,6 +622,8 @@ object Balance {
     // Traffic flow: the flow at which shops and offices are neither helped nor hurt, and at most how much;
     // fumes from crawling traffic, in percent more at most, and more for each second spent waiting at a crossing.
     const val FLOW_PAR = 85
+    /** The flow the Renewal era asks for. */
+    const val RENEWAL_FLOW = 75
     const val FLOW_APPEAL = 8
     const val IDLE_MOST = 60
     const val IDLE_PER_WAIT = 2

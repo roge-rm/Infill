@@ -59,6 +59,7 @@ import com.rm.infill.res.line_vehicles
 import com.rm.infill.res.traffic_flow
 import com.rm.infill.res.income_offices
 import com.rm.infill.res.trade
+import com.rm.infill.res.goal_flow
 import com.rm.infill.res.trade_out
 import com.rm.infill.res.trade_in
 import com.rm.infill.res.emergency_repairs
@@ -259,8 +260,9 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
             // What the town's goods fetched outside, and what it had to bring in.
             if (s.exportValue > 0 || s.importValue > 0) {
                 Heading(Res.string.trade)
-                MoneyLine(Res.string.trade_out, s.exportValue)
-                MoneyLine(Res.string.trade_in, -s.importValue)
+                // What the town's businesses trade, not the town's own money.
+                CountLine(Res.string.trade_out, moneyText(s.exportValue))
+                CountLine(Res.string.trade_in, moneyText(s.importValue))
             }
             Heading(Res.string.last_month)
             MoneyLine(Res.string.tax_residential, s.residentialIncome)
@@ -570,13 +572,14 @@ private fun goalText(goal: Goal): String = when (goal.kind) {
     GoalKind.LandBuilt -> stringResource(Res.string.goal_land_built, goal.need)
     GoalKind.KeptUp -> stringResource(Res.string.goal_kept_up, goal.need)
     GoalKind.GreenTrips -> stringResource(Res.string.goal_green_trips, goal.need)
+    GoalKind.Flow -> stringResource(Res.string.goal_flow, goal.need)
 }
 
 /** How far the town is towards a goal: a count, a share, or a tick. */
 @Composable
 private fun goalHave(goal: Goal): String = when (goal.kind) {
     GoalKind.People -> groupThousands(goal.have.toLong())
-    GoalKind.OnMains, GoalKind.OnSewer, GoalKind.Powered, GoalKind.LandBuilt, GoalKind.KeptUp, GoalKind.GreenTrips ->
+    GoalKind.OnMains, GoalKind.OnSewer, GoalKind.Powered, GoalKind.LandBuilt, GoalKind.KeptUp, GoalKind.GreenTrips, GoalKind.Flow ->
         stringResource(Res.string.percent, goal.have)
     else -> stringResource(if (goal.met) Res.string.goal_met else Res.string.goal_not_met)
 }

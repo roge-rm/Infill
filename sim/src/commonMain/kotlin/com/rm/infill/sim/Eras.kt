@@ -56,6 +56,9 @@ enum class GoalKind {
 
     /** Percent of last month's commutes made other than by car. */
     GreenTrips,
+
+    /** How freely last month's traffic moved, in percent. */
+    Flow,
 }
 
 /**

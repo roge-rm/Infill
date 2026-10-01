@@ -78,6 +78,7 @@ import com.rm.infill.res.event_tunnel_shut
 import com.rm.infill.res.no_route
 import com.rm.infill.res.event_fire_damage
 import com.rm.infill.res.event_smog
+import com.rm.infill.res.event_dump_full
 import com.rm.infill.res.event_gale
 import com.rm.infill.res.event_blizzard
 import com.rm.infill.res.event_heat_wave
@@ -411,6 +412,7 @@ private fun GameScreen(
                         EventKind.WireDown -> Message(Res.string.event_wire_down, x = e.x, y = e.y)
                         EventKind.TunnelShut -> Message(Res.string.event_tunnel_shut, x = e.x, y = e.y)
                         EventKind.Smog -> Message(Res.string.event_smog)
+                        EventKind.DumpFull -> Message(Res.string.event_dump_full, x = e.x, y = e.y)
                         EventKind.Gale -> Message(Res.string.event_gale, x = e.x, y = e.y)
                         EventKind.Blizzard -> Message(Res.string.event_blizzard)
                         EventKind.HeatWave -> Message(Res.string.event_heat_wave)
