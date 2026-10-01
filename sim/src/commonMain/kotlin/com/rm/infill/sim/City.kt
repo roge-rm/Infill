@@ -1885,38 +1885,76 @@ class City(
     /** What [b] needs a month, in hundredths of a load: a works its makings, a coal station its coal. */
     private fun needs(b: Building): List<Pair<Good, Int>> {
         b.worksKind?.let { k -> return k.inputs.map { (g, rate) -> g to b.type.capacity * rate } }
-        if (b.type == BuildingType.COAL_PLANT) return listOf(Good.COAL to coalBurnt(b))
+        burns(b)?.let { (g, per) -> return listOf(g to (stationOutput(b).toLong() * per / 10_000).toInt()) }
+        if (b.type.zone == Zone.COMMERCIAL) {
+            val c = b.type.capacity
+            val needs = arrayListOf(Good.FOOD to c * Balance.SHOP_FOOD, Good.GOODS to c * Balance.SHOP_GOODS)
+            // Fuel for the cars, as there come to be more of them.
+            val cars = Cars.share(year, Wealth.MIDDLE)
+            if (cars > 0) needs += Good.FUEL to c * Balance.SHOP_FUEL * cars / 100
+            return needs
+        }
         return emptyList()
     }
 
-    /** Hundredths of a load of coal a coal station burns a month at last month's output. */
-    private fun coalBurnt(b: Building): Int = (stationOutput(b).toLong() * Balance.COAL_PER_MW / 10_000).toInt()
-
-    /** What a station's fuel costs a month: a coal station's coal, the town's own cheaper than what's brought in; the others by output. */
-    internal fun fuelCost(b: Building): Double {
-        if (b.type != BuildingType.COAL_PLANT) return Generation.fuel(b.type) * stationOutput(b) / 1_000_000.0
-        val coal = coalBurnt(b) / 100.0
-        return coal * Good.COAL.price * (b.local + (100 - b.local) * Balance.IMPORT_MARKUP) / 100.0
+    /** Whether [b] couldn't get in most of what it needed last month: nothing in town, and no way in from outside. */
+    fun shortOfStock(b: Building): Boolean {
+        val node = accessOf(b)
+        return node >= 0 && traffic.lastUnmet.any { it[node] > 0 } && traffic.freightStuck[node]
     }
 
-    /** How much more a farmland lot appeals for building [t], by how much of what it makes the town brought in last month. */
+    /** What a station burns that the town can make, and how many loads a month for each megawatt. */
+    private fun burns(b: Building): Pair<Good, Int>? = when (b.type) {
+        BuildingType.COAL_PLANT -> Good.COAL to Balance.COAL_PER_MW
+        BuildingType.OIL_PLANT -> Good.FUEL to Balance.FUEL_PER_MW
+        else -> null
+    }
+
+    /** What a station's fuel costs a month: coal and fuel oil, the town's own cheaper than what's brought in; the others by output. */
+    internal fun fuelCost(b: Building): Double {
+        val (g, per) = burns(b) ?: return Generation.fuel(b.type) * stationOutput(b) / 1_000_000.0
+        val loads = stationOutput(b) / 1_000_000.0 * per
+        return loads * g.price * (b.local + (100 - b.local) * Balance.IMPORT_MARKUP) / 100.0
+    }
+
+    /**
+     * How much more a farmland lot appeals for building [t]: the share of
+     * what the town needed last month of what it makes, and of what's made
+     * from that, that had to be brought in.
+     */
     private fun shortOf(t: BuildingType): Int {
         val (g, _) = Land.output(t) ?: return 0
-        return min(Balance.SHORT_APPEAL, stats.goodsImported[g.ordinal] / 2)
+        val imported = stats.goodsImported
+        var short = imported[g.ordinal]
+        for (k in WorksKind.entries) if (k.inputs.any { it.first == g }) short += imported[k.output.ordinal]
+        if (short == 0) return 0
+        return Balance.SHORT_APPEAL * short / (short + stats.goodsMade[g.ordinal])
     }
 
     /** How much the town wants each kind of works this month, in jobs: what it brings in of the works' goods, and the makings it sends away. */
     private val kindPull = DoubleArray(WorksKind.entries.size)
 
     /**
-     * What a new works of [jobs] makes: whatever the town brings in most of,
-     * or can make from what it sends away; failing both, finished goods.
+     * What a new works of [jobs] makes: by chance, weighted by how much the
+     * town brings in of each kind's goods or sends away of its makings; with
+     * no call for any, finished goods.
      */
     private fun chooseKind(jobs: Int): Int {
-        var best = WorksKind.FACTORY.ordinal
-        for (k in WorksKind.entries) if (kindPull[k.ordinal] > kindPull[best]) best = k.ordinal
-        kindPull[best] -= jobs.toDouble()
-        return best
+        val open = WorksKind.entries.filter { it.year <= year }
+        val total = open.sumOf { max(0.0, kindPull[it.ordinal]) }
+        var pick = WorksKind.FACTORY
+        if (total > 0) {
+            var r = rng.nextInt(1_000_000) / 1_000_000.0 * total
+            for (k in open) {
+                r -= max(0.0, kindPull[k.ordinal])
+                if (r < 0) {
+                    pick = k
+                    break
+                }
+            }
+        }
+        kindPull[pick.ordinal] -= jobs.toDouble()
+        return pick.ordinal
     }
 
     /**
@@ -2029,6 +2067,11 @@ class City(
         for (g in 0 until Good.COUNT) for (i in 0 until n) {
             goodsAt[g][i] = (goodsAt[g][i] + 50) / 100
             wantedAt[g][i] = (wantedAt[g][i] + 99) / 100
+        }
+        // What was brought in comes by road too, from the edge or a freight yard.
+        for (g in 0 until Good.COUNT) {
+            val unmet = traffic.lastUnmet[g]
+            for (i in 0 until n) if (unmet[i] > 0) freightAt[i] += unmet[i]
         }
         traffic.newMonth(
             workersAt, shoppersAt, freightAt, jobsAt, shopsAt, year * 12 + month,
@@ -3368,10 +3411,11 @@ class City(
         return t.capacity
     }
 
-    /** Pulls [b] down and starts [type] going up on its lot. Its people move out. */
+    /** Pulls [b] down and starts [type] going up on its lot. Its people move out; a bigger works may make something else. */
     private fun rebuild(b: Building, type: BuildingType) {
         b.people?.let { departures += it.size }
         b.people = null
+        if (type.zone == Zone.INDUSTRIAL) b.kind = chooseKind(type.capacity)
         b.type = type
         b.age = 0
         b.underway = type.buildDays
@@ -3548,6 +3592,9 @@ class City(
                 buildings[m.building[i]]?.let { score += ageAppeal(it) }
                 // Passing trade.
                 if (access[i] >= 0) score += min(Balance.PASSING_TRADE, traffic.lastFootfall[access[i]] / Balance.TRIPS_PER_PASSING_POINT)
+                // Stock from the town's own works and farms, or none at all if nothing can get in.
+                buildings[m.building[i]]?.let { score += it.local * Balance.LOCAL_APPEAL / 100 }
+                if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
             }
             Zone.INDUSTRIAL -> {
                 var water = false
@@ -3788,7 +3835,7 @@ class City(
         var fromLand = 0.0
         var fromWorks = 0.0
         for (g in Good.entries) {
-            if (g.ordinal <= Good.COAL.ordinal) fromLand += s.goodsImported[g.ordinal] / Balance.LOADS_PER_FARM_JOB
+            if (g.fromLand) fromLand += s.goodsImported[g.ordinal] / Balance.LOADS_PER_FARM_JOB
             else fromWorks += s.goodsImported[g.ordinal] / Balance.LOADS_PER_WORKS_JOB
         }
         // What's going up already counts against demand.
@@ -3875,7 +3922,11 @@ class City(
             val worth = (0.5 + (map.landValue[map.index(b.x, b.y)].toInt() and 0xff) / 200.0) * open
             when {
                 b.type.zone == Zone.RESIDENTIAL -> homes += b.type.capacity * worth * Demography.TAX_BY_WEALTH[b.people?.wealth ?: Wealth.MIDDLE] / 100.0
-                b.type.zone == Zone.COMMERCIAL -> shops += b.type.capacity * worth
+                b.type.zone == Zone.COMMERCIAL -> {
+                    // A shop that has to bring in what it sells makes less, and one that can't get stock makes little.
+                    val margin = if (shortOfStock(b)) Balance.NO_STOCK else 100 - (100 - b.local) * Balance.IMPORT_DRAG / 100
+                    shops += b.type.capacity * worth * margin / 100.0
+                }
                 b.type.zone == Zone.INDUSTRIAL || b.type.zone == Zone.FARMLAND -> works += b.type.capacity * worth
                 b.type == BuildingType.POLICE_STATION -> police++
                 b.type == BuildingType.FIRE_STATION -> fire++
@@ -4415,6 +4466,10 @@ class Stats {
     val goodsSold = IntArray(Good.COUNT)
     val goodsExported = IntArray(Good.COUNT)
     val goodsImported = IntArray(Good.COUNT)
+
+    /** What last month's goods sent out of town fetched, and what was brought in cost, in dollars. */
+    val exportValue: Long get() = Good.entries.sumOf { (goodsExported[it.ordinal] * it.price * Balance.LOAD_VALUE).toLong() }
+    val importValue: Long get() = Good.entries.sumOf { (goodsImported[it.ordinal] * it.importPrice * Balance.LOAD_VALUE).toLong() }
 
     var residentialIncome = 0L
     var commercialIncome = 0L

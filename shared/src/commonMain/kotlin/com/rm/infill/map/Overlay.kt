@@ -135,6 +135,7 @@ internal fun overlayImage(
                     Resource.FERTILE -> 0x9A7A5230.toInt()
                     Resource.ORE -> 0xE0A04A30.toInt()
                     Resource.COAL -> 0xE02A2A30.toInt()
+                    Resource.OIL -> 0xE06A3A8A.toInt()
                     else -> continue
                 }
                 pixels[i] = colour

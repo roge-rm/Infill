@@ -2926,11 +2926,45 @@ def colliery(look, v):
     return pit(look, v, [c("#1e1e22"), c("#2a2a2f"), c("#35353b"), c("#42424a")], c("#2a2a2f"))
 
 
+def oil_well(look, v):
+    """An oil well: a timber derrick over the hole, a pump beside it, and the black of spilt crude round the foot."""
+    b = Building(height=30)
+    d = b.d
+    gx, gy = b.ground(15, 22)
+    d.ellipse([gx - 10, gy - 4, gx + 10, gy + 5], c("#2a2622") if look != "snow" else c("#6a6a70"))
+    top = gy - 28
+    timber = c("#8a6a44")
+    d.line([gx - 7, gy, gx - 1, top], timber, 2)
+    d.line([gx + 7, gy, gx + 1, top], shade(timber, 0.75), 2)
+    for k in range(4, 26, 5):
+        w = 7 - 6 * k // 28
+        d.line([gx - w, gy - k, gx + w, gy - k], timber)
+    d.rectangle([gx - 2, top - 2, gx + 2, top], c("#5a4030"))
+    if look == "snow":
+        d.line([gx - 2, top - 3, gx + 2, top - 3], SNOW)
+    # A small engine shed and a tank.
+    roof, wall = b.box(20, 20, 29, 27, STOREY)
+    siding(d, wall, c("#8a8478"))
+    d.rectangle(wall, outline=OUTLINE)
+    gable_ew(d, roof, IRON_ROOF, look)
+    cylinder(b, look, 6, 28, 3, 6, c("#4a4c50"))
+    b.casters.append((1, 8, 21, 23, 23, 28))
+    return b
+
+
 def seam(look, kind):
     """Stones showing through the grass where there's a seam underneath: rusty for ore, black for coal."""
     img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    rng = random.Random(9970 if kind == "ore" else 9980)
+    rng = random.Random({"ore": 9970, "coal": 9980, "oil": 9990}[kind])
+    if kind == "oil":
+        # Dark seeps where the oil comes up.
+        for _ in range(2 if look == "snow" else 4):
+            x, y = rng.randrange(4, 27), rng.randrange(4, 27)
+            r = rng.choice((2, 3))
+            d.ellipse([x - r, y - r // 2 - 1, x + r, y + r // 2 + 1], (24, 22, 26, 200))
+            d.point((x - 1, y - 1), (90, 80, 110, 220))
+        return img
     cols = [c("#8a4a36"), c("#a05a40"), c("#6a3a2a")] if kind == "ore" else [c("#2a2a2f"), c("#3a3a40"), c("#1e1e22")]
     for _ in range(4 if look == "snow" else 9):
         x, y = rng.randrange(2, 29), rng.randrange(2, 29)
@@ -2956,7 +2990,7 @@ BUILDINGS = [
     ("tram_depot", tram_depot, 1), ("bus_garage", bus_garage, 2), ("subway_station", subway_station, 1),
     ("oil_plant", oil_plant, 1), ("gas_plant", gas_plant, 1), ("hydro_plant", hydro_plant, 1), ("nuclear_plant", nuclear_plant, 1),
     ("substation", substation, 1), ("dump", dump, 2), ("incinerator", incinerator, 1), ("recycling", recycling, 1),
-    ("farm", farm, 2), ("woodlot", woodlot, 3), ("mine", mine, 1), ("colliery", colliery, 1),
+    ("farm", farm, 2), ("woodlot", woodlot, 3), ("mine", mine, 1), ("colliery", colliery, 1), ("oil_well", oil_well, 1),
 ]
 
 
@@ -3248,6 +3282,7 @@ def sprites_for(look):
     out.append(("street_trees_0", img, LIFT, round_casters(casters)))
     out.append(("seam_0", seam(look, "ore"), 0, []))
     out.append(("seam_1", seam(look, "coal"), 0, []))
+    out.append(("seam_2", seam(look, "oil"), 0, []))
     sign = for_sale(look)
     out.append(("for_sale_0", sign.img, sign.lift, []))
     for mask in range(16):

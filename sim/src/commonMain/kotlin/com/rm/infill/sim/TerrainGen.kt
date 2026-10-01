@@ -43,7 +43,7 @@ object TerrainGen {
 
     /**
      * What's in the ground: good soil over broad stretches, and a few seams of
-     * iron ore and of coal. With [awayFrom], for a town made before there were
+     * iron ore and of coal, and oil fields. With [awayFrom], for a town made before there were
      * resources, the seams go only where nothing's built or zoned near them.
      * Its own random numbers, so the land is the same as without it.
      */
@@ -56,7 +56,7 @@ object TerrainGen {
         val soilLine = percentile(soil, 100 - FERTILE_SHARE)
         for (i in 0 until map.size) if (map.terrain[i] != Terrain.WATER && soil[i] >= soilLine) r[i] = Resource.FERTILE
         val seams = maxOf(1, map.size / SEAM_AREA)
-        for (kind in listOf(Resource.ORE, Resource.COAL)) repeat(seams) {
+        for (kind in listOf(Resource.ORE, Resource.COAL, Resource.OIL)) repeat(seams) {
             // A few tries for a spot on dry land, clear of the town.
             var at = -1
             repeat(40) {

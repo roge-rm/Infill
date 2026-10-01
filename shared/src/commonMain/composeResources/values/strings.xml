@@ -516,4 +516,14 @@
     <string name="inspect_coal_seam">A coal seam underground</string>
     <string name="overlay_land">Land</string>
     <string name="overlay_goods">Goods</string>
+    <string name="building_oil_well">Oil well</string>
+    <string name="good_oil">crude oil</string>
+    <string name="good_fuel">fuel oil</string>
+    <string name="inspect_oil">Oil underground</string>
+    <string name="inspect_stock_local">%1$d% of its stock from town</string>
+    <string name="inspect_short_of_stock">Can't get stock</string>
+    <string name="inspect_fuel_local">%1$d% of its fuel oil from town</string>
+    <string name="trade">Trade</string>
+    <string name="trade_out">Sold out of town</string>
+    <string name="trade_in">Brought in</string>
 </resources>

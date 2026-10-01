@@ -40,6 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
+import com.rm.infill.res.trade
+import com.rm.infill.res.trade_out
+import com.rm.infill.res.trade_in
 import com.rm.infill.res.emergency_repairs
 import com.rm.infill.res.upkeep_garbage
 import com.rm.infill.res.upkeep_disasters
@@ -235,6 +238,12 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
             CountLine(Res.string.garbage_taken, stringResource(Res.string.percent, s.wasteCollected))
             if (s.dumpRoom > 0) CountLine(Res.string.dump_room, stringResource(Res.string.tonnes, groupThousands(s.dumpRoom.toLong())))
             if (s.smog > 0) CountLine(Res.string.smog, stringResource(Res.string.percent, s.smog * 100 / 255))
+            // What the town's goods fetched outside, and what it had to bring in.
+            if (s.exportValue > 0 || s.importValue > 0) {
+                Heading(Res.string.trade)
+                MoneyLine(Res.string.trade_out, s.exportValue)
+                MoneyLine(Res.string.trade_in, -s.importValue)
+            }
             Heading(Res.string.last_month)
             MoneyLine(Res.string.tax_residential, s.residentialIncome)
             MoneyLine(Res.string.tax_commercial, s.commercialIncome)

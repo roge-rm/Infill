@@ -161,4 +161,49 @@ class GoodsTest {
         assertEquals(c.funds, loaded.funds)
         assertTrue(c.stats.goodsMade.contentEquals(loaded.stats.goodsMade))
     }
+
+    @Test
+    fun shopsStockFromTownOrBringItIn() {
+        fun town(edge: Boolean): City {
+            val c = city()
+            // A road to the edge, or one that stops short of it.
+            if (edge) c.road(0, 30, 63, 30) else c.road(4, 30, 59, 30)
+            c.apply(Action.PlaceZone(6, 27, 57, 29, Zone.RESIDENTIAL))
+            c.apply(Action.PlaceZone(6, 31, 30, 32, Zone.COMMERCIAL))
+            c.apply(Action.PlaceZone(32, 31, 57, 32, Zone.INDUSTRIAL))
+            repeat(36) { c.month() }
+            return c
+        }
+        val open = town(edge = true)
+        val shops = open.all().filter { it.type.zone == Zone.COMMERCIAL && it.underway == 0 }
+        assertTrue(shops.isNotEmpty())
+        // No farms: the food's all brought in, and comes by road.
+        assertTrue(open.stats.goodsImported[Good.FOOD.ordinal] > 0)
+        assertTrue(shops.none { open.shortOfStock(it) })
+        assertTrue(open.stats.importValue > 0)
+        // Cut off from the outside, what the town doesn't make can't be had.
+        val shut = town(edge = false)
+        assertTrue(shut.all().any { it.type.zone == Zone.COMMERCIAL && shut.shortOfStock(it) })
+    }
+
+    @Test
+    fun oilFromTheWellsFuelsTheStation() {
+        val c = city(year = 1925)
+        // A township still: oil stations are the world's by now, if not yet the town's era.
+        c.everything = true
+        c.road(0, 30, 63, 30)
+        for (y in 26..29) for (x in 40..52) c.map.resource[c.i(x, y)] = Resource.OIL
+        c.apply(Action.PlaceZone(5, 27, 38, 29, Zone.RESIDENTIAL))
+        c.apply(Action.PlaceZone(5, 31, 30, 33, Zone.INDUSTRIAL))
+        c.apply(Action.PlaceZone(40, 26, 52, 29, Zone.FARMLAND))
+        c.apply(Action.PlaceBuilding(BuildingType.OIL_PLANT, 55, 31))
+        c.apply(Action.BuildPowerLine(Action.roadPath(c.map, 55, 33, 5, 33, true)))
+        c.apply(Action.BuildPowerLine(Action.roadPath(c.map, 54, 31, 54, 26, false)))
+        c.apply(Action.BuildPowerLine(Action.roadPath(c.map, 54, 26, 5, 26, true)))
+        repeat(60) { c.month() }
+        assertTrue(c.all().any { it.type == BuildingType.OIL_WELL }, "wells on the oil")
+        assertTrue(c.all().any { it.worksKind == WorksKind.REFINERY }, "a refinery for the crude")
+        val station = c.all().first { it.type == BuildingType.OIL_PLANT }
+        assertTrue(station.local > 0, "fuel oil from the refinery")
+    }
 }

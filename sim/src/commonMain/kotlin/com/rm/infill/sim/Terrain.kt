@@ -22,10 +22,11 @@ object Zone {
     const val COUNT = 5
 }
 
-/** What's in the ground, for farms and mines: good soil, iron ore, or a coal seam. Stored as a byte. */
+/** What's in the ground, for farms, mines and wells: good soil, iron ore, a coal seam or an oil field. Stored as a byte. */
 object Resource {
     const val NONE: Byte = 0
     const val FERTILE: Byte = 1
     const val ORE: Byte = 2
     const val COAL: Byte = 3
+    const val OIL: Byte = 4
 }

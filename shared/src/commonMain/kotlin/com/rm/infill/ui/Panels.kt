@@ -32,6 +32,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
 import com.rm.infill.map.MapRenderer
+import com.rm.infill.res.building_oil_well
+import com.rm.infill.res.good_oil
+import com.rm.infill.res.good_fuel
+import com.rm.infill.res.inspect_oil
+import com.rm.infill.res.inspect_stock_local
+import com.rm.infill.res.inspect_short_of_stock
+import com.rm.infill.res.inspect_fuel_local
 import com.rm.infill.res.building_farm
 import com.rm.infill.res.building_woodlot
 import com.rm.infill.res.building_mine
@@ -336,8 +343,12 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
             } else if (land != null) {
                 add(stringResource(Res.string.inspect_makes, stringResource(goodName(land.first))))
                 if (building.underway == 0) add(stringResource(Res.string.inspect_local_sold, building.local))
-            } else if (t == BuildingType.COAL_PLANT) {
+            } else if (t == BuildingType.COAL_PLANT && city.stationOutput(building) > 0) {
                 add(stringResource(Res.string.inspect_coal_local, building.local))
+            } else if (t == BuildingType.OIL_PLANT && city.stationOutput(building) > 0) {
+                add(stringResource(Res.string.inspect_fuel_local, building.local))
+            } else if (t.zone == Zone.COMMERCIAL && building.underway == 0) {
+                add(stringResource(if (city.shortOfStock(building)) Res.string.inspect_short_of_stock else Res.string.inspect_stock_local, building.local))
             }
             if (building.uncollected) add(stringResource(Res.string.inspect_garbage))
             if (building.burning > 0) add(stringResource(Res.string.on_fire))
@@ -430,6 +441,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 Resource.FERTILE -> add(stringResource(Res.string.inspect_fertile))
                 Resource.ORE -> add(stringResource(Res.string.inspect_ore))
                 Resource.COAL -> add(stringResource(Res.string.inspect_coal_seam))
+                Resource.OIL -> add(stringResource(Res.string.inspect_oil))
             }
             if (map.streetTrees[i].toInt() != 0) add(stringResource(Res.string.street_trees))
             if (road != null && city.snowedIn > 0) add(stringResource(Res.string.snowed_in))
@@ -529,6 +541,7 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.WOODLOT -> Res.string.building_woodlot
     BuildingType.MINE -> Res.string.building_mine
     BuildingType.COLLIERY -> Res.string.building_colliery
+    BuildingType.OIL_WELL -> Res.string.building_oil_well
 }
 
 fun goodName(g: Good): StringResource = when (g) {
@@ -536,6 +549,8 @@ fun goodName(g: Good): StringResource = when (g) {
     Good.TIMBER -> Res.string.good_timber
     Good.ORE -> Res.string.good_ore
     Good.COAL -> Res.string.good_coal
+    Good.OIL -> Res.string.good_oil
+    Good.FUEL -> Res.string.good_fuel
     Good.LUMBER -> Res.string.good_lumber
     Good.METAL -> Res.string.good_metal
     Good.GOODS -> Res.string.good_goods

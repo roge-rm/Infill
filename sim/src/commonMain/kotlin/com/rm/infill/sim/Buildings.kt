@@ -56,10 +56,11 @@ enum class BuildingType(
     FACTORY(Zone.INDUSTRIAL, 4, 30, pollution = 18, density = Density.MEDIUM, needs = 3, appeal = 62, buildDays = 90),
     WORKS(Zone.INDUSTRIAL, 5, 140, width = 2, height = 2, pollution = 40, density = Density.HIGH, needs = 3, appeal = 64, buildDays = 200),
 
-    /** On farmland, by what's under the lot: a mine on ore, a colliery on coal, a woodlot in the woods, otherwise a farm. */
+    /** On farmland, by what's under the lot: a mine on ore, a colliery on coal, a well on oil, a woodlot in the woods, otherwise a farm. */
     MINE(Zone.FARMLAND, 1, 20, width = 2, height = 2, pollution = 8, density = Density.LOW, buildDays = 90),
     COLLIERY(Zone.FARMLAND, 1, 20, width = 2, height = 2, pollution = 12, density = Density.LOW, buildDays = 90),
     WOODLOT(Zone.FARMLAND, 1, 3, density = Density.LOW, buildDays = 15),
+    OIL_WELL(Zone.FARMLAND, 1, 4, pollution = 10, density = Density.LOW, buildDays = 40),
     FARM(Zone.FARMLAND, 1, 4, width = 2, height = 2, density = Density.LOW, buildDays = 30),
 
     /** Power stations: their smoke follows their output, see [Generation]. Hydro goes beside a river. */

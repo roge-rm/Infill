@@ -248,8 +248,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 surface.copy(base + Atlas.GRASS + h % Atlas.GRASS_COUNT, dx, dy)
                 // Stones showing where there's a seam underneath, until something's built over it.
                 val seam = map.resource[i]
-                if ((seam == Resource.ORE || seam == Resource.COAL) && map.building[i] == 0 && road == null && !rail) {
-                    surface.blend(base + Atlas.SEAM + if (seam == Resource.ORE) 0 else 1, dx, dy)
+                if (seam >= Resource.ORE && map.building[i] == 0 && road == null && !rail) {
+                    surface.blend(base + Atlas.SEAM + seam - Resource.ORE, dx, dy)
                 }
                 if (grime > 0) soot(surface, grime, h, dx, dy, s, level)
                 if (map.brownfield[i].toInt() != 0) brownfield(surface, h, dx, dy, s, level)

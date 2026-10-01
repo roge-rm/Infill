@@ -40,6 +40,7 @@ object Stormwater {
         BuildingType.FARM -> 10
         BuildingType.WOODLOT -> 0
         BuildingType.MINE, BuildingType.COLLIERY -> 60
+        BuildingType.OIL_WELL -> 30
         BuildingType.NUCLEAR_PLANT -> 80
         BuildingType.SUBSTATION -> 50
         BuildingType.DUMP -> 30

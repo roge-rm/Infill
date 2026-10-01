@@ -405,6 +405,7 @@ fun terrainImage(m: CityMap): ImageBitmap {
             else -> when (m.resource[i]) {
                 Resource.ORE -> 0xFF9A4E36.toInt()
                 Resource.COAL -> 0xFF2E2E34.toInt()
+                Resource.OIL -> 0xFF5A3A6A.toInt()
                 else -> 0xFF5A9A3C.toInt()
             }
         }

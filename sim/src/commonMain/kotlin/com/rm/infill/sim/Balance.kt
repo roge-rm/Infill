@@ -552,7 +552,19 @@ object Balance {
     // Goods. What a load brought in costs against what it fetches; coal a coal station burns a month for
     // each megawatt it makes; how much further than the edge freight will go to a buyer in town, in seconds.
     const val IMPORT_MARKUP = 1.5
+    /** Dollars a load is worth at a price of 1, for the trade figures. */
+    const val LOAD_VALUE = 10.0
     const val COAL_PER_MW = 2
+    /** Fuel oil an oil station burns a month for each megawatt, and refineries from this year. */
+    const val FUEL_PER_MW = 2
+    const val REFINERY_YEAR = 1905
+    /** What shops need to sell, in hundredths of a load a month for each job: food, goods, and fuel for the town's cars. */
+    const val SHOP_FOOD = 20
+    const val SHOP_GOODS = 20
+    const val SHOP_FUEL = 30
+    /** How much less a shop earns that has to bring in all it sells, in percent, and one that can't get stock at all. */
+    const val IMPORT_DRAG = 25
+    const val NO_STOCK = 50
     const val EXPORT_DETOUR = 1_800
 
     // Farmland answers a share of the outside market, as industry does, and what the town brings in from
