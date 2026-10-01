@@ -3,7 +3,9 @@ package com.rm.infill.sim
 /**
  * Every kind of building. Zoned ones grow through four stages on a 1 by 1 lot;
  * [capacity] is residents for homes and jobs for everything else. Stage 1 needs
- * no power, since plenty of homes in 1900 had none, and later stages do.
+ * no power, since plenty of homes in 1900 had none, and later stages do. A well
+ * and a septic tank do for the first two stages; the third needs mains water
+ * and the fourth the sewer as well.
  */
 enum class BuildingType(
     val zone: Byte,
@@ -40,6 +42,16 @@ enum class BuildingType(
     STATION_NS(Zone.NONE, 0, 6, width = 1, height = 3),
     FREIGHT_YARD(Zone.NONE, 0, 20, width = 3, height = 2, pollution = 6),
     FREIGHT_YARD_NS(Zone.NONE, 0, 20, width = 2, height = 3, pollution = 6),
+
+    /** Water: a pumping station beside a river or lake, a well field anywhere, a tower, and an outfall for the sewers. */
+    PUMPING_STATION(Zone.NONE, 0, 6, width = 2, height = 2),
+    WELL_FIELD(Zone.NONE, 0, 2, width = 2, height = 2),
+    WATER_TOWER(Zone.NONE, 0, 0),
+    OUTFALL(Zone.NONE, 0, 0),
+
+    /** Stormwater: a pond that holds it, and an outfall for the storm drains. */
+    STORM_POND(Zone.NONE, 0, 0, width = 2, height = 2),
+    STORM_OUTFALL(Zone.NONE, 0, 0),
     ;
 
     /** A building the city runs rather than one that grows on zoned land. */
@@ -55,6 +67,14 @@ enum class BuildingType(
     val railway get() = station || yard
 
     val needsPower get() = stage >= 2
+    val needsWater get() = stage >= 3
+    val needsSewer get() = stage >= 4
+
+    /** Has to be beside water. */
+    val onWater get() = this == PUMPING_STATION || this == OUTFALL || this == STORM_OUTFALL
+
+    /** Where mains water comes from. */
+    val waterSource get() = this == PUMPING_STATION || this == WELL_FIELD
 
     /** The next stage up in the same zone, or null at the top. */
     val next: BuildingType? get() = entries.firstOrNull { it.zone == zone && zone != Zone.NONE && it.stage == stage + 1 }
@@ -74,6 +94,9 @@ class Building(val id: Int, var type: BuildingType, val x: Int, val y: Int, val 
 
     /** Days left of a fire, 0 when it isn't burning. */
     var burning = 0
+
+    /** Days this month a shop or works has been shut by floodwater. */
+    var closedDays = 0
 }
 
 /** The power line on a tile, if any. */

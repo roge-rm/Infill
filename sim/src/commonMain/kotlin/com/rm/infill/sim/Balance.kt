@@ -111,6 +111,131 @@ object Balance {
     const val RAIL_EXPORTS = 1.3
     const val RAIL_SETTLERS = 1.5
 
+    /** Monthly upkeep of a tile of pipe, and of each part of the waterworks. */
+    const val PIPE_UPKEEP = 0.15
+    const val PUMP_UPKEEP = 30.0
+    const val WELL_UPKEEP = 10.0
+    const val TOWER_UPKEEP = 8.0
+    const val OUTFALL_UPKEEP = 5.0
+
+    /** People a pumping station and a well field supply, residents and workers alike. */
+    const val PUMP_SUPPLY = 3_000
+    const val WELL_SUPPLY = 800
+
+    /** How far water goes along the mains from a source or a tower before the pressure's too low, in tiles. */
+    const val PRESSURE_REACH = 30
+
+    /** How near a building has to be to a main or a sewer to be on it, in tiles: as far as a road reaches. */
+    const val PIPE_REACH = 2
+
+    /** How far sewage spreads through the water from an outfall, in tiles, and how much there is for every hundred people. */
+    const val FOUL_REACH = 20
+    const val FOUL_PER_HUNDRED = 6
+
+    /** Fire cover mains water adds, for the hydrants. */
+    const val HYDRANT_COVER = 90
+
+    /** Monthly upkeep of a storm pond and a storm outfall. */
+    const val POND_UPKEEP = 4.0
+    const val STORM_OUTFALL_UPKEEP = 3.0
+
+    /**
+     * Stormwater. Rain runs off each tile by its share of hard surface, and
+     * snowmelt this many times over for each point of snow cover lost. The soft
+     * ground around soaks up [ABSORB] percent of the rain that falls on it; what
+     * neither soaks up nor drains away within [FLOOD_AREA] tiles stands as a
+     * flood, [FLOOD_SCALE] levels for each unit left on a tile.
+     */
+    const val MELT_RUNOFF = 1
+
+    /** Rain or melt less than this soaks in everywhere. */
+    const val DOWNPOUR = 25
+    const val ABSORB = 120
+    const val FLOOD_AREA = 2
+    const val FLOOD_SCALE = 3
+
+    /**
+     * The ground: each wet spell soaks it by this share of the rain and melt, in
+     * percent, and a dry spell dries it this much, more in warm weather. Soaked
+     * ground takes in only [SOAKED_SOAK] percent of what dry ground would, and
+     * frozen ground [FROZEN_SOAK].
+     */
+    const val GROUND_WETS = 30
+    const val GROUND_DRIES = 25
+    const val GROUND_DRIES_WARM = 40
+    const val SOAKED_SOAK = 15
+    const val FROZEN_SOAK = 20
+
+    /**
+     * What runs off over the ground to somewhere lower, even from paving, in a
+     * downpour: this much a tile when the land round about is dry, down to
+     * [RUNS_AWAY_SOAKED] when it's soaked.
+     */
+    const val RUNS_AWAY_DRY = 45
+    const val RUNS_AWAY_SOAKED = 15
+
+    /**
+     * The rivers: they rise by this share of the rain and melt, in percent, from
+     * dry ground and from soaked, fall this much a day, and past [BANKFULL]
+     * spill onto the land beside them, a tile deeper for every [SPILL_STEP] over.
+     */
+    const val RIVER_RISE_DRY = 15
+    const val RIVER_RISE_SOAKED = 55
+    const val RIVER_FALL = 3
+    const val BANKFULL = 70
+    const val SPILL_STEP = 15
+    const val SPILL_MOST = 3
+
+    /** What a storm pond holds in one downpour, and how far round it it catches the rain without drains. */
+    const val POND_HOLDS = 4_000
+    const val POND_REACH = 3
+
+    /** The share of runoff the sewers take where there are no storm drains, in percent. It all goes out at the outfalls. */
+    const val SEWER_TAKES = 50
+
+    /**
+     * After a flood: the clean-up bill for each flooded building (times its
+     * stage), road tile and track tile; mud left as grime, this share of the
+     * flood level in percent; and the memory of it, fading this much a month,
+     * which costs land value (a point for every [STIGMA_VALUE]) and a home's
+     * appeal (one for every [STIGMA_APPEAL]).
+     */
+    const val CLEANUP_BUILDING = 10L
+    const val CLEANUP_ROAD = 3L
+    const val CLEANUP_TRACK = 4L
+    const val MUD = 40
+    const val STIGMA_FADE = 3
+    const val STIGMA_VALUE = 6
+    const val STIGMA_APPEAL = 12
+
+    /**
+     * Sickness: a flooded home on a well or a septic tank loses people one time
+     * in [SICK_CHANCE]; one on the sewer when the sewers overflowed, one in
+     * [SICK_CHANCE_SEWER].
+     */
+    const val SICK_CHANCE = 4
+    const val SICK_CHANCE_SEWER = 10
+
+    /**
+     * Flood levels: from [FLOODED] a place is flooded, shops and works shut, and
+     * power and pumping stations stop; from [FLOOD_DAMAGE] the water's deep,
+     * roads and track are closed and a building can be damaged, one time in
+     * [FLOOD_DAMAGE_CHANCE].
+     */
+    const val FLOODED = 64
+    const val FLOOD_DAMAGE = 128
+    const val FLOOD_DAMAGE_CHANCE = 5
+
+    /** How much a flood goes down each day, what it costs a place's appeal, and how much slower it makes a road. */
+    const val FLOOD_DRAIN = 20
+    const val FLOOD_APPEAL = 15
+    const val FLOOD_SLOW = 3
+
+    /** Appeal of mains water and the sewer to a home, and what a well in grime costs it. */
+    const val MAINS_APPEAL = 5
+    const val SEWER_APPEAL = 3
+    const val BAD_WELL = 10
+
     /** How far a lot can be from a road and still grow, in tiles. */
     const val ROAD_REACH = 2
 

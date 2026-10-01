@@ -61,6 +61,12 @@ import com.rm.infill.res.Res
 import com.rm.infill.res.money
 import com.rm.infill.res.not_enough_money
 import com.rm.infill.res.needs_track
+import com.rm.infill.res.needs_water
+import com.rm.infill.res.event_flooding
+import com.rm.infill.res.event_river_flood
+import com.rm.infill.res.event_sickness
+import com.rm.infill.res.road_only
+import com.rm.infill.res.road_with_pipes
 import com.rm.infill.res.nothing_to_undo
 import com.rm.infill.sim.Problem
 import com.rm.infill.ui.InspectPanel
@@ -71,6 +77,7 @@ import com.rm.infill.ui.ZoneKind
 import com.rm.infill.ui.OptionPicker
 import com.rm.infill.ui.PowerKind
 import com.rm.infill.ui.RailKind
+import com.rm.infill.ui.WaterKind
 import com.rm.infill.ui.roadColour
 import com.rm.infill.ui.roadName
 import com.rm.infill.ui.roadsIn
@@ -263,6 +270,8 @@ private fun GameScreen(
         var powerKind by remember { mutableStateOf(PowerKind.Line) }
         var roadKind by remember { mutableStateOf(RoadType.DIRT) }
         var railKind by remember { mutableStateOf(RailKind.Track) }
+        var waterKind by remember { mutableStateOf(WaterKind.Main) }
+        var roadPipes by remember { mutableStateOf(false) }
         var speed by remember { mutableIntStateOf(1) }
         var drag by remember { mutableStateOf<ToolDrag?>(null) }
         var inspected by remember { mutableStateOf<Pair<Int, Int>?>(null) }
@@ -333,12 +342,14 @@ private fun GameScreen(
                 dayProgress = progress
                 val monthBefore = city.month
                 game.tick(days) { e ->
-                    val text = when (e.kind) {
-                        EventKind.FireStarted -> Res.string.event_fire
-                        EventKind.BuildingLost -> Res.string.event_lost
-                        EventKind.FireSaved -> Res.string.event_saved
+                    message = when (e.kind) {
+                        EventKind.FireStarted -> Message(Res.string.event_fire, e.type?.let { buildingName(it) }, e.x, e.y)
+                        EventKind.BuildingLost -> Message(Res.string.event_lost, e.type?.let { buildingName(it) }, e.x, e.y)
+                        EventKind.FireSaved -> Message(Res.string.event_saved, e.type?.let { buildingName(it) }, e.x, e.y)
+                        EventKind.Flooding -> Message(Res.string.event_flooding, x = e.x, y = e.y)
+                        EventKind.RiverFlood -> Message(Res.string.event_river_flood, x = e.x, y = e.y)
+                        EventKind.Sickness -> Message(Res.string.event_sickness, x = e.x, y = e.y)
                     }
-                    message = Message(text, buildingName(e.type), e.x, e.y)
                 }
                 if (city.month != monthBefore) onNewMonth()
             }
@@ -352,12 +363,15 @@ private fun GameScreen(
         }
 
         // What the drag would do, worked out again as it moves.
-        val preview = remember(drag, tool, zoneKind, powerKind, serviceKind, roadKind, railKind, game.revision) {
-            drag?.let { d -> d.action(tool, zoneKind, powerKind, serviceKind, roadKind, railKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) } }
+        val preview = remember(drag, tool, zoneKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, game.revision) {
+            drag?.let { d ->
+                d.action(tool, zoneKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, city.map)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
+            }
         }
         val costText = preview?.let {
             if (it.plan.problem == Problem.NotEnoughMoney) stringResource(Res.string.not_enough_money)
             else if (it.plan.problem == Problem.NeedsTrack) stringResource(Res.string.needs_track)
+            else if (it.plan.problem == Problem.NeedsWater) stringResource(Res.string.needs_water)
             else stringResource(Res.string.money, groupThousands(it.plan.cost))
         } ?: ""
 
@@ -369,6 +383,7 @@ private fun GameScreen(
                 roadKind = roads[(roads.indexOf(roadKind) + 1) % roads.size]
             }
             if (t == Tool.Rail && tool == Tool.Rail) railKind = RailKind.entries[(railKind.ordinal + 1) % RailKind.entries.size]
+            if (t == Tool.Water && tool == Tool.Water) waterKind = WaterKind.entries[(waterKind.ordinal + 1) % WaterKind.entries.size]
             if (t == Tool.Power && tool == Tool.Power) powerKind = PowerKind.entries[(powerKind.ordinal + 1) % PowerKind.entries.size]
             if (t == Tool.Services && tool == Tool.Services) serviceKind = ServiceKind.entries[(serviceKind.ordinal + 1) % ServiceKind.entries.size]
             tool = t
@@ -382,6 +397,7 @@ private fun GameScreen(
                 Problem.TownBuiltThere -> Message(Res.string.town_built_there)
                 Problem.Blocked -> Message(Res.string.blocked)
                 Problem.NeedsTrack -> Message(Res.string.needs_track)
+                Problem.NeedsWater -> Message(Res.string.needs_water)
                 else -> message
             }
         }
@@ -419,7 +435,7 @@ private fun GameScreen(
             onToolUp = {
                 val d = drag
                 drag = null
-                val action = d?.action(tool, zoneKind, powerKind, serviceKind, roadKind, railKind, city.map)
+                val action = d?.action(tool, zoneKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, city.map)
                 if (action != null) tell(game.apply(action).problem)
             },
             onToolCancel = { drag = null },
@@ -462,6 +478,7 @@ private fun GameScreen(
                             KeyAction.ToolBulldoze -> pick(Tool.Bulldoze)
                             KeyAction.ToolRoad -> pick(Tool.Road)
                             KeyAction.ToolRail -> pick(Tool.Rail)
+                            KeyAction.ToolWater -> pick(Tool.Water)
                             KeyAction.ToolZone -> pick(Tool.Zone)
                             KeyAction.ToolPower -> pick(Tool.Power)
                             KeyAction.ToolServices -> pick(Tool.Services)
@@ -492,7 +509,8 @@ private fun GameScreen(
             viewSize = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
             MapView(
                 game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, graphics, gestures, preview, costText, overlay,
-                Modifier.fillMaxSize(),
+                underground = tool == Tool.Water,
+                modifier = Modifier.fillMaxSize(),
             )
 
             val safe = WindowInsets.safeDrawing
@@ -551,6 +569,12 @@ private fun GameScreen(
                 }
                 if (tool == Tool.Road) {
                     OptionPicker(roadsIn(city.year), roadKind, { roadName(it) }, { roadColour(it) }, { roadKind = it }, compactTools)
+                }
+                if (tool == Tool.Road) {
+                    OptionPicker(listOf(false, true), roadPipes, { if (it) Res.string.road_with_pipes else Res.string.road_only }, { null }, { roadPipes = it }, compactTools)
+                }
+                if (tool == Tool.Water) {
+                    OptionPicker(WaterKind.entries, waterKind, { it.title }, { null }, { waterKind = it }, compactTools)
                 }
                 if (tool == Tool.Rail) {
                     OptionPicker(RailKind.entries, railKind, { it.title }, { null }, { railKind = it }, compactTools)

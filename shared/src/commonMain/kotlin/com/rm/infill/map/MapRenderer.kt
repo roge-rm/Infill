@@ -222,6 +222,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             if (map.terrain[i] == Terrain.WATER) {
                 surface.copy(base + Atlas.WATER + h % Atlas.WATER_COUNT, dx, dy)
                 if (grime > 0) surface.fill(dx, dy, s, s, MURK, MURK_ALPHA[grime])
+                val foul = map.foulLevel(i)
+                if (foul > 0) surface.fill(dx, dy, s, s, SEWAGE, SEWAGE_ALPHA[foul])
                 shores(surface, base, tx, ty, dx, dy)
                 if (rail) {
                     val mask = railMask(tx, ty)
@@ -244,6 +246,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 val zone = map.zone[i]
                 if (zone != Zone.NONE && map.building[i] == 0) zoneTint(surface, zone, tx, ty, dx, dy, s, level)
                 if (road != null) roadTile(surface, base, road, i, tx, ty, roadMask(tx, ty), dx, dy, level)
+                if (map.bank[i].toInt() != 0) embankment(surface, tx, ty, dx, dy, s, r.look == Atlas.SNOW)
                 if (rail && road != null) {
                     // A level crossing, drawn over the road the way the track runs.
                     val mask = railMask(tx, ty)
@@ -444,6 +447,29 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         RoadType.AVENUE, RoadType.ONE_WAY_AVENUE, RoadType.BOULEVARD -> Atlas.ROAD_AVENUE
     }
 
+    /**
+     * An earth embankment: a grassy ridge along the tile, joined to the next
+     * stretch on each side it carries on to, with a pale path along its crest.
+     */
+    private fun embankment(surface: BakeSurface, tx: Int, ty: Int, dx: Int, dy: Int, s: Int, snow: Boolean) {
+        fun bank(x: Int, y: Int) = map.inside(x, y) && map.bank[map.index(x, y)].toInt() != 0
+        val lo = s * 7 / 32
+        val hi = s * 25 / 32
+        val body = if (snow) BANK_SNOW else BANK_GRASS
+        val crest = if (snow) BANK_CREST_SNOW else BANK_CREST
+        surface.fill(dx + lo, dy + lo, hi - lo, hi - lo, body, 255)
+        if (bank(tx, ty - 1)) surface.fill(dx + lo, dy, hi - lo, lo, body, 255)
+        if (bank(tx, ty + 1)) surface.fill(dx + lo, dy + hi, hi - lo, s - hi, body, 255)
+        if (bank(tx - 1, ty)) surface.fill(dx, dy + lo, lo, hi - lo, body, 255)
+        if (bank(tx + 1, ty)) surface.fill(dx + hi, dy + lo, s - hi, hi - lo, body, 255)
+        val c0 = s * 15 / 32
+        val w = maxOf(1, s * 2 / 32)
+        val northSouth = bank(tx, ty - 1) || bank(tx, ty + 1)
+        val eastWest = bank(tx - 1, ty) || bank(tx + 1, ty)
+        if (northSouth || !eastWest) surface.fill(dx + c0, dy + (if (bank(tx, ty - 1)) 0 else lo), w, (if (bank(tx, ty + 1)) s else hi) - (if (bank(tx, ty - 1)) 0 else lo), crest, 200)
+        if (eastWest) surface.fill(dx + (if (bank(tx - 1, ty)) 0 else lo), dy + c0, (if (bank(tx + 1, ty)) s else hi) - (if (bank(tx - 1, ty)) 0 else lo), w, crest, 200)
+    }
+
     /** Which neighbours are track: north 1, east 2, south 4, west 8. */
     private fun railMask(x: Int, y: Int): Int {
         fun track(tx: Int, ty: Int) = map.inside(tx, ty) && map.rail[map.index(tx, ty)] != Rail.NONE
@@ -624,6 +650,16 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         private const val SOOT = 0x3F3830
         private val SOOT_ALPHA = intArrayOf(0, 45, 85, 130)
         private const val MURK = 0x5C5A3C
+
+        /** Embankments: grass, and the path along the top. */
+        private const val BANK_GRASS = 0x4E7A34
+        private const val BANK_CREST = 0xB8A57A
+        private const val BANK_SNOW = 0xDCE4EA
+        private const val BANK_CREST_SNOW = 0xB9C3CB
+
+        /** Sewage in the water: a brown-green scum, thicker the fouler it is. */
+        private const val SEWAGE = 0x5E5A2A
+        private val SEWAGE_ALPHA = intArrayOf(0, 55, 95, 135)
         private val MURK_ALPHA = intArrayOf(0, 45, 85, 125)
         private const val DIRT = 0x6E5E48
 

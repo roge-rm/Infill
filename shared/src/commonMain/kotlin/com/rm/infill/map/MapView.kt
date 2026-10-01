@@ -73,6 +73,7 @@ fun MapView(
     preview: Preview?,
     costText: String,
     overlay: Overlay,
+    underground: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val map = game.city.map
@@ -185,12 +186,14 @@ fun MapView(
                 )
             }
         }
+        drawFloods(map, camera)
         val stopped = if (trains) drawTrains(game.city.trainRoutes, map, camera, weatherTime, graphics.trains, graphics.smoke) else emptySet()
         if (traffic) drawVehicles(map, camera, game.city.year, weatherTime, graphics.vehicles, stopped)
         if (fires) drawFires(map, camera, weather, weatherTime)
         drawWeather(weather, camera, clouds, weatherTime, sun.strength, graphics)
         // Modulate rather than Multiply: the same for an opaque tint, and Android before 10 has only this one.
         if (tint != Color.White) drawRect(tint, blendMode = BlendMode.Modulate)
+        if (underground) drawUnderground(map, camera)
         overlayImage?.let { drawOverlay(it, map, camera, overlay) }
         if (preview != null) drawPreview(preview, map, camera, measurer, costText)
         else if (gestures.toolActive && hoverX >= 0) drawHover(hoverX, hoverY, camera)

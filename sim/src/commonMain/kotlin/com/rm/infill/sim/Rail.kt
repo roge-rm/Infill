@@ -61,13 +61,16 @@ internal class RailNetwork(private val map: CityMap) {
     var toEdge = IntArray(0)
         private set
 
+    /** Track under deep floodwater is closed until it drains. */
+    private fun deep(i: Int) = (map.flood[i].toInt() and 0xff) >= Balance.FLOOD_DAMAGE
+
     fun update(stations: List<Building>) {
         line.fill(-1)
         var lines = 0
         val linkedList = ArrayList<Boolean>()
         val queue = IntArray(map.size)
         for (start in 0 until map.size) {
-            if (map.rail[start] != Rail.TRACK || line[start] >= 0) continue
+            if (map.rail[start] != Rail.TRACK || deep(start) || line[start] >= 0) continue
             var head = 0
             var tail = 0
             queue[tail++] = start
@@ -83,7 +86,7 @@ internal class RailNetwork(private val map: CityMap) {
                     val ny = y + Heading.DY[h]
                     if (!map.inside(nx, ny)) continue
                     val j = map.index(nx, ny)
-                    if (map.rail[j] != Rail.TRACK || line[j] >= 0) continue
+                    if (map.rail[j] != Rail.TRACK || deep(j) || line[j] >= 0) continue
                     line[j] = lines
                     queue[tail++] = j
                 }
@@ -131,7 +134,7 @@ internal class RailNetwork(private val map: CityMap) {
                 val ny = y + Heading.DY[h]
                 if (!map.inside(nx, ny)) continue
                 val j = map.index(nx, ny)
-                if (map.rail[j] != Rail.TRACK || steps[j] >= 0) continue
+                if (map.rail[j] != Rail.TRACK || deep(j) || steps[j] >= 0) continue
                 steps[j] = steps[i] + 1
                 queue[tail++] = j
             }

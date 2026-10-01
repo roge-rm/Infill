@@ -16,7 +16,11 @@ import com.rm.infill.res.overlay_pollution
 import com.rm.infill.res.overlay_power
 import com.rm.infill.res.overlay_traffic
 import com.rm.infill.res.overlay_rail
+import com.rm.infill.res.overlay_water
+import com.rm.infill.res.overlay_runoff
+import com.rm.infill.sim.Balance
 import com.rm.infill.sim.CityMap
+import com.rm.infill.sim.Stormwater
 import com.rm.infill.sim.Terrain
 import com.rm.infill.sim.Zone
 import org.jetbrains.compose.resources.StringResource
@@ -34,6 +38,8 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Fire(Res.string.overlay_fire, Color(0x00E67E22), Color(0xFFE67E22)),
     Traffic(Res.string.overlay_traffic, Color(0xFFFFF1B8), Color(0xFFD8302F)),
     Railway(Res.string.overlay_rail, Color(0xFFE6E1F5), Color(0xFF5B3FB5)),
+    Water(Res.string.overlay_water, Color(0xFFD84343), Color(0xFF3F8FD8)),
+    Runoff(Res.string.overlay_runoff, Color(0xFFB8DDA8), Color(0xFF7A3B2E)),
 }
 
 /**
@@ -69,12 +75,35 @@ internal fun overlayImage(overlay: Overlay, map: CityMap): ImageBitmap? {
                 if (map.rail[i].toInt() == 0) continue
                 map.railBusy[i].toInt() and 0xff
             }
+            Overlay.Water -> {
+                // Only what can have it: buildings and zones.
+                if (map.building[i] == 0 && map.zone[i] == Zone.NONE) continue
+                if (map.watered[i]) 255 else 0
+            }
+            Overlay.Runoff -> {
+                // How much of the rain runs off, and less of it where a storm drain's near.
+                val hard = Stormwater.hardness(map, i) * 255 / 100
+                if (drained(map, i)) hard / 3 else hard
+            }
             Overlay.None -> 0
         }
-        if (overlay != Overlay.LandValue && overlay != Overlay.Power && overlay != Overlay.Traffic && overlay != Overlay.Railway && v == 0) continue
+        val everywhere = overlay == Overlay.LandValue || overlay == Overlay.Power || overlay == Overlay.Traffic ||
+            overlay == Overlay.Railway || overlay == Overlay.Water || overlay == Overlay.Runoff
+        if (!everywhere && v == 0) continue
         pixels[i] = mix(overlay.low, overlay.high, v / 255f)
     }
     return imageBitmapOf(pixels, map.width, map.height)
+}
+
+/** Whether a storm drain runs within reach of tile [i]. */
+private fun drained(map: CityMap, i: Int): Boolean {
+    val x = i % map.width
+    val y = i / map.width
+    val r = Balance.PIPE_REACH
+    for (ty in y - r..y + r) for (tx in x - r..x + r) {
+        if (map.inside(tx, ty) && map.stormPipe[map.index(tx, ty)].toInt() != 0) return true
+    }
+    return false
 }
 
 /** ARGB between two colours. */

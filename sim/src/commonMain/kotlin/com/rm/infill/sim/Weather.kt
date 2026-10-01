@@ -77,11 +77,12 @@ class Weather(seed: Long, private val climate: Climate = Climate.TEMPERATE) {
         cloudBias = (cloudBias * 7 / 10 + rng.nextInt(61) - 30).coerceIn(-60, 60)
         cloud = (climate.cloudiness[month] + cloudBias).coerceIn(0, 100)
 
-        // Wet days come under the thickest cloud.
+        // Wet days come under the thickest cloud. Most rain is light or steady;
+        // now and then, about one wet spell in twenty, the sky opens.
         val wet = cloud >= 55 && rng.nextInt(100) < climate.wetDays[month] * cloud / 60
         if (wet) {
             precipitation = if (temperature <= 0) Precipitation.Snow else Precipitation.Rain
-            intensity = min(100, 20 + (cloud - 55) * 2 + rng.nextInt(40))
+            intensity = if (rng.nextInt(CLOUDBURST) == 0) 85 + rng.nextInt(16) else min(70, 10 + (cloud - 55) / 2 + rng.nextInt(30))
         } else {
             precipitation = Precipitation.None
             intensity = 0
@@ -118,6 +119,9 @@ class Weather(seed: Long, private val climate: Climate = Climate.TEMPERATE) {
 
     companion object {
         private const val WEATHER_SALT = 0x5eed_c10dL
+
+        /** One wet spell in this many is a cloudburst. */
+        private const val CLOUDBURST = 20
 
         /** Snow cover from which the map is drawn in its snow look. */
         const val SNOW_LOOK = 25

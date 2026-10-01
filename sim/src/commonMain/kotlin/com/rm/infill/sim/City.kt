@@ -90,28 +90,29 @@ class City(
         when (action) {
             is Action.BuildRoad -> {
                 val layout = roadLayout(action)
-                val type = action.type
                 for (k in layout.tiles.indices) {
                     val i = layout.tiles[k]
-                    val run = layout.runs[k].toInt()
-                    val old = RoadType.of(m.road[i])
-                    val bridge = if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
-                    when {
-                        m.building[i] != 0 -> blocked += i
-                        bridge > 1 && (!type.bridges || layout.turns[k] || m.rail[i] != Rail.NONE) -> blocked += i
-                        // A road meets track only straight across it, as a level crossing.
-                        m.rail[i] != Rail.NONE && (layout.turns[k] || !across(i, run, m.rail)) -> blocked += i
-                        old == null -> {
-                            changes += i
-                            cost += type.price * bridge + clearing(i)
-                        }
-                        old == type && (layout.headings[k] == m.roadHeading[i] || across(run, m.roadHeading[i].toInt())) -> {}
-                        // A road drawn across a better one leaves the crossing as it is.
-                        old.capacity > type.capacity && crossing(i, run) -> {}
-                        else -> {
-                            changes += i
-                            cost += max(Prices.REMOVE_ROAD, type.price - old.price) * bridge
-                        }
+                    val road = roadCost(action.type, layout, k)
+                    if (road == BLOCKED) {
+                        blocked += i
+                        continue
+                    }
+                    val pipes = if (action.pipes && m.terrain[i] != Terrain.WATER) pipeCost(i) else 0L
+                    if (road != NO_CHANGE || pipes > 0) {
+                        changes += i
+                        cost += (if (road == NO_CHANGE) 0 else road) + pipes
+                    }
+                }
+            }
+            is Action.BuildPipe -> for (i in action.tiles) {
+                when {
+                    !inMap(i) -> {}
+                    // Pipes go under everything but water.
+                    m.terrain[i] == Terrain.WATER -> blocked += i
+                    pipes(action.kind)[i].toInt() != 0 -> {}
+                    else -> {
+                        changes += i
+                        cost += action.kind.price
                     }
                 }
             }
@@ -122,7 +123,7 @@ class City(
                     val i = path[k]
                     val water = m.terrain[i] == Terrain.WATER
                     when {
-                        m.building[i] != 0 -> blocked += i
+                        m.building[i] != 0 || m.bank[i].toInt() != 0 -> blocked += i
                         m.rail[i] != Rail.NONE -> {}
                         // Over water on a bridge of its own, straight across.
                         water && (turns[k] || m.road[i] != Road.NONE) -> blocked += i
@@ -149,7 +150,8 @@ class City(
             }
             is Action.PlaceZone -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
                 when {
-                    m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE || m.rail[i] != Rail.NONE -> blocked += i
+                    m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE || m.rail[i] != Rail.NONE ||
+                        m.bank[i].toInt() != 0 -> blocked += i
                     m.zone[i] == action.zone -> {}
                     m.building[i] != 0 -> blocked += i
                     else -> {
@@ -163,7 +165,7 @@ class City(
                 var ok = action.x >= 0 && action.y >= 0 && action.x + t.width <= m.width && action.y + t.height <= m.height
                 if (ok) forRect(action.x, action.y, action.x + t.width - 1, action.y + t.height - 1) { i ->
                     if (m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
-                        m.zone[i] != Zone.NONE || m.building[i] != 0 || m.rail[i] != Rail.NONE
+                        m.zone[i] != Zone.NONE || m.building[i] != 0 || m.rail[i] != Rail.NONE || m.bank[i].toInt() != 0
                     ) {
                         blocked += i
                         ok = false
@@ -180,7 +182,7 @@ class City(
             }
             is Action.PlaceParks -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
                 if (m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
-                    m.zone[i] != Zone.NONE || m.building[i] != 0 || m.rail[i] != Rail.NONE
+                    m.zone[i] != Zone.NONE || m.building[i] != 0 || m.rail[i] != Rail.NONE || m.bank[i].toInt() != 0
                 ) {
                     blocked += i
                 } else {
@@ -206,6 +208,7 @@ class City(
                     if (m.road[i] != Road.NONE) c += Prices.REMOVE_ROAD * if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
                     if (m.power[i] != Power.NONE) c += Prices.REMOVE_LINE
                     if (m.rail[i] != Rail.NONE) c += Prices.REMOVE_RAIL * if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
+                    if (m.bank[i].toInt() != 0) c += Prices.REMOVE_BANK
                     if (m.terrain[i] == Terrain.TREES) c += Prices.CLEAR_TREES
                     if (c > 0 || m.zone[i] != Zone.NONE) {
                         changes += i
@@ -213,10 +216,29 @@ class City(
                     }
                 }
             }
+            is Action.BuildBank -> for (i in action.tiles) {
+                when {
+                    !inMap(i) -> {}
+                    m.terrain[i] == Terrain.WATER || m.building[i] != 0 || m.road[i] != Road.NONE || m.rail[i] != Rail.NONE -> blocked += i
+                    m.bank[i].toInt() != 0 -> {}
+                    else -> {
+                        changes += i
+                        cost += Prices.BANK + clearing(i)
+                    }
+                }
+            }
+            is Action.RemovePipes -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
+                val count = m.waterPipe[i] + m.sewerPipe[i] + m.stormPipe[i]
+                if (count > 0) {
+                    changes += i
+                    cost += Prices.REMOVE_PIPE * count
+                }
+            }
         }
         val problem = when {
             action is Action.PlaceBuilding && blocked.isNotEmpty() -> Problem.Blocked
             action is Action.PlaceBuilding && action.type.railway && Rail.trackSide(m, action.type, action.x, action.y) == 0 -> Problem.NeedsTrack
+            action is Action.PlaceBuilding && action.type.onWater && !besideWater(action.type, action.x, action.y) -> Problem.NeedsWater
             changes.isEmpty() -> Problem.NothingToDo
             cost > funds -> Problem.NotEnoughMoney
             else -> null
@@ -225,6 +247,47 @@ class City(
     }
 
     private fun clearing(i: Int) = if (map.terrain[i] == Terrain.TREES) Prices.CLEAR_TREES else 0L
+
+    /**
+     * What drawing a road of [type] does to the [k]th tile of [layout]: its
+     * cost, [NO_CHANGE] if the road there stays as it is, or [BLOCKED].
+     */
+    private fun roadCost(type: RoadType, layout: RoadLayout, k: Int): Long {
+        val m = map
+        val i = layout.tiles[k]
+        val run = layout.runs[k].toInt()
+        val old = RoadType.of(m.road[i])
+        val bridge = if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
+        return when {
+            m.building[i] != 0 || m.bank[i].toInt() != 0 -> BLOCKED
+            bridge > 1 && (!type.bridges || layout.turns[k] || m.rail[i] != Rail.NONE) -> BLOCKED
+            // A road meets track only straight across it, as a level crossing.
+            m.rail[i] != Rail.NONE && (layout.turns[k] || !across(i, run, m.rail)) -> BLOCKED
+            old == null -> type.price * bridge + clearing(i)
+            old == type && (layout.headings[k] == m.roadHeading[i] || across(run, m.roadHeading[i].toInt())) -> NO_CHANGE
+            // A road drawn across a better one leaves the crossing as it is.
+            old.capacity > type.capacity && crossing(i, run) -> NO_CHANGE
+            else -> max(Prices.REMOVE_ROAD, type.price - old.price) * bridge
+        }
+    }
+
+    /** Whether a building of [type] at [x], [y] would have water next to it, on any side or corner. */
+    fun besideWater(type: BuildingType, x: Int, y: Int): Boolean {
+        for (ty in y - 1..y + type.height) for (tx in x - 1..x + type.width) {
+            if (map.inside(tx, ty) && map.terrain[map.index(tx, ty)] == Terrain.WATER) return true
+        }
+        return false
+    }
+
+    /** The map layer for a kind of pipe. */
+    private fun pipes(kind: Pipe): ByteArray = when (kind) {
+        Pipe.WATER -> map.waterPipe
+        Pipe.SEWER -> map.sewerPipe
+        Pipe.STORM -> map.stormPipe
+    }
+
+    /** What it costs to put every kind of pipe under a tile, as far as they're not there already. */
+    private fun pipeCost(i: Int): Long = Pipe.entries.sumOf { if (pipes(it)[i].toInt() == 0) it.price else 0L }
 
     /**
      * The tiles a road goes on, the way it was drawn through each, the heading
@@ -351,15 +414,20 @@ class City(
         when (action) {
             is Action.BuildRoad -> {
                 val layout = roadLayout(action)
-                val heading = HashMap<Int, Byte>()
-                for (k in layout.tiles.indices) heading[layout.tiles[k]] = layout.headings[k]
-                for (i in plan.changes) {
-                    m.road[i] = action.type.id
-                    m.roadHeading[i] = heading[i] ?: Heading.BOTH
-                    m.zone[i] = Zone.NONE
-                    clearTrees(i)
+                val changing = plan.changes.toHashSet()
+                for (k in layout.tiles.indices) {
+                    val i = layout.tiles[k]
+                    if (i !in changing) continue
+                    if (roadCost(action.type, layout, k) != NO_CHANGE) {
+                        m.road[i] = action.type.id
+                        m.roadHeading[i] = layout.headings[k]
+                        m.zone[i] = Zone.NONE
+                        clearTrees(i)
+                    }
+                    if (action.pipes && m.terrain[i] != Terrain.WATER) for (kind in Pipe.entries) pipes(kind)[i] = 1
                 }
             }
+            is Action.BuildPipe -> for (i in plan.changes) pipes(action.kind)[i] = 1
             is Action.BuildRail -> for (i in plan.changes) {
                 m.rail[i] = Rail.TRACK
                 m.zone[i] = Zone.NONE
@@ -383,8 +451,15 @@ class City(
                 m.road[i] = Road.NONE
                 m.roadHeading[i] = Heading.BOTH
                 m.rail[i] = Rail.NONE
+                m.bank[i] = 0
                 m.zone[i] = Zone.NONE
                 m.power[i] = Power.NONE
+                clearTrees(i)
+            }
+            is Action.RemovePipes -> for (i in plan.changes) for (kind in Pipe.entries) pipes(kind)[i] = 0
+            is Action.BuildBank -> for (i in plan.changes) {
+                m.bank[i] = 1
+                m.zone[i] = Zone.NONE
                 clearTrees(i)
             }
         }
@@ -494,7 +569,20 @@ class City(
         burnDay()
         growDay()
         traffic.sendDay(day, daysIn(month, year))
-        if (day % Balance.WEATHER_DAYS == 1) weather.nextDay(month, day, daysIn(month, year), Balance.WEATHER_DAYS)
+        drainFloods()
+        river = max(0, river - Balance.RIVER_FALL)
+        if (day % Balance.WEATHER_DAYS == 1) {
+            val snow = weather.snowCover
+            weather.nextDay(month, day, daysIn(month, year), Balance.WEATHER_DAYS)
+            val rain = if (weather.precipitation == Precipitation.Rain) weather.intensity else 0
+            val melt = max(0, snow - weather.snowCover) * Balance.MELT_RUNOFF
+            val frozen = weather.temperature <= 0
+            // Drizzle soaks in wherever it falls.
+            if (rain + melt >= Balance.DOWNPOUR) rainfall(rain + melt, frozen)
+            riseRivers(rain + melt)
+            wetGround(rain + melt, frozen, weather.temperature)
+            if (river > Balance.BANKFULL) overflowRivers()
+        }
         day++
         if (day > daysIn(month, year)) {
             day = 1
@@ -513,6 +601,9 @@ class City(
         redoable.clear()
         if (networksDirty) updateNetworks()
         powerCuts()
+        waterCuts()
+        updateFoul()
+        fadeFloodMemory()
         updatePollution()
         updateGrime()
         updateServices()
@@ -707,6 +798,15 @@ class City(
         }
     }
 
+    /**
+     * How well the fire halls can fight a fire on a tile, 0 to 255: their cover,
+     * and more where there's mains water for the hydrants.
+     */
+    internal fun fireCoverAt(i: Int): Int {
+        val cover = map.fireCover[i].toInt() and 0xff
+        return if (cover > 0 && map.watered[i]) min(255, cover + Balance.HYDRANT_COVER) else cover
+    }
+
     /** How many buildings are on fire. */
     var burningNow = 0
         private set
@@ -735,7 +835,7 @@ class City(
         val burning = buildings.values.filter { it.burning > 0 }
         for (b in burning) {
             val i = map.index(b.x, b.y)
-            val cover = map.fireCover[i].toInt() and 0xff
+            val cover = fireCoverAt(i)
             // A covered fire burns out twice as fast.
             b.burning -= if (cover >= Balance.FIRE_SAVED) 2 else 1
             if (rng.nextInt(100) < Balance.FIRE_SPREAD && cover < 160) {
@@ -823,9 +923,12 @@ class City(
         for (i in 0 until m.size) nearRoad[i] = access[i] >= 0
         // Only the player changes track, stations and roads, so the railway waits for them.
         if (railChanged) {
+            // Only the player lays pipes, as with track.
+            anyPipes = map.waterPipe.any { it.toInt() != 0 } || map.sewerPipe.any { it.toInt() != 0 }
             railChanged = false
             updateRail()
         }
+        updateWater()
         // Power spreads from the power stations along lines, through buildings and
         // across zoned land, so a line along the back of a zone powers all of it.
         val powered = m.powered
@@ -833,7 +936,7 @@ class City(
         head = 0
         tail = 0
         for (b in buildings.values) {
-            if (b.type != BuildingType.COAL_PLANT) continue
+            if (b.type != BuildingType.COAL_PLANT || flooded(b)) continue
             forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { i ->
                 if (!powered[i]) {
                     powered[i] = true
@@ -855,6 +958,544 @@ class City(
                 queue[tail++] = j
             }
         }
+    }
+
+    // ---- water -------------------------------------------------------------------
+
+    /** Whether there are any water mains or sewers, worked out after the player's changes. */
+    private var anyPipes = false
+
+    /** Last month's sewage at each outfall, by its tile, for fouling the water. */
+    private val sewage = HashMap<Int, Int>()
+
+    /**
+     * Who has mains water and who's on the sewer. Water goes out along the
+     * mains from the pumping stations and well fields; the pressure carries it
+     * [Balance.PRESSURE_REACH] tiles, counted again from each water tower it
+     * reaches. Each network's sources supply so many people, and the buildings
+     * nearest them along the mains are served first. The sewers work wherever
+     * a network of them has an outfall.
+     */
+    private fun updateWater() {
+        val m = map
+        m.watered.fill(false)
+        m.sewered.fill(false)
+        if (!anyPipes) {
+            // Wells and septic tanks all round.
+            stats.waterSupply = 0
+            stats.waterUsed = 0
+            stats.waterShort = 0
+            sewage.clear()
+            return
+        }
+        val all = buildings.values.toList()
+
+        // Pressure: steps along the mains from a source, or from a tower the water reached.
+        val nearTower = BooleanArray(m.size)
+        val steps = IntArray(m.size) { -1 }
+        val queue = ArrayDeque<Int>()
+        for (b in all) {
+            if (b.type != BuildingType.WATER_TOWER && !b.type.waterSource) continue
+            forPipesNear(b, m.waterPipe) { i ->
+                if (b.type == BuildingType.WATER_TOWER) nearTower[i] = true
+                else if (steps[i] != 0) {
+                    steps[i] = 0
+                    queue.addLast(i)
+                }
+            }
+        }
+        while (queue.isNotEmpty()) {
+            val i = queue.removeFirst()
+            val x = i % m.width
+            val y = i / m.width
+            for (k in 0 until 4) {
+                val nx = x + DX[k]
+                val ny = y + DY[k]
+                if (!m.inside(nx, ny)) continue
+                val j = m.index(nx, ny)
+                if (m.waterPipe[j].toInt() == 0) continue
+                val s = if (nearTower[j]) 0 else steps[i] + 1
+                if (s > Balance.PRESSURE_REACH || (steps[j] in 0..s)) continue
+                steps[j] = s
+                queue.addLast(j)
+            }
+        }
+
+        // Which network each main is on, and each network's supply.
+        val net = components(m.waterPipe)
+        val supply = HashMap<Int, Int>()
+        var total = 0
+        for (b in all) {
+            if (!b.type.waterSource) continue
+            var n = -1
+            forPipesNear(b, m.waterPipe) { i -> if (n < 0) n = net[i] }
+            if (n < 0) continue
+            val s = sourceSupply(b)
+            supply[n] = (supply[n] ?: 0) + s
+            total += s
+        }
+
+        // Each building's nearest main with pressure, then the nearest served first.
+        class Tap(val b: Building, val net: Int, val steps: Int)
+        val taps = ArrayList<Tap>()
+        for (b in all) {
+            if (b.type.capacity == 0 && !b.type.waterSource) continue
+            var best = -1
+            var bestSteps = Int.MAX_VALUE
+            forPipesNear(b, m.waterPipe) { i -> if (steps[i] in 0 until bestSteps) { bestSteps = steps[i]; best = i } }
+            if (best >= 0) taps += Tap(b, net[best], bestSteps)
+        }
+        taps.sortWith(compareBy<Tap>({ it.steps }, { it.b.id }))
+        var used = 0
+        var short = 0
+        for (t in taps) {
+            val need = t.b.type.capacity
+            val left = supply[t.net] ?: 0
+            if (need <= left) {
+                supply[t.net] = left - need
+                used += need
+                forRect(t.b.x, t.b.y, t.b.x + t.b.type.width - 1, t.b.y + t.b.type.height - 1) { m.watered[it] = true }
+            } else {
+                short += need
+            }
+        }
+        stats.waterSupply = total
+        stats.waterUsed = used
+        stats.waterShort = short
+
+        // Sewers: a network with an outfall takes the sewage of every building on it.
+        val sewers = components(m.sewerPipe)
+        val outfalls = HashMap<Int, MutableList<Building>>()
+        for (b in all) {
+            if (b.type != BuildingType.OUTFALL) continue
+            var n = -1
+            forPipesNear(b, m.sewerPipe) { i -> if (n < 0) n = sewers[i] }
+            if (n >= 0) outfalls.getOrPut(n) { ArrayList() } += b
+        }
+        val flow = HashMap<Int, Int>()
+        for (b in all) {
+            if (b.type.capacity == 0) continue
+            var n = -1
+            forPipesNear(b, m.sewerPipe) { i -> if (n < 0 && outfalls.containsKey(sewers[i])) n = sewers[i] }
+            if (n < 0) continue
+            forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { m.sewered[it] = true }
+            flow[n] = (flow[n] ?: 0) + b.type.capacity
+        }
+        sewage.clear()
+        for ((n, list) in outfalls) {
+            val each = (flow[n] ?: 0) / list.size
+            for (b in list) sewage[m.index(b.x, b.y)] = each
+        }
+    }
+
+    /** What a source supplies: a pumping station less if its water is foul, a well field less if its ground is grimy. */
+    private fun sourceSupply(b: Building): Int {
+        val m = map
+        if (flooded(b)) return 0
+        return if (b.type == BuildingType.PUMPING_STATION) {
+            var foul = 0
+            for (ty in b.y - 1..b.y + b.type.height) for (tx in b.x - 1..b.x + b.type.width) {
+                if (m.inside(tx, ty) && m.terrain[m.index(tx, ty)] == Terrain.WATER) foul = max(foul, m.foul[m.index(tx, ty)].toInt() and 0xff)
+            }
+            Balance.PUMP_SUPPLY * (255 - foul * 7 / 10) / 255
+        } else {
+            val grime = m.grime[m.index(b.x, b.y)].toInt() and 0xff
+            Balance.WELL_SUPPLY * (255 - grime * 7 / 10) / 255
+        }
+    }
+
+    /** Each tile of [pipes] within [Balance.PIPE_REACH] of a building. */
+    private inline fun forPipesNear(b: Building, pipes: ByteArray, each: (Int) -> Unit) {
+        val r = Balance.PIPE_REACH
+        forRect(b.x - r, b.y - r, b.x + b.type.width - 1 + r, b.y + b.type.height - 1 + r) { i -> if (pipes[i].toInt() != 0) each(i) }
+    }
+
+    /** Which joined-up network each tile of [pipes] is on, numbered from the north-west, -1 off them. */
+    private fun components(pipes: ByteArray): IntArray {
+        val m = map
+        val out = IntArray(m.size) { -1 }
+        var n = 0
+        val queue = IntArray(m.size)
+        for (start in 0 until m.size) {
+            if (pipes[start].toInt() == 0 || out[start] >= 0) continue
+            var head = 0
+            var tail = 0
+            queue[tail++] = start
+            out[start] = n
+            while (head < tail) {
+                val i = queue[head++]
+                val x = i % m.width
+                val y = i / m.width
+                for (k in 0 until 4) {
+                    val nx = x + DX[k]
+                    val ny = y + DY[k]
+                    if (!m.inside(nx, ny)) continue
+                    val j = m.index(nx, ny)
+                    if (pipes[j].toInt() == 0 || out[j] >= 0) continue
+                    out[j] = n
+                    queue[tail++] = j
+                }
+            }
+            n++
+        }
+        return out
+    }
+
+    /**
+     * Sewage spreads through the water from each outfall, thinning with
+     * distance, and the water follows it: fouled over a few months, clean
+     * again over years.
+     */
+    private fun updateFoul() {
+        val m = map
+        val target = IntArray(m.size)
+        for ((at, people) in sewage) if (people > 0) spreadFoul(at, people * Balance.FOUL_PER_HUNDRED / 100, target)
+        for (i in 0 until m.size) {
+            val f = m.foul[i].toInt() and 0xff
+            val t = min(255, target[i])
+            val next = when {
+                t > f -> f + max(1, (t - f) / 4)
+                t < f -> f - max(1, (f - t) / 20)
+                else -> f
+            }
+            if (next == f) continue
+            val before = m.foulLevel(i)
+            m.foul[i] = next.toByte()
+            if (m.foulLevel(i) != before) townChanges += i
+        }
+    }
+
+    /** Adds sewage of [strength] from the outfall at [at] to [into], through the water, thinning with distance. */
+    private fun spreadFoul(at: Int, strength: Int, into: IntArray) {
+        val m = map
+        val steps = IntArray(m.size) { -1 }
+        val queue = ArrayDeque<Int>()
+        val ox = at % m.width
+        val oy = at / m.width
+        // The water next to the outfall.
+        for (ty in oy - 1..oy + 1) for (tx in ox - 1..ox + 1) {
+            if (!m.inside(tx, ty)) continue
+            val j = m.index(tx, ty)
+            if (m.terrain[j] == Terrain.WATER && steps[j] < 0) {
+                steps[j] = 0
+                queue.addLast(j)
+            }
+        }
+        while (queue.isNotEmpty()) {
+            val i = queue.removeFirst()
+            into[i] += strength * (Balance.FOUL_REACH + 1 - steps[i]) / (Balance.FOUL_REACH + 1)
+            if (steps[i] == Balance.FOUL_REACH) continue
+            val x = i % m.width
+            val y = i / m.width
+            for (k in 0 until 4) {
+                val nx = x + DX[k]
+                val ny = y + DY[k]
+                if (!m.inside(nx, ny)) continue
+                val j = m.index(nx, ny)
+                if (m.terrain[j] != Terrain.WATER || steps[j] >= 0) continue
+                steps[j] = steps[i] + 1
+                queue.addLast(j)
+            }
+        }
+    }
+
+    // ---- stormwater ---------------------------------------------------------------
+
+    /** Tiles that were flooded in the last downpour. */
+    var floodedTiles = 0
+        private set
+
+    /**
+     * A downpour, or snow melting, of [amount] over the whole map. Each tile
+     * sheds rain by its share of hard surface. Storm drains to an outfall take
+     * all the runoff from beside them, to a pond as much as the pond holds, and
+     * a pond catches the rain round it too. Sewers take some of what's left,
+     * and it all comes out at their outfalls. The soft ground round about soaks
+     * up what it can, and the rest stands as a flood.
+     */
+    internal fun rainfall(amount: Int, frozen: Boolean = weather.temperature <= 0) {
+        val m = map
+        val hard = IntArray(m.size) { if (m.terrain[it] == Terrain.WATER) 0 else Stormwater.hardness(m, it) }
+        val runoff = IntArray(m.size) { if (m.terrain[it] == Terrain.WATER) 0 else amount * hard[it] / 100 }
+        val all = buildings.values.toList()
+
+        // Storm drains: what each network drains into, and how much room it has.
+        val drains = components(m.stormPipe)
+        val room = HashMap<Int, Int>()
+        val ponds = all.filter { it.type == BuildingType.STORM_POND }
+        val pondRoom = IntArray(ponds.size) { Balance.POND_HOLDS }
+        for (b in all) {
+            if (b.type != BuildingType.STORM_OUTFALL && b.type != BuildingType.STORM_POND) continue
+            var n = -1
+            forPipesNear(b, m.stormPipe) { i -> if (n < 0) n = drains[i] }
+            if (n < 0) continue
+            room[n] = if (b.type == BuildingType.STORM_OUTFALL) Int.MAX_VALUE else (room[n] ?: 0).let { if (it == Int.MAX_VALUE) it else it + Balance.POND_HOLDS }
+        }
+        val r = Balance.PIPE_REACH
+        if (room.isNotEmpty()) for (i in 0 until m.size) {
+            if (runoff[i] == 0) continue
+            val x = i % m.width
+            val y = i / m.width
+            var n = -1
+            forRect(x - r, y - r, x + r, y + r) { j -> if (n < 0 && m.stormPipe[j].toInt() != 0 && room.containsKey(drains[j])) n = drains[j] }
+            if (n < 0) continue
+            val left = room.getValue(n)
+            val take = min(left, runoff[i])
+            runoff[i] -= take
+            if (left != Int.MAX_VALUE) room[n] = left - take
+        }
+        // Ponds catch the rain round them, as far as they have room.
+        for ((k, pond) in ponds.withIndex()) {
+            val pr = Balance.POND_REACH
+            forRect(pond.x - pr, pond.y - pr, pond.x + pond.type.width - 1 + pr, pond.y + pond.type.height - 1 + pr) { i ->
+                val take = min(pondRoom[k], runoff[i])
+                runoff[i] -= take
+                pondRoom[k] -= take
+            }
+        }
+        // Combined sewers take their share, and overflow at the outfalls.
+        var sewersOverflowed = false
+        if (sewage.isNotEmpty()) {
+            val sewers = components(m.sewerPipe)
+            val outfallOf = HashMap<Int, Int>()
+            for (b in all) {
+                if (b.type != BuildingType.OUTFALL) continue
+                forPipesNear(b, m.sewerPipe) { i -> outfallOf.getOrPut(sewers[i]) { m.index(b.x, b.y) } }
+            }
+            val overflow = HashMap<Int, Int>()
+            for (i in 0 until m.size) {
+                if (runoff[i] == 0 || !m.sewered[i]) continue
+                val x = i % m.width
+                val y = i / m.width
+                var at = -1
+                forRect(x - r, y - r, x + r, y + r) { j -> if (at < 0 && m.sewerPipe[j].toInt() != 0) outfallOf[sewers[j]]?.let { at = it } }
+                if (at < 0) continue
+                val take = runoff[i] * Balance.SEWER_TAKES / 100
+                runoff[i] -= take
+                overflow[at] = (overflow[at] ?: 0) + take
+                if (take > 0) sewersOverflowed = true
+            }
+            val bump = IntArray(m.size)
+            for ((at, volume) in overflow.entries.sortedBy { it.key }) spreadFoul(at, volume * Balance.FOUL_PER_HUNDRED / 100, bump)
+            for (i in 0 until m.size) if (bump[i] > 0) {
+                val before = m.foulLevel(i)
+                m.foul[i] = min(255, (m.foul[i].toInt() and 0xff) + bump[i]).toByte()
+                if (m.foulLevel(i) != before) townChanges += i
+            }
+        }
+
+        // What's left, against what the soft ground round about soaks up. Water soaks up the most.
+        val left = SummedArea(m.width, m.height) { runoff[it] }
+        // Frozen or soaked ground takes little in.
+        val take = if (frozen) Balance.FROZEN_SOAK else 100 - ground * (100 - Balance.SOAKED_SOAK) / 100
+        val soak = SummedArea(m.width, m.height) {
+            if (m.terrain[it] == Terrain.WATER) amount * 3 else amount * (100 - hard[it]) / 100 * Balance.ABSORB / 100 * take / 100
+        }
+        val a = Balance.FLOOD_AREA
+        val area = (2 * a + 1) * (2 * a + 1)
+        // Some runs off over the ground to lower places, less when they're soaked or frozen too.
+        val wetness = if (frozen) 100 else ground
+        val runsAway = Balance.RUNS_AWAY_DRY - (Balance.RUNS_AWAY_DRY - Balance.RUNS_AWAY_SOAKED) * wetness / 100
+        var worst = -1
+        var worstLevel = 0
+        val reached = ArrayList<Int>()
+        for (i in 0 until m.size) {
+            if (m.terrain[i] == Terrain.WATER) continue
+            val x = i % m.width
+            val y = i / m.width
+            val excess = left.around(x, y, a) - soak.around(x, y, a) - runsAway * area
+            if (excess <= 0) continue
+            val level = min(255, excess * Balance.FLOOD_SCALE / area)
+            if (level > (m.flood[i].toInt() and 0xff)) {
+                m.flood[i] = level.toByte()
+                floodsStanding = true
+                if (level >= Balance.FLOODED) reached += i
+            }
+            if (level >= Balance.FLOODED && level > worstLevel) {
+                worstLevel = level
+                worst = i
+            }
+        }
+        floodedTiles = reached.size
+        if (worst >= 0) events += CityEvent(EventKind.Flooding, worst % m.width, worst / m.width, null)
+        afterFlood(reached, sewersOverflowed)
+    }
+
+    /** Clean-up owed for floods this month, paid with the month's upkeep. */
+    private var floodBill = 0L
+
+    /**
+     * What a flood leaves on the tiles it newly [reached]: a clean-up bill, mud,
+     * the memory of it, damage where it's deep, and sickness in homes where it
+     * carried sewage: on wells and septic tanks, and on the sewer when the
+     * sewers [sewersOverflowed]. Flooded power and pumping stations and deep
+     * track stop working until it drains.
+     */
+    private fun afterFlood(reached: List<Int>, sewersOverflowed: Boolean) {
+        if (reached.isEmpty()) return
+        val m = map
+        val hit = HashSet<Int>()
+        for (i in reached) {
+            val level = m.flood[i].toInt() and 0xff
+            if (level > (m.floodMemory[i].toInt() and 0xff)) m.floodMemory[i] = level.toByte()
+            val grime = m.grime[i].toInt() and 0xff
+            val before = m.grimeLevel(i)
+            m.grime[i] = min(255, grime + level * Balance.MUD / 100).toByte()
+            if (m.grimeLevel(i) != before) townChanges += i
+            if (m.road[i] != Road.NONE) floodBill += Balance.CLEANUP_ROAD
+            if (m.rail[i] != Rail.NONE) floodBill += Balance.CLEANUP_TRACK
+            if (m.building[i] != 0) hit += m.building[i]
+        }
+        var sick = -1
+        for (id in hit.sorted()) {
+            val b = buildings[id] ?: continue
+            floodBill += Balance.CLEANUP_BUILDING * max(1, b.type.stage)
+            if (b.type.zone == Zone.NONE) continue
+            val i = m.index(b.x, b.y)
+            if ((m.flood[i].toInt() and 0xff) >= Balance.FLOOD_DAMAGE && rng.nextInt(Balance.FLOOD_DAMAGE_CHANCE) == 0) {
+                shrink(b)
+                continue
+            }
+            if (b.type.zone != Zone.RESIDENTIAL) continue
+            val chance = when {
+                !m.watered[i] || !m.sewered[i] -> Balance.SICK_CHANCE
+                sewersOverflowed -> Balance.SICK_CHANCE_SEWER
+                else -> 0
+            }
+            if (chance > 0 && rng.nextInt(chance) == 0) {
+                if (sick < 0) sick = i
+                shrink(b)
+            }
+        }
+        if (sick >= 0) events += CityEvent(EventKind.Sickness, sick % m.width, sick / m.width, null)
+        networksChanged()
+        railChanged = true
+    }
+
+    /** Whether a building stands in floodwater, deep or not. */
+    private fun flooded(b: Building, deep: Boolean = false): Boolean {
+        val least = if (deep) Balance.FLOOD_DAMAGE else Balance.FLOODED
+        var any = false
+        forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { if ((map.flood[it].toInt() and 0xff) >= least) any = true }
+        return any
+    }
+
+    /** How soaked the ground is, 0 dry to 100 soaked through. */
+    internal var ground = 0
+
+    /** How high the rivers and lakes are, 0 low to 100 in spate. Past [Balance.BANKFULL] they're over their banks. */
+    var river = 0
+        internal set
+
+    /** Rain and melt soak the ground; dry spells dry it, faster when it's warm, not at all while it's frozen. */
+    internal fun wetGround(water: Int, frozen: Boolean, temperature: Int) {
+        ground = when {
+            water > 0 -> min(100, ground + water * Balance.GROUND_WETS / 100)
+            frozen -> ground
+            else -> max(0, ground - if (temperature >= 15) Balance.GROUND_DRIES_WARM else Balance.GROUND_DRIES)
+        }
+    }
+
+    /** The rivers rise with rain and melt, most when the ground's too soaked to take any in. */
+    internal fun riseRivers(water: Int) {
+        val share = Balance.RIVER_RISE_DRY + (Balance.RIVER_RISE_SOAKED - Balance.RIVER_RISE_DRY) * ground / 100
+        river = min(100, river + water * share / 100)
+    }
+
+    /**
+     * A river over its banks spills onto the land beside it, a tile or more
+     * deep the higher it is, shallower the further from the water. It can't get
+     * past an embankment.
+     */
+    internal fun overflowRivers() {
+        val m = map
+        val over = river - Balance.BANKFULL
+        if (over <= 0) return
+        val reach = min(Balance.SPILL_MOST, 1 + over / Balance.SPILL_STEP)
+        val steps = IntArray(m.size) { -1 }
+        val queue = ArrayDeque<Int>()
+        for (i in 0 until m.size) if (m.terrain[i] == Terrain.WATER) {
+            steps[i] = 0
+            queue.addLast(i)
+        }
+        val reached = ArrayList<Int>()
+        var worst = -1
+        while (queue.isNotEmpty()) {
+            val i = queue.removeFirst()
+            if (steps[i] == reach) continue
+            val x = i % m.width
+            val y = i / m.width
+            for (k in 0 until 4) {
+                val nx = x + DX[k]
+                val ny = y + DY[k]
+                if (!m.inside(nx, ny)) continue
+                val j = m.index(nx, ny)
+                if (steps[j] >= 0 || m.bank[j].toInt() != 0) continue
+                steps[j] = steps[i] + 1
+                val level = min(255, Balance.FLOODED + 30 + over * 3 - 30 * (steps[j] - 1))
+                if (level > (m.flood[j].toInt() and 0xff)) {
+                    m.flood[j] = level.toByte()
+                    floodsStanding = true
+                    if (level >= Balance.FLOODED) {
+                        reached += j
+                        if (worst < 0 && m.building[j] != 0) worst = j
+                    }
+                }
+                queue.addLast(j)
+            }
+        }
+        if (reached.isNotEmpty()) {
+            val at = if (worst >= 0) worst else reached.first()
+            events += CityEvent(EventKind.RiverFlood, at % m.width, at / m.width, null)
+        }
+        afterFlood(reached, sewersOverflowed = false)
+    }
+
+    /** The memory of floods fades a little each month. */
+    private fun fadeFloodMemory() {
+        val f = map.floodMemory
+        for (i in f.indices) {
+            val v = f[i].toInt() and 0xff
+            if (v > 0) f[i] = max(0, v - Balance.STIGMA_FADE).toByte()
+        }
+    }
+
+    /** Whether any floodwater is standing, so dry days needn't look. */
+    private var floodsStanding = false
+
+    /** Floodwater goes down a little each day. */
+    private fun drainFloods() {
+        if (!floodsStanding) return
+        // Shops and works under water are shut today.
+        for (b in buildings.values) {
+            if ((b.type.zone == Zone.COMMERCIAL || b.type.zone == Zone.INDUSTRIAL) && flooded(b)) b.closedDays++
+        }
+        val f = map.flood
+        var any = false
+        var receded = false
+        for (i in f.indices) {
+            val v = f[i].toInt() and 0xff
+            if (v == 0) continue
+            val next = max(0, v - Balance.FLOOD_DRAIN)
+            f[i] = next.toByte()
+            if (next > 0) any = true
+            if ((v >= Balance.FLOODED && next < Balance.FLOODED) || (v >= Balance.FLOOD_DAMAGE && next < Balance.FLOOD_DAMAGE)) receded = true
+        }
+        floodsStanding = any
+        // Whatever the water shut down may be working again.
+        if (receded) {
+            networksChanged()
+            railChanged = true
+        }
+    }
+
+    /** Buildings that need mains water or the sewer and are without come down a stage now and then. */
+    private fun waterCuts() {
+        val out = buildings.values.filter {
+            val i = map.index(it.x, it.y)
+            (it.type.needsWater && !map.watered[i]) || (it.type.needsSewer && !map.sewered[i])
+        }
+        for (b in out) if (rng.nextInt(3) == 0) shrink(b)
     }
 
     // ---- growth --------------------------------------------------------------
@@ -893,6 +1534,7 @@ class City(
             if (next == null) return@repeat
             if (b != null && b.age < Balance.SETTLE_DAYS) return@repeat
             if (next.needsPower && !map.powered[i]) return@repeat
+            if ((next.needsWater && !map.watered[i]) || (next.needsSewer && !map.sewered[i])) return@repeat
             val pull = attraction(i, zone)
             if (pull < Balance.STAGE_ATTRACTION[zone - 1][next.stage]) return@repeat
             val score = pull + rng.nextInt(10) + if (b != null) 4 else 0
@@ -1000,6 +1642,9 @@ class City(
                 around(x, y, 2) { j, _ -> if (buildings[m.building[j]]?.type?.zone == Zone.INDUSTRIAL) industry = true }
                 score += 35 + value / 3 - crime / 5 - pollution / 3 - if (industry) 10 else 0
                 score -= commutePenalty(m.commute[i].toInt() and 0xff)
+                // Mains water and the sewer are wanted; a well in grimy ground is not.
+                if (m.watered[i]) score += Balance.MAINS_APPEAL else if (m.grimeLevel(i) >= 2) score -= Balance.BAD_WELL
+                if (m.sewered[i]) score += Balance.SEWER_APPEAL
             }
             Zone.COMMERCIAL -> {
                 var people = 0
@@ -1018,7 +1663,8 @@ class City(
                 if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
             }
         }
-        return score
+        val stigma = if (zone == Zone.RESIDENTIAL) (m.floodMemory[i].toInt() and 0xff) / Balance.STIGMA_APPEAL else 0
+        return score - floodPenalty(i) - stigma
     }
 
     /** How much a long commute puts people off, from the commute layer's half minutes. */
@@ -1027,6 +1673,9 @@ class City(
         255 -> Balance.NO_COMMUTE
         else -> min(Balance.LONG_COMMUTE, max(0, (c - 1) / 2 - Balance.FINE_COMMUTE) / 2)
     }
+
+    /** Appeal a lot loses while it stands in floodwater. */
+    private fun floodPenalty(i: Int): Int = if ((map.flood[i].toInt() and 0xff) >= Balance.FLOODED) Balance.FLOOD_APPEAL else 0
 
     private inline fun around(x: Int, y: Int, r: Int, each: (Int, Int) -> Unit) {
         for (dy in -r..r) for (dx in -r..r) {
@@ -1132,8 +1781,8 @@ class City(
 
     /**
      * Taxes come in by the resident and the job, worth more on more valuable
-     * land. Upkeep goes out on roads, lines, the power stations and the services,
-     * each service's scaled by its funding.
+     * land. Upkeep goes out on roads, track, pipes, lines, the power stations,
+     * the waterworks and the services, each service's scaled by its funding.
      */
     private fun money() {
         val s = stats
@@ -1146,8 +1795,22 @@ class City(
         var plants = 0
         var stations = 0
         var yards = 0
+        var waterworks = 0.0
+        val days = daysIn(if (month == 0) 11 else month - 1, year).toDouble()
         for (b in buildings.values) {
-            val worth = 0.5 + (map.landValue[map.index(b.x, b.y)].toInt() and 0xff) / 200.0
+            waterworks += when (b.type) {
+                BuildingType.PUMPING_STATION -> Balance.PUMP_UPKEEP
+                BuildingType.WELL_FIELD -> Balance.WELL_UPKEEP
+                BuildingType.WATER_TOWER -> Balance.TOWER_UPKEEP
+                BuildingType.OUTFALL -> Balance.OUTFALL_UPKEEP
+                BuildingType.STORM_POND -> Balance.POND_UPKEEP
+                BuildingType.STORM_OUTFALL -> Balance.STORM_OUTFALL_UPKEEP
+                else -> 0.0
+            }
+            // Shops and works pay nothing for the days they were shut by floods.
+            val open = 1.0 - min(b.closedDays.toDouble(), days) / days
+            b.closedDays = 0
+            val worth = (0.5 + (map.landValue[map.index(b.x, b.y)].toInt() and 0xff) / 200.0) * open
             when {
                 b.type.zone == Zone.RESIDENTIAL -> homes += b.type.capacity * worth
                 b.type.zone == Zone.COMMERCIAL -> shops += b.type.capacity * worth
@@ -1172,7 +1835,9 @@ class City(
             if (road != null) roads += road.upkeep * bridge
             if (map.power[i] != Power.NONE) lines++
             if (map.rail[i] != Rail.NONE) track += Balance.RAIL_UPKEEP * bridge
+            waterworks += (map.waterPipe[i] + map.sewerPipe[i] + map.stormPipe[i] + map.bank[i]) * Balance.PIPE_UPKEEP
         }
+        s.waterUpkeep = waterworks.roundToLong()
         s.roadUpkeep = (roads + lines * Balance.LINE_UPKEEP).roundToLong()
         s.railUpkeep = (track + stations * Balance.STATION_UPKEEP + yards * Balance.YARD_UPKEEP).roundToLong()
         s.powerUpkeep = (plants * Balance.PLANT_UPKEEP).roundToLong()
@@ -1180,7 +1845,9 @@ class City(
         s.fireUpkeep = (fire * Balance.FIRE_UPKEEP * fireFunding / 100).roundToLong()
         s.parkUpkeep = (parks * Balance.PARK_UPKEEP * parkFunding / 100).roundToLong()
         s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome
-        s.upkeep = s.roadUpkeep + s.railUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep
+        s.floodCost = floodBill
+        floodBill = 0
+        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost
         funds += s.income - s.upkeep
     }
 
@@ -1263,6 +1930,16 @@ class City(
             for (i in t.tiles) w.int(i)
             w.bool(t.passengers); w.int(t.load)
         }
+        // Since version 4.
+        w.layer(map.waterPipe); w.layer(map.sewerPipe); w.layer(map.stormPipe); w.layer(map.foul); w.layer(map.flood); w.layer(map.bank)
+        w.int(ground); w.int(river)
+        w.layer(map.floodMemory); w.long(floodBill); w.long(stats.floodCost)
+        val shut = buildings.values.filter { it.closedDays > 0 }
+        w.count(shut.size)
+        for (b in shut) { w.int(b.id); w.int(b.closedDays) }
+        w.long(stats.waterUpkeep)
+        w.count(sewage.size)
+        for ((at, people) in sewage.entries.sortedBy { it.key }) { w.int(at); w.int(people) }
     }
 
     companion object {
@@ -1328,7 +2005,21 @@ class City(
                     TrainRoute(tiles, r.bool(), r.int())
                 }
             }
-            c.networksChanged()
+            if (version >= 4) {
+                r.layer(m.waterPipe); r.layer(m.sewerPipe); r.layer(m.stormPipe); r.layer(m.foul); r.layer(m.flood); r.layer(m.bank)
+                c.ground = r.int(); c.river = r.int()
+                r.layer(m.floodMemory); c.floodBill = r.long(); s.floodCost = r.long()
+                repeat(r.count()) {
+                    val id = r.int()
+                    val days = r.int()
+                    c.buildings[id]?.closedDays = days
+                }
+                c.floodsStanding = m.flood.any { it.toInt() != 0 }
+                s.waterUpkeep = r.long()
+                repeat(r.count()) { c.sewage[r.int()] = r.int() }
+            }
+            // Worked out now rather than on the first day, so a city loaded paused shows its power and water.
+            c.updateNetworks()
             return c
         }
 
@@ -1338,6 +2029,10 @@ class City(
 
         /** How many actions can be undone. */
         const val MAX_UNDO = 100
+
+        /** What [roadCost] says when a tile's road stays as it is, or can't be built. */
+        private const val NO_CHANGE = -1L
+        private const val BLOCKED = -2L
 
         /** How far pollution spreads, in tiles. */
         const val POLLUTION_REACH = 5
@@ -1376,6 +2071,15 @@ class Stats {
 
     var roadUpkeep = 0L
     var railUpkeep = 0L
+    var waterUpkeep = 0L
+
+    /** Last month's clean-up after floods. */
+    var floodCost = 0L
+
+    /** People the sources can supply, people supplied, and people near a main who go without for want of supply. */
+    var waterSupply = 0
+    var waterUsed = 0
+    var waterShort = 0
     var powerUpkeep = 0L
     var policeUpkeep = 0L
     var fireUpkeep = 0L
@@ -1393,10 +2097,10 @@ class Stats {
 /** A line a train ran last month: the track from end to end, and whether it carried passengers or freight, and how many. */
 class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int)
 
-enum class EventKind { FireStarted, FireSaved, BuildingLost }
+enum class EventKind { FireStarted, FireSaved, BuildingLost, Flooding, RiverFlood, Sickness }
 
-/** Something that happened to a building at [x], [y]. */
-class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType)
+/** Something that happened at [x], [y], to a building of [type] if it's about one. */
+class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType?)
 
 /** What the graphs can show. */
 enum class Series { Population, Jobs, Funds, Income, Upkeep, Crime, Pollution, LandValue }

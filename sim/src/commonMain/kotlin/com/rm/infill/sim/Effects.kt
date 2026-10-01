@@ -63,7 +63,7 @@ internal object Effects {
     }
 
     /**
-     * Land value, 0 to 255: water, trees and parks nearby, being near the shops
+     * Land value, 0 to 255: clean water, trees and parks nearby, being near the shops
      * and on a road, a station nearby, and police and fire cover raise it;
      * pollution, crime, industry next door, busy roads, track and freight
      * yards lower it.
@@ -73,6 +73,7 @@ internal object Effects {
         val h = map.height
         val water = SummedArea(w, h) { if (map.terrain[it] == Terrain.WATER) 1 else 0 }
         val trees = SummedArea(w, h) { if (map.terrain[it] == Terrain.TREES) 1 else 0 }
+        val foul = if (map.foul.any { it.toInt() != 0 }) SummedArea(w, h) { map.foul[it].toInt() and 0xff } else null
         val parks = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.PARK) 1 else 0 }
         val shops = SummedArea(w, h) { buildingTypes(it)?.let { t -> if (t.zone == Zone.COMMERCIAL) t.capacity else 0 } ?: 0 }
         val industry = SummedArea(w, h) { if (buildingTypes(it)?.zone == Zone.INDUSTRIAL) 1 else 0 }
@@ -91,6 +92,8 @@ internal object Effects {
             }
             var v = 60
             if (water.around(x, y, 3) > 0) v += 25
+            // Unless the water's foul.
+            if (foul != null) v -= min(30, foul.around(x, y, 3) / 60)
             v += min(trees.around(x, y, 2) * 3, 18)
             v += min(parks.around(x, y, 4) * 8, 32)
             v += min(shops.around(x, y, 8) / 3, 40)
@@ -99,6 +102,8 @@ internal object Effects {
             v -= (map.pollution[i].toInt() and 0xff) / 2
             v -= (map.crime[i].toInt() and 0xff) / 3
             if (industry.around(x, y, 2) > 0 && buildingTypes(i)?.zone != Zone.INDUSTRIAL) v -= 15
+            // Buyers remember floods.
+            v -= (map.floodMemory[i].toInt() and 0xff) / Balance.STIGMA_VALUE
             // The noise of busy roads, trains and yards, and a station within a walk.
             v -= min(20, traffic.around(x, y, 1) / 48)
             if (stations != null && track != null && yards != null) {

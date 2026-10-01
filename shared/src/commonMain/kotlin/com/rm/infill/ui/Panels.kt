@@ -65,6 +65,26 @@ import com.rm.infill.res.inspect_linked
 import com.rm.infill.res.inspect_not_linked
 import com.rm.infill.res.inspect_no_road
 import com.rm.infill.res.inspect_track
+import com.rm.infill.res.inspect_mains
+import com.rm.infill.res.inspect_well
+import com.rm.infill.res.inspect_sewer
+import com.rm.infill.res.inspect_septic
+import com.rm.infill.res.inspect_flooded
+import com.rm.infill.res.inspect_foul
+import com.rm.infill.res.inspect_shut
+import com.rm.infill.res.inspect_flooded_before
+import com.rm.infill.res.embankment
+import com.rm.infill.res.event_river_flood
+import com.rm.infill.res.inspect_river_high
+import com.rm.infill.res.inspect_under_main
+import com.rm.infill.res.inspect_under_sewer
+import com.rm.infill.res.inspect_under_drain
+import com.rm.infill.res.pumping_station
+import com.rm.infill.res.well_field
+import com.rm.infill.res.water_tower
+import com.rm.infill.res.sewer_outfall
+import com.rm.infill.res.storm_pond
+import com.rm.infill.res.storm_outfall
 import com.rm.infill.res.riders
 import com.rm.infill.res.loads_by_train
 import com.rm.infill.res.station
@@ -81,6 +101,7 @@ import com.rm.infill.res.inspect_zone_industrial
 import com.rm.infill.res.inspect_zone_residential
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.Power
+import com.rm.infill.sim.Balance
 import com.rm.infill.sim.Rail
 import com.rm.infill.sim.RoadType
 import com.rm.infill.sim.Terrain
@@ -152,6 +173,15 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 add(stringResource(if (map.powered[i]) Res.string.has_power else Res.string.no_power))
             }
             if (building.burning > 0) add(stringResource(Res.string.on_fire))
+            if (t.zone != Zone.NONE) {
+                add(stringResource(if (map.watered[i]) Res.string.inspect_mains else Res.string.inspect_well))
+                add(stringResource(if (map.sewered[i]) Res.string.inspect_sewer else Res.string.inspect_septic))
+            }
+            if ((map.flood[i].toInt() and 0xff) >= Balance.FLOODED) {
+                add(stringResource(if (t.zone == Zone.COMMERCIAL || t.zone == Zone.INDUSTRIAL) Res.string.inspect_shut else Res.string.inspect_flooded))
+            } else if ((map.floodMemory[i].toInt() and 0xff) >= FLOODED_BEFORE) {
+                add(stringResource(Res.string.inspect_flooded_before))
+            }
             if (t.railway) {
                 if (t.station) add(pluralStringResource(Res.plurals.riders, city.riders(building), city.riders(building)))
                 else add(pluralStringResource(Res.plurals.loads_by_train, city.freightSent(building), city.freightSent(building)))
@@ -169,6 +199,7 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
             add(
                 stringResource(
                     when {
+                        map.bank[i].toInt() != 0 -> Res.string.embankment
                         road != null && map.rail[i] != Rail.NONE -> Res.string.inspect_crossing
                         road != null -> roadName(road)
                         map.rail[i] != Rail.NONE -> Res.string.inspect_track
@@ -180,6 +211,18 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 ),
             )
             if (map.rail[i] != Rail.NONE && map.terrain[i] == Terrain.WATER) add(stringResource(Res.string.inspect_bridge))
+            if (map.terrain[i] == Terrain.WATER && map.foulLevel(i) > 0) add(stringResource(Res.string.inspect_foul))
+            if (map.terrain[i] == Terrain.WATER) {
+                when {
+                    city.river > Balance.BANKFULL -> add(stringResource(Res.string.event_river_flood))
+                    city.river > Balance.BANKFULL - 20 -> add(stringResource(Res.string.inspect_river_high))
+                }
+            }
+            if ((map.flood[i].toInt() and 0xff) >= Balance.FLOODED) add(stringResource(Res.string.inspect_flooded))
+            else if ((map.floodMemory[i].toInt() and 0xff) >= FLOODED_BEFORE) add(stringResource(Res.string.inspect_flooded_before))
+            if (map.waterPipe[i].toInt() != 0) add(stringResource(Res.string.inspect_under_main))
+            if (map.sewerPipe[i].toInt() != 0) add(stringResource(Res.string.inspect_under_sewer))
+            if (map.stormPipe[i].toInt() != 0) add(stringResource(Res.string.inspect_under_drain))
             if (road != null) {
                 if (map.terrain[i] == Terrain.WATER) add(stringResource(Res.string.inspect_bridge))
                 add(stringResource(Res.string.inspect_traffic, level(map.congestion[i].toInt() and 0xff)))
@@ -240,6 +283,12 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.PARK -> Res.string.park
     BuildingType.STATION, BuildingType.STATION_NS -> Res.string.station
     BuildingType.FREIGHT_YARD, BuildingType.FREIGHT_YARD_NS -> Res.string.freight_yard
+    BuildingType.PUMPING_STATION -> Res.string.pumping_station
+    BuildingType.WELL_FIELD -> Res.string.well_field
+    BuildingType.WATER_TOWER -> Res.string.water_tower
+    BuildingType.OUTFALL -> Res.string.sewer_outfall
+    BuildingType.STORM_POND -> Res.string.storm_pond
+    BuildingType.STORM_OUTFALL -> Res.string.storm_outfall
 }
 
 /** A short message that goes away by itself. If it's about a place, tapping it goes there. */
@@ -267,3 +316,6 @@ private fun level(v: Int): String = stringResource(
 )
 
 fun zoneColour(zone: Byte): Color = Color(0xFF000000.toInt() or MapRenderer.ZONE_COLOURS[zone.toInt()])
+
+/** How much a tile has to remember of a flood for inspect to mention it. */
+private const val FLOODED_BEFORE = 32

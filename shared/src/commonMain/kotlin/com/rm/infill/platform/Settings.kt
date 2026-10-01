@@ -65,6 +65,7 @@ class Settings(private val store: Platform) {
     fun resetKeys() {
         keysState = DefaultKeys
         store.setSetting(KEYS, null)
+        store.setSetting(KNOWN, null)
     }
 
     private fun loadKeys(): Map<Key, KeyAction> {
@@ -75,13 +76,22 @@ class Settings(private val store: Platform) {
             val action = KeyAction.entries.firstOrNull { it.name == name } ?: continue
             out[Key(code.toLongOrNull() ?: continue)] = action
         }
-        // Dev keys aren't saved; they always come from the defaults.
-        for ((k, a) in DefaultKeys) if (a.dev && k !in out) out[k] = a
+        // Dev keys aren't saved; they always come from the defaults. Nor are
+        // actions added since the keys were saved: they get their default key
+        // if nothing else has taken it.
+        // Keys saved before this was kept came from 0.1, before the rail and water tools.
+        val known = store.setting(KNOWN)?.split(',')?.toSet()
+            ?: (KeyAction.entries.map { it.name } - setOf(KeyAction.ToolRail.name, KeyAction.ToolWater.name)).toSet()
+        for ((k, a) in DefaultKeys) {
+            val added = a.name !in known && a !in out.values
+            if ((a.dev || added) && k !in out) out[k] = a
+        }
         return out
     }
 
     private fun saveKeys() {
         store.setSetting(KEYS, keysState.filterValues { !it.dev }.entries.joinToString(";") { "${it.key.keyCode}=${it.value.name}" })
+        store.setSetting(KNOWN, KeyAction.entries.joinToString(",") { it.name })
     }
 
     companion object {
@@ -90,5 +100,8 @@ class Settings(private val store: Platform) {
         private const val THEME = "theme"
         private const val SCALE = "ui_scale"
         private const val KEYS = "keys"
+
+        /** The actions there were when the keys were saved, so ones added since can have their defaults. */
+        private const val KNOWN = "keys_known"
     }
 }

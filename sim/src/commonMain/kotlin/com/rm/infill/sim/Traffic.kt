@@ -230,6 +230,8 @@ internal class Traffic(private val map: CityMap) {
                 if (!map.inside(nx, ny)) continue
                 val b = ny * map.width + nx
                 val road = RoadType.of(map.road[b]) ?: continue
+                // Deep floodwater closes the road.
+                if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE) continue
                 if (!canMove(map, a, b, h)) continue
                 val nd = d + timeToCross(b, road)
                 if (stamp[b] == search && nd >= dist[b]) continue
@@ -275,11 +277,13 @@ internal class Traffic(private val map: CityMap) {
         }
     }
 
-    /** Seconds to cross a tile: its road's time when clear, half as long again at capacity, up to three times. */
+    /** Seconds to cross a tile: its road's time when clear, half as long again at capacity, up to three times, and slower still flooded. */
     private fun timeToCross(b: Int, road: RoadType): Int {
         val load = max(lastVolume[b], volume[b]) * 32 / road.capacity
         val slow = min(2 * 1024, load * load / 2)
-        return road.time + road.time * slow / 1024 + if (map.rail[b] != Rail.NONE) Balance.CROSSING_DELAY else 0
+        val time = road.time + road.time * slow / 1024 + if (map.rail[b] != Rail.NONE) Balance.CROSSING_DELAY else 0
+        // Wading through floodwater.
+        return if ((map.flood[b].toInt() and 0xff) >= Balance.FLOODED) time * Balance.FLOOD_SLOW else time
     }
 
     private fun edge(a: Int): Boolean {

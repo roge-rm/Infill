@@ -10,6 +10,18 @@ import com.rm.infill.res.fire_station
 import com.rm.infill.res.park
 import com.rm.infill.res.tool_road
 import com.rm.infill.res.tool_rail
+import com.rm.infill.res.tool_water
+import com.rm.infill.res.water_main
+import com.rm.infill.res.sewer
+import com.rm.infill.res.storm_drain
+import com.rm.infill.res.pumping_station
+import com.rm.infill.res.well_field
+import com.rm.infill.res.water_tower
+import com.rm.infill.res.sewer_outfall
+import com.rm.infill.res.storm_pond
+import com.rm.infill.res.storm_outfall
+import com.rm.infill.res.remove_pipes
+import com.rm.infill.res.embankment
 import com.rm.infill.res.rail_track
 import com.rm.infill.res.station
 import com.rm.infill.res.freight_yard
@@ -31,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import com.rm.infill.sim.Action
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.CityMap
+import com.rm.infill.sim.Pipe
 import com.rm.infill.sim.Plan
 import com.rm.infill.sim.Rail
 import com.rm.infill.sim.RoadType
@@ -45,6 +58,7 @@ enum class Tool(val title: StringResource) {
     Rail(Res.string.tool_rail),
     Zone(Res.string.tool_zone),
     Power(Res.string.tool_power),
+    Water(Res.string.tool_water),
     Services(Res.string.tool_services),
 }
 
@@ -70,6 +84,24 @@ fun railBuilding(map: CityMap, eastWest: BuildingType, northSouth: BuildingType,
     Rail.trackSide(map, eastWest, x, y) != 0 -> eastWest
     Rail.trackSide(map, northSouth, x, y) != 0 -> northSouth
     else -> eastWest
+}
+
+/**
+ * What the water tool puts down: pipes are dragged, as is taking them up;
+ * buildings go where the finger ends up.
+ */
+enum class WaterKind(val title: StringResource, val pipe: Pipe? = null, val building: BuildingType? = null, val bank: Boolean = false) {
+    Main(Res.string.water_main, pipe = Pipe.WATER),
+    Sewer(Res.string.sewer, pipe = Pipe.SEWER),
+    Drain(Res.string.storm_drain, pipe = Pipe.STORM),
+    Pump(Res.string.pumping_station, building = BuildingType.PUMPING_STATION),
+    Wells(Res.string.well_field, building = BuildingType.WELL_FIELD),
+    Tower(Res.string.water_tower, building = BuildingType.WATER_TOWER),
+    Outfall(Res.string.sewer_outfall, building = BuildingType.OUTFALL),
+    Pond(Res.string.storm_pond, building = BuildingType.STORM_POND),
+    StormOutfall(Res.string.storm_outfall, building = BuildingType.STORM_OUTFALL),
+    Bank(Res.string.embankment, bank = true),
+    Remove(Res.string.remove_pipes),
 }
 
 /** What the power tool puts down. */
@@ -119,7 +151,10 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
         return copy(x1 = x, y1 = y, acrossFirst = across)
     }
 
-    fun action(tool: Tool, zone: ZoneKind, power: PowerKind, service: ServiceKind, road: RoadType, rail: RailKind, map: CityMap): Action? = when (tool) {
+    fun action(
+        tool: Tool, zone: ZoneKind, power: PowerKind, service: ServiceKind, road: RoadType, roadPipes: Boolean,
+        rail: RailKind, water: WaterKind, map: CityMap,
+    ): Action? = when (tool) {
         Tool.Services -> if (service == ServiceKind.Park) Action.PlaceParks(x0, y0, x1, y1)
         else Action.PlaceBuilding(service.type, x1, y1)
         Tool.Inspect -> null
@@ -127,15 +162,21 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             val across = acrossFirst ?: true
             // A two-wide road only goes straight, along whichever way the drag went first.
             if (road.width == 2) {
-                Action.BuildRoad(Action.roadPath(map, x0, y0, if (across) x1 else x0, if (across) y0 else y1, across), road)
+                Action.BuildRoad(Action.roadPath(map, x0, y0, if (across) x1 else x0, if (across) y0 else y1, across), road, roadPipes)
             } else {
-                Action.BuildRoad(Action.roadPath(map, x0, y0, x1, y1, across), road)
+                Action.BuildRoad(Action.roadPath(map, x0, y0, x1, y1, across), road, roadPipes)
             }
         }
         Tool.Rail -> when (rail) {
             RailKind.Track -> Action.BuildRail(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             RailKind.Station -> Action.PlaceBuilding(railBuilding(map, BuildingType.STATION, BuildingType.STATION_NS, x1, y1), x1, y1)
             RailKind.Yard -> Action.PlaceBuilding(railBuilding(map, BuildingType.FREIGHT_YARD, BuildingType.FREIGHT_YARD_NS, x1, y1), x1, y1)
+        }
+        Tool.Water -> when {
+            water.pipe != null -> Action.BuildPipe(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), water.pipe)
+            water.building != null -> Action.PlaceBuilding(water.building, x1, y1)
+            water.bank -> Action.BuildBank(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
+            else -> Action.RemovePipes(x0, y0, x1, y1)
         }
         Tool.Zone -> Action.PlaceZone(x0, y0, x1, y1, zone.zone)
         Tool.Bulldoze -> Action.Bulldoze(x0, y0, x1, y1)

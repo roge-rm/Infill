@@ -28,6 +28,7 @@ fun ToolIcon(tool: Tool, colour: Color, modifier: Modifier = Modifier) {
             Tool.Bulldoze -> bulldoze(u, colour)
             Tool.Road -> road(u, colour)
             Tool.Rail -> rail(u, colour)
+            Tool.Water -> drop(u, colour)
             Tool.Zone -> zone(u, colour)
             Tool.Power -> bolt(u, colour)
             Tool.Services -> civic(u, colour)
@@ -210,6 +211,18 @@ private fun DrawScope.road(u: Float, c: Color) {
         c, Offset(12 * u, 4 * u), Offset(12 * u, 21 * u), 1.8f * u,
         pathEffect = PathEffect.dashPathEffect(floatArrayOf(3 * u, 3 * u)),
     )
+}
+
+private fun DrawScope.drop(u: Float, c: Color) {
+    val path = Path().apply {
+        moveTo(12 * u, 3 * u)
+        cubicTo(12 * u, 3 * u, 5 * u, 11 * u, 5 * u, 15 * u)
+        cubicTo(5 * u, 19 * u, 8 * u, 21.5f * u, 12 * u, 21.5f * u)
+        cubicTo(16 * u, 21.5f * u, 19 * u, 19 * u, 19 * u, 15 * u)
+        cubicTo(19 * u, 11 * u, 12 * u, 3 * u, 12 * u, 3 * u)
+        close()
+    }
+    drawPath(path, c)
 }
 
 private fun DrawScope.rail(u: Float, c: Color) {

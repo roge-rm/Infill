@@ -1679,6 +1679,134 @@ def yard_ns(look, v):
     return b
 
 
+# ---- water ---------------------------------------------------------------------
+# The waterworks: a steam pumping station of brick with its chimney, a fenced
+# well field with pump houses, a water tank on legs, and outfalls where the
+# sewers and storm drains come out at the bank. A storm pond is a pond with
+# reeds and a concrete inlet.
+
+TANK = c("#8a6a45")
+TANK_BAND = c("#5a4430")
+STEEL_LEG = c("#4a4f55")
+CONCRETE = c("#a8a49a")
+PIPE_MOUTH = c("#26282c")
+STAIN = (96, 78, 40, 150)
+POND = [c("#4f7f8f"), c("#5a8d9c"), c("#46727f")]
+REED = [c("#6f8a3a"), c("#86a04a"), c("#5a7030")]
+
+
+def pumping_station(look, v):
+    """A brick pumping station on 2 by 2 tiles, tall arched windows, a chimney and a small coal yard."""
+    b = Building(2, 2, height=40)
+    d = b.d
+    chimney(b, 56, 10, 38, c("#8a4f3c"), look)
+    roof, wall = b.box(4, 12, 50, 40, 3 * STOREY)
+    brick(d, wall, c("#9a5a42"))
+    x0, y0, x1, y1 = wall
+    # Tall arched windows.
+    for xx in range(x0 + 4, x1 - 4, 7):
+        d.rectangle([xx, y0 + 3, xx + 3, y1 - 4], c("#6c7f8a"))
+        d.point((xx, y0 + 3), c("#9a5a42"))
+        d.point((xx + 3, y0 + 3), c("#9a5a42"))
+    d.rectangle([x0, y0 + 1, x1, y0 + 1], STONE)
+    d.rectangle(wall, outline=OUTLINE)
+    gable_ew(d, roof, SHINGLE[2], look)
+    # Coal for the boilers by the door.
+    gx, gy = b.ground(54, 52)
+    for k, col in enumerate(COAL):
+        d.ellipse([gx - 6 + k, gy - 3 - k, gx + 6 - k, gy + 2 - k], col)
+    return b
+
+
+def well_field(look, v):
+    """A fenced field with four little pump houses over the wells."""
+    b = Building(2, 2, height=10)
+    d = b.d
+    gx0, gy0 = b.ground(2, 2)
+    gx1, gy1 = b.ground(61, 61)
+    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#8a7a64"))
+    for xx in range(gx0, gx1 + 1, 4):
+        d.point((xx, gy0), c("#6b5a44"))
+        d.point((xx, gy1), c("#6b5a44"))
+    for (hx, hy) in ((12, 14), (40, 12), (16, 42), (44, 44)):
+        roof, wall = b.box(hx, hy, hx + 8, hy + 7, STOREY)
+        siding(d, wall, PAINT[v % len(PAINT)])
+        door(d, wall)
+        d.rectangle(wall, outline=OUTLINE)
+        gable_ew(d, roof, SHINGLE[1], look)
+    return b
+
+
+def water_tower(look, v):
+    """A timber tank on steel legs, standing high over its tile."""
+    b = Building(1, 1, height=40)
+    d = b.d
+    top = b.lift
+    # Legs from the ground up to the tank.
+    for lx in (8, 23):
+        d.line([lx, 26 + top, lx + 2, top - 24], STEEL_LEG)
+    d.line([8, 26 + top - 16, 23, 26 + top - 30], STEEL_LEG)
+    d.line([23, 26 + top - 16, 8, 26 + top - 30], STEEL_LEG)
+    # The tank: a drum with bands, and its conical roof.
+    tx0, tx1 = 5, 26
+    ty0, ty1 = top - 38, top - 24
+    d.rectangle([tx0, ty0, tx1, ty1], TANK, OUTLINE)
+    for yy in range(ty0 + 3, ty1, 4):
+        d.line([tx0 + 1, yy, tx1 - 1, yy], TANK_BAND)
+    d.polygon([(tx0 - 1, ty0), ((tx0 + tx1) // 2, ty0 - 6), (tx1 + 1, ty0)], SNOW_ROOF[0] if look == "snow" else c("#5b5f6b"), OUTLINE)
+    b.casters.append((1, 7, 10, 25, 22, 40))
+    return b
+
+
+def outfall(look, v, stain=True):
+    """A stone headwall at the bank with a pipe's dark mouth, and the stain it leaves."""
+    b = Building(1, 1, height=4)
+    d = b.d
+    roof, wall = b.box(8, 12, 23, 20, 4)
+    d.rectangle(wall, CONCRETE if not stain else STONE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else shade(CONCRETE, 1.1))
+    d.ellipse([12, wall[1] + 1, 19, wall[3] + 1], PIPE_MOUTH)
+    d.rectangle(wall, outline=OUTLINE)
+    if stain:
+        gx, gy = b.ground(15, 24)
+        d.ellipse([gx - 8, gy - 3, gx + 8, gy + 5], STAIN)
+    return b
+
+
+def sewer_outfall(look, v):
+    return outfall(look, v, stain=True)
+
+
+def storm_outfall(look, v):
+    return outfall(look, v, stain=False)
+
+
+def storm_pond(look, v):
+    """A pond on 2 by 2 tiles with grassy banks, reeds and a concrete inlet."""
+    b = Building(2, 2, height=4)
+    d = b.d
+    rng = random.Random(7800)
+    gx0, gy0 = b.ground(0, 0)
+    ice = look == "snow"
+    cols = [c("#c9d8e2"), c("#d7e2ea"), c("#bccbd6")] if ice else POND
+    for y in range(64):
+        for x in range(64):
+            dx, dy = (x - 31.5) / 27, (y - 31.5) / 24
+            if dx * dx + dy * dy <= 1:
+                d.point((gx0 + x, gy0 + y), rng.choice(cols))
+    if not ice:
+        for _ in range(40):
+            a = rng.random() * math.tau
+            x = 31.5 + math.cos(a) * 26 * (0.9 + rng.random() * 0.15)
+            y = 31.5 + math.sin(a) * 23 * (0.9 + rng.random() * 0.15)
+            col = rng.choice(REED)
+            d.line([gx0 + x, gy0 + y, gx0 + x, gy0 + y - 3], col)
+    # The inlet on the north bank.
+    d.rectangle([gx0 + 28, gy0 + 4, gx0 + 35, gy0 + 9], CONCRETE, OUTLINE)
+    d.ellipse([gx0 + 30, gy0 + 6, gx0 + 33, gy0 + 9], PIPE_MOUTH)
+    return b
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -1686,6 +1814,8 @@ BUILDINGS = [
     ("coal_plant", coal_plant, 1),
     ("police_station", police_station, 1), ("fire_station", fire_station, 1), ("park", park, 4),
     ("station_ew", station_ew, 4), ("station_ns", station_ns, 4), ("yard_ew", yard_ew, 4), ("yard_ns", yard_ns, 4),
+    ("pumping_station", pumping_station, 1), ("well_field", well_field, 1), ("tower", water_tower, 1),
+    ("sewer_outfall", sewer_outfall, 1), ("storm_pond", storm_pond, 1), ("storm_outfall", storm_outfall, 1),
 ]
 
 
@@ -1971,6 +2101,10 @@ def write_kotlin(names, flat, pos, size):
         return "\n".join(lines)
 
     groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line"]
+    # A sprite's name must start with exactly one group's, or the counts go wrong.
+    for n in names:
+        owners = [g for g in groups if n.startswith(g + "_")]
+        assert len(owners) == 1, f"{n} belongs to {owners}"
     consts = []
     for g in groups:
         consts.append(f"    const val {g.upper()} = {first(g + '_')}")
