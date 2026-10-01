@@ -51,6 +51,9 @@ object Balance {
     // watts a month for each rider on electric transit; the least a station smokes, in percent of full.
     const val EVENING_PEAK = 15
     const val LINE_LOSS = 4
+    /** What an ordinary line carries before it's overloaded, in kilowatts, and how much more it loses a step past that, per thousand. */
+    const val LINE_RATING = 8_000
+    const val OVERLOAD_LOSS = 15
     const val SUBSTATION_RATING = 20_000_000
     const val HIGH_LINE_YEAR = 1920
     const val TRACTION_W = 40

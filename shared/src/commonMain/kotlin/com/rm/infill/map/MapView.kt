@@ -110,7 +110,7 @@ fun MapView(
         overlayImage(overlay, map, { game.city.building(map.building[it])?.people }, { game.city.wearAt(it) }, { game.city.building(map.building[it])?.uncollected == true }, { i ->
             game.city.building(map.building[i])?.takeIf { it.kind >= 0 || it.type.zone == Zone.FARMLAND || it.type.zone == Zone.COMMERCIAL && !it.type.office ||
                 it.type == BuildingType.COAL_PLANT || it.type == BuildingType.OIL_PLANT }?.local ?: -1
-        }, { game.city.junctionWait(it) }, focusData) {
+        }, { game.city.junctionWait(it) }, focusData, { game.city.lineLoad(it) }) {
             game.city.tramRiders(it) + game.city.busRiders(it) + game.city.trolleyRiders(it) + game.city.subwayRiders(it)
         }
     }
@@ -212,7 +212,7 @@ fun MapView(
         val stopped = if (trains) drawTrains(game.city.trainRoutes, map, camera, weatherTime, graphics.trains, graphics.smoke) else emptySet()
         if (traffic) {
             drawVehicles(map, camera, game.city.year, weatherTime, graphics.vehicles, stopped)
-            drawTransit(map, camera, weatherTime, { game.city.tramRiders(it) }, { game.city.busRiders(it) }) { game.city.trolleyRiders(it) }
+            drawTransit(map, camera, weatherTime, game.city.lineStates())
         }
         if (fires) drawFires(map, camera, weather, weatherTime)
         drawWeather(weather, camera, clouds, weatherTime, sun.strength, graphics)

@@ -2446,6 +2446,9 @@ class City(
     /** What a station's making, in watts, as of the last time the grid was worked out. */
     fun stationOutput(b: Building): Int = grid.output[b.id] ?: 0
 
+    /** What the line on tile [i] carries at the peak, in kilowatts. */
+    fun lineLoad(i: Int): Int = grid.load[i]
+
     /** What a station could make now, in watts. */
     fun stationAvailable(b: Building): Int = available(b)
 
@@ -2486,6 +2489,9 @@ class City(
     /** The planned transit lines, in the order they were made. */
     val lines = ArrayList<TransitLine>()
     private var nextLineId = 1
+
+    /** Every line as last worked out, for drawing its vehicles. */
+    fun lineStates(): Collection<LineState> = transit.lines.values
 
     /** How line [id] is doing, as last worked out, or null if there's no such line. */
     fun lineState(id: Int): LineState? = transit.lines[id]

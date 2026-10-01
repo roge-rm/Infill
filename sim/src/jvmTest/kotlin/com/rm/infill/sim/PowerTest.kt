@@ -140,6 +140,26 @@ class PowerTest {
     }
 
     @Test
+    fun linesCarryTheLoadBeyondThemAndLoseMoreOverloaded() {
+        val c = city()
+        // A big station, and two police stations far along a line, drawing more than a line is rated for.
+        c.apply(Action.PlaceBuilding(BuildingType.GAS_PLANT, 1, 9))
+        c.apply(Action.BuildPowerLine(Action.roadPath(c.map, 3, 10, 62, 10, true)))
+        for (x in listOf(40, 55)) c.apply(Action.PlaceBuilding(BuildingType.POLICE_STATION, x, 11))
+        val g = PowerGrid(c.map)
+        val draw = { b: Building -> if (b.type == BuildingType.POLICE_STATION) 6_000_000 else 0 }
+        val available = { b: Building -> Generation.capacity(b.type) }
+        g.update(c.all(), draw, available, 100)
+        // Near the station the line carries both; past the first, only the far one.
+        assertTrue(g.load[c.map.index(10, 10)] > Balance.LINE_RATING, "${g.load[c.map.index(10, 10)]} kW")
+        assertTrue(g.load[c.map.index(50, 10)] in 6_000..8_000, "${g.load[c.map.index(50, 10)]} kW")
+        val first = g.output.values.sum()
+        // Worked out again with the overload known, more is lost on the way.
+        g.update(c.all(), draw, available, 100)
+        assertTrue(g.output.values.sum() > first, "${g.output.values.sum()} W against $first W")
+    }
+
+    @Test
     fun theStationsOfEachEraAndPlace() {
         val c = city(1910)
         c.everything = false

@@ -569,4 +569,7 @@
         <item quantity="one">%1$d rider last month</item>
         <item quantity="other">%1$s riders last month</item>
     </plurals>
+    <string name="overlay_line_load">Line load</string>
+    <string name="inspect_line_load">Carrying %1$s MW at the peak</string>
+    <string name="inspect_line_overloaded">Carrying %1$s MW at the peak, overloaded</string>
 </resources>

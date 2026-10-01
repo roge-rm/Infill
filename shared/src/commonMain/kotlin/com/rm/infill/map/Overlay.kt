@@ -29,6 +29,7 @@ import com.rm.infill.res.overlay_land
 import com.rm.infill.res.overlay_goods
 import com.rm.infill.res.overlay_junctions
 import com.rm.infill.res.overlay_trips
+import com.rm.infill.res.overlay_line_load
 import com.rm.infill.res.overlay_reach
 import com.rm.infill.sim.Resource
 import com.rm.infill.sim.Household
@@ -48,6 +49,8 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Pollution(Res.string.overlay_pollution, Color(0x00A0522D), Color(0xFF6B3A1E)),
     Crime(Res.string.overlay_crime, Color(0x00D32F2F), Color(0xFFB71C1C)),
     Power(Res.string.overlay_power, Color(0xFFD84343), Color(0xFF4CAF50)),
+    /** Each power line by what it carries: green when light, red when it's past what a line is rated for. */
+    LineLoad(Res.string.overlay_line_load, Color(0xFF4CAF50), Color(0xFFD8302F)),
     Police(Res.string.overlay_police, Color(0x001E5AC8), Color(0xFF1E5AC8)),
     Fire(Res.string.overlay_fire, Color(0x00E67E22), Color(0xFFE67E22)),
     Traffic(Res.string.overlay_traffic, Color(0xFFFFF1B8), Color(0xFFD8302F)),
@@ -76,7 +79,7 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
  */
 internal fun overlayImage(
     overlay: Overlay, map: CityMap, homeAt: (Int) -> Household?, wearAt: (Int) -> Int, uncollectedAt: (Int) -> Boolean,
-    localAt: (Int) -> Int, waitAt: (Int) -> Int, focus: IntArray?, ridersAt: (Int) -> Int,
+    localAt: (Int) -> Int, waitAt: (Int) -> Int, focus: IntArray?, loadAt: (Int) -> Int, ridersAt: (Int) -> Int,
 ): ImageBitmap? {
     if (overlay == Overlay.None) return null
     val most = if (overlay == Overlay.Trips) maxOf(1, focus?.maxOrNull() ?: 1) else 1
@@ -157,6 +160,10 @@ internal fun overlayImage(
                 if (map.control[i].toInt() == 0) continue
                 min(255, waitAt(i) * 255 / 60)
             }
+            Overlay.LineLoad -> {
+                if (map.power[i].toInt() == 0) continue
+                min(255, loadAt(i) * 255 / Balance.LINE_RATING)
+            }
             Overlay.Trips -> {
                 val v = focus?.get(i) ?: continue
                 if (v <= 0) continue
@@ -172,7 +179,7 @@ internal fun overlayImage(
         val everywhere = overlay == Overlay.LandValue || overlay == Overlay.Power || overlay == Overlay.Traffic ||
             overlay == Overlay.Railway || overlay == Overlay.Water || overlay == Overlay.Runoff ||
             overlay == Overlay.Schooling || overlay == Overlay.Health || overlay == Overlay.Wealth || overlay == Overlay.Age ||
-            overlay == Overlay.Heat || overlay == Overlay.Garbage || overlay == Overlay.Goods || overlay == Overlay.Junctions || overlay == Overlay.Reach
+            overlay == Overlay.Heat || overlay == Overlay.Garbage || overlay == Overlay.Goods || overlay == Overlay.Junctions || overlay == Overlay.Reach || overlay == Overlay.LineLoad
         if (!everywhere && v == 0) continue
         pixels[i] = mix(overlay.low, overlay.high, v / 255f)
     }

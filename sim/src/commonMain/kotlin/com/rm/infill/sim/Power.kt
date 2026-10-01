@@ -83,6 +83,13 @@ internal class PowerGrid(private val map: CityMap) {
     /** The ordinary network each tile's on, -1 if none. */
     val network = IntArray(map.size) { -1 }
 
+    /**
+     * What each line tile carries, in kilowatts, as last worked out: the peak
+     * draw of everything beyond it, back to where the power comes in. A line
+     * carrying more than it's rated for loses more on the way.
+     */
+    val load = IntArray(map.size)
+
     /** Last worked out: each station's output in watts, by building id. */
     val output = HashMap<Int, Int>()
 
@@ -134,8 +141,10 @@ internal class PowerGrid(private val map: CityMap) {
             count++
         }
 
-        // Where the power comes in to each network: its stations and substations. Steps from them, for the losses.
+        // Where the power comes in to each network: its stations and substations. Steps from them, for the losses,
+        // and the way back towards them, for the load on each line.
         val steps = IntArray(n) { -1 }
+        val back = IntArray(n) { -1 }
         var head = 0
         var tail = 0
         val feeds = buildings.filter { b -> (Generation.station(b.type) || b.type == BuildingType.SUBSTATION) && b.underway == 0 }
@@ -157,6 +166,7 @@ internal class PowerGrid(private val map: CityMap) {
                 val j = m.index(nx, ny)
                 if (steps[j] >= 0 || !conducts(j)) continue
                 steps[j] = steps[i] + 1
+                back[j] = i
                 queue[tail++] = j
             }
         }
@@ -177,9 +187,26 @@ internal class PowerGrid(private val map: CityMap) {
             if (c < 0) continue
             val w = draw(b).toLong() * peak / 100
             if (w <= 0) continue
-            val lost = w * (1000 + Balance.LINE_LOSS * maxOf(0, steps[i])) / 1000
+            // More is lost the further it comes, and more again over lines that were overloaded last time.
+            var over = 0
+            var at = i
+            while (at >= 0 && steps[at] > 0) {
+                if (m.power[at] == Power.LINE && load[at] > Balance.LINE_RATING) over++
+                at = back[at]
+            }
+            val lost = w * (1000 + Balance.LINE_LOSS * maxOf(0, steps[i]) + Balance.OVERLOAD_LOSS * over) / 1000
             need[c] += lost
             users[c] += b to lost
+        }
+        // What each line carries now.
+        load.fill(0)
+        for (c in 0 until count) for ((b, w) in users[c]) {
+            val kw = (w / 1000).toInt()
+            var at = m.index(b.x, b.y)
+            while (at >= 0 && steps[at] > 0) {
+                if (m.power[at] != Power.NONE) load[at] += kw
+                at = back[at]
+            }
         }
 
         // High-voltage lines join networks into grids, through substations or a station beside the line.

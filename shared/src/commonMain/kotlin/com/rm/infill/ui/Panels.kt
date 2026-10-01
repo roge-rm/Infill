@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
 import com.rm.infill.map.MapRenderer
+import com.rm.infill.res.inspect_line_load
+import com.rm.infill.res.inspect_line_overloaded
 import com.rm.infill.res.inspect_lines
 import com.rm.infill.res.inspect_bus_lane
 import com.rm.infill.res.line_name
@@ -428,6 +430,13 @@ fun InspectPanel(game: GameState, x: Int, y: Int, onClose: () -> Unit, modifier:
                 add(stringResource(Res.string.laid_in, stringResource(materialName(material)), yearOf(laid[i].toInt())))
             }
             brokenLine(map, i)?.let { add(it) }
+            if (map.power[i] == Power.LINE) {
+                val kw = city.lineLoad(i)
+                if (kw > 0) {
+                    val mw = "${kw / 1000}.${kw % 1000 / 100}"
+                    add(stringResource(if (kw > Balance.LINE_RATING) Res.string.inspect_line_overloaded else Res.string.inspect_line_load, mw))
+                }
+            }
             // Transit: the track and stops on the street, the tunnel under it, and whether anything runs.
             if (map.tram[i].toInt() != 0) {
                 add(stringResource(Res.string.laid_in, stringResource(Res.string.tram_track), yearOf(map.tramLaid[i].toInt())) +
