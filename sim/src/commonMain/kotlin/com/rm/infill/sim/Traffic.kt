@@ -140,6 +140,24 @@ internal class Traffic(private val map: CityMap) {
     var lastJourneys: Map<Long, Int> = emptyMap()
         private set
 
+    /**
+     * How freely the traffic moves: this month so far, the seconds vehicles
+     * would have taken on clear roads with nothing to stop for, and the
+     * seconds they took. Last month's, in percent: 100 is free flowing.
+     */
+    private var freeSeconds = 0L
+    private var tookSeconds = 0L
+    var lastFlow = 100
+        internal set
+
+    /**
+     * Last month's vehicle trips, for following them on the map: for each,
+     * where it started, where it ended and how many went, and the road tiles
+     * it took, from [tripRoute] to the next one's start.
+     */
+    private var routes = IntList()
+    private var lastRoutes = IntList()
+
     /** Snowed in by a blizzard: nothing on the roads moves but people on foot, and the subway and trains. */
     var snowedIn = false
 
@@ -229,6 +247,13 @@ internal class Traffic(private val map: CityMap) {
         }
         modes.copyInto(lastModes)
         modes.fill(0)
+        lastFlow = if (tookSeconds <= 0) 100 else (freeSeconds * 100 / tookSeconds).toInt().coerceIn(0, 100)
+        freeSeconds = 0
+        tookSeconds = 0
+        val swap = lastRoutes
+        lastRoutes = routes
+        routes = swap
+        routes.size = 0
         lastNetworkRiders = HashMap(networkRiders)
         networkRiders.clear()
 
@@ -589,9 +614,23 @@ internal class Traffic(private val map: CityMap) {
     private fun carry(end: Int, trips: Int, kind: Int) {
         var st = end
         var mode = Mode.WALK.ordinal
+        // The road tiles a vehicle took, for following the trip on the map.
+        val head = routes.size
+        routes.add(0); routes.add(end % n); routes.add(trips); routes.add(0)
         while (st >= 0) {
             val layer = st / n
             val at = st % n
+            if (layer == CAR) {
+                routes.add(at)
+                val p = from[st]
+                if (p >= 0 && p / n == CAR) {
+                    RoadType.of(map.road[at])?.let { road ->
+                        freeSeconds += road.time.toLong() * trips
+                        tookSeconds += (dist[st] - dist[p]).toLong() * trips
+                    }
+                }
+            }
+            if (from[st] < 0) routes[head] = at
             when (layer) {
                 WALK -> footfall[at] += trips
                 CAR -> {
@@ -658,6 +697,9 @@ internal class Traffic(private val map: CityMap) {
             st = prev
         }
         if (kind == WORKER) modes[mode] += trips
+        // Only trips that drove are kept.
+        val tiles = routes.size - head - 4
+        if (tiles == 0) routes.size = head else routes[head + 3] = tiles
     }
 
     /** Seconds to walk across a tile, more over a level crossing or through floodwater. */
@@ -675,6 +717,59 @@ internal class Traffic(private val map: CityMap) {
         // Wading through floodwater, or picking a way round the potholes.
         val wading = if ((map.flood[b].toInt() and 0xff) >= Balance.FLOODED) time * Balance.FLOOD_SLOW else time
         return if (map.potholed(b)) wading * Balance.POTHOLE_SLOW else wading
+    }
+
+    /**
+     * Last month's vehicles through road tile [through], by the tiles they
+     * crossed on the way: where they came from, where they went and the roads
+     * between, so the map can show where a road's traffic is going.
+     */
+    fun tripsThrough(through: Int): IntArray {
+        val out = IntArray(n)
+        val r = lastRoutes
+        var k = 0
+        while (k < r.size) {
+            val trips = r[k + 2]
+            val tiles = r[k + 3]
+            var hit = false
+            for (j in 0 until tiles) if (r[k + 4 + j] == through) { hit = true; break }
+            if (hit) for (j in 0 until tiles) out[r[k + 4 + j]] += trips
+            k += 4 + tiles
+        }
+        return out
+    }
+
+    /**
+     * Seconds by road from road tile [start] to every other, driving as the
+     * traffic is now, or -1 where it can't be reached within a long trip.
+     */
+    fun travelTimes(start: Int): IntArray {
+        val t = IntArray(n) { -1 }
+        if (map.road[start] == Road.NONE) return t
+        val heap = LongHeap()
+        t[start] = 0
+        heap.push(0L shl 32 or start.toLong())
+        while (heap.size > 0) {
+            val top = heap.pop()
+            val d = (top ushr 32).toInt()
+            val a = (top and 0xffffffffL).toInt()
+            if (d > t[a]) continue
+            val x = a % map.width
+            val y = a / map.width
+            for (h in 1..4) {
+                val nx = x + Heading.DX[h]
+                val ny = y + Heading.DY[h]
+                if (!map.inside(nx, ny)) continue
+                val b = ny * map.width + nx
+                val road = RoadType.of(map.road[b]) ?: continue
+                if (map.closed(b) || !canMove(map, a, b, h)) continue
+                val nd = d + timeToCross(b, road)
+                if (nd > Balance.LONGEST_TRIP || (t[b] in 0..nd)) continue
+                t[b] = nd
+                heap.push(nd.toLong() shl 32 or b.toLong())
+            }
+        }
+        return t
     }
 
     /** Seconds to get through the crossing at [b], if it is one, by its control and how busy it is. */
@@ -761,6 +856,15 @@ internal class Traffic(private val map: CityMap) {
         freightStuck.fill(false)
         repeat(r.count()) { freightStuck[tile(r)] = true }
         workersSent = r.int(); workersPlaced = r.int()
+    }
+
+    /** Since save version 13. */
+    internal fun writeFlow(w: SaveWriter) {
+        w.long(freeSeconds); w.long(tookSeconds); w.int(lastFlow)
+    }
+
+    internal fun readFlow(r: SaveReader) {
+        freeSeconds = r.long(); tookSeconds = r.long(); lastFlow = r.int()
     }
 
     /** Since save version 10. */
@@ -881,5 +985,56 @@ internal class Traffic(private val map: CityMap) {
             val y = i / map.width + Heading.DY[k]
             return map.inside(x, y) && map.road[map.index(x, y)] != Road.NONE
         }
+    }
+}
+
+/** A growing list of ints, without boxing. */
+internal class IntList {
+    private var a = IntArray(1024)
+    var size = 0
+
+    fun add(v: Int) {
+        if (size == a.size) a = a.copyOf(a.size * 2)
+        a[size++] = v
+    }
+
+    operator fun get(i: Int) = a[i]
+
+    operator fun set(i: Int, v: Int) {
+        a[i] = v
+    }
+}
+
+/** A binary heap of longs, smallest first. */
+internal class LongHeap {
+    private var a = LongArray(256)
+    var size = 0
+
+    fun push(v: Long) {
+        if (size == a.size) a = a.copyOf(a.size * 2)
+        var i = size++
+        while (i > 0) {
+            val p = (i - 1) / 2
+            if (a[p] <= v) break
+            a[i] = a[p]
+            i = p
+        }
+        a[i] = v
+    }
+
+    fun pop(): Long {
+        val top = a[0]
+        val v = a[--size]
+        var i = 0
+        while (true) {
+            val l = i * 2 + 1
+            if (l >= size) break
+            val c = if (l + 1 < size && a[l + 1] < a[l]) l + 1 else l
+            if (v <= a[c]) break
+            a[i] = a[c]
+            i = c
+        }
+        a[i] = v
+        return top
     }
 }

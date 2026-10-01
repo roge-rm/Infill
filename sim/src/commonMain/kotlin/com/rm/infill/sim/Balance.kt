@@ -592,6 +592,12 @@ object Balance {
     const val JUNCTION_MOST = 240
     const val AUTO_STOP = 30
     const val AUTO_LIGHTS = 70
+    // Traffic flow: the flow at which shops and offices are neither helped nor hurt, and at most how much;
+    // fumes from crawling traffic, in percent more at most, and more for each second spent waiting at a crossing.
+    const val FLOW_PAR = 85
+    const val FLOW_APPEAL = 8
+    const val IDLE_MOST = 60
+    const val IDLE_PER_WAIT = 2
 
     /** How far a lot can be from a road and still grow, in tiles. */
     const val ROAD_REACH = 3

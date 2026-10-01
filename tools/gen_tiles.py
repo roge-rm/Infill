@@ -2974,14 +2974,6 @@ def junction(look, kind):
             d.line([k, 28, k + 1, 28], white)
             d.line([3, k, 3, k + 1], white)
             d.line([28, k, 28, k + 1], white)
-    elif kind == "roundabout":
-        # The road round it, then a kerbed island with a tree.
-        d.ellipse([2, 2, 29, 29], c("#8a8780"))
-        d.ellipse([4, 4, 27, 27], outline=white)
-        island = c("#5a9a3c") if look != "snow" else c("#e4ebf0")
-        d.ellipse([9, 9, 22, 22], island, c("#d8d4c8"))
-        if look in ("spring", "summer", "autumn"):
-            d.ellipse([12, 12, 19, 19], c("#3d8233") if look != "autumn" else c("#cf6e28"))
     else:
         # An overpass carrying the road east to west over the one below, its shadow under it.
         d.rectangle([0, 19, 31, 22], (0, 0, 0, 70))
@@ -2990,6 +2982,44 @@ def junction(look, kind):
         d.line([0, 18, 31, 18], c("#c8c4b8"))
         for x in range(2, 31, 4):
             d.line([x, 13, x + 1, 13], c("#e8e4c0"))
+    return img
+
+
+def roundabout(look, mask):
+    """A roundabout over the crossing: the ring road with its lane line, an
+    island in the middle, and each road that joins it ([mask]: north 1, east
+    2, south 4, west 8) running its lane line in to the ring past a little
+    splitter island, so the lanes lead in and out."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    white = c("#f2f2ea") if look != "snow" else c("#c8d0d8")
+    cx = cy = 15.5
+    asphalt = MACADAM[look][0]
+    d.ellipse([cx - 15, cy - 15, cx + 15, cy + 15], asphalt)
+    # The ring's lane line, dashed.
+    for a in range(0, 360, 20):
+        for k in range(0, 9, 3):
+            t = math.radians(a + k)
+            d.point((cx + 10 * math.cos(t), cy + 10 * math.sin(t)), white)
+    # Each road joining: its centre line in to the ring, and a splitter island at the mouth.
+    arms = [(1, 0, -1), (2, 1, 0), (4, 0, 1), (8, -1, 0)]
+    for bit, dx, dy in arms:
+        if not mask & bit:
+            continue
+        for r in range(11, 16):
+            if r % 3 == 2:
+                continue
+            d.point((cx + dx * r, cy + dy * r), white)
+            d.point((cx + dx * r + dy, cy + dy * r + dx), white)
+        # The splitter: a small kerbed triangle pointing out along the road.
+        tip = (cx + dx * 15, cy + dy * 15)
+        base_l = (cx + dx * 11 - dy * 2, cy + dy * 11 - dx * 2)
+        base_r = (cx + dx * 11 + dy * 3, cy + dy * 11 + dx * 3)
+        d.polygon([tip, base_l, base_r], c("#d8d4c8"))
+    island = c("#5a9a3c") if look != "snow" else c("#e4ebf0")
+    d.ellipse([cx - 6, cy - 6, cx + 6, cy + 6], island, c("#d8d4c8"))
+    if look in ("spring", "summer", "autumn"):
+        d.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], c("#3d8233") if look != "autumn" else c("#cf6e28"))
     return img
 
 
@@ -3423,8 +3453,10 @@ def sprites_for(look):
     out.append(("seam_0", seam(look, "ore"), 0, []))
     out.append(("seam_1", seam(look, "coal"), 0, []))
     out.append(("seam_2", seam(look, "oil"), 0, []))
-    for k, kind in enumerate(("stop", "lights", "roundabout", "overpass")):
+    for k, kind in enumerate(("stop", "lights", "overpass")):
         out.append((f"junction_{k}", junction(look, kind), 0, []))
+    for mask in range(16):
+        out.append((f"roundabout_{mask}", roundabout(look, mask), 0, []))
     sign = for_sale(look)
     out.append(("for_sale_0", sign.img, sign.lift, []))
     for mask in range(16):
@@ -3506,7 +3538,7 @@ def write_kotlin(names, flat, pos, size):
             lines.append('            "' + text[i:i + 2000] + '"')
         return "decode(\n" + " +\n".join(lines or ['            ""']) + ",\n        )"
 
-    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "street_trees", "seam", "junction", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
+    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "street_trees", "seam", "junction", "roundabout", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
     # A sprite's name must start with exactly one group's, or the counts go wrong.
     for n in names:
         owners = [g for g in groups if n.startswith(g + "_")]

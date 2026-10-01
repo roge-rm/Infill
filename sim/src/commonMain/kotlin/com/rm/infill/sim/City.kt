@@ -2050,6 +2050,15 @@ class City(
         }
     }
 
+    /** What the town's traffic flow does for shops and offices: more where it moves freely, less where it's jammed. */
+    private fun flowAppeal(): Int = ((stats.flow - Balance.FLOW_PAR) * Balance.FLOW_APPEAL / (100 - Balance.FLOW_PAR)).coerceIn(-Balance.FLOW_APPEAL, Balance.FLOW_APPEAL)
+
+    /** Last month's vehicles through road tile [i], by the road tiles they crossed. */
+    fun tripsThrough(i: Int): IntArray = traffic.tripsThrough(i)
+
+    /** Seconds by road from road tile [i] to every other, as the traffic is now; -1 out of reach. */
+    fun travelTimes(i: Int): IntArray = traffic.travelTimes(i)
+
     /** Seconds a car waits at the crossing on tile [i] now, 0 if it isn't one. */
     fun junctionWait(i: Int): Int = RoadType.of(map.road[i])?.let { traffic.junctionWait(i, it) } ?: 0
 
@@ -2134,6 +2143,7 @@ class City(
         // The waits follow last month's riders.
         updateTransit()
         traffic.lastModes.copyInto(stats.byMode)
+        stats.flow = traffic.lastFlow
         stats.greenTrips = greenTrips()
         updateTrains()
 
@@ -3644,6 +3654,8 @@ class City(
                 buildings[m.building[i]]?.let { score += ageAppeal(it) }
                 // Passing trade.
                 if (access[i] >= 0) score += min(Balance.PASSING_TRADE, traffic.lastFootfall[access[i]] / Balance.TRIPS_PER_PASSING_POINT)
+                // Customers come to a town where the traffic moves.
+                score += flowAppeal()
                 // Stock from the town's own works and farms, or none at all if nothing can get in.
                 buildings[m.building[i]]?.let { score += it.local * Balance.LOCAL_APPEAL / 100 }
                 if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
@@ -3652,7 +3664,7 @@ class City(
                 // Dear land in the busy middle of town, close to the shops, clean and safe.
                 var shops = 0
                 around(x, y, 6) { j, _ -> if (buildings[m.building[j]]?.type?.zone == Zone.COMMERCIAL) shops++ }
-                score += 24 + value / 3 + min(shops, 15) - crime / 5 - pollution / 4
+                score += 24 + value / 3 + min(shops, 15) - crime / 5 - pollution / 4 + flowAppeal()
                 buildings[m.building[i]]?.let { score += ageAppeal(it) }
                 if (access[i] >= 0) score += min(Balance.PASSING_TRADE, traffic.lastFootfall[access[i]] / Balance.TRIPS_PER_PASSING_POINT)
             }
@@ -3735,7 +3747,9 @@ class City(
         for (i in 0 until m.size) {
             if (m.road[i] == Road.NONE) continue
             val vehicles = traffic.lastVolume[i] + traffic.lastBusVolume[i] * Balance.BUS_FUMES / Traffic.BUS_RIDERS
-            val p = vehicles * fumes / 100 * Balance.FUMES_PER_HUNDRED / 100
+            // Traffic crawling and waiting gives off more for the distance.
+            val idling = 100 + min(Balance.IDLE_MOST, (m.congestion[i].toInt() and 0xff) * Balance.IDLE_MOST / 255) + traffic.junctionWait(i, RoadType.of(m.road[i])!!) * Balance.IDLE_PER_WAIT
+            val p = vehicles * fumes / 100 * Balance.FUMES_PER_HUNDRED / 100 * idling / 100
             if (p == 0) continue
             around(i % m.width, i / m.width, Balance.FUMES_REACH) { j, d -> field[j] += p * (Balance.FUMES_REACH + 1 - d) / (Balance.FUMES_REACH + 1) }
         }
@@ -4231,6 +4245,8 @@ class City(
         w.long(s.officeIncome)
         // Since version 12.
         w.layer(map.junction); w.layer(map.control)
+        // Since version 13.
+        traffic.writeFlow(w); w.int(s.flow)
     }
 
     companion object {
@@ -4406,6 +4422,9 @@ class City(
                     // Before junctions: the town's controls for last month's traffic.
                     c.updateJunctions()
                 }
+                if (version >= 13) {
+                    c.traffic.readFlow(r); s.flow = r.int()
+                }
                 c.updateNetworks()
             } else {
                 // Before ageing nothing kept its age: count everything as laid half the town's life ago.
@@ -4551,6 +4570,9 @@ class Stats {
     var industryDemand = 0
     var farmDemand = 0
     var officeDemand = 0
+
+    /** How freely last month's traffic moved, in percent: 100 is as quick as clear roads with nothing to stop for. */
+    var flow = 100
 
     /** Last month's taxes from office work. */
     var officeIncome = 0L

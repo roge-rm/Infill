@@ -28,6 +28,8 @@ import com.rm.infill.res.overlay_garbage
 import com.rm.infill.res.overlay_land
 import com.rm.infill.res.overlay_goods
 import com.rm.infill.res.overlay_junctions
+import com.rm.infill.res.overlay_trips
+import com.rm.infill.res.overlay_reach
 import com.rm.infill.sim.Resource
 import com.rm.infill.sim.Household
 import com.rm.infill.sim.Balance
@@ -62,6 +64,10 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Land(Res.string.overlay_land, Color(0xFF6FA848), Color(0xFF2E2E34)),
     Goods(Res.string.overlay_goods, Color(0xFFD84343), Color(0xFF4CAF50)),
     Junctions(Res.string.overlay_junctions, Color(0xFF4CAF50), Color(0xFFD8302F)),
+    /** For the road being inspected: where the vehicles on it came from and went, and the roads between. */
+    Trips(Res.string.overlay_trips, Color(0x80C8B4F0), Color(0xFF5B2FA8)),
+    /** From the road being inspected: how long it takes to drive everywhere, green near to red a quarter of an hour away. */
+    Reach(Res.string.overlay_reach, Color(0xFF3FA85A), Color(0xFFD8302F)),
 }
 
 /**
@@ -70,9 +76,10 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
  */
 internal fun overlayImage(
     overlay: Overlay, map: CityMap, homeAt: (Int) -> Household?, wearAt: (Int) -> Int, uncollectedAt: (Int) -> Boolean,
-    localAt: (Int) -> Int, waitAt: (Int) -> Int, ridersAt: (Int) -> Int,
+    localAt: (Int) -> Int, waitAt: (Int) -> Int, focus: IntArray?, ridersAt: (Int) -> Int,
 ): ImageBitmap? {
     if (overlay == Overlay.None) return null
+    val most = if (overlay == Overlay.Trips) maxOf(1, focus?.maxOrNull() ?: 1) else 1
     val pixels = IntArray(map.size)
     for (i in 0 until map.size) {
         // Water shows nothing, except bridges for traffic.
@@ -150,12 +157,22 @@ internal fun overlayImage(
                 if (map.control[i].toInt() == 0) continue
                 min(255, waitAt(i) * 255 / 60)
             }
+            Overlay.Trips -> {
+                val v = focus?.get(i) ?: continue
+                if (v <= 0) continue
+                maxOf(40, v * 255 / most)
+            }
+            Overlay.Reach -> {
+                val v = focus?.get(i) ?: continue
+                if (v < 0) continue
+                min(255, v * 255 / QUARTER_HOUR)
+            }
             Overlay.None -> 0
         }
         val everywhere = overlay == Overlay.LandValue || overlay == Overlay.Power || overlay == Overlay.Traffic ||
             overlay == Overlay.Railway || overlay == Overlay.Water || overlay == Overlay.Runoff ||
             overlay == Overlay.Schooling || overlay == Overlay.Health || overlay == Overlay.Wealth || overlay == Overlay.Age ||
-            overlay == Overlay.Heat || overlay == Overlay.Garbage || overlay == Overlay.Goods || overlay == Overlay.Junctions
+            overlay == Overlay.Heat || overlay == Overlay.Garbage || overlay == Overlay.Goods || overlay == Overlay.Junctions || overlay == Overlay.Reach
         if (!everywhere && v == 0) continue
         pixels[i] = mix(overlay.low, overlay.high, v / 255f)
     }
@@ -198,3 +215,6 @@ internal fun DrawScope.drawOverlay(image: ImageBitmap, map: CityMap, camera: Cam
 }
 
 private const val OVERLAY_ALPHA = 0.62f
+
+/** Seconds of driving the Reach view runs green to red over. */
+private const val QUARTER_HOUR = 900

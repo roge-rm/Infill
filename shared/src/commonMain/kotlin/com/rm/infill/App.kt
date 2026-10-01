@@ -600,6 +600,7 @@ private fun GameScreen(
             MapView(
                 game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, graphics, gestures, preview, costText, overlay,
                 underground = tool == Tool.Water || (tool == Tool.Transit && (transitKind == TransitKind.Subway || transitKind == TransitKind.Station)),
+                focus = inspected?.let { (x, y) -> city.map.index(x, y) } ?: -1,
                 modifier = Modifier.fillMaxSize(),
             )
 

@@ -102,4 +102,44 @@ class JunctionTest {
         assertEquals(Junction.ROUNDABOUT, loaded.map.junction[c.i(20, 20)])
         assertEquals(Junction.ROUNDABOUT, loaded.map.control[c.i(20, 20)])
     }
+
+    private fun trips(c: City, from: Int, to: Int, n: Int): Traffic {
+        val size = c.map.size
+        val t = Traffic(c.map)
+        val w = IntArray(size).also { it[from] = n }
+        val j = IntArray(size).also { it[to] = n }
+        t.newMonth(w, IntArray(size), IntArray(size), j, IntArray(size), 0, carWorkersAt = w)
+        t.sendDay(1, 1)
+        t.newMonth(IntArray(size), IntArray(size), IntArray(size), IntArray(size), IntArray(size), 0)
+        return t
+    }
+
+    @Test
+    fun theFlowFallsWhenTrafficWaitsAtCrossings() {
+        val c = city()
+        c.road(2, 20, 45, 20)
+        for (x in 6..42 step 4) c.road(x, 18, x, 22)
+        val free = trips(c, c.i(2, 20), c.i(45, 20), 40)
+        // Lights at every crossing on the way.
+        val crossings = (6..42 step 4).map { c.i(it, 20) }.toIntArray()
+        c.apply(Action.SetJunction(crossings, Junction.LIGHTS))
+        val held = trips(c, c.i(2, 20), c.i(45, 20), 40)
+        assertTrue(held.lastFlow < free.lastFlow, "free ${free.lastFlow}%, at the lights ${held.lastFlow}%")
+        assertTrue(free.lastFlow >= 90)
+    }
+
+    @Test
+    fun aRoadsTripsCanBeFollowedAndTheTownsReachMeasured() {
+        val c = city()
+        c.road(2, 20, 45, 20)
+        c.road(20, 5, 20, 40)
+        val t = trips(c, c.i(2, 20), c.i(45, 20), 30)
+        val through = t.tripsThrough(c.i(30, 20))
+        assertEquals(30, through[c.i(10, 20)], "they came along the road from the west")
+        assertEquals(0, through[c.i(20, 10)], "none went north")
+        val times = t.travelTimes(c.i(20, 20))
+        assertEquals(0, times[c.i(20, 20)])
+        assertTrue(times[c.i(40, 20)] > times[c.i(25, 20)])
+        assertEquals(-1, times[c.i(5, 5)], "off the road")
+    }
 }

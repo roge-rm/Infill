@@ -542,4 +542,7 @@
     <string name="junction_interchange">Interchange</string>
     <string name="inspect_junction">%1$s, %2$d s to get through</string>
     <string name="overlay_junctions">Junctions</string>
+    <string name="traffic_flow">Traffic flowing</string>
+    <string name="overlay_trips">Trips</string>
+    <string name="overlay_reach">Reach</string>
 </resources>

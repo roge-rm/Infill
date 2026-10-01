@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.GameState
+import com.rm.infill.res.traffic_flow
 import com.rm.infill.res.income_offices
 import com.rm.infill.res.trade
 import com.rm.infill.res.trade_out
@@ -424,6 +425,7 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
             CountLine(Res.string.adults, n(s.adults))
             CountLine(Res.string.elderly, n(s.elderly))
             CountLine(Res.string.health, healthWord(s.health))
+            CountLine(Res.string.traffic_flow, stringResource(Res.string.percent, s.flow))
             if (s.emptyHomes > 0) CountLine(Res.string.empty_homes, n(s.emptyHomes))
             Heading(Res.string.last_month)
             CountLine(Res.string.born, n(s.births))

@@ -259,7 +259,12 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 if (road != null) roadTile(surface, base, road, i, tx, ty, roadMask(tx, ty), dx, dy, level)
                 // What the crossing has: stop signs, lights, a roundabout or an overpass.
                 val control = map.control[i]
-                if (road != null && control >= Junction.STOP) surface.blend(base + Atlas.JUNCTION + control - Junction.STOP, dx, dy)
+                when {
+                    road == null || control < Junction.STOP -> {}
+                    control == Junction.ROUNDABOUT -> surface.blend(base + Atlas.ROUNDABOUT + roadMask(tx, ty), dx, dy)
+                    control == Junction.INTERCHANGE -> surface.blend(base + Atlas.JUNCTION + 2, dx, dy)
+                    else -> surface.blend(base + Atlas.JUNCTION + control - Junction.STOP, dx, dy)
+                }
                 if (road != null) transitOn(surface, base, i, tx, ty, dx, dy)
                 if (map.bank[i].toInt() != 0) embankment(surface, tx, ty, dx, dy, s, r.look == Atlas.SNOW)
                 if (rail && road != null) {
