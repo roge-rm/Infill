@@ -190,4 +190,19 @@ class PowerTest {
         // 10 MW against a 1960s town's demand: it can't keep everything lit, and says so.
         if (c.stats.powerDemand > c.stats.powerCapacity) assertTrue(c.stats.powerShort > 0)
     }
+
+    @Test
+    fun lineLoadIsThereOnLoading() {
+        val c = City(5, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true }
+        val m = c.map
+        assertTrue(c.apply(Action.BuildRoad(Action.roadPath(m, 0, 30, 60, 30, true))).ok)
+        assertTrue(c.apply(Action.PlaceZone(5, 28, 40, 29, Zone.RESIDENTIAL)).ok)
+        assertTrue(c.apply(Action.PlaceBuilding(BuildingType.COAL_PLANT, 50, 25)).ok)
+        assertTrue(c.apply(Action.BuildPowerLine(Action.roadPath(m, 51, 27, 5, 27, true))).ok)
+        repeat(2 * 365) { c.tick() }
+        val loads = IntArray(m.size) { c.lineLoad(it) }
+        assertTrue(loads.any { it > 0 }, "the line carries something")
+        val back = SaveGame.read(SaveGame.write(c))
+        assertTrue(loads.contentEquals(IntArray(m.size) { back.lineLoad(it) }))
+    }
 }

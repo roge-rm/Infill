@@ -1242,6 +1242,7 @@ class City(
         updateGrime()
         updateServices()
         updateComms()
+        updatePathways()
         wearOut()
         accidents()
         earthquake()
@@ -1506,6 +1507,9 @@ class City(
         if (bits and Broken.POWER != 0 && m.cable(i)) younger(m.powerLaid, cableLife(i))
         if (bits and Broken.PHONE != 0 && m.phone[i].toInt() != 0) younger(m.phoneLaid, phoneLife(i))
     }
+
+    /** How far a back lane runs along a block looking for a road at its end. */
+    private val LANE_REACH = 16
 
     /** How long the phone line on tile [i] is expected to last, in years. */
     fun phoneLife(i: Int): Int = if (map.phone[i] == Phone.FIBRE) Balance.FIBRE_LIFE else Balance.COPPER_LIFE
@@ -2662,6 +2666,104 @@ class City(
             }
         }
         return reached
+    }
+
+    /**
+     * The way from each lot off the road to its road. A house on a quiet lot
+     * gets a path that winds past its neighbours to the street, of whatever
+     * the street's made of; a denser block, a back lane behind its front row
+     * that the lots beyond it come out onto.
+     */
+    internal fun updatePathways() {
+        val m = map
+        val w = m.width
+        val next = ShortArray(m.size)
+        fun bit(dx: Int, dy: Int) = when {
+            dy < 0 -> 1
+            dx > 0 -> 2
+            dy > 0 -> 4
+            else -> 8
+        }
+        fun edge(dx: Int, dy: Int) = when {
+            dy < 0 -> 1
+            dx > 0 -> 2
+            dy > 0 -> 3
+            else -> 4
+        }
+        // A path or lane can cross yards, but not water, track or a road it isn't meeting.
+        fun open(x: Int, y: Int): Boolean {
+            if (!m.inside(x, y)) return false
+            val i = m.index(x, y)
+            return m.terrain[i] != Terrain.WATER && m.rail[i] == Rail.NONE && m.road[i] == Road.NONE
+        }
+        fun road(x: Int, y: Int) = m.inside(x, y) && m.road[m.index(x, y)] != Road.NONE
+        for (b in buildings.values.sortedBy { it.id }) {
+            if (b.underway > 0) continue
+            val t = b.type
+            if (t.zone == Zone.NONE || t.zone == Zone.FARMLAND) continue
+            val start = m.index(b.x, b.y)
+            val a = access[start]
+            if (a < 0) continue
+            val ax = a % w
+            val ay = a / w
+            if (abs(ax - b.x) + abs(ay - b.y) <= 1) continue
+            val surface = when (RoadType.of(m.road[a])) {
+                RoadType.DIRT -> 0
+                RoadType.GRAVEL, RoadType.LANE -> 1
+                else -> 2
+            } shl 7
+            val dense = m.density[start] >= Density.MEDIUM
+            // The way, a tile and its marks at a time, kept only if it gets there.
+            val marks = ArrayList<Pair<Int, Int>>()
+            var x = b.x
+            var y = b.y
+            var reached = false
+            while (true) {
+                val i = y * w + x
+                val rx = ax - x
+                val ry = ay - y
+                val (sx, sy) = if (abs(ry) >= abs(rx)) 0 to (if (ry > 0) 1 else -1) else (if (rx > 0) 1 else -1) to 0
+                if (dense && abs(rx) + abs(ry) == 2) {
+                    // A back lane along this row's edge facing the road, out to whichever end meets a road sooner.
+                    val lane = (edge(sx, sy) shl 4) or surface
+                    val ways = listOf(sy to sx, -sy to -sx).map { (px, py) ->
+                        val run = ArrayList<Int>()
+                        var cx = x
+                        var cy = y
+                        var ok = false
+                        for (k in 0 until LANE_REACH) {
+                            run += cy * w + cx
+                            // The lane's corner reaches the road along the cross street, or the lot in front gives way.
+                            if (road(cx + px, cy + py)) { ok = true; break }
+                            if (!open(cx + px, cy + py) || !open(cx + px + sx, cy + py + sy) && !road(cx + px + sx, cy + py + sy)) break
+                            cx += px
+                            cy += py
+                        }
+                        if (ok) run else null
+                    }
+                    val best = ways.filterNotNull().minByOrNull { it.size }
+                    if (best != null) {
+                        for (j in best) marks += j to lane
+                        reached = true
+                        break
+                    }
+                }
+                marks += i to (bit(sx, sy) or surface)
+                x += sx
+                y += sy
+                val j = y * w + x
+                if (road(x, y)) { reached = true; break }
+                if (!open(x, y)) break
+                marks += j to (bit(-sx, -sy) or surface)
+                if (abs(ax - x) + abs(ay - y) == 0) { reached = true; break }
+            }
+            if (!reached) continue
+            for ((j, v) in marks) next[j] = (next[j].toInt() or v).toShort()
+        }
+        for (i in 0 until m.size) if (next[i] != m.pathway[i]) {
+            m.pathway[i] = next[i]
+            townChanges += i
+        }
     }
 
     /** How many of [b]'s workers work from home today: some of the educated, with broadband, from 2000. */
@@ -5150,6 +5252,10 @@ class City(
         w.shorts(map.phoneLaid)
         w.layer(map.comms)
         for (v in longArrayOf(stats.phoneUpkeep, stats.withPhone.toLong(), stats.withBroadband.toLong(), stats.workingFromHome.toLong())) w.long(v)
+        // Since version 22: what each power line carried, so the load's there on loading.
+        val loaded = (0 until map.size).filter { grid.load[it] != 0 }
+        w.count(loaded.size)
+        for (i in loaded) { w.int(i); w.int(grid.load[i]) }
     }
 
     companion object {
@@ -5383,7 +5489,10 @@ class City(
                     val s = c.stats
                     s.phoneUpkeep = r.long(); s.withPhone = r.long().toInt(); s.withBroadband = r.long().toInt(); s.workingFromHome = r.long().toInt()
                 }
+                val savedLoad = if (version >= 22) IntArray(m.size).also { a -> repeat(r.count()) { a[r.int()] = r.int() } } else null
                 c.updateNetworks()
+                savedLoad?.copyInto(c.grid.load)
+                c.updatePathways()
             } else {
                 // Before ageing nothing kept its age: count everything as laid half the town's life ago.
                 val guess = (c.monthNow / 2).toShort()

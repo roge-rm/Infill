@@ -198,16 +198,16 @@ internal class PowerGrid(private val map: CityMap) {
             need[c] += lost
             users[c] += b to lost
         }
-        // What each line carries now.
-        load.fill(0)
+        // What each line carries now, added up in watts, since a home draws less than a kilowatt.
+        val watts = LongArray(n)
         for (c in 0 until count) for ((b, w) in users[c]) {
-            val kw = (w / 1000).toInt()
             var at = m.index(b.x, b.y)
             while (at >= 0 && steps[at] > 0) {
-                if (m.power[at] != Power.NONE) load[at] += kw
+                if (m.power[at] != Power.NONE) watts[at] += w
                 at = back[at]
             }
         }
+        for (i in 0 until n) load[i] = (watts[i] / 1000).toInt()
 
         // High-voltage lines join networks into grids, through substations or a station beside the line.
         val hv = IntArray(n) { -1 }

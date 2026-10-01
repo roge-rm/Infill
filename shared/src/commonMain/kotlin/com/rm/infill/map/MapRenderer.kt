@@ -256,6 +256,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 if (map.brownfield[i].toInt() != 0) brownfield(surface, h, dx, dy, s, level)
                 val zone = map.zone[i]
                 if (zone != Zone.NONE && map.building[i] == 0) zoneTint(surface, zone, map.density[i], tx, ty, dx, dy, s, level)
+                // The way from a lot to its road, on the ground, so the houses stand over it.
+                if (road == null) pathway(surface, map.pathway[i].toInt(), tx, ty, dx, dy, s, level)
                 if (road != null) roadTile(surface, base, road, i, tx, ty, roadMask(tx, ty), dx, dy, level)
                 // What the crossing has: stop signs, lights, a roundabout or an overpass.
                 val control = map.control[i]
@@ -266,6 +268,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                     else -> surface.blend(base + Atlas.JUNCTION + control - Junction.STOP, dx, dy)
                 }
                 if (road != null && map.lane[i].toInt() != 0) lanes(surface, tx, ty, dx, dy, s)
+                if (road != null) verges(surface, tx, ty, dx, dy, s, level)
                 if (road != null) transitOn(surface, base, i, tx, ty, dx, dy)
                 if (map.bank[i].toInt() != 0) embankment(surface, tx, ty, dx, dy, s, r.look == Atlas.SNOW)
                 if (rail && road != null) {
@@ -458,6 +461,76 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         val t = BuildingType.entries[type]
         return Generation.station(t) || t == BuildingType.SUBSTATION
     }
+
+    /**
+     * The way from a lot off the road to the road: a narrow path down its west
+     * side or along its south side, or a back lane along one edge. Gone when
+     * zoomed well out, where it would only be noise.
+     */
+    private fun pathway(surface: BakeSurface, p: Int, tx: Int, ty: Int, dx: Int, dy: Int, s: Int, level: Int) {
+        if (level >= 2) return
+        // Everything's drawn along a tile's bottom and left edges, where every house has open yard: the
+        // roofs stand in the rest. A lane on a lot's top or right side is drawn by the tile beyond it.
+        val below = if (map.inside(tx, ty + 1)) map.pathway[map.index(tx, ty + 1)].toInt() else 0
+        val left = if (map.inside(tx - 1, ty)) map.pathway[map.index(tx - 1, ty)].toInt() else 0
+        if (p == 0 && (below shr 4) and 7 != 1 && (left shr 4) and 7 != 2) return
+        val w = max(1, s * 4 / 32)
+        val lane = max(2, s * 5 / 32)
+        // Paths meet at each tile's bottom left corner: north is up the left edge from it, east along the
+        // bottom edge. South and west are drawn by the tile beyond, unless that's the road the path meets.
+        if (p != 0) {
+            val colour = PATH_COLOURS[(p shr 7) and 3]
+            if (p and 1 != 0 || (p and 4 != 0 && roadAt(tx, ty + 1))) surface.fill(dx, dy, w, s, colour, PATH_ALPHA)
+            if (p and 2 != 0 || (p and 8 != 0 && roadAt(tx - 1, ty))) surface.fill(dx, dy + s - w, s, w, colour, PATH_ALPHA)
+            when ((p shr 4) and 7) {
+                3 -> surface.fill(dx, dy + s - lane, s, lane, PATH_COLOURS[(p shr 7) and 3], BACK_LANE_ALPHA)
+                4 -> surface.fill(dx, dy, lane, s, PATH_COLOURS[(p shr 7) and 3], BACK_LANE_ALPHA)
+            }
+        }
+        if ((below shr 4) and 7 == 1) surface.fill(dx, dy + s - lane, s, lane, PATH_COLOURS[(below shr 7) and 3], BACK_LANE_ALPHA)
+        if ((left shr 4) and 7 == 2) surface.fill(dx, dy, lane, s, PATH_COLOURS[(left shr 7) and 3], BACK_LANE_ALPHA)
+    }
+
+    /**
+     * Where a path or lane meets this road, across the grass verge at the
+     * road's edge to the pavement, so it's seen to get there.
+     */
+    private fun verges(surface: BakeSurface, tx: Int, ty: Int, dx: Int, dy: Int, s: Int, level: Int) {
+        if (level >= 2) return
+        fun at(x: Int, y: Int) = if (map.inside(x, y) && map.road[map.index(x, y)] == Road.NONE) map.pathway[map.index(x, y)].toInt() else 0
+        fun colour(p: Int) = PATH_COLOURS[(p shr 7) and 3]
+        val verge = max(1, s * VERGE / 32)
+        val w = max(1, s * 4 / 32)
+        val lane = max(2, s * 5 / 32)
+        val n = at(tx, ty - 1)
+        val so = at(tx, ty + 1)
+        val we = at(tx - 1, ty)
+        val ea = at(tx + 1, ty)
+        // Paths: down the left edge from above or below, along the bottom from either side.
+        if (n and 4 != 0) surface.fill(dx, dy, w, verge, colour(n), PATH_ALPHA)
+        if (so and 1 != 0) surface.fill(dx, dy + s - verge, w, verge, colour(so), PATH_ALPHA)
+        if (we and 2 != 0) surface.fill(dx, dy + s - w, verge, w, colour(we), PATH_ALPHA)
+        if (ea and 8 != 0) surface.fill(dx + s - verge, dy + s - w, verge, w, colour(ea), PATH_ALPHA)
+        // Lanes along a row reach in from the side; lanes down a column from above or below.
+        fun rowLane(x: Int, y: Int): Int {
+            val own = at(x, y)
+            if ((own shr 4) and 7 == 3) return own
+            val below = at(x, y + 1)
+            return if ((below shr 4) and 7 == 1) below else 0
+        }
+        fun columnLane(x: Int, y: Int): Int {
+            val own = at(x, y)
+            if ((own shr 4) and 7 == 4) return own
+            val left = at(x - 1, y)
+            return if ((left shr 4) and 7 == 2) left else 0
+        }
+        rowLane(tx - 1, ty).let { if (it != 0) surface.fill(dx, dy + s - lane, verge, lane, colour(it), BACK_LANE_ALPHA) }
+        rowLane(tx + 1, ty).let { if (it != 0) surface.fill(dx + s - verge, dy + s - lane, verge, lane, colour(it), BACK_LANE_ALPHA) }
+        columnLane(tx, ty - 1).let { if (it != 0) surface.fill(dx, dy, lane, verge, colour(it), BACK_LANE_ALPHA) }
+        columnLane(tx, ty + 1).let { if (it != 0) surface.fill(dx, dy + s - verge, lane, verge, colour(it), BACK_LANE_ALPHA) }
+    }
+
+    private fun roadAt(x: Int, y: Int) = map.inside(x, y) && map.road[map.index(x, y)] != Road.NONE
 
     /** Grime over the ground: a darker wash and, the worse it is, more bare dirt showing. */
     private fun soot(surface: BakeSurface, level: Int, h: Int, dx: Int, dy: Int, s: Int, atlasLevel: Int) {
@@ -769,6 +842,14 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
 
         /** Grime: soot over land, murk over water, and dirt showing through, by grime level. */
         private const val SOOT = 0x3F3830
+
+        /** Paths and back lanes: worn dirt, gravel, then paving; a path's a little fainter than a lane. */
+        /** How far in from a road tile's edge its pavement starts, in 32nds. */
+        private const val VERGE = 6
+
+        private val PATH_COLOURS = intArrayOf(0xC4A672, 0xD2C8AE, 0xDAD6CC)
+        private const val PATH_ALPHA = 230
+        private const val BACK_LANE_ALPHA = 235
         private val SOOT_ALPHA = intArrayOf(0, 45, 85, 130)
         private const val MURK = 0x5C5A3C
 
