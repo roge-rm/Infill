@@ -110,10 +110,13 @@ class City(
                     val renew = roadRenewable(action.type, layout, k)
                     val relay = if (renew) action.type.price * Balance.RENEW_ROAD / 100 else 0L
                     val pipes = if (action.pipes && m.terrain[i] != Terrain.WATER) pipeCost(i) + (if (renew) pipeRenewCost(i) else 0L) else 0L
-                    if (road != NO_CHANGE || pipes > 0 || renew) {
+                    // Where a highway and another road cross, an interchange, with its ramps on the corners that are clear.
+                    val interchange = if (meetsHighway(action.type, layout, k) && m.junction[i] != Junction.INTERCHANGE) Junction.price(Junction.INTERCHANGE) else 0L
+                    if (road != NO_CHANGE || pipes > 0 || renew || interchange > 0) {
                         changes += i
-                        cost += (if (road == NO_CHANGE) 0 else road) + pipes + relay
+                        cost += (if (road == NO_CHANGE) 0 else road) + pipes + relay + interchange
                     }
+                    if (interchange > 0) for (j in rampCorners(action.type, layout, k)) if (j !in changes) changes += j
                 }
             }
             is Action.BuildPipe -> {
@@ -306,8 +309,8 @@ class City(
                         }
                         // Over water on a bridge of its own, straight across.
                         water && (turns[k] || m.road[i] != Road.NONE) -> blocked += i
-                        // Across a road only straight over it, as a level crossing.
-                        m.road[i] != Road.NONE && (turns[k] || !across(i, runs[k].toInt(), m.road)) -> blocked += i
+                        // Across a road only straight over it, as a level crossing, both carriageways of a divided one.
+                        m.road[i] != Road.NONE && (turns[k] || !levelCrossing(i, runs[k].toInt())) -> blocked += i
                         // Under a line on poles or a phone line only straight across it, where the wires span the track.
                         (m.power[i] != Power.NONE && !m.cable(i) || m.phone[i].toInt() != 0 && !m.duct(i)) &&
                             (turns[k] || !across(i, runs[k].toInt(), m.power) && m.power[i] != Power.NONE || !across(i, runs[k].toInt(), m.phone) && m.phone[i].toInt() != 0) -> blocked += i
@@ -495,6 +498,41 @@ class City(
      * What drawing a road of [type] does to the [k]th tile of [layout]: its
      * cost, [NO_CHANGE] if the road there stays as it is, or [BLOCKED].
      */
+    /**
+     * The corners where an interchange at step [k] of [layout] lays its ramps:
+     * the two beside the crossing on the far side of each carriageway from the
+     * other, along the highway, as far as they're clear land.
+     */
+    private fun rampCorners(type: RoadType, layout: RoadLayout, k: Int): List<Int> {
+        val m = map
+        val i = layout.tiles[k]
+        val x = i % m.width
+        val y = i / m.width
+        // Which way the highway runs here, and where its other carriageway is.
+        val heading = if (type.limited) layout.headings[k].toInt() else m.roadHeading[i].toInt()
+        if (heading == 0) return emptyList()
+        val along = heading == Heading.EAST.toInt() || heading == Heading.WEST.toInt()
+        val drawn = layout.tiles.toHashSet()
+        fun highway(j: Int) = RoadType.of(m.road[j])?.limited == true || (type.limited && j in drawn)
+        val (sx, sy) = if (along) 0 to 1 else 1 to 0
+        val out = when {
+            m.inside(x + sx, y + sy) && highway(m.index(x + sx, y + sy)) -> -1
+            m.inside(x - sx, y - sy) && highway(m.index(x - sx, y - sy)) -> 1
+            else -> return emptyList()
+        }
+        val corners = if (along) listOf(x - 1 to y + out, x + 1 to y + out) else listOf(x + out to y - 1, x + out to y + 1)
+        return corners.filter { (cx, cy) -> m.inside(cx, cy) }.map { (cx, cy) -> m.index(cx, cy) }.filter { j ->
+            m.building[j] == 0 && m.road[j] == Road.NONE && m.rail[j] == Rail.NONE && m.terrain[j] != Terrain.WATER && m.bank[j].toInt() == 0
+        }
+    }
+
+    /** Whether laying [type] at step [k] of [layout] crosses a highway with another road, or another road with a highway. */
+    private fun meetsHighway(type: RoadType, layout: RoadLayout, k: Int): Boolean {
+        val i = layout.tiles[k]
+        val old = RoadType.of(map.road[i]) ?: return false
+        return old.limited != type.limited && crossing(i, layout.runs[k].toInt())
+    }
+
     private fun roadCost(type: RoadType, layout: RoadLayout, k: Int): Long {
         val m = map
         val i = layout.tiles[k]
@@ -752,6 +790,30 @@ class City(
         return !has(Heading.DX[run], Heading.DY[run]) && !has(-Heading.DX[run], -Heading.DY[run])
     }
 
+    /**
+     * Whether track running [run] can cross the road on tile [i] on the level: a road one tile wide,
+     * or a divided road (a boulevard or highway) whose two carriageways both run square across it.
+     */
+    private fun levelCrossing(i: Int, run: Int): Boolean {
+        if (across(i, run, map.road)) return true
+        if (run == 0) return false
+        val x = i % map.width
+        val y = i / map.width
+        fun carriageway(n: Int): Boolean {
+            val nx = x + Heading.DX[run] * n
+            val ny = y + Heading.DY[run] * n
+            return map.inside(nx, ny) && map.road[map.index(nx, ny)] != Road.NONE && across(run, map.roadHeading[map.index(nx, ny)].toInt())
+        }
+        fun road(n: Int): Boolean {
+            val nx = x + Heading.DX[run] * n
+            val ny = y + Heading.DY[run] * n
+            return map.inside(nx, ny) && map.road[map.index(nx, ny)] != Road.NONE
+        }
+        if (!carriageway(0)) return false
+        // The other carriageway on one side, and no more road beyond either.
+        return carriageway(1) && !road(2) && !road(-1) || carriageway(-1) && !road(-2) && !road(1)
+    }
+
     /** Whether two headings run at right angles. */
     private fun across(a: Int, b: Int) = a != 0 && b != 0 && (a + b) % 2 == 1
 
@@ -830,6 +892,16 @@ class City(
                     val i = layout.tiles[k]
                     if (i !in changing) continue
                     val renewing = roadRenewable(action.type, layout, k)
+                    if (meetsHighway(action.type, layout, k)) {
+                        m.junction[i] = Junction.INTERCHANGE
+                        for (j in rampCorners(action.type, layout, k)) {
+                            m.road[j] = RoadType.RAMP.id
+                            m.roadHeading[j] = Heading.BOTH
+                            m.zone[j] = Zone.NONE
+                            m.roadLaid[j] = now.toShort()
+                            clearTrees(j)
+                        }
+                    }
                     if (roadCost(action.type, layout, k) != NO_CHANGE) {
                         m.road[i] = action.type.id
                         m.roadHeading[i] = layout.headings[k]
@@ -2357,6 +2429,8 @@ class City(
             val now = when {
                 !Junction.at(m, i) -> Junction.NONE
                 m.junction[i] != Junction.AUTO -> m.junction[i]
+                // A highway never stops for a ramp joining it.
+                RoadType.of(m.road[i])?.limited == true -> Junction.FREE
                 else -> {
                     val road = RoadType.of(m.road[i])
                     val busy = if (road == null) 0 else traffic.lastVolume[i] * 100 / road.capacity
@@ -3099,6 +3173,9 @@ class City(
             val x = i % m.width
             val y = i / m.width
             if (x == 0 || y == 0 || x == m.width - 1 || y == m.height - 1) connected = true
+            // No lot is reached from a highway or its ramps.
+            val here = RoadType.of(m.road[i])
+            if (here?.limited == true || here?.ramp == true) continue
             access[i] = i
             queue[tail++] = i
         }

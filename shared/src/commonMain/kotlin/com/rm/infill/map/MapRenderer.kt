@@ -264,7 +264,12 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 when {
                     road == null || control < Junction.STOP -> {}
                     control == Junction.ROUNDABOUT -> surface.blend(base + Atlas.ROUNDABOUT + roadMask(tx, ty), dx, dy)
-                    control == Junction.INTERCHANGE -> surface.blend(base + Atlas.JUNCTION + 2, dx, dy)
+                    // The other road carried over this one on a deck, across the way this one runs.
+                    control == Junction.INTERCHANGE -> {
+                        val h = map.roadHeading[i].toInt()
+                        val across = h == Heading.EAST.toInt() || h == Heading.WEST.toInt() || (h == 0 && !road(tx, ty - 1))
+                        surface.blend(base + if (across) Atlas.OVERPASS else Atlas.OVERPASS + 1, dx, dy)
+                    }
                     else -> surface.blend(base + Atlas.JUNCTION + control - Junction.STOP, dx, dy)
                 }
                 if (road != null && map.lane[i].toInt() != 0) lanes(surface, tx, ty, dx, dy, s)
@@ -572,6 +577,19 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
      */
     private fun roadTile(surface: BakeSurface, base: Int, type: RoadType, i: Int, tx: Int, ty: Int, mask: Int, dx: Int, dy: Int, level: Int) {
         surface.blend(base + roadArt(type) + mask, dx, dy)
+        // Where a ramp meets a highway, the edge line opens for it.
+        if (type.limited) {
+            val s = TILE shr level
+            val a = s * 8 / 32
+            val b = s * 24 / 32
+            val e = max(1, s * 5 / 32)
+            val colour = if (base / Atlas.PER_LOOK == Atlas.SNOW) RAMP_JOIN_SNOW else RAMP_JOIN
+            fun ramp(nx: Int, ny: Int) = map.inside(nx, ny) && RoadType.of(map.roadAt(nx, ny))?.ramp == true
+            if (ramp(tx, ty - 1)) surface.fill(dx + a, dy, b - a, e, colour, 255)
+            if (ramp(tx, ty + 1)) surface.fill(dx + a, dy + s - e, b - a, e, colour, 255)
+            if (ramp(tx - 1, ty)) surface.fill(dx, dy + a, e, b - a, colour, 255)
+            if (ramp(tx + 1, ty)) surface.fill(dx + s - e, dy + a, e, b - a, colour, 255)
+        }
         val heading = map.roadHeading[i].toInt()
         if (heading == 0) return
         if (type.width == 2) {
@@ -597,6 +615,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         RoadType.LANE -> Atlas.ROAD_LANE
         RoadType.STREET, RoadType.ONE_WAY_STREET -> Atlas.ROAD_STREET
         RoadType.AVENUE, RoadType.ONE_WAY_AVENUE, RoadType.BOULEVARD -> Atlas.ROAD_AVENUE
+        RoadType.HIGHWAY -> Atlas.ROAD_HIGHWAY
+        RoadType.RAMP -> Atlas.ROAD_RAMP
     }
 
     /**
@@ -684,11 +704,14 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
 
     /** Which neighbours are road: north 1, east 2, south 4, west 8. */
     private fun roadMask(x: Int, y: Int): Int {
+        // A highway's drawn joined only to more highway: ramps meet its edge and roads cross over it on decks.
+        val limited = map.inside(x, y) && RoadType.of(map.roadAt(x, y))?.limited == true
+        fun joins(nx: Int, ny: Int) = road(nx, ny) && (!limited || RoadType.of(map.roadAt(nx, ny))?.limited == true)
         var m = 0
-        if (road(x, y - 1)) m = m or 1
-        if (road(x + 1, y)) m = m or 2
-        if (road(x, y + 1)) m = m or 4
-        if (road(x - 1, y)) m = m or 8
+        if (joins(x, y - 1)) m = m or 1
+        if (joins(x + 1, y)) m = m or 2
+        if (joins(x, y + 1)) m = m or 4
+        if (joins(x - 1, y)) m = m or 8
         return m
     }
 
@@ -856,6 +879,10 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         /** Paths and back lanes: worn dirt, gravel, then paving; a path's a little fainter than a lane. */
         /** The widest building, in tiles. */
         private val WIDEST = com.rm.infill.sim.BuildingType.entries.maxOf { it.width }
+
+        /** The asphalt where a ramp joins a highway, summer and snow. */
+        private const val RAMP_JOIN = 0x67645F
+        private const val RAMP_JOIN_SNOW = 0xB4B6B8
 
         /** How far in from a road tile's edge its pavement starts, in 32nds. */
         private const val VERGE = 6

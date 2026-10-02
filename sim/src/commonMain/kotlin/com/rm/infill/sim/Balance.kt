@@ -102,6 +102,9 @@ object Balance {
     const val CLOUD_SHADE = 75
     const val WIND_VALUE = 6
 
+    /** What a highway's noise takes off the land within two tiles of it. */
+    const val HIGHWAY_VALUE = 14
+
     // On the water: upkeep a month; how much more wind there is offshore, in wind speed; how many days the
     // tide takes to come round to the same hour, the least it's running at, and how far from the map's edge
     // tidal water reaches up an estuary.
@@ -375,6 +378,9 @@ object Balance {
 
     /** Seconds a road trip loses at a level crossing. */
     const val CROSSING_DELAY = 20
+
+    /** And at one across a highway, where fast traffic has to come to a stop for the train. */
+    const val HIGHWAY_CROSSING_DELAY = 90
 
     /** Passengers or loads a day that make a train's worth, for how busy a line looks. */
     const val TRAIN_LOAD = 8

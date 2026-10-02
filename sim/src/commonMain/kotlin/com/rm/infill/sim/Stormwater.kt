@@ -85,6 +85,8 @@ object Stormwater {
         RoadType.AVENUE, RoadType.ONE_WAY_AVENUE -> 95
         // The median soaks some up.
         RoadType.BOULEVARD -> 80
+        RoadType.HIGHWAY -> 95
+        RoadType.RAMP -> 90
     }
 
     private const val TRACK = 25

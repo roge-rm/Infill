@@ -741,4 +741,6 @@
     <string name="river_turbine">River turbine</string>
     <string name="tidal_turbine">Tidal turbines</string>
     <string name="offshore_wind">Offshore wind</string>
+    <string name="road_highway">Highway</string>
+    <string name="road_ramp">Ramp</string>
 </resources>

@@ -29,7 +29,16 @@ enum class RoadType(
     AVENUE(6, 60, 1.6, 15, 1600, year = 1910),
     ONE_WAY_AVENUE(7, 60, 1.6, 13, 1800, oneWay = true, year = 1910),
     BOULEVARD(8, 45, 1.0, 12, 1400, oneWay = true, width = 2, year = 1920, life = 30),
+    HIGHWAY(9, 120, 2.5, 6, 4000, oneWay = true, width = 2, year = 1955, life = 30),
+    /** A slip road between a highway and the road over it, laid by an interchange rather than drawn. */
+    RAMP(10, 0, 0.8, 10, 1200, year = 1955, life = 30),
     ;
+
+    /** Closed to the town: no lots or walkers on it, and other roads join it only by a ramp or at an interchange. */
+    val limited get() = this == HIGHWAY
+
+    /** Laid by an interchange, never drawn. */
+    val ramp get() = this == RAMP
 
     companion object {
         private val byId = arrayOfNulls<RoadType>(16).also { a -> entries.forEach { a[it.id.toInt()] = it } }

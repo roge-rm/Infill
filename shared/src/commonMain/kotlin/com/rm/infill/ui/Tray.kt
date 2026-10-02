@@ -357,6 +357,8 @@ fun roadIcon(t: RoadType): ChoiceIcon {
         RoadType.ONE_WAY_AVENUE -> ChoiceIcon(intArrayOf(Atlas.ROAD_AVENUE + ACROSS, Atlas.ARROW + 1))
         // One carriageway, with its half of the median.
         RoadType.BOULEVARD -> ChoiceIcon(intArrayOf(Atlas.ROAD_AVENUE + ACROSS, Atlas.MEDIAN))
+        RoadType.HIGHWAY -> ChoiceIcon(intArrayOf(Atlas.ROAD_HIGHWAY + ACROSS, Atlas.MEDIAN))
+        RoadType.RAMP -> ChoiceIcon(intArrayOf(Atlas.ROAD_RAMP + ACROSS))
     }
 }
 

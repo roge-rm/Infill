@@ -101,6 +101,8 @@ import com.rm.infill.res.zone_commercial
 import com.rm.infill.res.zone_industrial
 import com.rm.infill.res.zone_residential
 import com.rm.infill.res.road_avenue
+import com.rm.infill.res.road_highway
+import com.rm.infill.res.road_ramp
 import com.rm.infill.res.road_boulevard
 import com.rm.infill.res.road_dirt
 import com.rm.infill.res.road_gravel
@@ -422,10 +424,12 @@ fun roadName(t: RoadType): StringResource = when (t) {
     RoadType.AVENUE -> Res.string.road_avenue
     RoadType.ONE_WAY_AVENUE -> Res.string.road_one_way_avenue
     RoadType.BOULEVARD -> Res.string.road_boulevard
+    RoadType.HIGHWAY -> Res.string.road_highway
+    RoadType.RAMP -> Res.string.road_ramp
 }
 
 /** The roads [city] can build in its era. */
-fun roadsIn(city: City): List<RoadType> = RoadType.entries.filter { city.allows(it) }
+fun roadsIn(city: City): List<RoadType> = RoadType.entries.filter { !it.ramp && city.allows(it) }
 
 /** How dense a zone may build, in the order the picker shows them. */
 enum class DensityKind(val density: Byte, val title: StringResource) {

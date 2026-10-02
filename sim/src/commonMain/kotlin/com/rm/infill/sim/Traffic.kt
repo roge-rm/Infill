@@ -509,6 +509,9 @@ internal class Traffic(private val map: CityMap) {
             if (!map.inside(nx, ny)) continue
             val b = ny * map.width + nx
             if (map.road[b] == Road.NONE) continue
+            // Nobody walks along a highway or its ramps; they cross it at an interchange.
+            val walked = RoadType.of(map.road[b])
+            if ((walked?.limited == true || walked?.ramp == true) && map.control[b] != Junction.INTERCHANGE) continue
             // Deep floodwater stops walkers too; a dug-up street doesn't.
             if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE) continue
             reach(state(WALK, b), d + walkTime(b), st)
@@ -745,7 +748,7 @@ internal class Traffic(private val map: CityMap) {
         val buses = max(lastBusVolume[b], busVolume[b]) + max(lastTrolleyVolume[b], trolleyVolume[b])
         val load = (max(lastVolume[b], volume[b]) + buses / BUS_RIDERS) * 32 / capacity(b, road)
         val slow = min(2 * 1024, load * load / 2)
-        val time = road.time + road.time * slow / 1024 + (if (map.rail[b] != Rail.NONE) Balance.CROSSING_DELAY else 0) + junctionWait(b, road)
+        val time = road.time + road.time * slow / 1024 + (if (map.rail[b] == Rail.NONE) 0 else if (road.limited) Balance.HIGHWAY_CROSSING_DELAY else Balance.CROSSING_DELAY) + junctionWait(b, road)
         // Wading through floodwater, or picking a way round the potholes.
         val wading = if ((map.flood[b].toInt() and 0xff) >= Balance.FLOODED) time * Balance.FLOOD_SLOW else time
         return if (map.potholed(b)) wading * Balance.POTHOLE_SLOW else wading
@@ -999,6 +1002,12 @@ internal class Traffic(private val map: CityMap) {
          * where it ends, so traffic can turn round there.
          */
         fun canMove(map: CityMap, a: Int, b: Int, h: Int): Boolean {
+            // On and off a highway only at an interchange.
+            val ra = RoadType.of(map.road[a])
+            val rb = RoadType.of(map.road[b])
+            val la = ra?.limited == true
+            val lb = rb?.limited == true
+            if (la != lb && ra?.ramp != true && rb?.ramp != true && map.control[a] != Junction.INTERCHANGE && map.control[b] != Junction.INTERCHANGE) return false
             val back = Heading.opposite(h)
             val ha = map.roadHeading[a].toInt()
             val hb = map.roadHeading[b].toInt()

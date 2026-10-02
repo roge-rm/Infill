@@ -409,7 +409,97 @@ def rails(material, vertical):
     return img if vertical else img.rotate(90)
 
 
-ROAD_ART = [("road_dirt", road), ("road_gravel", gravel_road), ("road_lane", lane), ("road_street", street), ("road_avenue", avenue)]
+def highway(look, mask):
+    """A highway carriageway: the full tile in darker asphalt, a white line along each edge on a narrow shoulder, and lane dashes."""
+    img = paved(look, mask, 0, T - 1, 3, False)
+    px = img.load()
+    walks = WALK[look]
+    curb = CURB[look]
+    edge = c("#e8e8e4") if look != "snow" else c("#ffffff")
+    shoulder = c("#6a6a68") if look != "snow" else c("#c8ced4")
+    for y in range(T):
+        for x in range(T):
+            p = px[x, y]
+            if p[3] == 0:
+                continue
+            if p[:3] in (walks[0][:3], walks[1][:3]):
+                px[x, y] = shoulder
+            elif p[:3] == curb[:3]:
+                px[x, y] = edge
+            else:
+                px[x, y] = shade(p, 0.82)
+    # Two lanes each way: a dashed line between them, along straight runs.
+    for k in range(T):
+        if k % 8 >= 4:
+            continue
+        if mask == 5:
+            px[T // 2, k] = edge
+        elif mask == 10:
+            px[k, T // 2] = edge
+    return img
+
+
+def ramp(look, mask):
+    """A slip road, one lane between white lines: a quarter curve round the corner it turns, or straight."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    px = img.load()
+    rng = random.Random(6700 + mask)
+    cols = MACADAM[look]
+    edge = c("#e8e8e4") if look != "snow" else c("#ffffff")
+    lo, hi = 8, 23
+    # The corner a turn curves round: between the two sides it joins.
+    corners = {3: (T, 0), 6: (T, T), 12: (0, T), 9: (0, 0)}
+    centre = corners.get(mask)
+    for y in range(T):
+        for x in range(T):
+            if centre is not None:
+                d = math.hypot(x + 0.5 - centre[0], y + 0.5 - centre[1])
+                if not (lo <= d <= hi + 1):
+                    continue
+                on_edge = d < lo + 1.2 or d > hi - 0.2
+            else:
+                inside = road_shape(mask if mask else 5, lo, hi)
+                if not inside(x, y):
+                    continue
+                on_edge = not (inside(x - 1, y) and inside(x + 1, y) and inside(x, y - 1) and inside(x, y + 1))
+            if on_edge:
+                px[x, y] = edge
+            else:
+                r = rng.random()
+                px[x, y] = shade(cols[0] if r < 0.7 else cols[1] if r < 0.85 else cols[2], 0.85)
+    return img
+
+
+def overpass(look, vertical):
+    """A road carried over another on a concrete deck: parapets, the road on it, and its shadow on the road below."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    px = img.load()
+    rng = random.Random(6600)
+    lo, hi = 3, T - 4
+    cols = MACADAM[look]
+    concrete = c("#b8b6ae") if look != "snow" else c("#dfe5ea")
+    for y in range(T):
+        for x in range(lo, hi + 1):
+            if x in (lo, hi):
+                px[x, y] = shade(concrete, 0.7) if y % 6 == 0 else concrete
+            elif x in (lo + 1, hi - 1):
+                px[x, y] = concrete
+            else:
+                r = rng.random()
+                px[x, y] = cols[0] if r < 0.7 else cols[1] if r < 0.85 else cols[2]
+    for y in range(0, T, 6):
+        for k in range(3):
+            if y + k < T:
+                px[(lo + hi) // 2, y + k] = CENTRE_LINE[look]
+    img = img if vertical else img.rotate(90)
+    out = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    shadow = Image.new("RGBA", (T, T), (10, 12, 16, 120))
+    out.paste(shadow, (3, 3), img.split()[3])
+    out.alpha_composite(img)
+    return out
+
+
+ROAD_ART = [("road_dirt", road), ("road_gravel", gravel_road), ("road_lane", lane), ("road_street", street), ("road_avenue", avenue), ("road_highway", highway), ("road_ramp", ramp)]
 
 
 # ---- buildings -----------------------------------------------------------------
@@ -4032,6 +4122,8 @@ def sprites_for(look):
             out.append((f"{name}_{mask}", draw(look, mask), 0, []))
     for h in range(1, 5):
         out.append((f"arrow_{h}", arrow(h), 0, []))
+    out.append(("overpass_ns", overpass(look, True), 0, []))
+    out.append(("overpass_ew", overpass(look, False), 0, []))
     m = median(look)
     out += [("median_n", m, 0, []), ("median_e", m.rotate(-90), 0, []), ("median_s", m.rotate(180), 0, []), ("median_w", m.rotate(90), 0, [])]
     for material in ("wood", "stone"):
@@ -4171,7 +4263,7 @@ def write_kotlin(names, flat, pos, size):
             lines.append('            "' + text[i:i + 2000] + '"')
         return "decode(\n" + " +\n".join(lines or ['            ""']) + ",\n        )"
 
-    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "copper_line", "fibre_line", "power_span", "hv_span", "copper_span", "fibre_span", "street_trees", "seam", "junction", "roundabout", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
+    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "overpass", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "copper_line", "fibre_line", "power_span", "hv_span", "copper_span", "fibre_span", "street_trees", "seam", "junction", "roundabout", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
     # A sprite's name must start with exactly one group's, or the counts go wrong.
     for n in names:
         owners = [g for g in groups if n.startswith(g + "_")]
