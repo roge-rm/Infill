@@ -20,6 +20,18 @@ class Rng(seed: Long) {
         return z xor (z ushr 31)
     }
 
+    /**
+     * A number from 0 until [bound] made from where the stream is and [salt],
+     * without moving it on, so asking doesn't change what comes after.
+     */
+    fun peek(bound: Int, salt: Long): Int {
+        var z = state xor salt
+        z = (z xor (z ushr 30)) * MIX1
+        z = (z xor (z ushr 27)) * MIX2
+        z = z xor (z ushr 31)
+        return ((z ushr 1) % bound).toInt()
+    }
+
     /** A number from 0 until [bound]. [bound] must be above 0. */
     fun nextInt(bound: Int): Int {
         require(bound > 0)

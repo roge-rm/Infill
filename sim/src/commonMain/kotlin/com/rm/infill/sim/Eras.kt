@@ -59,6 +59,9 @@ enum class GoalKind {
 
     /** How freely last month's traffic moved, in percent. */
     Flow,
+
+    /** How close the town's carbon a person is to [Balance.FUTURE_CARBON], in percent: 100 there or under. */
+    LowCarbon,
 }
 
 /**

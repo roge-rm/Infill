@@ -61,6 +61,14 @@ object Generation {
     private val SOLAR_DAY = intArrayOf(10, 15, 22, 28, 33, 36, 35, 31, 25, 18, 12, 9)
     private val SOLAR_PEAK = intArrayOf(0, 0, 2, 8, 15, 20, 18, 12, 5, 0, 0, 0)
 
+    /** Carbon a station gives off, in hundredths of a tonne for each megawatt-hour it makes. */
+    fun carbon(t: BuildingType): Int = when (t) {
+        BuildingType.COAL_PLANT -> 100
+        BuildingType.OIL_PLANT -> 80
+        BuildingType.GAS_PLANT -> 45
+        else -> 0
+    }
+
     fun fumes(t: BuildingType): Int = when (t) {
         BuildingType.COAL_PLANT -> 40
         BuildingType.OIL_PLANT -> 30

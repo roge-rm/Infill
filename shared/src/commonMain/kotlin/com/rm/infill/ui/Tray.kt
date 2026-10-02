@@ -602,7 +602,7 @@ fun zoneChoices(): List<Choice<ZoneKind>> = ZoneKind.entries.map { k ->
 enum class ViewGroup { Town, Utilities, Services, Transport }
 
 fun viewGroup(o: Overlay): ViewGroup = when (o) {
-    Overlay.None, Overlay.LandValue, Overlay.Wealth, Overlay.Age, Overlay.Pollution, Overlay.Heat, Overlay.Land, Overlay.Visitors, Overlay.Noise -> ViewGroup.Town
+    Overlay.None, Overlay.LandValue, Overlay.Wealth, Overlay.Age, Overlay.Pollution, Overlay.Heat, Overlay.Land, Overlay.Visitors, Overlay.Noise, Overlay.Carbon -> ViewGroup.Town
     Overlay.Power, Overlay.LineLoad, Overlay.Water, Overlay.Runoff, Overlay.Garbage, Overlay.Comms -> ViewGroup.Utilities
     Overlay.Crime, Overlay.Theft, Overlay.Vice, Overlay.Rackets, Overlay.Police, Overlay.Fire, Overlay.Ladders, Overlay.Ambulance, Overlay.Schooling, Overlay.Health -> ViewGroup.Services
     Overlay.Traffic, Overlay.Junctions, Overlay.Trips, Overlay.Reach, Overlay.Transit, Overlay.Railway, Overlay.Goods -> ViewGroup.Transport
@@ -640,6 +640,7 @@ fun overlayChoices(group: ViewGroup): List<Choice<Overlay>> = Overlay.entries.fi
         Overlay.Railway -> Glyph.Rail
         Overlay.Visitors -> Glyph.Suitcase
         Overlay.Noise -> Glyph.Plane
+        Overlay.Carbon -> Glyph.Smoke
         Overlay.Water -> Glyph.Drop
         Overlay.Runoff -> Glyph.Rain
         Overlay.Schooling -> Glyph.Cap

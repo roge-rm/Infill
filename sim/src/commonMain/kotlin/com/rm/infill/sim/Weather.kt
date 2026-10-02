@@ -10,19 +10,19 @@ enum class Precipitation { None, Rain, Snow }
  * A map's climate: the average temperature of each month in °C, how cloudy
  * each month tends to be (0 to 100) and the chance of rain or snow on a day;
  * one autumn or winter spell in [galeOdds] has a gale, one wet spell in
- * [cloudburst] is a cloudburst, it's a heat wave from [heatWave] °C, and its
- * land has [trees] percent of the usual woods.
+ * [cloudburst] is a cloudburst, one summer spell in [hotSpells] is a heat
+ * wave (from [heatWave] °C), and its land has [trees] percent of the usual woods.
  */
 enum class Climate(
     val temperature: IntArray, val cloudiness: IntArray, val wetDays: IntArray,
-    val galeOdds: Int, val cloudburst: Int, val heatWave: Int, val trees: Int,
+    val galeOdds: Int, val cloudburst: Int, val heatWave: Int, val trees: Int, val hotSpells: Int,
 ) {
     /** About 50° north, well inland. */
     TEMPERATE(
         temperature = intArrayOf(-5, -4, 1, 8, 14, 19, 22, 21, 16, 9, 3, -2),
         cloudiness = intArrayOf(70, 66, 62, 56, 52, 46, 42, 44, 50, 60, 70, 72),
         wetDays = intArrayOf(40, 36, 38, 38, 40, 38, 34, 32, 32, 34, 40, 42),
-        galeOdds = 120, cloudburst = 20, heatWave = 30, trees = 100,
+        galeOdds = 120, cloudburst = 20, heatWave = 30, trees = 100, hotSpells = 150,
     ),
 
     /** About 60° north: long snowy winters and short summers. */
@@ -30,7 +30,7 @@ enum class Climate(
         temperature = intArrayOf(-15, -13, -7, 1, 8, 14, 17, 15, 9, 2, -5, -12),
         cloudiness = intArrayOf(70, 65, 60, 55, 52, 50, 52, 56, 62, 70, 75, 74),
         wetDays = intArrayOf(42, 38, 36, 34, 36, 40, 44, 46, 44, 44, 46, 44),
-        galeOdds = 100, cloudburst = 30, heatWave = 27, trees = 130,
+        galeOdds = 100, cloudburst = 30, heatWave = 27, trees = 130, hotSpells = 200,
     ),
 
     /** On the coast at about 48° north: mild and wet all year, windy in winter, little snow. */
@@ -38,7 +38,7 @@ enum class Climate(
         temperature = intArrayOf(4, 5, 6, 8, 11, 14, 17, 17, 15, 11, 7, 5),
         cloudiness = intArrayOf(78, 75, 70, 64, 60, 56, 52, 54, 60, 70, 78, 80),
         wetDays = intArrayOf(58, 52, 50, 44, 40, 38, 34, 36, 44, 54, 58, 60),
-        galeOdds = 60, cloudburst = 20, heatWave = 28, trees = 90,
+        galeOdds = 60, cloudburst = 20, heatWave = 28, trees = 90, hotSpells = 220,
     ),
 
     /** About 35° north, inland: hot summers, mild winters, little rain but heavy when it comes. */
@@ -46,7 +46,7 @@ enum class Climate(
         temperature = intArrayOf(8, 10, 14, 18, 23, 29, 33, 32, 27, 20, 13, 9),
         cloudiness = intArrayOf(40, 38, 34, 28, 22, 14, 10, 12, 18, 26, 34, 40),
         wetDays = intArrayOf(26, 24, 20, 14, 8, 2, 1, 2, 6, 14, 20, 26),
-        galeOdds = 160, cloudburst = 6, heatWave = 38, trees = 30,
+        galeOdds = 160, cloudburst = 6, heatWave = 38, trees = 30, hotSpells = 50,
     ),
     ;
 
@@ -102,24 +102,33 @@ class Weather(seed: Long, climate: Climate = Climate.TEMPERATE) {
      * [daysInMonth]). Temperature and cloud move on once; snow builds and melts
      * for all the days.
      */
-    fun nextDay(month: Int, day: Int, daysInMonth: Int, days: Int = 1) {
+    fun nextDay(month: Int, day: Int, daysInMonth: Int, days: Int = 1, warming: Int = 0) {
+        // Warming, in tenths of a degree: warmer on average, more hot spells, wetter in more downpours, windier.
         // The average blends into next month's over the second half of this one.
         val half = daysInMonth / 2
         val next = (month + 1) % 12
         val blend = if (day > half) (day - half) * 100 / (daysInMonth - half) else 0
         val average = climate.temperature[month] * (100 - blend / 2) / 100 + climate.temperature[next] * (blend / 2) / 100
         warmth = (warmth * 8 / 10 + rng.nextInt(61) - 30).coerceIn(-120, 120)
-        temperature = average + warmth / 10
+        // Now and then in summer, a hot spell: as hot as a heat wave, and more often the warmer it's got.
+        // Read from the random numbers without drawing one, so the rest of the weather stays as it was.
+        val odds = max(2, climate.hotSpells * 1000 / (1000 + HOTTER * warming))
+        if (month in 5..7 && rng.peek(odds, HOT_SALT) == 0) {
+            warmth = max(warmth, (climate.heatWave - average) * 10 - warming + rng.nextInt(30))
+        }
+        temperature = average + (warmth + warming) / 10
 
         cloudBias = (cloudBias * 7 / 10 + rng.nextInt(61) - 30).coerceIn(-60, 60)
         cloud = (climate.cloudiness[month] + cloudBias).coerceIn(0, 100)
 
         // Wet days come under the thickest cloud. Most rain is light or steady;
         // now and then, about one wet spell in twenty, the sky opens.
-        val wet = cloud >= 55 && rng.nextInt(100) < climate.wetDays[month] * cloud / 60
+        val wet = cloud >= 55 && rng.nextInt(100) < climate.wetDays[month] * cloud / 60 * (1000 + WETTER * warming) / 1000
         if (wet) {
             precipitation = if (temperature <= 0) Precipitation.Snow else Precipitation.Rain
-            intensity = if (rng.nextInt(climate.cloudburst) == 0) 85 + rng.nextInt(16) else min(70, 10 + (cloud - 55) / 2 + rng.nextInt(30))
+            intensity = if (rng.nextInt(max(2, climate.cloudburst * 1000 / (1000 + BURSTIER * warming))) == 0) 85 + rng.nextInt(16) else min(70, 10 + (cloud - 55) / 2 + rng.nextInt(30))
+            // Warmer air holds more water, so the rain comes down heavier.
+            intensity = min(100, intensity * (1000 + HEAVIER * warming) / 1000)
         } else {
             precipitation = Precipitation.None
             intensity = 0
@@ -131,7 +140,7 @@ class Weather(seed: Long, climate: Climate = Climate.TEMPERATE) {
         windDirection = (windDirection + rng.nextInt(41) - 20 + 360) % 360
         windSpeed = (windSpeed + rng.nextInt(21) - 10).coerceIn(5, 85)
         // Now and then in autumn and winter, a gale.
-        if ((month >= 9 || month <= 2) && rng.nextInt(climate.galeOdds) == 0) windSpeed = GALE + rng.nextInt(10)
+        if ((month >= 9 || month <= 2) && rng.nextInt(max(2, climate.galeOdds * 1000 / (1000 + WINDIER * warming))) == 0) windSpeed = GALE + rng.nextInt(10)
 
         // Snow lies when it falls below freezing, and melts with warmth, and faster in rain.
         if (precipitation == Precipitation.Snow) snowCover = min(100, snowCover + (intensity / 3 + 5) * days / 2 + 1)
@@ -158,9 +167,17 @@ class Weather(seed: Long, climate: Climate = Climate.TEMPERATE) {
 
     companion object {
         private const val WEATHER_SALT = 0x5eed_c10dL
+        private const val HOT_SALT = 0x4073_5be1L
 
         /** Wind this strong is a gale. */
         const val GALE = 90
+
+        /** For each degree of warming, in percent: more hot spells, more wet days, more of them cloudbursts, more gales. */
+        private const val HOTTER = 360
+        private const val WETTER = 5
+        private const val BURSTIER = 40
+        private const val HEAVIER = 20
+        private const val WINDIER = 8
 
         /** Snow cover from which the map is drawn in its snow look. */
         const val SNOW_LOOK = 25

@@ -454,6 +454,27 @@ object Balance {
     const val STEAM_UNTIL = 1950
     const val STEAM_TRAINS_UNTIL = 1955
 
+    // Warming: the world's from this year, in tenths of a degree a decade; the town's own share at most, in tenths,
+    // and its carbon, in tonnes, for each tenth.
+    const val WARMING_FROM = 1980
+    /** The Future era asks for carbon a person a month no more than this, in kilograms. */
+    const val FUTURE_CARBON = 500L
+    const val WARMING_PER_DECADE = 3
+    const val TOWN_WARMING_MOST = 3
+    const val CARBON_PER_TENTH = 2_000_000L
+
+    // Carbon a month: hours in a month; tonnes for each point of a works' pollution; for each hundred thousand
+    // vehicle-tiles at a hundred percent of the year's fumes; and for heating, in hundredths of a tonne a person for
+    // each degree below [HEATING_BELOW]. On the map, the square root of the tonnes times this, and how much more a
+    // road's counts, since it's spread along the road.
+    const val HOURS_A_MONTH = 720L
+    const val WORKS_CARBON = 2L
+    const val TRAFFIC_CARBON = 12L
+    const val HEATING_BELOW = 12
+    const val HEATING_CARBON = 3L
+    const val CARBON_MAP_SCALE = 12.0
+    const val ROAD_CARBON_SHOW = 20L
+
     /** Jets from this year at the big airports. */
     const val JET_YEAR = 1960
 

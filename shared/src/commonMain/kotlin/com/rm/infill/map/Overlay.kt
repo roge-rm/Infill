@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import com.rm.infill.res.overlay_carbon
 import com.rm.infill.res.overlay_noise
 import com.rm.infill.res.overlay_visitors
 import com.rm.infill.res.Res
@@ -85,6 +86,8 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Land(Res.string.overlay_land, Color(0xFF6FA848), Color(0xFF2E2E34)),
     /** What brings visitors and where they stay: parks, heritage and the ways in at full strength, hotels by how full they are. */
     Visitors(Res.string.overlay_visitors, Color(0xFFE6F2F0), Color(0xFF16A2A2)),
+    /** Where the town's carbon comes from: stations, works and busy roads. */
+    Carbon(Res.string.overlay_carbon, Color(0x40A060C0), Color(0xFF6A2A8C)),
     /** The planes' noise around the airports. */
     Noise(Res.string.overlay_noise, Color(0x00D84343), Color(0xFFD84343)),
     Goods(Res.string.overlay_goods, Color(0xFFD84343), Color(0xFF4CAF50)),
@@ -202,6 +205,7 @@ internal fun overlayImage(
             // Works, farms, mines and coal stations: red where it all comes from or goes out of town, green where it's the town's own.
             Overlay.Visitors -> visitorAt(i).takeIf { it >= 0 } ?: continue
             Overlay.Noise -> min(255, (map.noise[i].toInt() and 0xff) * 255 / 40)
+            Overlay.Carbon -> map.carbon[i].toInt() and 0xff
             Overlay.Goods -> localAt(i).takeIf { it >= 0 }?.let { it * 255 / 100 } ?: continue
             // Each crossing, green when it's quick to get through and red when traffic backs up: a minute or more.
             Overlay.Junctions -> {

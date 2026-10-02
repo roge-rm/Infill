@@ -95,6 +95,9 @@ class CityMap(val width: Int, val height: Int) {
     /** The kind of bridge on tile [i], if a road or track crosses water there: null for a plain one. */
     fun bridgeKind(i: Int): BridgeKind? = BridgeKind.of(bridge[i].toInt() and Bridge.KIND)
 
+    /** Where the town's carbon comes from, 0 to 255, worked out each month. */
+    val carbon = ByteArray(size)
+
     /** The planes' noise around each airport, 0 to 255, worked out each month. */
     val noise = ByteArray(size)
 

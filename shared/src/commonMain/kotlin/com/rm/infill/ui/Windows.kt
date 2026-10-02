@@ -1,5 +1,18 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.carbon_heating
+import com.rm.infill.res.carbon_works
+import com.rm.infill.res.carbon_traffic
+import com.rm.infill.res.carbon_power
+import com.rm.infill.res.value_tonnes
+import com.rm.infill.res.label_carbon
+import com.rm.infill.res.label_floods
+import com.rm.infill.res.label_heat_waves
+import com.rm.infill.res.value_degrees
+import com.rm.infill.res.label_warming
+import com.rm.infill.res.climate
+import com.rm.infill.res.series_carbon
+import com.rm.infill.res.goal_low_carbon
 import com.rm.infill.res.value_cents
 import com.rm.infill.res.toll_rate
 import com.rm.infill.res.label_hotel_rooms
@@ -436,6 +449,7 @@ private val SERIES = listOf(
     Triple(Series.Crime, Res.string.series_crime, Glyph.Cuffs),
     Triple(Series.Pollution, Res.string.series_pollution, Glyph.Smoke),
     Triple(Series.LandValue, Res.string.series_land_value, Glyph.Mountain),
+    Triple(Series.Carbon, Res.string.series_carbon, Glyph.Smoke),
 )
 
 /** The town over the years, one thing at a time. */
@@ -530,6 +544,9 @@ private val MODES = listOf(
     Color(0xFF8FBF6A), Color(0xFF8A8F98), Color(0xFF2FA85A), Color(0xFF16A2A2), Color(0xFFD8302F), Color(0xFF2F6FD8), Color(0xFF8E44AD),
 )
 
+/** Colours for where carbon comes from: power, traffic, works and heating. */
+private val CARBON_COLOURS = listOf(Color(0xFF5A5A60), Color(0xFF8A8F98), Color(0xFF8A5A2A), Color(0xFFD8402F))
+
 /** Colours for the ways visitors come: road, rail, sea and air. */
 private val VISITOR_COLOURS = listOf(Color(0xFF8A8F98), Color(0xFF8E44AD), Color(0xFF2F6FD8), Color(0xFF16A2A2))
 
@@ -605,6 +622,27 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
                     if (s.withBroadband > 0) StatItem(Glyph.Mast, stringResource(Res.string.label_with_broadband), stringResource(Res.string.percent, s.withBroadband), s.withBroadband / 100f, toneOf(s.withBroadband, 70, 30)) else null,
                     if (s.workingFromHome > 0) StatItem(Glyph.Building, stringResource(Res.string.label_wfh), n(s.workingFromHome)) else null,
                 ),
+            )
+        }
+        Section(stringResource(Res.string.climate), Glyph.Heat) {
+            val city = game.city
+            val warming = city.warming
+            StatGrid(
+                listOfNotNull(
+                    StatItem(Glyph.Heat, stringResource(Res.string.label_warming), stringResource(Res.string.value_degrees, "${warming / 10}.${warming % 10}"), minOf(1f, warming / 30f), toneOf(30 - warming, 20, 10)),
+                    StatItem(Glyph.Flame, stringResource(Res.string.label_heat_waves), n(city.heatWavesLastYear)),
+                    StatItem(Glyph.Rain, stringResource(Res.string.label_floods), n(city.floodsLastYear)),
+                    StatItem(Glyph.Smoke, stringResource(Res.string.label_carbon), stringResource(Res.string.value_tonnes, groupThousands(s.carbon)), wide = true),
+                ),
+            )
+            if (s.carbon > 0) BarWithKey(
+                listOf(
+                    Triple(stringResource(Res.string.carbon_power), (s.carbonPower * 100 / s.carbon).toInt(), CARBON_COLOURS[0]),
+                    Triple(stringResource(Res.string.carbon_traffic), (s.carbonTraffic * 100 / s.carbon).toInt(), CARBON_COLOURS[1]),
+                    Triple(stringResource(Res.string.carbon_works), (s.carbonWorks * 100 / s.carbon).toInt(), CARBON_COLOURS[2]),
+                    Triple(stringResource(Res.string.carbon_heating), (s.carbonHeating * 100 / s.carbon).toInt(), CARBON_COLOURS[3]),
+                ).filter { it.second > 0 },
+                percent = true,
             )
         }
         if (s.visitors > 0) Section(stringResource(Res.string.visitors), Glyph.Suitcase) {
@@ -742,6 +780,7 @@ private fun goalText(goal: Goal): String = when (goal.kind) {
     GoalKind.KeptUp -> stringResource(Res.string.goal_kept_up, goal.need)
     GoalKind.GreenTrips -> stringResource(Res.string.goal_green_trips, goal.need)
     GoalKind.Flow -> stringResource(Res.string.goal_flow, goal.need)
+    GoalKind.LowCarbon -> stringResource(Res.string.goal_low_carbon, Balance.FUTURE_CARBON.toInt())
 }
 
 /** How far the town is towards a goal: a count, a share, or a tick. */

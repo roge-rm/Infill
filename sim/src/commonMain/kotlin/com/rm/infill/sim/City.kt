@@ -1592,7 +1592,7 @@ class City(
         if (snowedIn > 0) snowedIn--
         if (day % Balance.WEATHER_DAYS == 1) {
             val snow = weather.snowCover
-            weather.nextDay(month, day, daysIn(month, year), Balance.WEATHER_DAYS)
+            weather.nextDay(month, day, daysIn(month, year), Balance.WEATHER_DAYS, warming)
             val rain = if (weather.precipitation == Precipitation.Rain) weather.intensity else 0
             val melt = max(0, snow - weather.snowCover) * Balance.MELT_RUNOFF
             val frozen = weather.temperature <= 0
@@ -1612,6 +1612,10 @@ class City(
             if (month == 12) {
                 month = 0
                 year++
+                heatWavesLastYear = heatWavesThisYear
+                floodsLastYear = floodsThisYear
+                heatWavesThisYear = 0
+                floodsThisYear = 0
             }
             newMonth()
         }
@@ -1656,6 +1660,7 @@ class City(
         startFires()
         demand()
         money()
+        carbon()
         record()
         newEra()
     }
@@ -2190,7 +2195,10 @@ class City(
             events += CityEvent(EventKind.Blizzard, -1, -1, null)
         }
         if (w.temperature >= w.climate.heatWave) {
-            if (heatWaveDays == 0) events += CityEvent(EventKind.HeatWave, -1, -1, null)
+            if (heatWaveDays == 0) {
+                events += CityEvent(EventKind.HeatWave, -1, -1, null)
+                heatWavesThisYear++
+            }
             heatWaveDays += Balance.WEATHER_DAYS
         }
     }
@@ -2412,8 +2420,17 @@ class City(
             Era.FUTURE -> listOf(
                 Goal(GoalKind.KeptUp, s.keptUp, Balance.FUTURE_KEPT_UP),
                 Goal(GoalKind.GreenTrips, s.greenTrips, Balance.FUTURE_GREEN_TRIPS),
+                Goal(GoalKind.LowCarbon, lowCarbon(), 100),
             )
         }
+    }
+
+    /** How near the town's carbon a person last month is to the Future era's line, in percent. */
+    private fun lowCarbon(): Int {
+        val s = stats
+        if (s.population == 0) return 100
+        val perPerson = s.carbon * 1000 / s.population
+        return if (perPerson <= Balance.FUTURE_CARBON) 100 else (Balance.FUTURE_CARBON * 100 / perPerson).toInt()
     }
 
     /** Percent of roads, pipes and track within their expected life, 100 if there are none. */
@@ -3835,6 +3852,86 @@ class City(
         if (flooded >= 0) events += CityEvent(EventKind.TunnelFlooded, flooded % m.width, flooded / m.width, null)
     }
 
+    // ---- climate -----------------------------------------------------------------
+
+    /** All the carbon the town's put out, in tonnes. */
+    var carbonTotal = 0L
+        private set
+
+    /**
+     * How much warmer than it used to be, in tenths of a degree: the world's
+     * warming from 1980, and a little more for the town's own carbon.
+     */
+    val warming: Int
+        get() = max(0, (year - Balance.WARMING_FROM) * Balance.WARMING_PER_DECADE / 10) + townWarming
+
+    /** The town's own share of the warming, in tenths of a degree. */
+    val townWarming: Int get() = min(Balance.TOWN_WARMING_MOST.toLong(), carbonTotal / Balance.CARBON_PER_TENTH).toInt()
+
+    /** Heat waves and floods so far this year, and last year's. */
+    var heatWavesThisYear = 0
+        private set
+    var floodsThisYear = 0
+        private set
+    var heatWavesLastYear = 0
+        private set
+    var floodsLastYear = 0
+        private set
+
+    /**
+     * The town's carbon this month, in tonnes: what its power stations burn,
+     * its traffic, its heavy works, and heating its homes in the cold. Where
+     * it comes from goes into [CityMap.carbon] for the map.
+     */
+    private fun carbon() {
+        val m = map
+        val s = stats
+        m.carbon.fill(0)
+        var power = 0L
+        var works = 0L
+        // On the map by the square root, so the small sources show beside the big ones.
+        fun shade(tonnes: Long) = min(255, (kotlin.math.sqrt(tonnes.toDouble()) * Balance.CARBON_MAP_SCALE).toInt())
+        fun mark(b: Building, tonnes: Long) {
+            val v = shade(tonnes)
+            forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { m.carbon[it] = max(m.carbon[it].toInt() and 0xff, v).toByte() }
+        }
+        for (b in buildings.values) {
+            if (b.underway > 0) continue
+            val perMwh = Generation.carbon(b.type)
+            if (perMwh > 0) {
+                val t = stationOutput(b).toLong() * Balance.HOURS_A_MONTH / 1_000_000 * perMwh / 100
+                power += t
+                mark(b, t)
+            } else if (b.type.zone == Zone.INDUSTRIAL && b.type.pollution > 0) {
+                val t = b.type.pollution.toLong() * Balance.WORKS_CARBON * (if (districtAt(m.index(b.x, b.y))?.cleanWorks == true) Balance.CLEAN_WORKS_SHARE else 100) / 100
+                works += t
+                mark(b, t)
+            }
+        }
+        // Traffic: vehicles over every tile, by how dirty the cars are this year.
+        var vehicleTiles = 0L
+        for (i in 0 until m.size) if (traffic.lastVolume[i] > 0) {
+            vehicleTiles += traffic.lastVolume[i]
+            val t = traffic.lastVolume[i].toLong() * Fumes.level(year) * Balance.TRAFFIC_CARBON / 100_000
+            m.carbon[i] = max(m.carbon[i].toInt() and 0xff, shade(t * Balance.ROAD_CARBON_SHOW)).toByte()
+        }
+        val traffic = vehicleTiles * Fumes.level(year) * Balance.TRAFFIC_CARBON / 100_000
+        // Heating homes when it's cold, less as houses and heating get better.
+        val cold = max(0, Balance.HEATING_BELOW - (climate.temperature[month] + warming / 10))
+        val better = when {
+            year < 1970 -> 100
+            year < 2010 -> 70
+            else -> 40
+        }
+        val heating = s.population.toLong() * cold * Balance.HEATING_CARBON * better / 100 / 100
+        s.carbon = power + traffic + works + heating
+        s.carbonPower = power
+        s.carbonTraffic = traffic
+        s.carbonWorks = works
+        s.carbonHeating = heating
+        carbonTotal += s.carbon
+    }
+
     // ---- airports ----------------------------------------------------------------
 
     private val airports get() = buildings.values.filter { it.type.airport && it.underway == 0 && it.outage == 0 && accessOf(it) >= 0 && working(it) }
@@ -4026,7 +4123,7 @@ class City(
         val traction = buildings.values.count { it.type == BuildingType.TRAM_DEPOT || it.type == BuildingType.SUBWAY_STATION || it.type == BuildingType.BUS_GARAGE }
         val tractionEach = if (traction == 0) 0 else traffic.electricRiders() * Balance.TRACTION_W / traction
         // A heat wave in the air-conditioned years pushes the peak up.
-        val peak = Electricity.peak(year, month, climate) + if (heatWaveDays > 0 && year >= 1960) Balance.HEAT_WAVE_PEAK else 0
+        val peak = Electricity.peak(year, month, climate, warming) + if (heatWaveDays > 0 && year >= 1960) Balance.HEAT_WAVE_PEAK else 0
         batteryCharge = charge(perPerson, tractionEach)
         grid.update(buildings.values, { b -> draw(b, perPerson, tractionEach) }, { b -> available(b) }, peak)
         stats.powerCapacity = grid.capacity / 1000
@@ -4624,7 +4721,10 @@ class City(
             }
         }
         floodedTiles = reached.size
-        if (worst >= 0) events += CityEvent(EventKind.Flooding, worst % m.width, worst / m.width, null)
+        if (worst >= 0) {
+            events += CityEvent(EventKind.Flooding, worst % m.width, worst / m.width, null)
+            floodsThisYear++
+        }
         afterFlood(reached, sewersOverflowed)
     }
 
@@ -4755,6 +4855,7 @@ class City(
         if (reached.isNotEmpty()) {
             val at = if (worst >= 0) worst else reached.first()
             events += CityEvent(EventKind.RiverFlood, at % m.width, at / m.width, null)
+            floodsThisYear++
         }
         afterFlood(reached, sewersOverflowed = false)
     }
@@ -6266,6 +6367,10 @@ class City(
         w.int(s.airLoads)
         // Since version 26: the climate.
         w.int(climate.ordinal)
+        // Since version 27: carbon, and this year's heat waves and floods.
+        w.long(carbonTotal)
+        for (v in longArrayOf(s.carbon, s.carbonPower, s.carbonTraffic, s.carbonWorks, s.carbonHeating)) w.long(v)
+        for (v in intArrayOf(heatWavesThisYear, floodsThisYear, heatWavesLastYear, floodsLastYear)) w.int(v)
     }
 
     companion object {
@@ -6300,7 +6405,7 @@ class City(
             s.roadUpkeep = r.long(); s.powerUpkeep = r.long(); s.policeUpkeep = r.long(); s.fireUpkeep = r.long()
             s.parkUpkeep = r.long(); s.upkeep = r.long()
             c.weather.readFrom(r)
-            c.history.readFrom(r)
+            c.history.readFrom(r, if (version >= 27) Series.entries.size else 8)
             val m = c.map
             for (layer in arrayOf(m.terrain, m.road, m.zone, m.power, m.grime, m.pollution, m.landValue, m.crime, m.policeCover, m.fireCover)) {
                 r.layer(layer)
@@ -6532,6 +6637,12 @@ class City(
                 }
                 if (version >= 25) c.stats.airLoads = r.int()
                 if (version >= 26) c.weather.climate = Climate.entries.getOrElse(r.int()) { Climate.TEMPERATE }
+                if (version >= 27) {
+                    c.carbonTotal = r.long()
+                    val s = c.stats
+                    s.carbon = r.long(); s.carbonPower = r.long(); s.carbonTraffic = r.long(); s.carbonWorks = r.long(); s.carbonHeating = r.long()
+                    c.heatWavesThisYear = r.int(); c.floodsThisYear = r.int(); c.heatWavesLastYear = r.int(); c.floodsLastYear = r.int()
+                }
                 c.updateNetworks()
                 c.markContainerTrains()
                 c.updateAirports()
@@ -6773,6 +6884,13 @@ class Stats {
     /** Loads sent away by air last month. */
     var airLoads = 0
 
+    /** The town's carbon last month in tonnes, and where it came from. */
+    var carbon = 0L
+    var carbonPower = 0L
+    var carbonTraffic = 0L
+    var carbonWorks = 0L
+    var carbonHeating = 0L
+
     /** Visitors in town on an average day last month, by how they came ([Tourism]); those with hotel rooms, and the rooms. */
     var visitors = 0
     val visitorsBy = IntArray(Tourism.MODES)
@@ -6822,7 +6940,7 @@ enum class EventKind { FireStarted, FireSaved, FireDamaged, BuildingLost, Floodi
 class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType?, val era: Era? = null)
 
 /** What the graphs can show. */
-enum class Series { Population, Jobs, Funds, Income, Upkeep, Crime, Pollution, LandValue }
+enum class Series { Population, Jobs, Funds, Income, Upkeep, Crime, Pollution, LandValue, Carbon }
 
 /** The town month by month, the last [capacity] months of it. */
 class History(val capacity: Int = 240) {
@@ -6837,7 +6955,7 @@ class History(val capacity: Int = 240) {
         val s = city.stats
         val values = longArrayOf(
             s.population.toLong(), s.jobs.toLong(), city.funds, s.income, s.upkeep,
-            s.crime.toLong(), s.pollution.toLong(), s.landValue.toLong(),
+            s.crime.toLong(), s.pollution.toLong(), s.landValue.toLong(), s.carbon,
         )
         for (k in values.indices) data[k][next] = values[k]
         years[next] = city.year
@@ -6855,14 +6973,15 @@ class History(val capacity: Int = 240) {
         }
     }
 
-    internal fun readFrom(r: SaveReader) {
+    /** [series] is how many series the save kept: older ones have fewer, and the rest start at nothing. */
+    internal fun readFrom(r: SaveReader, series: Int = Series.entries.size) {
         val n = r.count()
         count = 0
         next = 0
         repeat(n) {
             val y = r.int()
             val m = r.int()
-            val values = LongArray(data.size) { r.long() }
+            val values = LongArray(data.size) { if (it < series) r.long() else 0L }
             if (count == capacity) count--
             years[next] = y
             months[next] = m

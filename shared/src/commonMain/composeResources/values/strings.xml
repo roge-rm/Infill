@@ -824,4 +824,17 @@
     <string name="climate_northern">Northern</string>
     <string name="climate_coastal">Coastal</string>
     <string name="climate_dry">Dry</string>
+    <string name="goal_low_carbon">Carbon down to %1$d kg a person a month</string>
+    <string name="series_carbon">Carbon</string>
+    <string name="label_warming">Warmer than it was</string>
+    <string name="value_degrees">%1$s°</string>
+    <string name="label_heat_waves">Heat waves last year</string>
+    <string name="label_floods">Floods last year</string>
+    <string name="label_carbon">Carbon last month</string>
+    <string name="value_tonnes">%1$s t</string>
+    <string name="carbon_power">Power</string>
+    <string name="carbon_traffic">Traffic</string>
+    <string name="carbon_works">Works</string>
+    <string name="carbon_heating">Heating</string>
+    <string name="overlay_carbon">Carbon</string>
 </resources>
