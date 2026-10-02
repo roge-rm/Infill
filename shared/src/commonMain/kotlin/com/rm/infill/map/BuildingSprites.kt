@@ -37,6 +37,9 @@ internal object BuildingSprites {
                 BuildingType.FREIGHT_YARD_NS -> Atlas.YARD_NS to Atlas.YARD_NS_COUNT
                 BuildingType.FREIGHT_TERMINAL -> Atlas.TERMINAL_EW to Atlas.TERMINAL_EW_COUNT
                 BuildingType.FREIGHT_TERMINAL_NS -> Atlas.TERMINAL_NS to Atlas.TERMINAL_NS_COUNT
+                BuildingType.AIRFIELD -> Atlas.AIRFIELD to Atlas.AIRFIELD_COUNT
+                BuildingType.AIRPORT -> Atlas.AIRPORT_MID to Atlas.AIRPORT_MID_COUNT
+                BuildingType.INTERNATIONAL_AIRPORT -> Atlas.AIRPORT_BIG to Atlas.AIRPORT_BIG_COUNT
                 BuildingType.WHARF -> Atlas.WHARF_EW to Atlas.WHARF_EW_COUNT
                 BuildingType.WHARF_NS -> Atlas.WHARF_NS to Atlas.WHARF_NS_COUNT
                 BuildingType.DOCKS -> Atlas.DOCKS_EW to Atlas.DOCKS_EW_COUNT

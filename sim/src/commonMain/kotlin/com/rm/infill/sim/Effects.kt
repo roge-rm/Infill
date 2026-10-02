@@ -144,6 +144,8 @@ internal object Effects {
                 if (track.around(x, y, 1) > 0) v -= 6
                 if (yards.around(x, y, 2) > 0 && buildingTypes(i)?.zone != Zone.INDUSTRIAL) v -= 10
             }
+            // Under the planes.
+            if (buildingTypes(i)?.zone != Zone.INDUSTRIAL) v -= map.noise[i].toInt() and 0xff
             out[i] = v.coerceIn(0, 255).toByte()
         }
     }

@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.rm.infill.res.label_office_draw
+import com.rm.infill.res.label_visitors
 import com.rm.infill.GameState
 import com.rm.infill.map.Atlas
 import com.rm.infill.map.BuildingSprites
@@ -295,6 +297,11 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     if (t == BuildingType.DUMP) {
         val full = (b.fill.toLong() * 100 / Balance.DUMP_ROOM).toInt()
         stats += StatItem(Glyph.Bin, stringResource(Res.string.label_full), "$full%", full / 100f, when { full >= 90 -> Tone.Bad; full >= 70 -> Tone.Warn; else -> Tone.Good })
+    }
+    if (t.airport && built) {
+        if (!city.reachable(b)) pills += PillItem(Glyph.Road, stringResource(Res.string.pill_no_road), Tone.Bad)
+        stats += StatItem(Glyph.Suitcase, stringResource(Res.string.label_visitors), groupThousands(Balance.AIR_VISITORS[t.airTier].toLong()))
+        stats += StatItem(Glyph.Briefcase, stringResource(Res.string.label_office_draw), groupThousands(Balance.AIR_OFFICES[t.airTier].toLong()))
     }
     if (t.port && built) {
         val loads = city.portLoads(b)

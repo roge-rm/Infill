@@ -101,7 +101,8 @@ fun MapView(
     val traffic = graphics.vehicles > 0 && game.city.stats.population > 0
     val trains = graphics.trains > 0 && game.city.trainRoutes.isNotEmpty()
     val ships = graphics.trains > 0 && game.city.shipRoutes.isNotEmpty()
-    val animate = running && (fires || traffic || trains || ships || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
+    val planes = graphics.trains > 0 && game.city.airTier > 0
+    val animate = running && (fires || traffic || trains || ships || planes || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
     val focusData = remember(overlay, focus, game.revision) {
         when {
             focus < 0 -> null
@@ -222,6 +223,7 @@ fun MapView(
         }
         drawFloods(map, camera)
         drawWorks(map, camera)
+        if (planes) drawPlanes(game.city.airportsShown(), camera, weatherTime, jets = game.city.year >= Balance.JET_YEAR)
         val raised = if (ships) drawShips(game.city.shipRoutes, map, camera, weatherTime, graphics.trains, graphics.smoke && game.city.year < Balance.STEAM_UNTIL) else emptySet()
         // Road traffic waits for a train at a crossing, and for a bridge that's open for a ship.
         val stopped = (if (trains) drawTrains(game.city.trainRoutes, map, camera, weatherTime, graphics.trains, graphics.smoke, steam = game.city.year < Balance.STEAM_TRAINS_UNTIL) else emptySet()) + raised

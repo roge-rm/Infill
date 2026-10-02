@@ -140,6 +140,11 @@ enum class BuildingType(
     CONTAINER_PORT(Zone.NONE, 0, 60, width = 6, height = 3, pollution = 8, year = 1966, life = 50),
     CONTAINER_PORT_NS(Zone.NONE, 0, 60, width = 3, height = 6, pollution = 8, year = 1966, life = 50),
 
+    /** Airports, east to west along the runway: a grass airfield (from 1920), an airport (1950) and a big one with jets (1975). */
+    AIRFIELD(Zone.NONE, 0, 15, width = 4, height = 3, year = 1920, life = 40),
+    AIRPORT(Zone.NONE, 0, 120, width = 6, height = 4, pollution = 6, year = 1950, life = 50),
+    INTERNATIONAL_AIRPORT(Zone.NONE, 0, 400, width = 8, height = 4, pollution = 10, year = 1975, life = 60),
+
     /** Water: a pumping station beside a river or lake, a well field anywhere, a tower, and an outfall for the sewers. */
     PUMPING_STATION(Zone.NONE, 0, 6, width = 2, height = 2, life = 40),
     WELL_FIELD(Zone.NONE, 0, 2, width = 2, height = 2, life = 25),
@@ -195,6 +200,17 @@ enum class BuildingType(
 
     /** Has to go beside the track. */
     val railway get() = station || yard
+
+    /** Planes land here. */
+    val airport get() = airTier > 0
+
+    /** How big an airport it is: 1 an airfield, 2 an airport, 3 a big one, 0 for anything else. */
+    val airTier: Int get() = when (this) {
+        AIRFIELD -> 1
+        AIRPORT -> 2
+        INTERNATIONAL_AIRPORT -> 3
+        else -> 0
+    }
 
     /** Ships load and unload here. */
     val port get() = portTier > 0

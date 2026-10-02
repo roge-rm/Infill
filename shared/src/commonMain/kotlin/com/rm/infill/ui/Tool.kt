@@ -1,5 +1,9 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.tool_air
+import com.rm.infill.res.international_airport
+import com.rm.infill.res.airport
+import com.rm.infill.res.airfield
 import com.rm.infill.res.freight_terminal
 import com.rm.infill.res.bulldoze_tunnel
 import com.rm.infill.res.container_port
@@ -168,6 +172,7 @@ enum class Tool(val title: StringResource) {
     Districts(Res.string.tool_districts),
     Phone(Res.string.tool_phone),
     Port(Res.string.tool_port),
+    Air(Res.string.tool_air),
 }
 
 /**
@@ -178,7 +183,7 @@ enum class ToolGroup(val title: StringResource, val tools: List<Tool>) {
     Inspect(Res.string.tool_inspect, listOf(Tool.Inspect)),
     Bulldoze(Res.string.tool_bulldoze, listOf(Tool.Bulldoze)),
     Zones(Res.string.group_zones, listOf(Tool.Zone, Tool.Districts)),
-    Transport(Res.string.group_transport, listOf(Tool.Road, Tool.Rail, Tool.Transit, Tool.Traffic, Tool.Port)),
+    Transport(Res.string.group_transport, listOf(Tool.Road, Tool.Rail, Tool.Transit, Tool.Traffic, Tool.Port, Tool.Air)),
     Utilities(Res.string.group_utilities, listOf(Tool.Power, Tool.Water, Tool.Phone)),
     Services(Res.string.tool_services, listOf(Tool.Services)),
 }
@@ -316,6 +321,16 @@ enum class PortKind(val title: StringResource, val eastWest: BuildingType, val n
     Docks(Res.string.docks, BuildingType.DOCKS, BuildingType.DOCKS_NS),
     Container(Res.string.container_port, BuildingType.CONTAINER_PORT, BuildingType.CONTAINER_PORT_NS),
 }
+
+/** What the air tool puts down: each size of airport. */
+enum class AirKind(val title: StringResource, val type: BuildingType) {
+    Airfield(Res.string.airfield, BuildingType.AIRFIELD),
+    Airport(Res.string.airport, BuildingType.AIRPORT),
+    International(Res.string.international_airport, BuildingType.INTERNATIONAL_AIRPORT),
+}
+
+/** The airports [city] can build in its era. */
+fun airKindsIn(city: City): List<AirKind> = AirKind.entries.filter { city.allows(it.type) }
 
 /** The ports [city] can build in its era. */
 fun portKindsIn(city: City): List<PortKind> = PortKind.entries.filter { city.allows(it.eastWest) }
@@ -493,7 +508,9 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
         tool: Tool, zone: ZoneKind, density: DensityKind, bulldoze: BulldozeKind, power: PowerKind, service: ServiceKind, road: RoadType, roadPipes: Boolean,
         rail: RailKind, water: WaterKind, transit: TransitKind, map: CityMap, junction: JunctionKind = JunctionKind.Lights,
         district: Int = NEW_DISTRICT, phone: PhoneKind = PhoneKind.Copper, port: PortKind = PortKind.Wharf, bridge: BridgeKind? = null, tunnel: Boolean = false,
+        air: AirKind = AirKind.Airfield,
     ): Action? = when (tool) {
+        Tool.Air -> Action.PlaceBuilding(air.type, x1, y1)
         Tool.Port -> Action.PlaceBuilding(portBuilding(map, port, x1, y1), x1, y1)
         Tool.Phone -> when {
             phone.building != null -> Action.PlaceBuilding(phone.building, x1, y1)

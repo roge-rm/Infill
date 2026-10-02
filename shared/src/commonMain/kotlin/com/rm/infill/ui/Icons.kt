@@ -258,7 +258,7 @@ enum class Glyph {
     Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
     Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance, Sack, Glass, Hat,
     Person, Briefcase, Wrench, Calendar, Snow, Gavel, Tag, Check, Warn, Building, Cable, Phone, Mast,
-    Anchor, Ship, Suitcase, Bridge,
+    Anchor, Ship, Suitcase, Bridge, Plane,
 }
 
 /** The drawing for [tool]. */
@@ -275,6 +275,7 @@ fun toolGlyph(tool: Tool): Glyph = when (tool) {
     Tool.Transit -> Glyph.Tram
     Tool.Traffic -> Glyph.Lights
     Tool.Port -> Glyph.Anchor
+    Tool.Air -> Glyph.Plane
     Tool.Districts -> Glyph.District
 }
 
@@ -449,6 +450,10 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
         Glyph.Mountain -> {
             drawPath(path(1f, 20f, 9f, 6f, 17f, 20f), c)
             drawPath(path(10f, 20f, 16f, 10f, 23f, 20f), c)
+        }
+        Glyph.Plane -> {
+            // Seen from above, nose up.
+            drawPath(path(12f, 2f, 13.5f, 4f, 13.5f, 10f, 22f, 14f, 22f, 16f, 13.5f, 14f, 13.5f, 19f, 16f, 21f, 16f, 22.5f, 12f, 21.5f, 8f, 22.5f, 8f, 21f, 10.5f, 19f, 10.5f, 14f, 2f, 16f, 2f, 14f, 10.5f, 10f, 10.5f, 4f), c)
         }
         Glyph.Bridge -> {
             // An arch over the water, the deck across its top.

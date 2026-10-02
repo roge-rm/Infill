@@ -408,6 +408,20 @@ object Balance {
     const val SEA_VISITOR_DUE = 0.5
     val PORT_UPKEEP = doubleArrayOf(0.0, 30.0, 80.0, 250.0)
 
+    // Airports, by size (none, an airfield, an airport, a big one): visitors a day they can bring, office jobs they
+    // draw, settlers they bring as a share more, how far their noise carries and what it takes off the land and off
+    // homes' appeal at its worst, upkeep a month, and loads of air freight a month they can take. What the town
+    // takes in landing fees for each visitor and each load.
+    val AIR_VISITORS = intArrayOf(0, 20, 150, 600)
+    val AIR_OFFICES = intArrayOf(0, 10, 80, 300)
+    val AIR_SETTLERS = doubleArrayOf(1.0, 1.05, 1.15, 1.3)
+    val AIR_NOISE_REACH = intArrayOf(0, 2, 5, 8)
+    val AIR_NOISE = intArrayOf(0, 6, 20, 35)
+    val AIR_UPKEEP = doubleArrayOf(0.0, 40.0, 300.0, 1200.0)
+    val AIR_CARGO = intArrayOf(0, 0, 40, 200)
+    const val LANDING_FEE = 1.0
+    const val AIR_CARGO_FEE = 2.0
+
     // Ships: what a step costs a ship, and more for each bit of shore beside it, so they keep to the middle; loads
     // that make a ship's worth, for how many come.
     const val SHIP_STEP = 10
@@ -439,6 +453,9 @@ object Balance {
     /** Ships burn coal and smoke until this year, and trains run on steam until this one. */
     const val STEAM_UNTIL = 1950
     const val STEAM_TRAINS_UNTIL = 1955
+
+    /** Jets from this year at the big airports. */
+    const val JET_YEAR = 1960
 
     // Visitors, on an average day: some come to any town, more to a bigger one, and more for its parks and heritage.
     // Most can come by road once there are cars; trains, ships and planes bring more. They stay in hotels if

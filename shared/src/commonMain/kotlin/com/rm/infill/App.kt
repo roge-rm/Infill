@@ -6,6 +6,8 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.unit.Density
+import com.rm.infill.ui.airChoices
+import com.rm.infill.ui.AirKind
 import com.rm.infill.res.dig_tunnel
 import com.rm.infill.ui.railKindsIn
 import com.rm.infill.ui.bridgeName
@@ -368,6 +370,7 @@ private fun GameScreen(
         var roadKind by remember { mutableStateOf(RoadType.DIRT) }
         var railKind by remember { mutableStateOf(RailKind.Track) }
         var portKind by remember { mutableStateOf(PortKind.Wharf) }
+        var airKind by remember { mutableStateOf(AirKind.Airfield) }
         var bridgeKind by remember { mutableStateOf<BridgeKind?>(null) }
         var tunnelling by remember { mutableStateOf(false) }
         var waterKind by remember { mutableStateOf(WaterKind.Main) }
@@ -508,9 +511,9 @@ private fun GameScreen(
         }
 
         // What the drag would do, worked out again as it moves.
-        val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, phoneKind, portKind, bridgeKind, tunnelling, game.revision) {
+        val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, phoneKind, portKind, bridgeKind, tunnelling, airKind, game.revision) {
             drag?.let { d ->
-                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
+                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
             }
         }
         val costText = preview?.let {
@@ -632,7 +635,7 @@ private fun GameScreen(
                     val kind = if (transitKind.line == 2) Stop.TRAM else Stop.BUS
                     if (city.map.stop[i].toInt() and kind != 0 && lineDraft.lastOrNull() != i) lineDraft = lineDraft + i
                 }
-                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling)
+                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind)
                 if (action != null) {
                     val made = action is Action.PaintDistrict && action.id == NEW_DISTRICT
                     val plan = game.apply(action)
@@ -885,6 +888,7 @@ private fun GameScreen(
                             }
                         }
                         Tool.Port -> ChoiceTray(atlas, portChoices(city), portKind, { portKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
+                        Tool.Air -> ChoiceTray(atlas, airChoices(city), airKind, { airKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
                         Tool.Transit -> ChoiceTray(atlas, transitChoices(city, transitNow), transitKind, {
                             if (it.list) linesOpen = true
                             else {

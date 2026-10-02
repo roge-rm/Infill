@@ -1638,6 +1638,7 @@ class City(
         updatePeople()
         heatWaveDays = 0
         census()
+        updateAirports()
         tourism()
         startTraffic()
         updateCrime()
@@ -2848,7 +2849,7 @@ class City(
         // Visitors go shopping too: from their hotels, and day trippers from the stations and ports they came in at.
         val stay = 100 - Balance.STAY_SHARE
         val stations = railway.stops.indices.filter { railway.buildings[it].type.station && railway.linked(it) }.map { railway.buildings[it] }
-        for ((at, by) in listOf(stations to Tourism.RAIL, linkedPorts.filter { Balance.SEA_VISITORS[it.type.portTier] > 0 } to Tourism.SEA)) {
+        for ((at, by) in listOf(stations to Tourism.RAIL, linkedPorts.filter { Balance.SEA_VISITORS[it.type.portTier] > 0 } to Tourism.SEA, airports to Tourism.AIR)) {
             if (at.isEmpty()) continue
             val each = stats.visitorsBy[by] * stay / 100 / at.size / Balance.RESIDENTS_PER_SHOPPER
             for (b in at) accessOf(b).let { if (it >= 0) shoppersAt[it] += each }
@@ -3786,6 +3787,52 @@ class City(
         if (flooded >= 0) events += CityEvent(EventKind.TunnelFlooded, flooded % m.width, flooded / m.width, null)
     }
 
+    // ---- airports ----------------------------------------------------------------
+
+    private val airports get() = buildings.values.filter { it.type.airport && it.underway == 0 && it.outage == 0 && accessOf(it) >= 0 }
+
+    /** The airports with planes coming and going, for drawing them. */
+    fun airportsShown(): List<Building> = airports
+
+    /** The biggest working airport a road reaches, by [BuildingType.airTier], 0 for none. */
+    var airTier = 0
+        private set
+
+    /**
+     * The planes' noise, worked out each month: loudest at the end of each
+     * runway and fading over the airport's reach. Land loses value under it,
+     * and homes appeal.
+     */
+    private fun updateAirports() {
+        val m = map
+        val here = airports
+        airTier = here.maxOfOrNull { it.type.airTier } ?: 0
+        m.noise.fill(0)
+        for (b in here) {
+            val tier = b.type.airTier
+            val reach = Balance.AIR_NOISE_REACH[tier]
+            val most = Balance.AIR_NOISE[tier]
+            // The runway runs east to west along the middle; planes come in low off each end.
+            val y = b.y + b.type.height / 2
+            for (end in listOf(b.x - 1, b.x + b.type.width)) {
+                val dx = if (end < b.x) -1 else 1
+                for (k in 0 until reach * 2) {
+                    val x = end + dx * k
+                    val fade = most * (reach * 2 - k) / (reach * 2)
+                    for (w in -reach / 2..reach / 2) {
+                        if (!m.inside(x, y + w)) continue
+                        val i = m.index(x, y + w)
+                        m.noise[i] = max(m.noise[i].toInt() and 0xff, fade * (reach - abs(w)) / reach).toByte()
+                    }
+                }
+            }
+            // And all round it, less.
+            forRect(max(0, b.x - reach), max(0, b.y - reach), min(m.width - 1, b.x + b.type.width - 1 + reach), min(m.height - 1, b.y + b.type.height - 1 + reach)) { i ->
+                m.noise[i] = max(m.noise[i].toInt() and 0xff, most / 2).toByte()
+            }
+        }
+    }
+
     // ---- visitors ----------------------------------------------------------------
 
     /**
@@ -3809,6 +3856,7 @@ class City(
         if (connected) ways[Tourism.ROAD] = Balance.ROAD_VISITORS + Balance.ROAD_VISITORS_BY_CAR * Cars.share(year, Wealth.MIDDLE) / 100
         ways[Tourism.RAIL] = railway.stops.indices.count { railway.buildings[it].type.station && railway.linked(it) } * Balance.RAIL_VISITORS
         ways[Tourism.SEA] = linkedPorts.sumOf { Balance.SEA_VISITORS[it.type.portTier] }
+        ways[Tourism.AIR] = airports.sumOf { Balance.AIR_VISITORS[it.type.airTier] }
         val room = ways.sum()
         val visitors = if (room == 0) 0 else min(draw.toInt(), room)
         s.visitors = visitors
@@ -5371,7 +5419,7 @@ class City(
             Zone.RESIDENTIAL -> {
                 var industry = false
                 around(x, y, 2) { j, _ -> if (buildings[m.building[j]]?.type?.zone == Zone.INDUSTRIAL) industry = true }
-                score += 35 + value / 3 - crime / 5 - pollution / 3 - if (industry) 10 else 0
+                score += 35 + value / 3 - crime / 5 - pollution / 3 - (if (industry) 10 else 0) - (m.noise[i].toInt() and 0xff) / 2
                 score -= commutePenalty(m.commute[i].toInt() and 0xff)
                 // Mains water and the sewer are a draw at first and expected later; a well in grimy ground is never wanted.
                 score += amenity(m.watered[i], Balance.MAINS_APPEAL, Balance.MAINS_FADES, Balance.MAINS_EXPECTED_BY, Balance.MAINS_EXPECTED)
@@ -5722,12 +5770,12 @@ class City(
         s.farmDemand = taxed(farmGap - s.farmJobsComing, industrialTax)
         // Office work grows with the town and with the century.
         val perHundred = Balance.OFFICES_1900 + (Balance.OFFICES_2000 - Balance.OFFICES_1900) * (years / 100.0).coerceIn(0.0, 1.0)
-        val officeGap = Balance.OFFICE_BASE + s.population * perHundred / 100.0 - s.officeJobs
+        val officeGap = Balance.OFFICE_BASE + s.population * perHundred / 100.0 + Balance.AIR_OFFICES[airTier] - s.officeJobs
         s.officeDemand = taxed(officeGap - s.officeJobsComing, commercialTax)
         // The shops answer what people spend, more the better off they are.
         val shopGap = s.spending / Balance.RESIDENTS_PER_SHOP_JOB - s.shopJobs.toDouble()
         s.commercialDemand = taxed(shopGap - s.shopJobsComing, commercialTax)
-        val settlers = (Balance.SETTLERS + Balance.SETTLERS_PER_RESIDENT * s.population) * (if (railPassengers) Balance.RAIL_SETTLERS else 1.0)
+        val settlers = (Balance.SETTLERS + Balance.SETTLERS_PER_RESIDENT * s.population) * (if (railPassengers) Balance.RAIL_SETTLERS else 1.0) * Balance.AIR_SETTLERS[airTier]
         // Homes for the people the jobs need, children and the elderly with them.
         val workersPerResident = if (s.population == 0) Balance.LABOUR_SHARE else (s.workers.toDouble() / s.population).coerceIn(0.25, 0.6)
         val seekers = jobs / workersPerResident + settlers - s.population
@@ -5890,10 +5938,14 @@ class City(
         s.fareIncome = (max(0, traffic.boardings() - traffic.lastFreeBoardings) * Balance.FARE).roundToLong()
         // Dues on the loads through the ports, and on visitors off the ships.
         s.portLoads = traffic.lastPortFreight.sum()
-        s.duesIncome = (s.portLoads * Balance.PORT_DUE + s.visitorsBy[Tourism.SEA] * Balance.SEA_VISITOR_DUE).roundToLong()
+        // Air freight: what the airports can take of the goods sent away.
+        s.airLoads = min(airports.sumOf { Balance.AIR_CARGO[it.type.airTier] }, s.goodsExported.sum())
+        s.duesIncome = (s.portLoads * Balance.PORT_DUE + s.visitorsBy[Tourism.SEA] * Balance.SEA_VISITOR_DUE +
+            s.visitorsBy[Tourism.AIR] * Balance.LANDING_FEE + s.airLoads * Balance.AIR_CARGO_FEE).roundToLong()
         s.tolls = traffic.lastTolls
         s.tollIncome = s.tolls.toLong() * tollRate / 100
-        s.portUpkeep = ports.sumOf { Balance.PORT_UPKEEP[it.type.portTier] }.roundToLong()
+        s.portUpkeep = (ports.sumOf { Balance.PORT_UPKEEP[it.type.portTier] } +
+            buildings.values.filter { it.type.airport }.sumOf { Balance.AIR_UPKEEP[it.type.airTier] }).roundToLong()
         s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.officeIncome + s.fareIncome + s.duesIncome + s.tollIncome
         var tramTiles = 0
         var wires = 0
@@ -6162,6 +6214,8 @@ class City(
             w.count(under.size)
             for (k in under) w.int(k)
         }
+        // Since version 25: air freight.
+        w.int(s.airLoads)
     }
 
     companion object {
@@ -6426,8 +6480,10 @@ class City(
                     if (r.count() != c.trainRoutes.size) throw SaveError("the trains don't add up")
                     for (t in c.trainRoutes) repeat(r.count()) { r.int().let { k -> if (k in t.hidden.indices) t.hidden[k] = true } }
                 }
+                if (version >= 25) c.stats.airLoads = r.int()
                 c.updateNetworks()
                 c.markContainerTrains()
+                c.updateAirports()
                 savedLoad?.copyInto(c.grid.load)
                 c.updatePathways()
             } else {
@@ -6662,6 +6718,9 @@ class Stats {
 
     /** Vehicles that paid a toll last month. */
     var tolls = 0
+
+    /** Loads sent away by air last month. */
+    var airLoads = 0
 
     /** Visitors in town on an average day last month, by how they came ([Tourism]); those with hotel rooms, and the rooms. */
     var visitors = 0

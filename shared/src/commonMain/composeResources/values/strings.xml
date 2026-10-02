@@ -804,4 +804,10 @@
     <string name="pill_tunnel_shut">Flooded</string>
     <string name="tunnel_portal">Tunnel portal</string>
     <string name="freight_terminal">Freight terminal</string>
+    <string name="airfield">Airfield</string>
+    <string name="airport">Airport</string>
+    <string name="international_airport">International airport</string>
+    <string name="label_office_draw">Office jobs it draws</string>
+    <string name="overlay_noise">Noise</string>
+    <string name="tool_air">Air</string>
 </resources>

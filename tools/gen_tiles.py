@@ -2214,6 +2214,123 @@ def terminal_ew(look, v): return freight_terminal(look, v, 5, 2)
 def terminal_ns(look, v): return freight_terminal(look, v, 2, 5)
 
 
+RUNWAY = [c("#5c5a56"), c("#56544f"), c("#625f5a")]
+APRON = [c("#9a978f"), c("#928f87"), c("#a29f97")]
+GRASS_STRIP = [c("#7aa65a"), c("#72a052"), c("#82ae62")]
+TERMINAL_GLASS = c("#6f9fb8")
+
+
+def runway(b, look, x0, x1, y, wide, grass=False):
+    """A runway along row [y] (tile pixels), [wide] across: tarmac with a dashed centre line and the threshold bars at
+    each end, or a mown grass strip with markers."""
+    gx0, gy0 = b.ground(x0, y - wide // 2)
+    gx1, gy1 = b.ground(x1, y + wide // 2)
+    snow = look == "snow"
+    if grass:
+        noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), [c("#e8edf1"), c("#dfe5ea"), c("#eef2f5")] if snow else GRASS_STRIP, random.Random(7810))
+        for xx in range(gx0 + 2, gx1, 12):
+            b.d.rectangle([xx, gy0, xx + 2, gy0 + 1], c("#f2f2f2"))
+            b.d.rectangle([xx, gy1 - 1, xx + 2, gy1], c("#f2f2f2"))
+        return
+    noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), RUNWAY, random.Random(7811))
+    my = (gy0 + gy1) // 2
+    for xx in range(gx0 + 14, gx1 - 14, 10):
+        b.d.line([xx, my, xx + 5, my], c("#f2f2f2"))
+    for ex in (gx0 + 2, gx1 - 8):
+        for yy in range(gy0 + 2, gy1 - 1, 3):
+            b.d.line([ex, yy, ex + 6, yy], c("#f2f2f2"))
+    b.d.line([gx0, gy0, gx1, gy0], c("#f2f2f2"))
+    b.d.line([gx0, gy1, gx1, gy1], c("#f2f2f2"))
+
+
+def plane(b, x, y, size, jet):
+    """A parked plane, nose to the south, on the apron at tile pixel [x], [y]."""
+    gx, gy = b.ground(x, y)
+    body = c("#eef0f2")
+    d = b.d
+    d.rectangle([gx - 1, gy - size, gx + 1, gy + size], body)
+    span = size + (2 if jet else 0)
+    d.polygon([(gx - span, gy - (1 if jet else 0)), (gx + span, gy - (1 if jet else 0)), (gx + 1, gy + 2), (gx - 1, gy + 2)], body)
+    d.rectangle([gx - size // 2, gy - size, gx + size // 2, gy - size + 1], body)
+    d.point((gx, gy + size), c("#3a5a8a"))
+    if jet:
+        d.line([gx - span + 2, gy + 1, gx - span + 2, gy + 2], c("#5a5a60"))
+        d.line([gx + span - 2, gy + 1, gx + span - 2, gy + 2], c("#5a5a60"))
+
+
+def hangar(b, look, x0, y0, x1, y1):
+    """A hangar with a curved roof and its doors facing the field."""
+    roof, wall = b.box(x0, y0, x1, y1, STOREY + 3)
+    siding(b.d, wall, c("#a9aeb3"))
+    b.d.rectangle([wall[0] + 3, wall[1] + 2, wall[2] - 3, wall[3]], c("#3e4348"))
+    b.d.rectangle(wall, outline=OUTLINE)
+    if look == "snow":
+        b.d.rectangle(roof, SNOW_ROOF[0], OUTLINE)
+    else:
+        for k, yy in enumerate(range(roof[1], roof[3] + 1)):
+            b.d.line([roof[0], yy, roof[2], yy], shade(c("#9aa0a6"), 1.2 - 0.4 * k / max(1, roof[3] - roof[1])))
+        b.d.rectangle(roof, outline=OUTLINE)
+
+
+def control_tower(b, look, x, y):
+    """A control tower: a shaft and the glass cab on top."""
+    roof, wall = b.box(x, y, x + 5, y + 5, 26)
+    b.d.rectangle(wall, c("#d8d4cc"), OUTLINE)
+    b.d.rectangle([roof[0] - 1, roof[1] - 2, roof[2] + 1, roof[1] + 3], TERMINAL_GLASS, OUTLINE)
+    b.d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#c9c4ba"), OUTLINE)
+
+
+def terminal_building(b, look, x0, y0, x1, y1, storeys):
+    """The passenger terminal: long, glass across its front."""
+    roof, wall = b.box(x0, y0, x1, y1, STOREY * storeys)
+    b.d.rectangle(wall, c("#d8d4cc"))
+    for yy in range(wall[1] + 2, wall[3] - 1, STOREY):
+        b.d.rectangle([wall[0] + 2, yy, wall[2] - 2, yy + 2], TERMINAL_GLASS)
+    b.d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(7820 + storeys), features=(("skylight", 6, 3), ("skylight", 20, 3)))
+
+
+def airfield(look, v):
+    """A grass airfield on 4 by 3 tiles: the strip along the north, a hangar and a small plane or two by the road."""
+    b = Building(4, 3, height=STOREY + 6)
+    gx0, gy0 = b.ground(0, 0)
+    gx1, gy1 = b.ground(4 * T - 1, 3 * T - 1)
+    noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), GRASS[look], random.Random(7830))
+    runway(b, look, 2, 4 * T - 3, 20, 14, grass=True)
+    hangar(b, look, 8 if v % 2 == 0 else 80, 52, 40 if v % 2 == 0 else 116, 84)
+    plane(b, 64 if v % 2 == 0 else 30, 64, 4, jet=False)
+    if v >= 2:
+        plane(b, 80 if v % 2 == 0 else 50, 74, 4, jet=False)
+    return b
+
+
+def airport(look, v, w, h, jet):
+    """An airport: the runway along the north, the apron with parked planes, the terminal and its tower along the south."""
+    b = Building(w, h, height=34 if jet else 30)
+    gx0, gy0 = b.ground(0, 0)
+    gx1, gy1 = b.ground(w * T - 1, h * T - 1)
+    noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), GRASS[look], random.Random(7840))
+    runway(b, look, 2, w * T - 3, 22, 18 if jet else 14)
+    # A taxiway down to the apron.
+    tx0, ty0 = b.ground(w * T // 2 - 3, 31)
+    tx1, ty1 = b.ground(w * T // 2 + 3, 56)
+    noise_fill(b.img, (tx0, ty0, tx1 + 1, ty1 + 1), RUNWAY, random.Random(7812))
+    ax0, ay0 = b.ground(10, 56)
+    ax1, ay1 = b.ground(w * T - 11, h * T - 34)
+    noise_fill(b.img, (ax0, ay0, ax1 + 1, ay1 + 1), APRON, random.Random(7813))
+    rng = random.Random(7850 + v)
+    for x in range(26, w * T - 26, 22 if jet else 26):
+        if rng.random() < 0.75:
+            plane(b, x, 68 + rng.randrange(0, 6), 7 if jet else 5, jet)
+    terminal_building(b, look, 18, h * T - 30, w * T - 40, h * T - 8, 3 if jet else 2)
+    control_tower(b, look, w * T - 30, h * T - 30)
+    return b
+
+
+def airport_mid(look, v): return airport(look, v, 6, 4, jet=False)
+def airport_big(look, v): return airport(look, v, 8, 4, jet=True)
+
+
 def wharf_ew(look, v): return wharf(look, v, 3, 2)
 def wharf_ns(look, v): return wharf(look, v, 2, 3)
 def docks_ew(look, v): return docks(look, v, 4, 3)
@@ -3946,6 +4063,7 @@ BUILDINGS = [
     ("wharf_ew", wharf_ew, 4), ("wharf_ns", wharf_ns, 4), ("docks_ew", docks_ew, 4), ("docks_ns", docks_ns, 4),
     ("boxport_ew", boxport_ew, 4), ("boxport_ns", boxport_ns, 4),
     ("terminal_ew", terminal_ew, 4), ("terminal_ns", terminal_ns, 4),
+    ("airfield", airfield, 4), ("airport_mid", airport_mid, 2), ("airport_big", airport_big, 2),
     ("pumping_station", pumping_station, 1), ("well_field", well_field, 1), ("tower", water_tower, 1),
     ("sewer_outfall", sewer_outfall, 1), ("storm_pond", storm_pond, 1), ("storm_outfall", storm_outfall, 1),
     ("school", school, 2), ("high_school", high_school, 2), ("clinic", clinic, 2), ("hospital", hospital, 1),
