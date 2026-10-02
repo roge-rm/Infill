@@ -54,6 +54,8 @@ You need the Android SDK.
 tools/serve_web.sh                             # serve it on port 8790
 cd tools && uv run --with pillow gen_tiles.py  # draw the tiles again
 cd tools && uv run --with pillow make_icon.py  # make the icons from icon.png
+tools/style_check.py --all                     # check the writing
+git config core.hooksPath tools/hooks          # and check it on every commit
 ```
 
 | | |

@@ -34,6 +34,7 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
             for (i in p.blocked) drawRect(BLOCKED, at(i), tile)
         }
         is Action.Bulldoze -> rect(a.x0, a.y0, a.x1, a.y1, camera, BULLDOZE_FILL, BULLDOZE_EDGE)
+        is Action.RemoveTunnel -> rect(a.x0, a.y0, a.x1, a.y1, camera, BULLDOZE_FILL, BULLDOZE_EDGE)
         is Action.RenewArea -> {
             // The area faintly, and the tiles that'll be relaid.
             rect(a.x0, a.y0, a.x1, a.y1, camera, RENEW_FILL, RENEW_EDGE)
@@ -49,7 +50,7 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
         // Lines are drawn as they're planned.
         is Action.AddLine, is Action.SetVehicles, is Action.RemoveLine -> {}
         is Action.PaintDistrict -> rect(a.x0, a.y0, a.x1, a.y1, camera, PARK_FILL, PARK_EDGE)
-        is Action.SetDistrict, is Action.RemoveDistrict, is Action.FitScrubbers -> {}
+        is Action.SetDistrict, is Action.RemoveDistrict, is Action.FitScrubbers, is Action.SetBridge -> {}
         is Action.SetJunction -> {
             for (i in a.tiles) drawRect(ROAD_DRAG, at(i), tile)
             for (i in p.plan.changes) drawRect(LINE_FILL, at(i), tile)

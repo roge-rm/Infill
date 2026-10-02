@@ -35,7 +35,8 @@ class ActionTest {
         val plan = c.plan(Action.BuildRoad(Action.roadPath(c.map, 8, 4, 12, 4, true)))
         assertTrue(plan.blocked.isEmpty())
         assertEquals(3, plan.changes.size) // 10 to 12; 8 and 9 are already road
-        assertEquals(RoadType.DIRT.price * (Prices.BRIDGE + 2), plan.cost)
+        // The cheapest bridge that fits, a trestle.
+        assertEquals(RoadType.DIRT.price * (BridgeKind.TRESTLE.price + 2), plan.cost)
         // Lanes don't bridge.
         val lane = c.plan(Action.BuildRoad(Action.roadPath(c.map, 8, 6, 12, 6, true), RoadType.LANE))
         assertEquals(listOf(c.map.index(10, 6)), lane.blocked.toList())

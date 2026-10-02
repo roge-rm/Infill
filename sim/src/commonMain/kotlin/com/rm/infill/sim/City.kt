@@ -92,14 +92,20 @@ class City(
     fun plan(action: Action): Plan {
         val changes = ArrayList<Int>()
         val blocked = ArrayList<Int>()
+        // Water a low bridge would go over, which ships can't pass.
+        val lowDecks = ArrayList<Int>()
         var cost = 0L
         var noRoute = false
         val m = map
         when (action) {
-            is Action.BuildRoad -> {
+            is Action.BuildRoad -> if (action.tunnel) {
+                val layout = roadLayout(action)
+                cost += planTunnel(layout.tiles, layout.runs, layout.turns, roadSegments(action.type, layout.tiles.size), action.type, changes, blocked)
+            } else {
                 val layout = roadLayout(action)
                 for (k in layout.tiles.indices) {
                     val i = layout.tiles[k]
+                    if (m.terrain[i] == Terrain.WATER && layout.bridges[k] >= 0 && blocksShips(layout.bridges, k)) lowDecks += i
                     val road = roadCost(action.type, layout, k)
                     // A road the town can't build yet is blocked all along.
                     if (road == BLOCKED || !allows(action.type)) {
@@ -294,21 +300,28 @@ class City(
                     cost += Prices.REMOVE_TRANSIT
                 }
             }
-            is Action.BuildRail -> {
+            is Action.BuildRail -> if (action.tunnel) {
                 val path = action.tiles.filter { inMap(it) }
                 val (runs, turns) = runsOf(path)
+                cost += planTunnel(path.toIntArray(), runs, turns, listOf(path.indices), null, changes, blocked)
+            } else {
+                val path = action.tiles.filter { inMap(it) }
+                val (runs, turns) = runsOf(path)
+                val spans = bridgesAlong(path.toIntArray(), runs, turns, listOf(path.indices), action.bridge, rail = true)
+                for (k in path.indices) if (m.terrain[path[k]] == Terrain.WATER && spans[k] >= 0 && blocksShips(spans, k)) lowDecks += path[k]
                 for (k in path.indices) {
                     val i = path[k]
                     val water = m.terrain[i] == Terrain.WATER
                     when {
-                        m.building[i] != 0 || m.bank[i].toInt() != 0 -> blocked += i
+                        m.building[i] != 0 || m.bank[i].toInt() != 0 || m.portal[i].toInt() != 0 -> blocked += i
                         m.rail[i] != Rail.NONE -> if (Ageing.wear(monthNow - m.railLaid[i], Balance.TRACK_LIFE) >= Balance.RENEWABLE_WEAR) {
                             // Worn track is relaid.
                             changes += i
                             cost += Prices.RAIL * Balance.RENEW_ROAD / 100
                         }
                         // Over water on a bridge of its own, straight across.
-                        water && (turns[k] || m.road[i] != Road.NONE) -> blocked += i
+                        water && (turns[k] || m.road[i] != Road.NONE || spans[k] == NO_BRIDGE) -> blocked += i
+                        !water && sideways(i, runs[k].toInt()) -> blocked += i
                         // Across a road only straight over it, as a level crossing, both carriageways of a divided one.
                         m.road[i] != Road.NONE && (turns[k] || !levelCrossing(i, runs[k].toInt())) -> blocked += i
                         // Under a line on poles or a phone line only straight across it, where the wires span the track.
@@ -316,7 +329,7 @@ class City(
                             (turns[k] || !across(i, runs[k].toInt(), m.power) && m.power[i] != Power.NONE || !across(i, runs[k].toInt(), m.phone) && m.phone[i].toInt() != 0) -> blocked += i
                         else -> {
                             changes += i
-                            cost += Prices.RAIL * (if (water) Prices.BRIDGE else 1) + clearing(i)
+                            cost += Prices.RAIL * (if (water) bridgePrice(spans[k]) else 1) + clearing(i)
                         }
                     }
                 }
@@ -383,7 +396,7 @@ class City(
             is Action.PlaceZone -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
                 when {
                     m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE || m.rail[i] != Rail.NONE ||
-                        m.bank[i].toInt() != 0 -> blocked += i
+                        m.bank[i].toInt() != 0 || m.portal[i].toInt() != 0 -> blocked += i
                     m.zone[i] == action.zone && m.density[i] == action.density -> {}
                     // A zone's density can change under its buildings; they stay, but grow no further than it allows.
                     m.zone[i] == action.zone -> changes += i
@@ -401,7 +414,7 @@ class City(
                     // Turbines out on the water stand on nothing else.
                     val water = m.terrain[i] == Terrain.WATER
                     if (!allows(t) || water != t.inWater || !inWaterFits(t, i) || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
-                        m.zone[i] != Zone.NONE || m.building[i] != 0 || m.rail[i] != Rail.NONE || m.bank[i].toInt() != 0
+                        m.zone[i] != Zone.NONE || m.building[i] != 0 || m.rail[i] != Rail.NONE || m.bank[i].toInt() != 0 || m.portal[i].toInt() != 0
                     ) {
                         blocked += i
                         ok = false
@@ -446,9 +459,9 @@ class City(
                         return@forRect
                     }
                     var c = 0L
-                    if (m.road[i] != Road.NONE) c += Prices.REMOVE_ROAD * if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
+                    if (m.road[i] != Road.NONE) c += Prices.REMOVE_ROAD * if (m.terrain[i] == Terrain.WATER) bridgePrice(m.bridge[i].toInt()) else 1
                     if (m.power[i] != Power.NONE) c += Prices.REMOVE_LINE
-                    if (m.rail[i] != Rail.NONE) c += Prices.REMOVE_RAIL * if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
+                    if (m.rail[i] != Rail.NONE) c += Prices.REMOVE_RAIL * if (m.terrain[i] == Terrain.WATER) bridgePrice(m.bridge[i].toInt()) else 1
                     if (m.bank[i].toInt() != 0) c += Prices.REMOVE_BANK
                     if (m.terrain[i] == Terrain.TREES) c += Prices.CLEAR_TREES
                     if (m.brownfield[i].toInt() != 0) c += Prices.CLEAN_UP
@@ -469,6 +482,28 @@ class City(
                     }
                 }
             }
+            is Action.RemoveTunnel -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
+                if (m.tunnelled(i)) {
+                    changes += i
+                    cost += Prices.REMOVE_TUNNEL
+                }
+            }
+            is Action.SetBridge -> {
+                // The whole bridge each tile's on, a toll booth at each one that gets a toll.
+                bridges()
+                val runs = bridgeRuns.filter { run -> run.any { it in action.tiles } }
+                for (run in runs) {
+                    var changed = false
+                    for (i in run) {
+                        val now = bridgeBits(m.bridge[i].toInt(), action)
+                        if (now != m.bridge[i].toInt()) {
+                            changes += i
+                            changed = true
+                        }
+                    }
+                    if (changed && action.toll == true && m.bridge[run[0]].toInt() and Bridge.TOLL == 0) cost += Prices.TOLL_BOOTH
+                }
+            }
             is Action.RemovePipes -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
                 val count = m.waterPipe[i] + m.sewerPipe[i] + m.stormPipe[i]
                 if (count > 0) {
@@ -482,7 +517,8 @@ class City(
             action is Action.PlaceBuilding && action.type.railway && Rail.trackSide(m, action.type, action.x, action.y) == 0 -> Problem.NeedsTrack
             action is Action.PlaceBuilding && action.type.port && Port.waterSide(m, action.type, action.x, action.y) == 0 -> Problem.NeedsWater
             action is Action.PlaceBuilding && action.type.port && !ships().reaches(Port.berth(m, action.type, action.x, action.y)) -> Problem.NoSeaRoute
-            (action is Action.BuildRoad || action is Action.BuildRail || action is Action.PlaceBuilding && action.type.inWater) && cutsOffPort(changes) -> Problem.CutsOffPort
+            action is Action.PlaceBuilding && action.type.inWater && cutsOffPort(changes) -> Problem.CutsOffPort
+            (action is Action.BuildRoad || action is Action.BuildRail) && cutsOffPort(lowDecks.filter { it in changes }) -> Problem.CutsOffPort
             action is Action.PlaceBuilding && action.type.onWater && !besideWater(action.type, action.x, action.y) -> Problem.NeedsWater
             action is Action.PlaceBuilding && action.type == BuildingType.TRAM_DEPOT && besideTram(action.type, action.x, action.y).isEmpty() -> Problem.NeedsTramTrack
             action is Action.PlaceBuilding && action.type == BuildingType.SUBWAY_STATION && m.inside(action.x, action.y) &&
@@ -541,13 +577,18 @@ class City(
         val i = layout.tiles[k]
         val run = layout.runs[k].toInt()
         val old = RoadType.of(m.road[i])
-        val bridge = if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
+        val water = m.terrain[i] == Terrain.WATER
+        val bridge = if (water) bridgePrice(layout.bridges[k]) else 1
         return when {
-            m.building[i] != 0 || m.bank[i].toInt() != 0 -> BLOCKED
-            bridge > 1 && (!type.bridges || layout.turns[k] || m.rail[i] != Rail.NONE) -> BLOCKED
+            m.building[i] != 0 || m.bank[i].toInt() != 0 || m.portal[i].toInt() != 0 -> BLOCKED
+            water && (!type.bridges || layout.turns[k] || m.rail[i] != Rail.NONE || layout.bridges[k] == NO_BRIDGE) -> BLOCKED
+            // Nothing joins the approach to a high bridge from the side.
+            !water && sideways(i, run) -> BLOCKED
             // A road meets track only straight across it, as a level crossing.
             m.rail[i] != Rail.NONE && (layout.turns[k] || !across(i, run, m.rail)) -> BLOCKED
             old == null -> type.price * bridge + clearing(i)
+            // Another kind of bridge in place of the one there.
+            old == type && water && (layout.bridges[k] and Bridge.KIND) != (m.bridge[i].toInt() and Bridge.KIND) -> type.price * bridge
             old == type && (layout.headings[k] == m.roadHeading[i] || across(run, m.roadHeading[i].toInt())) -> NO_CHANGE
             // A road drawn across a better one leaves the crossing as it is.
             old.capacity > type.capacity && crossing(i, run) -> NO_CHANGE
@@ -623,9 +664,9 @@ class City(
         if (m.broken[i].toInt() and Broken.WORKS != 0) return 0 to 0L
         var bits = 0
         var cost = 0L
-        val bridge = if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1
+        val bridge = if (m.terrain[i] == Terrain.WATER) bridgePrice(m.bridge[i].toInt()) else 1
         val road = RoadType.of(m.road[i])
-        if (road != null && worn(m.roadLaid, i, road.life)) {
+        if (road != null && worn(m.roadLaid, i, roadLife(i, road))) {
             bits = bits or Broken.ROAD
             cost += road.price * Balance.RENEW_ROAD / 100 * bridge
         }
@@ -636,6 +677,10 @@ class City(
         if (m.rail[i] != Rail.NONE && worn(m.railLaid, i, Balance.TRACK_LIFE)) {
             bits = bits or Broken.RAIL
             cost += Prices.RAIL * Balance.RENEW_ROAD / 100 * bridge
+        }
+        if (m.tunnelled(i) && worn(m.lowLaid, i, Balance.TUNNEL_LIFE)) {
+            bits = bits or Broken.LOW
+            cost += (if (m.lowRail[i].toInt() != 0) Prices.RAIL_TUNNEL else Prices.ROAD_TUNNEL) * Balance.RENEW_ROAD / 100
         }
         if (m.tram[i].toInt() != 0 && worn(m.tramLaid, i, Balance.TRAM_TRACK_LIFE)) {
             bits = bits or Broken.TRAM
@@ -715,7 +760,7 @@ class City(
      * The tiles a road goes on, the way it was drawn through each, the heading
      * each gets (only one-way roads have one) and whether it turns there.
      */
-    private class RoadLayout(val tiles: IntArray, val runs: ByteArray, val headings: ByteArray, val turns: BooleanArray)
+    private class RoadLayout(val tiles: IntArray, val runs: ByteArray, val headings: ByteArray, val turns: BooleanArray, val bridges: IntArray)
 
     /**
      * Where a drawn road goes. Each tile runs the way the drawing went through
@@ -747,7 +792,7 @@ class City(
         }
         if (type.width == 2) {
             val n = tiles.size
-            if (path.size < 2) return RoadLayout(IntArray(0), ByteArray(0), ByteArray(0), BooleanArray(0))
+            if (path.size < 2) return RoadLayout(IntArray(0), ByteArray(0), ByteArray(0), BooleanArray(0), IntArray(0))
             for (k in 0 until n) {
                 val h = runs[k].toInt()
                 // To the left of the way it runs.
@@ -760,8 +805,191 @@ class City(
                 turns += false
             }
         }
-        return RoadLayout(tiles.toIntArray(), runs.toByteArray(), headings.toByteArray(), turns.toBooleanArray())
+        val first = if (type.width == 2) (0 until tiles.size / 2) else tiles.indices
+        val segments = if (type.width == 2) listOf(first, first.last + 1 until tiles.size) else listOf(first)
+        val t = tiles.toIntArray()
+        val r = runs.toByteArray()
+        val turning = turns.toBooleanArray()
+        return RoadLayout(t, r, headings.toByteArray(), turning, bridgesAlong(t, r, turning, segments, action.bridge, rail = false))
     }
+
+    /** The stretches of a road's layout each carriageway takes: both halves of a two-wide road, or the whole of the rest. */
+    private fun roadSegments(type: RoadType, size: Int): List<IntRange> =
+        if (type.width == 2) listOf(0 until size / 2, size / 2 until size) else listOf(0 until size)
+
+    /** Whether the town can dig road tunnels yet; track's gone under ground from the start. */
+    fun allowsTunnel(rail: Boolean) = everything || rail || year >= Balance.ROAD_TUNNEL_YEAR
+
+    /**
+     * What a tunnel for a road of [road] (or track, if null) along [tiles]
+     * would take: each segment from a portal at one end to a portal at the
+     * other, straight, three tiles at least, through anything but another
+     * tunnel or the subway. The portals go on land with nothing on it but the
+     * same road or track running the same way, which goes down into it. Adds
+     * the tiles to [changes], or every tile of a segment to [blocked] if any
+     * of it can't be dug, and returns the cost.
+     */
+    private fun planTunnel(
+        tiles: IntArray, runs: ByteArray, turns: BooleanArray, segments: List<IntRange>, road: RoadType?, changes: MutableList<Int>, blocked: MutableList<Int>,
+    ): Long {
+        val m = map
+        val rail = road == null
+        var cost = 0L
+        for (seg in segments) {
+            if (seg.isEmpty()) continue
+            var ok = seg.count() >= 3 && allowsTunnel(rail) && (road == null || allows(road)) && seg.none { turns[it] && it != seg.last }
+            var here = 0L
+            for (k in seg) {
+                val i = tiles[k]
+                val run = runs[k].toInt()
+                val end = k == seg.first || k == seg.last
+                // What's on the surface running the same way, that would go down into the tunnel.
+                val along = if (rail) m.rail[i] != Rail.NONE && !across(i, run, m.rail) else RoadType.of(m.road[i]) == road && !across(i, run, m.road)
+                when {
+                    m.tunnelled(i) || m.subway[i].toInt() != 0 || m.portal[i].toInt() != 0 -> ok = false
+                    end && (m.terrain[i] == Terrain.WATER || m.building[i] != 0 || m.bank[i].toInt() != 0) -> ok = false
+                    // A portal is open ground but for the road or track going down.
+                    end && (if (rail) m.road[i] != Road.NONE else m.rail[i] != Rail.NONE) -> ok = false
+                    end && (if (rail) m.rail[i] != Rail.NONE && !along else m.road[i] != Road.NONE && !along) -> ok = false
+                    buildings[m.building[i]]?.underway?.let { it > 0 } == true -> ok = false
+                }
+                val dig = if (rail) Prices.RAIL_TUNNEL else Prices.ROAD_TUNNEL + road!!.price * 2
+                here += dig * (if (m.terrain[i] == Terrain.WATER) Prices.UNDER_WATER else 1) +
+                    (if (!end && (m.building[i] != 0 || m.road[i] != Road.NONE || m.rail[i] != Rail.NONE)) Prices.CUT_AND_COVER else 0L) +
+                    (if (end) clearing(i) else 0L)
+            }
+            if (ok) {
+                for (k in seg) changes += tiles[k]
+                cost += here
+            } else {
+                for (k in seg) blocked += tiles[k]
+            }
+        }
+        return cost
+    }
+
+    /**
+     * Digs the tunnels [planTunnel] planned on [changing]: the road (or track)
+     * below each tile, a portal at each end facing out, and the same road or
+     * track running the same way on the surface taken down into it. Digging
+     * under a road shuts it a few days, through [works].
+     */
+    private fun layTunnel(
+        tiles: IntArray, runs: ByteArray, headings: ByteArray, segments: List<IntRange>, road: RoadType?, changing: Set<Int>, now: Int, works: (Int) -> Unit,
+    ) {
+        val m = map
+        val rail = road == null
+        for (seg in segments) {
+            if (seg.isEmpty() || tiles[seg.first] !in changing) continue
+            for (k in seg) {
+                val i = tiles[k]
+                val run = runs[k].toInt()
+                val along = if (rail) m.rail[i] != Rail.NONE && !across(i, run, m.rail) else RoadType.of(m.road[i]) == road && !across(i, run, m.road)
+                if (rail) {
+                    m.lowRail[i] = 1
+                    m.lowHeading[i] = Tunnel.heading(run, 0).toByte()
+                } else {
+                    m.lowRoad[i] = road!!.id
+                    m.lowHeading[i] = Tunnel.heading(run, headings[k].toInt()).toByte()
+                }
+                m.lowLaid[i] = now.toShort()
+                val end = k == seg.first || k == seg.last
+                if (end) {
+                    // Facing out, away from the rest of the tunnel.
+                    val inner = tiles[if (k == seg.first) k + 1 else k - 1]
+                    m.portal[i] = Heading.of(i % m.width - inner % m.width, i / m.width - inner / m.width)
+                    m.zone[i] = Zone.NONE
+                    clearTrees(i)
+                }
+                if (end || along) {
+                    // The road or track that was here goes down into the tunnel.
+                    if (rail) {
+                        m.rail[i] = Rail.NONE
+                        m.railLaid[i] = 0
+                    } else {
+                        m.road[i] = Road.NONE
+                        m.roadHeading[i] = Heading.BOTH
+                        m.roadLaid[i] = 0
+                        m.junction[i] = Junction.AUTO
+                    }
+                } else if (m.road[i] != Road.NONE && m.terrain[i] != Terrain.WATER) {
+                    works(i)
+                }
+            }
+        }
+    }
+
+    /** Whether the town can build bridges of [kind] yet. */
+    fun allows(kind: BridgeKind) = everything || year >= kind.year
+
+    /**
+     * The bridges a line drawn along [tiles] would cross the water on: for
+     * each tile, what [CityMap.bridge] gets there (the kind and the way it
+     * runs), 0 on land, or [NO_BRIDGE] where nothing fits. Each stretch of
+     * water in a segment is one span. It keeps the kind already there unless
+     * [want] asks for another, and otherwise takes the cheapest that fits the
+     * span and the year, with room for a high one's straight approaches.
+     */
+    private fun bridgesAlong(tiles: IntArray, runs: ByteArray, turns: BooleanArray, segments: List<IntRange>, want: BridgeKind?, rail: Boolean): IntArray {
+        val m = map
+        val out = IntArray(tiles.size)
+        fun water(k: Int) = m.terrain[tiles[k]] == Terrain.WATER
+        for (seg in segments) {
+            var k = seg.first
+            while (k <= seg.last) {
+                if (!water(k)) {
+                    k++
+                    continue
+                }
+                // A span ends where the line turns, which can't be on a bridge anyway.
+                var e = k
+                while (e + 1 <= seg.last && water(e + 1) && !turns[e]) e++
+                val span = e - k + 1
+                val run = runs[k].toInt()
+                val across = if (run == Heading.EAST.toInt() || run == Heading.WEST.toInt()) Bridge.ACROSS else 0
+                // Land in line with the bridge that runs straight up to it.
+                fun straight(j: Int) = j in seg && !water(j) && runs[j].toInt() == run && (j > e || !turns[j])
+                fun fits(kind: BridgeKind) = allows(kind) && kind.spans(span) && (!rail || kind.rail) &&
+                    (1..kind.approach).all { straight(k - it) && straight(e + it) }
+                val there = (k..e).map { m.bridge[tiles[it]].toInt() and Bridge.KIND }.distinct()
+                val built = (k..e).all { if (rail) m.rail[tiles[it]] != Rail.NONE else m.road[tiles[it]] != Road.NONE } && there.size == 1
+                val kind = when {
+                    want != null -> if (fits(want)) want.id else NO_BRIDGE
+                    built -> there[0]
+                    else -> BridgeKind.entries.filter { fits(it) }.minByOrNull { it.price }?.id ?: NO_BRIDGE
+                }
+                for (j in k..e) out[j] = if (kind == NO_BRIDGE) NO_BRIDGE else kind or across
+                k = e + 1
+            }
+        }
+        return out
+    }
+
+    /** A bridge tile's [CityMap.bridge] with [action]'s toll and shutting set. */
+    private fun bridgeBits(bits: Int, action: Action.SetBridge): Int {
+        var v = bits
+        action.toll?.let { v = if (it) v or Bridge.TOLL else v and Bridge.TOLL.inv() }
+        action.shut?.let { v = if (it) v or Bridge.SHUT else v and Bridge.SHUT.inv() }
+        return v
+    }
+
+    /**
+     * Whether the [k]th of a line's [bridges] would stop ships: a low one, or
+     * the middle of a swing bridge, where it turns.
+     */
+    private fun blocksShips(bridges: IntArray, k: Int): Boolean {
+        val kind = BridgeKind.of(bridges[k] and Bridge.KIND)
+        if (kind == null || kind.clearance == Bridge.LOW) return true
+        if (kind != BridgeKind.SWING) return false
+        var before = 0
+        while (k - before - 1 >= 0 && bridges[k - before - 1] > 0 && (bridges[k - before - 1] and Bridge.KIND) == kind.id) before++
+        var after = 0
+        while (k + after + 1 < bridges.size && bridges[k + after + 1] > 0 && (bridges[k + after + 1] and Bridge.KIND) == kind.id) after++
+        return before == (before + after + 1) / 2
+    }
+
+    /** What a bridge of the kind in [bridge] costs against the same on land: plain ones as they always did. */
+    private fun bridgePrice(bridge: Int): Int = BridgeKind.of(bridge and Bridge.KIND)?.price ?: Prices.BRIDGE
 
     /**
      * The way a drawn path runs through each tile, and whether it turns there.
@@ -816,6 +1044,16 @@ class City(
         // The other carriageway on one side, and no more road beyond either.
         return carriageway(1) && !road(2) && !road(-1) || carriageway(-1) && !road(-2) && !road(1)
     }
+
+    /** Whether something running [run] would come onto the approach to a high bridge on tile [i] from the side. */
+    private fun sideways(i: Int, run: Int): Boolean {
+        val a = bridges().approach[i].toInt() and 0xff
+        return a != 0 && run != 0 && (a == Bridge.ACROSS) != (run == Heading.EAST.toInt() || run == Heading.WEST.toInt())
+    }
+
+    /** How long the road on tile [i] lasts: as long as its bridge, if it's on one. */
+    private fun roadLife(i: Int, road: RoadType): Int =
+        if (map.terrain[i] == Terrain.WATER) map.bridgeKind(i)?.life ?: road.life else road.life
 
     /** Whether two headings run at right angles. */
     private fun across(a: Int, b: Int) = a != 0 && b != 0 && (a + b) % 2 == 1
@@ -888,7 +1126,12 @@ class City(
         val added = ArrayList<Building>()
         val removed = ArrayList<Building>()
         when (action) {
-            is Action.BuildRoad -> {
+            is Action.BuildRoad -> if (action.tunnel) {
+                val layout = roadLayout(action)
+                layTunnel(layout.tiles, layout.runs, layout.headings, roadSegments(action.type, layout.tiles.size), action.type, plan.changes.toHashSet(), now) { works ->
+                    startWorks(works, Broken.ROAD, queued++ / Balance.WORKS_PER_DAY)
+                }
+            } else {
                 val layout = roadLayout(action)
                 val changing = plan.changes.toHashSet()
                 for (k in layout.tiles.indices) {
@@ -904,6 +1147,9 @@ class City(
                             m.roadLaid[j] = now.toShort()
                             clearTrees(j)
                         }
+                    }
+                    if (m.terrain[i] == Terrain.WATER && layout.bridges[k] >= 0) {
+                        m.bridge[i] = (layout.bridges[k] or (m.bridge[i].toInt() and (Bridge.SHUT or Bridge.TOLL))).toByte()
                     }
                     if (roadCost(action.type, layout, k) != NO_CHANGE) {
                         m.road[i] = action.type.id
@@ -1012,6 +1258,7 @@ class City(
                 if (bits and Broken.SUBWAY != 0) m.subwayLaid[i] = stamp
                 if (bits and Broken.POWER != 0) m.powerLaid[i] = stamp
                 if (bits and Broken.PHONE != 0) m.phoneLaid[i] = stamp
+                if (bits and Broken.LOW != 0) m.lowLaid[i] = stamp
                 startWorks(i, bits, queued++ / Balance.WORKS_PER_DAY)
             }
             is Action.RemoveTransit -> for (i in plan.changes) {
@@ -1025,12 +1272,27 @@ class City(
                 m.subwayLaid[i] = 0
                 clearBroken(i, Broken.TRAM or Broken.WIRE or Broken.SUBWAY)
             }
-            is Action.BuildRail -> for (i in plan.changes) {
+            is Action.BuildRail -> if (action.tunnel) {
+                val path = action.tiles.filter { inMap(it) }
+                val (runs, _) = runsOf(path)
+                layTunnel(path.toIntArray(), runs, ByteArray(path.size), listOf(path.indices), null, plan.changes.toHashSet(), now) { works ->
+                    startWorks(works, Broken.ROAD, queued++ / Balance.WORKS_PER_DAY)
+                }
+                railChanged = true
+            } else {
+              val path = action.tiles.filter { inMap(it) }
+              val (runs, turns) = runsOf(path)
+              val spans = bridgesAlong(path.toIntArray(), runs, turns, listOf(path.indices), action.bridge, rail = true)
+              val spanAt = HashMap<Int, Int>()
+              for (k in path.indices) spanAt[path[k]] = spans[k]
+              for (i in plan.changes) {
+                if (m.terrain[i] == Terrain.WATER) spanAt[i]?.takeIf { it >= 0 }?.let { m.bridge[i] = (it or (m.bridge[i].toInt() and (Bridge.SHUT or Bridge.TOLL))).toByte() }
                 if (m.rail[i] != Rail.NONE) startWorks(i, Broken.RAIL, queued++ / Balance.WORKS_PER_DAY)
                 m.rail[i] = Rail.TRACK
                 m.railLaid[i] = now.toShort()
                 m.zone[i] = Zone.NONE
                 clearTrees(i)
+              }
             }
             is Action.BuildPhoneLine -> for (i in plan.changes) {
                 m.phone[i] = if (action.fibre) Phone.FIBRE else Phone.COPPER
@@ -1082,6 +1344,8 @@ class City(
                 m.road[i] = Road.NONE
                 m.roadHeading[i] = Heading.BOTH
                 m.rail[i] = Rail.NONE
+                m.bridge[i] = 0
+                m.bridgeShut[i] = 0
                 m.roadLaid[i] = 0
                 m.railLaid[i] = 0
                 m.brownfield[i] = 0
@@ -1104,6 +1368,24 @@ class City(
                 m.buried[i] = 0
                 clearBroken(i, Broken.POWER or Broken.PHONE)
                 clearTrees(i)
+            }
+            is Action.RemoveTunnel -> {
+                for (i in plan.changes) {
+                    if (m.lowRail[i].toInt() != 0) railChanged = true
+                    m.lowRoad[i] = 0
+                    m.lowHeading[i] = 0
+                    m.lowRail[i] = 0
+                    m.portal[i] = 0
+                    m.lowLaid[i] = 0
+                    clearBroken(i, Broken.LOW)
+                }
+            }
+            is Action.SetBridge -> {
+                for (i in plan.changes) {
+                    if (action.shut != null && m.rail[i] != Rail.NONE) railChanged = true
+                    m.bridge[i] = bridgeBits(m.bridge[i].toInt(), action).toByte()
+                }
+                bridgeState()
             }
             is Action.RemovePipes -> for (i in plan.changes) {
                 for (kind in Pipe.entries) {
@@ -1317,6 +1599,7 @@ class City(
             if (river > Balance.BANKFULL) overflowRivers()
             weatherDisasters()
         }
+        bridgeWeather()
         traffic.snowedIn = snowedIn > 0
         day++
         if (day > daysIn(month, year)) {
@@ -1331,7 +1614,7 @@ class City(
     }
 
     private fun newMonth() {
-        // Undo is for slips of the finger, not for getting a month's use of something back.
+        // Undo is for slips of the finger, so it's cleared each month.
         undoable.clear()
         redoable.clear()
         if (networksDirty) updateNetworks()
@@ -1346,6 +1629,9 @@ class City(
         updateComms()
         updatePathways()
         wearOut()
+        floodTunnels(underWaterOnly = true)
+        truckWear()
+        bridgeState()
         accidents()
         earthquake()
         epidemic()
@@ -1456,8 +1742,8 @@ class City(
                 continue
             }
             val road = RoadType.of(m.road[i])
-            if (road != null && givesWay(m.roadLaid[i].toInt(), road.life)) {
-                fail(i, Broken.ROAD, Balance.MEND_ROAD, Balance.REPAIR_ROAD * (if (m.terrain[i] == Terrain.WATER) Prices.BRIDGE else 1))
+            if (road != null && givesWay(m.roadLaid[i].toInt(), roadLife(i, road))) {
+                fail(i, Broken.ROAD, Balance.MEND_ROAD, Balance.REPAIR_ROAD * (if (m.terrain[i] == Terrain.WATER) bridgePrice(m.bridge[i].toInt()) else 1))
                 continue
             }
             if (m.rail[i] != Rail.NONE && givesWay(m.railLaid[i].toInt(), Balance.TRACK_LIFE)) {
@@ -1487,6 +1773,11 @@ class City(
             }
             if (m.subway[i].toInt() != 0 && givesWay(m.subwayLaid[i].toInt(), Balance.TUNNEL_LIFE)) {
                 fail(i, Broken.SUBWAY, Balance.MEND_TUNNEL, Balance.REPAIR_TUNNEL)
+                tunnelShut = i
+            }
+            if (m.tunnelled(i) && !m.tunnelShut(i) && givesWay(m.lowLaid[i].toInt(), Balance.TUNNEL_LIFE)) {
+                fail(i, Broken.LOW, Balance.MEND_TUNNEL, Balance.REPAIR_TUNNEL)
+                if (m.lowRail[i].toInt() != 0) railChanged = true
                 tunnelShut = i
             }
         }
@@ -2233,17 +2524,25 @@ class City(
                 val end = if (freight) toEdge() else endTile
                 if (end < 0 || end !in 0 until map.size || steps[end] < 0) continue
                 val path = railway.pathBack(steps, end)
-                for (i in path) busy[i] += trips
-                routes += TrainRoute(path.reversedArray(), !freight, trips)
+                for (i in path) busy[i % map.size] += trips
+                routes += trainRoute(path.reversedArray(), !freight, trips)
             }
             if (map.rail[start] == Rail.TRACK && linkedStations.any { railway.stops[it] == start }) {
                 val end = toEdge()
-                if (end >= 0) routes += TrainRoute(railway.pathBack(steps, end).reversedArray(), true, 0)
+                if (end >= 0) routes += trainRoute(railway.pathBack(steps, end).reversedArray(), true, 0)
             }
         }
         val train = Balance.TRAIN_LOAD * 30
         for (i in 0 until map.size) map.railBusy[i] = min(255, busy[i] * 128 / train).toByte()
         trainRoutes = routes
+    }
+
+    /** A train's way along [path], tunnels and all: the tiles, with those under ground hidden but for the portals. */
+    private fun trainRoute(path: IntArray, passengers: Boolean, load: Int): TrainRoute {
+        val n = map.size
+        val tiles = IntArray(path.size) { path[it] % n }
+        val hidden = BooleanArray(path.size) { path[it] >= n && map.portal[path[it] - n].toInt() == 0 }
+        return TrainRoute(tiles, passengers, load, hidden)
     }
 
     /** Whether a road comes near enough to a building to reach it. */
@@ -2658,7 +2957,7 @@ class City(
         fun touches(b: Building, reached: BooleanArray): Boolean {
             for (y in b.y - 1..b.y + b.type.height) for (x in b.x - 1..b.x + b.type.width) {
                 if (!m.inside(x, y)) continue
-                // The footprint and its four sides, not the corners.
+                // The footprint and the tiles along its four sides, leaving out the corners.
                 val corner = (x == b.x - 1 || x == b.x + b.type.width) && (y == b.y - 1 || y == b.y + b.type.height)
                 if (!corner && reached[m.index(x, y)]) return true
             }
@@ -3175,6 +3474,7 @@ class City(
     private fun networksChanged() {
         networksDirty = true
         shippingDirty = true
+        bridgesDirty = true
     }
 
     private fun updateNetworks() {
@@ -3222,10 +3522,247 @@ class City(
             railChanged = false
             updateRail()
         }
+        updateBridges()
         updatePorts()
         updateWater()
         updatePower()
         updateTransit()
+    }
+
+    // ---- bridges -----------------------------------------------------------------
+
+    private var bridgesDirty = true
+
+    /** Each bridge's tiles, from one bank to the other. */
+    private var bridgeRuns: List<IntArray> = emptyList()
+
+    /** How many water tiles the bridge on each tile spans. */
+    private val spanAt = IntArray(map.size)
+
+    /** What a toll costs to cross, in cents. */
+    var tollRate = Balance.TOLL_CENTS
+        private set
+
+    fun setTollRate(cents: Int) {
+        tollRate = cents.coerceIn(0, Balance.TOLL_MOST)
+        bridgeState()
+    }
+
+    /** Whether any bridge charges a toll. */
+    val anyTolls: Boolean get() = bridgeRuns.any { run -> map.bridge[run[0]].toInt() and Bridge.TOLL != 0 }
+
+    /** The map with its bridges worked out: their spans, and the approaches to high ones. */
+    private fun bridges(): CityMap {
+        if (bridgesDirty) updateBridges()
+        return map
+    }
+
+    /** How many water tiles the bridge on tile [i] spans, 0 if there's none. */
+    fun span(i: Int): Int {
+        bridges()
+        return spanAt[i]
+    }
+
+    /**
+     * Finds each bridge from bank to bank, which way it runs (old ones didn't
+     * say), and the land leading up to the high ones, then what that means
+     * for the traffic.
+     */
+    private fun updateBridges() {
+        bridgesDirty = false
+        val m = map
+        m.approach.fill(0)
+        spanAt.fill(0)
+        val runs = ArrayList<IntArray>()
+        val seen = BooleanArray(m.size)
+        for (i in 0 until m.size) {
+            if (seen[i] || !m.bridged(i)) {
+                if (!m.bridged(i) && m.bridge[i].toInt() != 0) m.bridge[i] = 0
+                continue
+            }
+            val rail = m.rail[i] != Rail.NONE
+            fun on(x: Int, y: Int) = m.inside(x, y) && m.terrain[m.index(x, y)] == Terrain.WATER &&
+                if (rail) m.rail[m.index(x, y)] != Rail.NONE else m.road[m.index(x, y)] != Road.NONE
+            fun carries(x: Int, y: Int) = m.inside(x, y) && if (rail) m.rail[m.index(x, y)] != Rail.NONE else m.road[m.index(x, y)] != Road.NONE
+            val x = i % m.width
+            val y = i / m.width
+            val ew = carries(x - 1, y) || carries(x + 1, y)
+            val dx = if (ew) 1 else 0
+            val dy = if (ew) 0 else 1
+            var sx = x
+            var sy = y
+            while (on(sx - dx, sy - dy)) { sx -= dx; sy -= dy }
+            val tiles = ArrayList<Int>()
+            var tx = sx
+            var ty = sy
+            while (on(tx, ty)) {
+                tiles += m.index(tx, ty)
+                tx += dx
+                ty += dy
+            }
+            for (j in tiles) {
+                seen[j] = true
+                spanAt[j] = tiles.size
+                m.bridge[j] = ((m.bridge[j].toInt() and Bridge.ACROSS.inv()) or (if (ew) Bridge.ACROSS else 0)).toByte()
+            }
+            runs += tiles.toIntArray()
+            // The straight land up to a high bridge at each end.
+            val reach = m.bridgeKind(i)?.approach ?: 0
+            for (k in 1..reach) {
+                for ((ax, ay) in listOf(sx - dx * k to sy - dy * k, tx - dx + dx * k to ty - dy + dy * k)) {
+                    if (carries(ax, ay) && m.terrain[m.index(ax, ay)] != Terrain.WATER) m.approach[m.index(ax, ay)] = (if (ew) Bridge.ACROSS else 1).toByte()
+                }
+            }
+        }
+        bridgeRuns = runs
+        bridgeState()
+    }
+
+    /** How worn the bridge on tile [i] is, in percent of its life. */
+    fun bridgeWear(i: Int): Int {
+        val m = map
+        val life = m.bridgeKind(i)?.life ?: RoadType.of(m.road[i])?.life ?: Balance.TRACK_LIFE
+        val laid = if (m.road[i] != Road.NONE) m.roadLaid[i] else m.railLaid[i]
+        return Ageing.wear(monthNow - laid, life)
+    }
+
+    /** Whether the bridge on tile [i] turns trucks away: too light a kind, or posted as worn. */
+    fun bridgeLight(i: Int): Boolean {
+        val m = map
+        val kind = m.bridgeKind(i)
+        val light = kind?.heavy == false || kind == null && RoadType.of(m.road[i])?.let { it == RoadType.DIRT || it == RoadType.GRAVEL || it == RoadType.LANE } == true
+        return light || bridgeWear(i) >= Balance.POSTED_WEAR
+    }
+
+    /**
+     * What the bridges are like this month: the worn ones posted against
+     * trucks or shut as unsafe, which charge tolls, and how much the trucks
+     * that crossed have worn them.
+     */
+    private fun bridgeState() {
+        val m = map
+        val heavy = BooleanArray(m.size)
+        val toll = BooleanArray(m.size)
+        var railShut = false
+        for (run in bridgeRuns) for (i in run) {
+            heavy[i] = bridgeLight(i)
+            toll[i] = m.bridge[i].toInt() and Bridge.TOLL != 0
+            val unsafe = bridgeWear(i) >= Balance.UNSAFE_WEAR
+            val was = m.bridgeShut[i].toInt() and 0xff
+            if (unsafe && was != Balance.SHUT_UNSAFE) {
+                m.bridgeShut[i] = Balance.SHUT_UNSAFE.toByte()
+                railShut = railShut || m.rail[i] != Rail.NONE
+            } else if (!unsafe && was == Balance.SHUT_UNSAFE) {
+                m.bridgeShut[i] = 0
+                railShut = railShut || m.rail[i] != Rail.NONE
+            }
+        }
+        if (railShut) railChanged = true
+        traffic.setBridges(heavy, toll, tollRate * Balance.TOLL_SECONDS_PER_CENT)
+    }
+
+    /** Monthly: trucks wear the bridges they cross, a month's more wear for each so many loads. */
+    private fun truckWear() {
+        val m = map
+        for (run in bridgeRuns) for (i in run) {
+            val months = traffic.lastTrucks[i] / Balance.TRUCK_WEAR_LOADS
+            if (months == 0) continue
+            if (m.road[i] != Road.NONE) m.roadLaid[i] = max(0, m.roadLaid[i] - months).toShort()
+            else m.railLaid[i] = max(0, m.railLaid[i] - months).toShort()
+        }
+    }
+
+    /** Daily: long high bridges shut in a gale, and open again when it's been over a while. */
+    private fun bridgeWeather() {
+        val m = map
+        val gale = weather.windSpeed >= Weather.GALE
+        for (run in bridgeRuns) {
+            val kind = m.bridgeKind(run[0])
+            val shuts = gale && kind != null && kind.shutsInGale(run.size)
+            if (shuts && (m.bridgeShut[run[0]].toInt() and 0xff) == 0) events += CityEvent(EventKind.BridgeShut, run[0] % m.width, run[0] / m.width, null)
+            for (i in run) {
+                val days = m.bridgeShut[i].toInt() and 0xff
+                if (days == Balance.SHUT_UNSAFE) continue
+                val now = if (shuts) Balance.GALE_SHUT_DAYS else max(0, days - 1)
+                if (now != days) {
+                    m.bridgeShut[i] = now.toByte()
+                    if (m.rail[i] != Rail.NONE && (now == 0) != (days == 0)) railChanged = true
+                    if (now == 0 || days == 0) networksDirty = true
+                }
+            }
+        }
+    }
+
+    // ---- tunnels -----------------------------------------------------------------
+
+    /**
+     * Each tunnel, as the tiles it runs under: a tunnel is one run of tiles
+     * joined under ground, both bores of a divided road together.
+     */
+    private fun tunnels(): List<IntArray> {
+        val m = map
+        val seen = BooleanArray(m.size)
+        val out = ArrayList<IntArray>()
+        val queue = IntArray(m.size)
+        for (start in 0 until m.size) {
+            if (seen[start] || !m.tunnelled(start)) continue
+            var head = 0
+            var tail = 0
+            queue[tail++] = start
+            seen[start] = true
+            while (head < tail) {
+                val i = queue[head++]
+                for (k in 0 until 4) {
+                    val nx = i % m.width + DX[k]
+                    val ny = i / m.width + DY[k]
+                    if (!m.inside(nx, ny)) continue
+                    val j = m.index(nx, ny)
+                    if (seen[j] || !m.tunnelled(j)) continue
+                    seen[j] = true
+                    queue[tail++] = j
+                }
+            }
+            out += queue.copyOf(tail)
+        }
+        return out
+    }
+
+    /** Whether the pumps of the tunnel on [tiles] have power: anything powered on or beside it. */
+    fun pumped(tiles: IntArray): Boolean {
+        val m = map
+        for (i in tiles) {
+            val x = i % m.width
+            val y = i / m.width
+            for (dy in -1..1) for (dx in -1..1) if (m.inside(x + dx, y + dy) && m.powered[m.index(x + dx, y + dy)]) return true
+        }
+        return false
+    }
+
+    /** Whether the tunnel under tile [i] has its pumps running. */
+    fun pumpedAt(i: Int): Boolean = tunnels().firstOrNull { i in it }?.let { pumped(it) } ?: false
+
+    /**
+     * Tunnels with no power for their pumps flood: in a downpour, or (with
+     * [underWaterOnly]) those under a river or lake, which seep all the time.
+     * They're shut until they're pumped out and mended.
+     */
+    private fun floodTunnels(underWaterOnly: Boolean) {
+        val m = map
+        var flooded = -1
+        for (tunnel in tunnels()) {
+            if (pumped(tunnel)) continue
+            if (underWaterOnly && tunnel.none { m.terrain[it] == Terrain.WATER }) continue
+            if (tunnel.all { m.tunnelShut(it) }) continue
+            for (i in tunnel) {
+                m.broken[i] = (m.broken[i].toInt() or Broken.LOW).toShort()
+                m.mending[i] = max(m.mending[i].toInt() and 0xff, Balance.MEND_TUNNEL).toByte()
+                mendingTiles += i
+                if (m.lowRail[i].toInt() != 0) railChanged = true
+            }
+            networksDirty = true
+            flooded = tunnel[0]
+        }
+        if (flooded >= 0) events += CityEvent(EventKind.TunnelFlooded, flooded % m.width, flooded / m.width, null)
     }
 
     // ---- visitors ----------------------------------------------------------------
@@ -3353,6 +3890,12 @@ class City(
             if (Balance.SEA_VISITORS[b.type.portTier] > 0 && stats.visitorsBy[Tourism.SEA] > 0) routes += ShipRoute(path, ShipRoute.LINER, 1)
         }
         shipRoutes = routes
+        // Each ship through a lifting bridge holds the traffic a while.
+        val wait = IntArray(map.size)
+        for (route in routes) for (i in route.tiles) if (map.bridged(i) && map.clearance(i) == Bridge.OPENS) {
+            wait[i] = min(Balance.LIFT_MAX, wait[i] + route.ships * Balance.LIFT_DELAY)
+        }
+        traffic.setLifts(wait)
     }
 
     // ---- power -------------------------------------------------------------------
@@ -3859,6 +4402,7 @@ class City(
      */
     internal fun rainfall(amount: Int, frozen: Boolean = weather.temperature <= 0) {
         val m = map
+        floodTunnels(underWaterOnly = false)
         val hard = IntArray(m.size) { if (m.terrain[it] == Terrain.WATER) 0 else Stormwater.hardness(m, it) }
         val runoff = IntArray(m.size) { if (m.terrain[it] == Terrain.WATER) 0 else amount * hard[it] / 100 }
         val all = buildings.values.toList()
@@ -5294,7 +5838,7 @@ class City(
         var cables = 0.0
         var phoneLines = 0.0
         for (i in 0 until map.size) {
-            val bridge = if (map.terrain[i] == Terrain.WATER) Balance.BRIDGE_UPKEEP else 1.0
+            val bridge = if (map.terrain[i] == Terrain.WATER) map.bridgeKind(i)?.upkeep ?: Balance.BRIDGE_UPKEEP else 1.0
             val road = RoadType.of(map.road[i])
             if (road != null) roads += road.upkeep * bridge
             if (map.phone[i] == Phone.COPPER) phoneLines += Balance.COPPER_UPKEEP
@@ -5304,6 +5848,9 @@ class City(
             else if (map.power[i] == Power.HIGH) highLines++
             junctions += Junction.upkeep(map.control[i])
             if (map.rail[i] != Rail.NONE) track += Balance.RAIL_UPKEEP * bridge
+            // Tunnels: the fans and pumps.
+            if (map.lowRoad[i].toInt() != 0) roads += Balance.ROAD_TUNNEL_UPKEEP
+            if (map.lowRail[i].toInt() != 0) track += Balance.RAIL_TUNNEL_UPKEEP
             waterworks += (map.waterPipe[i] + map.sewerPipe[i] + map.stormPipe[i] + map.bank[i]) * Balance.PIPE_UPKEEP
         }
         s.waterUpkeep = waterworks.roundToLong()
@@ -5319,6 +5866,8 @@ class City(
         // Dues on the loads through the ports, and on visitors off the ships.
         s.portLoads = traffic.lastPortFreight.sum()
         s.duesIncome = (s.portLoads * Balance.PORT_DUE + s.visitorsBy[Tourism.SEA] * Balance.SEA_VISITOR_DUE).roundToLong()
+        s.tolls = traffic.lastTolls
+        s.tollIncome = s.tolls.toLong() * tollRate / 100
         s.portUpkeep = ports.sumOf { Balance.PORT_UPKEEP[it.type.portTier] }.roundToLong()
         s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.officeIncome + s.fareIncome + s.duesIncome + s.tollIncome
         var tramTiles = 0
@@ -5573,6 +6122,21 @@ class City(
         val hotels = buildings.values.filter { it.type == BuildingType.HOTEL && it.room > 0 }
         w.count(hotels.size)
         for (b in hotels) { w.int(b.id); w.int(b.served); w.int(b.room) }
+        // Since version 24: kinds of bridge, tolls and closures.
+        w.layer(map.bridge)
+        w.layer(map.bridgeShut)
+        w.int(tollRate)
+        w.int(s.tolls)
+        traffic.writeBridges(w)
+        // And tunnels, and where trains go under ground.
+        for (a in arrayOf(map.lowRoad, map.lowHeading, map.lowRail, map.portal)) w.layer(a)
+        w.shorts(map.lowLaid)
+        w.count(trainRoutes.size)
+        for (t in trainRoutes) {
+            val under = t.hidden.indices.filter { t.hidden[it] }
+            w.count(under.size)
+            for (k in under) w.int(k)
+        }
     }
 
     companion object {
@@ -5826,6 +6390,17 @@ class City(
                         if (b != null) { b.served = served; b.room = room }
                     }
                 }
+                if (version >= 24) {
+                    r.layer(m.bridge)
+                    r.layer(m.bridgeShut)
+                    c.tollRate = r.int().coerceIn(0, Balance.TOLL_MOST)
+                    c.stats.tolls = r.int()
+                    c.traffic.readBridges(r)
+                    for (a in arrayOf(m.lowRoad, m.lowHeading, m.lowRail, m.portal)) r.layer(a)
+                    r.shorts(m.lowLaid)
+                    if (r.count() != c.trainRoutes.size) throw SaveError("the trains don't add up")
+                    for (t in c.trainRoutes) repeat(r.count()) { r.int().let { k -> if (k in t.hidden.indices) t.hidden[k] = true } }
+                }
                 c.updateNetworks()
                 savedLoad?.copyInto(c.grid.load)
                 c.updatePathways()
@@ -5872,6 +6447,9 @@ class City(
 
         /** What [roadCost] says when a tile's road stays as it is, or can't be built. */
         private const val NO_CHANGE = -1L
+
+        /** Where no kind of bridge fits the water. */
+        private const val NO_BRIDGE = -1
         private const val BLOCKED = -2L
 
         /** How far pollution spreads, in tiles. */
@@ -6056,6 +6634,9 @@ class Stats {
     var tollIncome = 0L
     var portLoads = 0
 
+    /** Vehicles that paid a toll last month. */
+    var tolls = 0
+
     /** Visitors in town on an average day last month, by how they came ([Tourism]); those with hotel rooms, and the rooms. */
     var visitors = 0
     val visitorsBy = IntArray(Tourism.MODES)
@@ -6093,10 +6674,10 @@ class Stats {
 }
 
 /** A line a train ran last month: the track from end to end, and whether it carried passengers or freight, and how many. */
-class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int)
+class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int, val hidden: BooleanArray = BooleanArray(tiles.size))
 
 
-enum class EventKind { FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut }
+enum class EventKind { FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut }
 
 /** Something that happened at [x], [y], to a building of [type] if it's about one. */
 class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType?, val era: Era? = null)

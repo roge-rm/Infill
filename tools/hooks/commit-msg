@@ -1,0 +1,3 @@
+#!/bin/sh
+# The house style, on the commit message.
+exec python3 "$(git rev-parse --show-toplevel)/tools/style_check.py" --message "$1"

@@ -114,7 +114,7 @@ fun Pills(pills: List<PillItem>) {
 
 @Composable
 fun Pill(p: PillItem) {
-    // A plain one is just so, not good or bad.
+    // A plain one is neither good nor bad.
     val colour = if (p.tone == Tone.Plain) Infill.colors.textDim else toneColour(p.tone)
     Row(
         Modifier.clip(RoundedCornerShape(50)).background(colour.copy(alpha = 0.18f)).padding(horizontal = 8.dp, vertical = 3.dp),

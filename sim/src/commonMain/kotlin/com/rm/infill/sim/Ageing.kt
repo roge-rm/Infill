@@ -22,11 +22,14 @@ object Broken {
     /** A telephone line. */
     const val PHONE = 1024
 
+    /** A road or rail tunnel, flooded or caved in. */
+    const val LOW = 2048
+
     /** What shuts the road above it while it's dug up: the pipes and the tram track. */
     const val DUG = WATER or SEWER or STORM or TRAM
 
     /** What takes a network out of use while it's broken, so the networks are worked out again. */
-    const val NETWORKS = DUG or RAIL or WIRE or SUBWAY or POWER
+    const val NETWORKS = DUG or RAIL or WIRE or SUBWAY or POWER or LOW
 }
 
 /**

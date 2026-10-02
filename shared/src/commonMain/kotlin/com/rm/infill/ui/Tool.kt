@@ -1,5 +1,6 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.bulldoze_tunnel
 import com.rm.infill.res.container_port
 import com.rm.infill.res.docks
 import com.rm.infill.res.wharf
@@ -115,6 +116,7 @@ import com.rm.infill.res.road_one_way_avenue
 import com.rm.infill.res.road_one_way_street
 import com.rm.infill.res.road_street
 import androidx.compose.ui.graphics.Color
+import com.rm.infill.sim.BridgeKind
 import com.rm.infill.sim.Action
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.City
@@ -381,6 +383,7 @@ fun waterKindsIn(city: City): List<WaterKind> =
 enum class BulldozeKind(val title: StringResource) {
     Clear(Res.string.bulldoze_clear),
     Renew(Res.string.bulldoze_renew),
+    Tunnel(Res.string.bulldoze_tunnel),
 }
 
 /** What the phone tool puts down: exchanges and masts go where the finger ends up, lines are dragged, as is taking them up. */
@@ -484,7 +487,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
     fun action(
         tool: Tool, zone: ZoneKind, density: DensityKind, bulldoze: BulldozeKind, power: PowerKind, service: ServiceKind, road: RoadType, roadPipes: Boolean,
         rail: RailKind, water: WaterKind, transit: TransitKind, map: CityMap, junction: JunctionKind = JunctionKind.Lights,
-        district: Int = NEW_DISTRICT, phone: PhoneKind = PhoneKind.Copper, port: PortKind = PortKind.Wharf,
+        district: Int = NEW_DISTRICT, phone: PhoneKind = PhoneKind.Copper, port: PortKind = PortKind.Wharf, bridge: BridgeKind? = null, tunnel: Boolean = false,
     ): Action? = when (tool) {
         Tool.Port -> Action.PlaceBuilding(portBuilding(map, port, x1, y1), x1, y1)
         Tool.Phone -> when {
@@ -517,11 +520,11 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             if (road.width == 2) {
                 Action.BuildRoad(Action.roadPath(map, x0, y0, if (across) x1 else x0, if (across) y0 else y1, across), road, roadPipes)
             } else {
-                Action.BuildRoad(Action.roadPath(map, x0, y0, x1, y1, across), road, roadPipes)
+                Action.BuildRoad(Action.roadPath(map, x0, y0, x1, y1, across), road, roadPipes && !tunnel, bridge, tunnel)
             }
         }
         Tool.Rail -> when (rail) {
-            RailKind.Track -> Action.BuildRail(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
+            RailKind.Track -> Action.BuildRail(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), bridge?.takeIf { it.rail }, tunnel)
             RailKind.Station -> Action.PlaceBuilding(railBuilding(map, BuildingType.STATION, BuildingType.STATION_NS, x1, y1), x1, y1)
             RailKind.Yard -> Action.PlaceBuilding(railBuilding(map, BuildingType.FREIGHT_YARD, BuildingType.FREIGHT_YARD_NS, x1, y1), x1, y1)
         }
@@ -532,7 +535,11 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             else -> Action.RemovePipes(x0, y0, x1, y1)
         }
         Tool.Zone -> Action.PlaceZone(x0, y0, x1, y1, zone.zone, if (zone == ZoneKind.Farmland) Density.LOW else density.density)
-        Tool.Bulldoze -> if (bulldoze == BulldozeKind.Renew) Action.RenewArea(x0, y0, x1, y1) else Action.Bulldoze(x0, y0, x1, y1)
+        Tool.Bulldoze -> when (bulldoze) {
+            BulldozeKind.Renew -> Action.RenewArea(x0, y0, x1, y1)
+            BulldozeKind.Tunnel -> Action.RemoveTunnel(x0, y0, x1, y1)
+            BulldozeKind.Clear -> Action.Bulldoze(x0, y0, x1, y1)
+        }
         // A building goes where the finger ends up, with that tile its top left.
         Tool.Power -> if (power.scrubbers) Action.FitScrubbers(x1, y1) else power.building?.let { Action.PlaceBuilding(it, x1, y1) }
             ?: Action.BuildPowerLine(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), power.high, power.buried)

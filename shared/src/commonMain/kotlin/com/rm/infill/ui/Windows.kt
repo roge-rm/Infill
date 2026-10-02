@@ -1,5 +1,7 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.value_cents
+import com.rm.infill.res.toll_rate
 import com.rm.infill.res.label_hotel_rooms
 import com.rm.infill.res.label_visitors
 import com.rm.infill.res.by_air
@@ -283,6 +285,9 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
             Stepper(GlyphMark(Glyph.Cap), stringResource(Res.string.upkeep_schools), city.schoolFunding, 10) { game.setFunding(schools = (city.schoolFunding + it).coerceIn(0, 100)) }
             Stepper(GlyphMark(Glyph.Cross), stringResource(Res.string.upkeep_health), city.healthFunding, 10) { game.setFunding(health = (city.healthFunding + it).coerceIn(0, 100)) }
             Stepper(GlyphMark(Glyph.Wrench), stringResource(Res.string.emergency_repairs), city.reliefFunding, 25) { game.setFunding(relief = (city.reliefFunding + it).coerceIn(50, 200)) }
+            if (s.tolls > 0 || city.anyTolls) {
+                StepperRow(GlyphMark(Glyph.Bridge), stringResource(Res.string.toll_rate), stringResource(Res.string.value_cents, city.tollRate), { game.setTollRate(city.tollRate + it) }, 5)
+            }
         }
         Section(stringResource(Res.string.last_month), Glyph.Calendar) {
             val income = listOfNotNull(
@@ -343,7 +348,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
                 ),
             )
         }
-        // What the town's businesses trade, not the town's own money.
+        // What the town's businesses trade. The town's own money is above.
         if (s.exportValue > 0 || s.importValue > 0) {
             Section(stringResource(Res.string.trade), Glyph.Crate) {
                 StatGrid(

@@ -1,6 +1,8 @@
 package com.rm.infill.map
 
 import androidx.compose.ui.graphics.ImageBitmap
+import com.rm.infill.sim.Bridge
+import com.rm.infill.sim.BridgeKind
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.Generation
 import com.rm.infill.sim.Density
@@ -231,21 +233,31 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 val foul = map.foulLevel(i)
                 if (foul > 0) surface.fill(dx, dy, s, s, SEWAGE, SEWAGE_ALPHA[foul])
                 shores(surface, base, tx, ty, dx, dy)
-                if (rail) {
+                val kind = map.bridgeKind(i)
+                val ew = if (rail || road != null) (map.bridge[i].toInt() and Bridge.ACROSS) != 0 else false
+                val axis = if (ew) 1 else 0
+                val pier = if (kind != null) pierFor(kind, tx, ty, ew) else -1
+                // A swing bridge turns on a round pier under the deck.
+                if (pier == PIER_PIVOT) surface.blend(base + Atlas.PIER + pier * 2 + axis, dx, dy)
+                if (rail && (kind == null || kind == BridgeKind.TRESTLE)) {
                     val mask = railMask(tx, ty)
                     surface.blend(base + Atlas.TRESTLE + if (mask and 5 != 0 && mask and 10 == 0 || mask == 0) 0 else 1, dx, dy)
                     surface.blend(base + Atlas.TRACK + mask, dx, dy)
+                } else if (rail) {
+                    surface.blend(base + Atlas.BRIDGE + deckOf(kind) * 2 + axis, dx, dy)
+                    surface.blend(base + Atlas.TRACK + railMask(tx, ty), dx, dy)
+                    surface.blend(base + Atlas.RAILS + sidesOf(kind) * 2 + axis, dx, dy)
                 } else if (road != null) {
                     val mask = roadMask(tx, ty)
                     val timber = road == RoadType.DIRT || road == RoadType.GRAVEL || road == RoadType.LANE
-                    // One-way bridges run the way the traffic does; the rest the way the road goes on.
-                    val heading = map.roadHeading[i].toInt()
-                    val northSouth = if (heading != 0) heading % 2 == 1 else mask and 5 != 0 && mask and 10 != 10
-                    val deck = (if (timber) 0 else 2) + if (northSouth) 0 else 1
-                    surface.blend(base + Atlas.BRIDGE + deck, dx, dy)
+                    // Plain bridges from before there were kinds: timber for the light roads, stone for the rest.
+                    val deck = if (kind == null) (if (timber) DECK_WOOD else DECK_STONE) else deckOf(kind)
+                    val sides = if (kind == null) (if (timber) SIDES_WOOD else SIDES_STONE) else sidesOf(kind)
+                    surface.blend(base + Atlas.BRIDGE + deck * 2 + axis, dx, dy)
                     roadTile(surface, base, road, i, tx, ty, mask, dx, dy, level)
-                    surface.blend(base + Atlas.RAILS + deck, dx, dy)
+                    surface.blend(base + Atlas.RAILS + sides * 2 + axis, dx, dy)
                 }
+                if (pier >= 0 && pier != PIER_PIVOT) surface.blend(base + Atlas.PIER + pier * 2 + axis, dx, dy)
             } else {
                 surface.copy(base + Atlas.GRASS + h % Atlas.GRASS_COUNT, dx, dy)
                 // Stones showing where there's a seam underneath, until something's built over it.
@@ -277,6 +289,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 if (road != null) verges(surface, tx, ty, dx, dy, s, level)
                 if (road != null) transitOn(surface, base, i, tx, ty, dx, dy)
                 if (map.bank[i].toInt() != 0) embankment(surface, tx, ty, dx, dy, s, r.look == Atlas.SNOW)
+                // Where a tunnel comes up.
+                val opens = map.portal[i].toInt()
+                if (opens != 0) surface.blend(base + Atlas.PORTAL + (if (map.lowRail[i].toInt() != 0) 4 else 0) + opens - 1, dx, dy)
                 if (rail && road != null) {
                     // A level crossing, drawn over the road the way the track runs.
                     val mask = railMask(tx, ty)
@@ -364,6 +379,46 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         if (map.phone[i].toInt() != 0 && !map.duct(i)) return phoneSprite(tx, ty)
         if (map.streetTrees[i].toInt() != 0) return Atlas.STREET_TREES
         return null
+    }
+
+    /** What a bridge of [kind] is built of underneath: timber, stone or concrete, or steel plate. */
+    private fun deckOf(kind: BridgeKind?): Int = when (kind) {
+        null, BridgeKind.TRESTLE -> DECK_WOOD
+        BridgeKind.SWING, BridgeKind.TRUSS, BridgeKind.LIFT -> DECK_STEEL
+        else -> DECK_STONE
+    }
+
+    /** What runs along its sides. */
+    private fun sidesOf(kind: BridgeKind?): Int = when (kind) {
+        null, BridgeKind.TRESTLE -> SIDES_WOOD
+        BridgeKind.CONCRETE -> SIDES_STONE
+        BridgeKind.TRUSS -> SIDES_TRUSS
+        BridgeKind.SWING, BridgeKind.LIFT -> SIDES_GIRDER
+        BridgeKind.SUSPENSION, BridgeKind.CABLE_STAYED -> SIDES_CABLE
+    }
+
+    /**
+     * What stands up from the bridge of [kind] on tile [x], [y], by where the
+     * tile is along it: a suspension bridge's towers a quarter of the way in
+     * from each end, a cable-stayed one's pylon and a swing bridge's pivot in
+     * the middle, a lift bridge's towers at each end; or -1 for nothing.
+     */
+    private fun pierFor(kind: BridgeKind, x: Int, y: Int, ew: Boolean): Int {
+        val dx = if (ew) 1 else 0
+        val dy = if (ew) 0 else 1
+        fun on(k: Int) = map.inside(x + dx * k, y + dy * k) && map.bridged(map.index(x + dx * k, y + dy * k))
+        var before = 0
+        while (on(-(before + 1))) before++
+        var after = 0
+        while (on(after + 1)) after++
+        val n = before + after + 1
+        return when (kind) {
+            BridgeKind.SUSPENSION -> if (before == n / 4 || after == n / 4) PIER_TOWER else -1
+            BridgeKind.CABLE_STAYED -> if (before == n / 2) PIER_PYLON else -1
+            BridgeKind.SWING -> if (before == n / 2) PIER_PIVOT else -1
+            BridgeKind.LIFT -> if (before == 0 || after == 0) PIER_LIFT else -1
+            else -> -1
+        }
     }
 
     /**
@@ -502,16 +557,16 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         // Paths meet at each tile's bottom left corner: north is up the left edge from it, east along the
         // bottom edge. South and west are drawn by the tile beyond, unless that's the road the path meets.
         if (p != 0) {
-            val colour = PATH_COLOURS[(p shr 7) and 3]
+            val colour = pathColour(p)
             if (p and 1 != 0 || (p and 4 != 0 && roadAt(tx, ty + 1))) surface.fill(dx, dy, w, s, colour, PATH_ALPHA)
             if (p and 2 != 0 || (p and 8 != 0 && roadAt(tx - 1, ty))) surface.fill(dx, dy + s - w, s, w, colour, PATH_ALPHA)
             when ((p shr 4) and 7) {
-                3 -> surface.fill(dx, dy + s - lane, s, lane, PATH_COLOURS[(p shr 7) and 3], BACK_LANE_ALPHA)
-                4 -> surface.fill(dx, dy, lane, s, PATH_COLOURS[(p shr 7) and 3], BACK_LANE_ALPHA)
+                3 -> surface.fill(dx, dy + s - lane, s, lane, pathColour(p), BACK_LANE_ALPHA)
+                4 -> surface.fill(dx, dy, lane, s, pathColour(p), BACK_LANE_ALPHA)
             }
         }
-        if ((below shr 4) and 7 == 1) surface.fill(dx, dy + s - lane, s, lane, PATH_COLOURS[(below shr 7) and 3], BACK_LANE_ALPHA)
-        if ((left shr 4) and 7 == 2) surface.fill(dx, dy, lane, s, PATH_COLOURS[(left shr 7) and 3], BACK_LANE_ALPHA)
+        if ((below shr 4) and 7 == 1) surface.fill(dx, dy + s - lane, s, lane, pathColour(below), BACK_LANE_ALPHA)
+        if ((left shr 4) and 7 == 2) surface.fill(dx, dy, lane, s, pathColour(left), BACK_LANE_ALPHA)
     }
 
     /**
@@ -521,7 +576,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     private fun verges(surface: BakeSurface, tx: Int, ty: Int, dx: Int, dy: Int, s: Int, level: Int) {
         if (level >= 2) return
         fun at(x: Int, y: Int) = if (map.inside(x, y) && map.road[map.index(x, y)] == Road.NONE) map.pathway[map.index(x, y)].toInt() else 0
-        fun colour(p: Int) = PATH_COLOURS[(p shr 7) and 3]
+        fun colour(p: Int) = pathColour(p)
         val verge = max(1, s * VERGE / 32)
         val w = max(1, s * 4 / 32)
         val lane = max(2, s * 5 / 32)
@@ -552,6 +607,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         columnLane(tx, ty - 1).let { if (it != 0) surface.fill(dx, dy, lane, verge, colour(it), BACK_LANE_ALPHA) }
         columnLane(tx, ty + 1).let { if (it != 0) surface.fill(dx, dy + s - verge, lane, verge, colour(it), BACK_LANE_ALPHA) }
     }
+
+    /** What a path or lane's made of, by [CityMap.pathway]: where two meet on a tile their marks add up, so the better wins. */
+    private fun pathColour(p: Int) = PATH_COLOURS[minOf(PATH_COLOURS.size - 1, (p shr 7) and 3)]
 
     private fun roadAt(x: Int, y: Int) = map.inside(x, y) && map.road[map.index(x, y)] != Road.NONE
 
@@ -654,11 +712,18 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     private fun railMask(x: Int, y: Int): Int {
         fun track(tx: Int, ty: Int) = map.inside(tx, ty) && map.rail[map.index(tx, ty)] != Rail.NONE
         var m = 0
-        if (track(x, y - 1)) m = m or 1
-        if (track(x + 1, y)) m = m or 2
-        if (track(x, y + 1)) m = m or 4
-        if (track(x - 1, y)) m = m or 8
+        if (track(x, y - 1) || opensTo(x, y - 1, Heading.SOUTH.toInt(), rail = true)) m = m or 1
+        if (track(x + 1, y) || opensTo(x + 1, y, Heading.WEST.toInt(), rail = true)) m = m or 2
+        if (track(x, y + 1) || opensTo(x, y + 1, Heading.NORTH.toInt(), rail = true)) m = m or 4
+        if (track(x - 1, y) || opensTo(x - 1, y, Heading.EAST.toInt(), rail = true)) m = m or 8
         return m
+    }
+
+    /** Whether tile [x], [y] is a tunnel's portal opening toward [h], for track if [rail], else road: what's in front of it joins it. */
+    private fun opensTo(x: Int, y: Int, h: Int, rail: Boolean): Boolean {
+        if (!map.inside(x, y)) return false
+        val i = map.index(x, y)
+        return map.portal[i].toInt() == h && (if (rail) map.lowRail[i].toInt() != 0 else map.lowRoad[i].toInt() != 0)
     }
 
     /** A bus and tram lane: a red band along each kerb, the way the road runs, left off at crossings. */
@@ -716,10 +781,10 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         val limited = map.inside(x, y) && RoadType.of(map.roadAt(x, y))?.limited == true
         fun joins(nx: Int, ny: Int) = road(nx, ny) && (!limited || RoadType.of(map.roadAt(nx, ny))?.limited == true)
         var m = 0
-        if (joins(x, y - 1)) m = m or 1
-        if (joins(x + 1, y)) m = m or 2
-        if (joins(x, y + 1)) m = m or 4
-        if (joins(x - 1, y)) m = m or 8
+        if (joins(x, y - 1) || opensTo(x, y - 1, Heading.SOUTH.toInt(), rail = false)) m = m or 1
+        if (joins(x + 1, y) || opensTo(x + 1, y, Heading.WEST.toInt(), rail = false)) m = m or 2
+        if (joins(x, y + 1) || opensTo(x, y + 1, Heading.NORTH.toInt(), rail = false)) m = m or 4
+        if (joins(x - 1, y) || opensTo(x - 1, y, Heading.EAST.toInt(), rail = false)) m = m or 8
         return m
     }
 
@@ -887,6 +952,20 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         /** Paths and back lanes: worn dirt, gravel, then paving; a path's a little fainter than a lane. */
         /** The widest building, in tiles. */
         private val WIDEST = com.rm.infill.sim.BuildingType.entries.maxOf { it.width }
+
+        // Bridge parts, in the order the atlas has them, each north to south then east to west.
+        private const val DECK_WOOD = 0
+        private const val DECK_STONE = 1
+        private const val DECK_STEEL = 2
+        private const val SIDES_WOOD = 0
+        private const val SIDES_STONE = 1
+        private const val SIDES_TRUSS = 2
+        private const val SIDES_GIRDER = 3
+        private const val SIDES_CABLE = 4
+        private const val PIER_TOWER = 0
+        private const val PIER_PYLON = 1
+        private const val PIER_PIVOT = 2
+        private const val PIER_LIFT = 3
 
         /** The deepest building, in tiles. */
         private val TALLEST = com.rm.infill.sim.BuildingType.entries.maxOf { it.height }

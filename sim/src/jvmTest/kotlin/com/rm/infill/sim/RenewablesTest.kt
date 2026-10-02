@@ -89,7 +89,7 @@ class RenewablesTest {
     @Test
     fun turbinesOnTheWaterGoWhereTheirWaterIs() {
         val c = watery(2015)
-        // A river turbine in the river's current, not on land or in still water.
+        // A river turbine goes in the river's current, and can't go on land or in still water.
         assertTrue(c.can(BuildingType.RIVER_TURBINE, 31, 30))
         assertTrue(!c.can(BuildingType.RIVER_TURBINE, 40, 30))
         assertTrue(!c.can(BuildingType.RIVER_TURBINE, 12, 22))

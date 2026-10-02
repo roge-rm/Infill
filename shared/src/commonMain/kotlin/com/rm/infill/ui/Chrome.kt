@@ -189,7 +189,7 @@ private fun skyOf(fog: Boolean, precipitation: Precipitation, cloud: Int, night:
 
 /**
  * A picture of the sky and the temperature in °C. On a small screen, just the
- * picture. Handed the values, not the weather itself, which changes in place.
+ * picture. Handed the values, since the weather itself changes in place.
  */
 @Composable
 private fun WeatherReading(sky: Sky, degrees: Int, compact: Boolean, textSize: androidx.compose.ui.unit.TextUnit) {

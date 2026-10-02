@@ -6,12 +6,20 @@ sealed interface Action {
      * A road of [type] along [tiles], given as map indices in order. One-way
      * roads run the way it was drawn. A two-wide road is drawn along its
      * right-hand carriageway, and stops at the first turn. With [pipes], a
-     * water main, a sewer and a storm drain go under it too.
+     * water main, a sewer and a storm drain go under it too. Over water it
+     * goes on a [bridge] of that kind, or the cheapest that fits if null.
+     * As a [tunnel], it goes under whatever's there from one end to the
+     * other, coming up at a portal at each end.
      */
-    data class BuildRoad(val tiles: IntArray, val type: RoadType = RoadType.DIRT, val pipes: Boolean = false) : Action {
-        override fun equals(other: Any?) = other is BuildRoad && type == other.type && pipes == other.pipes && tiles.contentEquals(other.tiles)
-        override fun hashCode() = (tiles.contentHashCode() * 31 + type.hashCode()) * 2 + if (pipes) 1 else 0
+    data class BuildRoad(
+        val tiles: IntArray, val type: RoadType = RoadType.DIRT, val pipes: Boolean = false, val bridge: BridgeKind? = null, val tunnel: Boolean = false,
+    ) : Action {
+        override fun equals(other: Any?) = other is BuildRoad && type == other.type && pipes == other.pipes && bridge == other.bridge && tunnel == other.tunnel && tiles.contentEquals(other.tiles)
+        override fun hashCode() = (((tiles.contentHashCode() * 31 + type.hashCode()) * 2 + (if (pipes) 1 else 0)) * 8 + (bridge?.id ?: 0)) * 2 + if (tunnel) 1 else 0
     }
+
+    /** Takes out the road and rail tunnels from [x0], [y0] to [x1], [y1], portals and all. */
+    data class RemoveTunnel(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action
 
     /** Zones every tile from [x0], [y0] to [x1], [y1] as [zone]. */
     data class PlaceZone(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val zone: Byte, val density: Byte = Density.MEDIUM) : Action
@@ -117,9 +125,18 @@ sealed interface Action {
     }
 
     /** Railway track along [tiles], given as map indices in order. */
-    data class BuildRail(val tiles: IntArray) : Action {
-        override fun equals(other: Any?) = other is BuildRail && tiles.contentEquals(other.tiles)
-        override fun hashCode() = tiles.contentHashCode()
+    data class BuildRail(val tiles: IntArray, val bridge: BridgeKind? = null, val tunnel: Boolean = false) : Action {
+        override fun equals(other: Any?) = other is BuildRail && bridge == other.bridge && tunnel == other.tunnel && tiles.contentEquals(other.tiles)
+        override fun hashCode() = (tiles.contentHashCode() * 8 + (bridge?.id ?: 0)) * 2 + if (tunnel) 1 else 0
+    }
+
+    /**
+     * For the bridges on [tiles], given as map indices: a [toll] on or off,
+     * and [shut] by the town or open again, each left as it is if null.
+     */
+    data class SetBridge(val tiles: IntArray, val toll: Boolean? = null, val shut: Boolean? = null) : Action {
+        override fun equals(other: Any?) = other is SetBridge && toll == other.toll && shut == other.shut && tiles.contentEquals(other.tiles)
+        override fun hashCode() = tiles.contentHashCode() * 9 + (toll?.let { if (it) 1 else 2 } ?: 0) * 3 + (shut?.let { if (it) 1 else 2 } ?: 0)
     }
 
     /** A pipe of [kind] along [tiles], given as map indices in order. */
@@ -174,6 +191,15 @@ class Plan(val cost: Long, val changes: IntArray, val blocked: IntArray, val pro
 object Prices {
     /** A road over water costs this many times as much. */
     const val BRIDGE = 6
+    /** A tunnel a tile, for a road or for track; more under water, and more again dug under buildings. */
+    const val ROAD_TUNNEL = 250L
+    const val RAIL_TUNNEL = 200L
+    const val UNDER_WATER = 2
+    const val CUT_AND_COVER = 150L
+    const val REMOVE_TUNNEL = 20L
+
+    /** A toll booth on a bridge. */
+    const val TOLL_BOOTH = 300L
     const val CLEAR_TREES = 5L
     const val ZONE = 5L
     const val REMOVE_ROAD = 2L

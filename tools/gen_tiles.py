@@ -367,6 +367,11 @@ BRIDGE_STONE = [c("#a9a49a"), c("#9c978d"), c("#b5b0a6")]
 RAIL = c("#4a4540")
 PARAPET_STONE = c("#6b665e")
 DECK_SHADOW = (10, 25, 45, 110)
+STEEL_DECK = [c("#5c636b"), c("#545b63"), c("#646b73")]
+GIRDER = c("#3f4a56")
+GIRDER_LIGHT = c("#6f7c88")
+CABLE = c("#d8dde2")
+TOWER_STONE = c("#c9c4ba")
 WOOD_LO, WOOD_HI = 5, 26
 
 
@@ -380,6 +385,9 @@ def bridge(material, vertical):
         for x in range(lo, hi + 1):
             if material == "wood":
                 px[x, y] = PLANK_GAP if y % 4 == 3 else rng.choice(PLANK)
+            elif material == "steel":
+                # Steel plates, riveted where they meet.
+                px[x, y] = shade(STEEL_DECK[0], 0.85) if y % 8 == 0 else (STEEL_DECK[0] if rng.random() < 0.7 else rng.choice(STEEL_DECK))
             else:
                 px[x, y] = BRIDGE_STONE[0] if rng.random() < 0.7 else rng.choice(BRIDGE_STONE)
     img = img if vertical else img.rotate(90)
@@ -393,7 +401,10 @@ def bridge(material, vertical):
 
 
 def rails(material, vertical):
-    """The railings along both sides of a bridge, drawn over the road."""
+    """The railings along both sides of a bridge, drawn over the road: timber rails, stone parapets, a steel truss,
+    plain steel girders, or the main cables of a suspension or cable-stayed bridge."""
+    if material in ("truss", "girder", "cable"):
+        return bridge_sides(material, vertical)
     img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
     px = img.load()
     lo, hi = (WOOD_LO, WOOD_HI) if material == "wood" else (0, T - 1)
@@ -407,6 +418,97 @@ def rails(material, vertical):
             for x in xs:
                 px[x, y] = shade(col, 0.7)
     return img if vertical else img.rotate(90)
+
+
+def bridge_sides(kind, vertical):
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    if kind == "truss":
+        # Deep steel sides, and the bracing overhead that crosses the road from side to side.
+        for x0 in (0, T - 3):
+            d.rectangle([x0, 0, x0 + 2, T - 1], GIRDER)
+            for y in range(0, T, 8):
+                d.line([x0, y, x0 + 2, y + 3], GIRDER_LIGHT)
+        for y0 in (0, 16):
+            d.line([3, y0, T - 4, y0 + 15], (*GIRDER[:3], 150))
+            d.line([T - 4, y0, 3, y0 + 15], (*GIRDER[:3], 150))
+    elif kind == "girder":
+        for x0 in (0, T - 2):
+            d.rectangle([x0, 0, x0 + 1, T - 1], GIRDER)
+            for y in range(2, T, 4):
+                d.point((x0 + (1 if x0 == 0 else 0), y), GIRDER_LIGHT)
+    else:
+        # A low parapet, the main cable just outside it and the hangers down to the deck.
+        for x0 in (1, T - 3):
+            d.rectangle([x0, 0, x0 + 1, T - 1], PARAPET_STONE)
+        for x0 in (0, T - 1):
+            d.line([x0, 0, x0, T - 1], CABLE)
+            for y in range(1, T, 4):
+                d.point((x0 + (1 if x0 == 0 else -1), y), CABLE)
+    return img if vertical else img.rotate(90)
+
+
+def pier(kind, vertical):
+    """What stands up out of a bridge on some of its tiles: a suspension bridge's towers, a cable-stayed one's pylon with
+    its fan of cables, the round pier a swing bridge turns on, or the towers a lift bridge's span rises between."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    if kind == "tower":
+        for x0 in (0, T - 5):
+            d.rectangle([x0, 11, x0 + 4, 20], TOWER_STONE, OUTLINE)
+            d.line([x0 + 1, 12, x0 + 3, 12], shade(TOWER_STONE, 1.15))
+        d.rectangle([5, 14, T - 6, 16], shade(TOWER_STONE, 0.8))
+    elif kind == "pylon":
+        mx = T // 2
+        for (ex, ey) in ((0, 0), (T - 1, 0), (0, T - 1), (T - 1, T - 1), (0, 8), (T - 1, 8), (0, T - 9), (T - 1, T - 9)):
+            d.line([mx, 15, ex, ey], CABLE)
+        d.rectangle([mx - 3, 12, mx + 2, 19], TOWER_STONE, OUTLINE)
+        d.rectangle([mx - 1, 14, mx, 17], shade(TOWER_STONE, 1.15))
+    elif kind == "pivot":
+        d.ellipse([3, 3, T - 4, T - 4], shade(BRIDGE_STONE[0], 0.8), OUTLINE)
+        d.ellipse([7, 7, T - 8, T - 8], BRIDGE_STONE[0])
+    else:
+        # Lift towers of steel either side, the machinery on top.
+        for x0 in (0, T - 6):
+            d.rectangle([x0, 6, x0 + 5, 25], GIRDER, OUTLINE)
+            d.line([x0 + 1, 7, x0 + 4, 24], GIRDER_LIGHT)
+            d.line([x0 + 4, 7, x0 + 1, 24], GIRDER_LIGHT)
+            d.rectangle([x0 + 1, 13, x0 + 4, 18], c("#c9b48a"))
+    img = img if vertical else img.rotate(90)
+    out = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    out.paste(Image.new("RGBA", (T, T), DECK_SHADOW), (3, 3), img.split()[3])
+    out.alpha_composite(img)
+    return out
+
+
+def portal(look, rail, heading):
+    """Where a tunnel comes up: a concrete headwall with the dark mouth in it, and the road or track running out of it
+    toward [heading] (1 north to 4 west). Drawn opening south and turned."""
+    img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    rng = random.Random(7800 + rail)
+    lo, hi = (TRACK_LO - 2, TRACK_HI + 2) if rail else (STREET_LO, STREET_HI)
+    # The cutting down to the mouth: retaining walls either side.
+    wall = c("#a8a399") if look != "snow" else c("#e6eaee")
+    d.rectangle([lo - 3, 8, lo - 1, T - 1], wall)
+    d.rectangle([hi + 1, 8, hi + 3, T - 1], wall)
+    if rail:
+        cols = BALLAST[look]
+        d.rectangle([lo, 10, hi, T - 1], cols[1])
+        for y in range(11, T, 4):
+            d.line([lo + 1, y, hi - 1, y], SLEEPER[look])
+        for x in (TRACK_LO + 2, TRACK_HI - 2):
+            d.line([x, 10, x, T - 1], RAIL_STEEL)
+    else:
+        road = ASPHALT[look] if "ASPHALT" in globals() else [c("#6d6a64"), c("#67645f"), c("#73706a")]
+        noise_fill(img, (lo, 10, hi + 1, T), road, rng)
+    # The headwall across the top, and the dark mouth in it, deeper at the back.
+    d.rectangle([lo - 4, 4, hi + 4, 10], shade(wall, 0.9), OUTLINE)
+    d.rectangle([lo + 1, 6, hi - 1, 12], c("#141414"))
+    d.rectangle([lo + 3, 6, hi - 3, 9], c("#050505"))
+    d.line([lo - 4, 4, hi + 4, 4], shade(wall, 1.15))
+    turns = {3: 0, 4: 270, 1: 180, 2: 90}
+    return img.rotate(turns[heading])
 
 
 def highway(look, mask):
@@ -4364,12 +4466,18 @@ def sprites_for(look):
     out.append(("overpass_ew", overpass(look, False), 0, []))
     m = median(look)
     out += [("median_n", m, 0, []), ("median_e", m.rotate(-90), 0, []), ("median_s", m.rotate(180), 0, []), ("median_w", m.rotate(90), 0, [])]
-    for material in ("wood", "stone"):
+    for material in ("wood", "stone", "steel"):
         out.append((f"bridge_{material}_ns", bridge(material, True), 0, []))
         out.append((f"bridge_{material}_ew", bridge(material, False), 0, []))
-    for material in ("wood", "stone"):
+    for material in ("wood", "stone", "truss", "girder", "cable"):
         out.append((f"rails_{material}_ns", rails(material, True), 0, []))
         out.append((f"rails_{material}_ew", rails(material, False), 0, []))
+    for kind in ("tower", "pylon", "pivot", "lift"):
+        out.append((f"pier_{kind}_ns", pier(kind, True), 0, []))
+        out.append((f"pier_{kind}_ew", pier(kind, False), 0, []))
+    for rail in (0, 1):
+        for h in range(1, 5):
+            out.append((f"portal_{rail}_{h}", portal(look, rail, h), 0, []))
     for mask in range(16):
         out.append((f"track_{mask}", track(look, mask), 0, []))
     out += [("crossing_ns", crossing(look, True), 0, []), ("crossing_ew", crossing(look, False), 0, [])]
@@ -4501,7 +4609,7 @@ def write_kotlin(names, flat, pos, size):
             lines.append('            "' + text[i:i + 2000] + '"')
         return "decode(\n" + " +\n".join(lines or ['            ""']) + ",\n        )"
 
-    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "overpass", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "copper_line", "fibre_line", "power_span", "hv_span", "copper_span", "fibre_span", "street_trees", "seam", "junction", "roundabout", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
+    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "overpass", "median", "bridge", "rails", "pier", "portal", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "copper_line", "fibre_line", "power_span", "hv_span", "copper_span", "fibre_span", "street_trees", "seam", "junction", "roundabout", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
     # A sprite's name must start with exactly one group's, or the counts go wrong.
     for n in names:
         owners = [g for g in groups if n.startswith(g + "_")]

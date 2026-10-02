@@ -69,7 +69,8 @@ internal class Shipping(private val map: CityMap) {
                 if (!map.inside(nx, ny)) continue
                 val j = map.index(nx, ny)
                 if (!passable(j) || j in blocked) continue
-                val c = d + step(nx, ny)
+                // Waiting for a bridge to open is slower than sailing under one.
+                val c = d + step(nx, ny) + if (map.bridged(j) && map.clearance(j) == Bridge.OPENS) Balance.SHIP_WAIT else 0
                 if (cost[j] < 0 || c < cost[j]) {
                     cost[j] = c
                     next[j] = i
@@ -95,9 +96,9 @@ internal class Shipping(private val map: CityMap) {
         return out.toIntArray()
     }
 
-    /** Open water a ship can sail through: nothing standing in it and no bridge over it. */
+    /** Open water a ship can sail through: nothing standing in it and no low bridge over it. */
     fun passable(i: Int): Boolean =
-        map.terrain[i] == Terrain.WATER && map.building[i] == 0 && map.road[i] == Road.NONE && map.rail[i] == Rail.NONE
+        map.terrain[i] == Terrain.WATER && map.building[i] == 0 && (!map.bridged(i) || map.clearance(i) != Bridge.LOW && !map.pivot(i))
 
     /** What a step onto a tile costs: more beside the shore, so ships keep to the middle. */
     private fun step(x: Int, y: Int): Int {

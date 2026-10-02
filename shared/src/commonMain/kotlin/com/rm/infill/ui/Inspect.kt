@@ -21,6 +21,30 @@ import androidx.compose.ui.unit.dp
 import com.rm.infill.GameState
 import com.rm.infill.map.Atlas
 import com.rm.infill.map.BuildingSprites
+import com.rm.infill.res.pill_pumps_off
+import com.rm.infill.res.pill_tunnel_shut
+import com.rm.infill.res.road_tunnel
+import com.rm.infill.res.rail_tunnel
+import com.rm.infill.res.tunnel_cut_cover
+import com.rm.infill.res.tunnel_underpass
+import com.rm.infill.res.tunnel_under_water
+import com.rm.infill.res.tunnel_portal
+import com.rm.infill.res.label_for_ships
+import com.rm.infill.res.action_shut
+import com.rm.infill.res.action_open
+import com.rm.infill.res.action_toll_on
+import com.rm.infill.res.action_toll_off
+import com.rm.infill.res.pill_toll
+import com.rm.infill.res.pill_posted
+import com.rm.infill.res.pill_shut
+import com.rm.infill.res.pill_gale_shut
+import com.rm.infill.res.pill_unsafe
+import com.rm.infill.res.ships_blocked
+import com.rm.infill.res.ships_it_opens
+import com.rm.infill.res.ships_pass_under
+import com.rm.infill.res.value_tiles
+import com.rm.infill.res.label_span
+import com.rm.infill.res.bridge_plain
 import com.rm.infill.res.value_of
 import com.rm.infill.res.label_guests
 import com.rm.infill.res.label_ships
@@ -28,6 +52,7 @@ import com.rm.infill.res.label_port_loads
 import com.rm.infill.res.pill_no_sea_route
 import com.rm.infill.res.pill_open_sea
 import com.rm.infill.res.*
+import com.rm.infill.sim.Bridge
 import com.rm.infill.sim.Action
 import com.rm.infill.sim.Ageing
 import com.rm.infill.sim.Balance
@@ -341,6 +366,7 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
     val title = stringResource(
         when {
             map.bank[i].toInt() != 0 -> Res.string.embankment
+            map.portal[i].toInt() != 0 -> Res.string.tunnel_portal
             road != null && map.rail[i] != Rail.NONE -> Res.string.inspect_crossing
             road != null -> roadName(road)
             map.rail[i] != Rail.NONE -> Res.string.track
@@ -364,7 +390,7 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
     val subtitle = listOfNotNull(
         zone?.let { stringResource(it) },
         densityName(map.density[i])?.let { stringResource(it) },
-        if (map.terrain[i] == Terrain.WATER && (road != null || map.rail[i] != Rail.NONE)) stringResource(Res.string.inspect_bridge) else null,
+        if (map.bridged(i)) stringResource(map.bridgeKind(i)?.let { bridgeName(it) } ?: Res.string.bridge_plain) else null,
         city.districtAt(i)?.name,
     ).joinToString(" · ").ifEmpty { null }
 
@@ -384,9 +410,52 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
     if (map.streetTrees[i].toInt() != 0) pills += PillItem(Glyph.Tree, stringResource(Res.string.street_trees), Tone.Good)
     if (map.lane[i].toInt() != 0) pills += PillItem(Glyph.Diamond, stringResource(Res.string.inspect_bus_lane), Tone.Plain)
 
+    // A bridge: how long, whether ships get by, whether trucks may cross, and whether it's open.
+    val bridged = map.bridged(i)
+    if (bridged) {
+        val kind = map.bridgeKind(i)
+        stats += StatItem(Glyph.Bridge, stringResource(Res.string.label_span), stringResource(Res.string.value_tiles, city.span(i)))
+        stats += StatItem(
+            Glyph.Ship, stringResource(Res.string.label_for_ships),
+            stringResource(when (map.clearance(i)) { Bridge.HIGH -> Res.string.ships_pass_under; Bridge.OPENS -> Res.string.ships_it_opens; else -> Res.string.ships_blocked }),
+        )
+        val shut = map.bridgeShut[i].toInt() and 0xff
+        when {
+            shut == Balance.SHUT_UNSAFE -> pills += PillItem(Glyph.Warn, stringResource(Res.string.pill_unsafe), Tone.Bad)
+            shut > 0 -> pills += PillItem(Glyph.Rain, stringResource(Res.string.pill_gale_shut), Tone.Warn)
+            map.bridge[i].toInt() and Bridge.SHUT != 0 -> pills += PillItem(Glyph.Remove, stringResource(Res.string.pill_shut), Tone.Bad)
+        }
+        if (road != null && city.bridgeLight(i)) pills += PillItem(Glyph.Crate, stringResource(Res.string.pill_posted), Tone.Warn)
+        val tolled = map.bridge[i].toInt() and Bridge.TOLL != 0
+        if (tolled) pills += PillItem(Glyph.Coin, stringResource(Res.string.pill_toll), Tone.Plain)
+        if (road != null) {
+            val toll = Action.SetBridge(intArrayOf(i), toll = !tolled)
+            val plan = city.plan(toll)
+            if (plan.ok) actions += ActionItem(Glyph.Coin, stringResource(if (tolled) Res.string.action_toll_off else Res.string.action_toll_on), if (plan.cost > 0) moneyText(plan.cost) else null) { onAction(toll) }
+        }
+        val isShut = map.bridge[i].toInt() and Bridge.SHUT != 0
+        val shutting = Action.SetBridge(intArrayOf(i), shut = !isShut)
+        actions += ActionItem(Glyph.Remove, stringResource(if (isShut) Res.string.action_open else Res.string.action_shut), confirm = !isShut) { onAction(shutting) }
+        kind?.let { stats += wearStat(Glyph.Bridge, stringResource(Res.string.label_wear), (if (road != null) map.roadLaid[i] else map.railLaid[i]).toInt(), it.life) }
+    }
+
+    // A tunnel under it: what kind, whether its pumps have power, and how worn it is.
+    if (map.tunnelled(i)) {
+        val rail = map.lowRail[i].toInt() != 0
+        val where = when {
+            map.terrain[i] == Terrain.WATER -> Res.string.tunnel_under_water
+            map.road[i] != com.rm.infill.sim.Road.NONE || map.rail[i] != Rail.NONE -> Res.string.tunnel_underpass
+            else -> Res.string.tunnel_cut_cover
+        }
+        stats += StatItem(Glyph.Tunnel, stringResource(if (rail) Res.string.rail_tunnel else Res.string.road_tunnel), stringResource(where))
+        stats += wearStat(Glyph.Tunnel, stringResource(Res.string.label_wear), map.lowLaid[i].toInt(), Balance.TUNNEL_LIFE)
+        if (map.tunnelShut(i)) pills += PillItem(Glyph.Rain, stringResource(Res.string.pill_tunnel_shut), Tone.Bad)
+        else if (!city.pumpedAt(i)) pills += PillItem(Glyph.Bolt, stringResource(Res.string.pill_pumps_off), Tone.Warn)
+    }
+
     // The road and what runs on it.
     if (road != null && map.bank[i].toInt() == 0) {
-        stats += wearStat(Glyph.Road, stringResource(Res.string.label_wear), map.roadLaid[i].toInt(), road.life)
+        if (!bridged || map.bridgeKind(i) == null) stats += wearStat(Glyph.Road, stringResource(Res.string.label_wear), map.roadLaid[i].toInt(), road.life)
         val busy = map.congestion[i].toInt() and 0xff
         stats += StatItem(Glyph.Car, stringResource(Res.string.label_traffic), level(busy).replaceFirstChar { it.uppercase() }, busy / 255f, when { busy >= 150 -> Tone.Bad; busy >= 70 -> Tone.Warn; else -> Tone.Good })
         if (map.control[i] != Junction.NONE) {
@@ -394,7 +463,7 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
             stats += StatItem(Glyph.Lights, stringResource(junctionName(map.control[i])), stringResource(Res.string.value_seconds, wait))
         }
     }
-    if (map.rail[i] != Rail.NONE) stats += wearStat(Glyph.Rail, stringResource(Res.string.track), map.railLaid[i].toInt(), Balance.TRACK_LIFE)
+    if (map.rail[i] != Rail.NONE && (!bridged || map.bridgeKind(i) == null)) stats += wearStat(Glyph.Rail, stringResource(Res.string.track), map.railLaid[i].toInt(), Balance.TRACK_LIFE)
     for ((kind, layer, laid) in listOf(Triple(Pipe.WATER, map.waterPipe, map.waterLaid), Triple(Pipe.SEWER, map.sewerPipe, map.sewerLaid), Triple(Pipe.STORM, map.stormPipe, map.stormLaid))) {
         val material = Material.of(kind, layer[i]) ?: continue
         val glyph = when (kind) {
@@ -414,7 +483,7 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
         stats += wearStat(Glyph.Phone, stringResource(name), map.phoneLaid[i].toInt(), city.phoneLife(i))
     }
     if (map.cable(i)) stats += wearStat(Glyph.Cable, stringResource(Res.string.label_wear), map.powerLaid[i].toInt(), city.cableLife(i))
-    // High voltage feeds substations, not homes, so only ordinary lines carry a load to show.
+    // High voltage only feeds substations, so only ordinary lines carry a load to show.
     if (map.power[i] == Power.LINE) {
         val kw = city.lineLoad(i)
         val mw = "${kw / 1000}.${kw % 1000 / 100}"

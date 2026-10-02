@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
+import com.rm.infill.sim.Bridge
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.ShipRoute
 import kotlin.math.min
@@ -15,9 +16,12 @@ import kotlin.math.min
  * of the map, tied up a while at the quay, and out again. A busier port has
  * more of them, up to [most].
  */
-internal fun DrawScope.drawShips(routes: List<ShipRoute>, map: CityMap, camera: Camera, time: Float, most: Int, smoke: Boolean) {
+internal fun DrawScope.drawShips(routes: List<ShipRoute>, map: CityMap, camera: Camera, time: Float, most: Int, smoke: Boolean): Set<Int> {
     val t = camera.tilePx
-    if (most == 0 || routes.isEmpty() || t < MIN_SHIP_PX) return
+    if (most == 0 || routes.isEmpty() || t < MIN_SHIP_PX) return emptySet()
+    // Where each ship is, worked out first so the bridges they pass can open before they're drawn.
+    val placed = ArrayList<Placed>()
+    val open = HashSet<Int>()
     val topLeft = camera.screenToTile(Offset.Zero, size)
     val bottomRight = camera.screenToTile(Offset(size.width, size.height), size)
     for ((k, route) in routes.withIndex()) {
@@ -38,6 +42,11 @@ internal fun DrawScope.drawShips(routes: List<ShipRoute>, map: CityMap, camera: 
             }
             // Tied up a little short of the berth, so a second ship waits behind the first.
             val s = (at - n * SHIP_GAP * (if (at >= length) 1 else 0)).coerceIn(0f, length)
+            // A lifting or swing bridge opens while a ship's near it.
+            for (k in maxOf(0, (s - OPEN_REACH).toInt())..minOf(path.size - 1, (s + OPEN_REACH).toInt() + 1)) {
+                val i = path[k]
+                if (map.bridged(i) && map.clearance(i) == Bridge.OPENS) open += i
+            }
             val (x, y, heading) = pointOn(path, s, map.width)
             if (x < topLeft.x - 2 || y < topLeft.y - 2 || x > bottomRight.x + 2 || y > bottomRight.y + 2) continue
             val point = camera.tileToScreen(x, y, size)
@@ -47,8 +56,79 @@ internal fun DrawScope.drawShips(routes: List<ShipRoute>, map: CityMap, camera: 
             val quay = alongQuay(map, path.last()).let { q -> if (kotlin.math.abs(turn(way, q)) > 90f) q + 180f else q }
             val near = ((s - (length - SWING)) / SWING).coerceIn(0f, 1f)
             val facing = way + turn(way, quay) * near
-            ship(point, t, facing, route.kind, k + n, wake = !berthed)
-            if (smoke && route.kind != ShipRoute.CONTAINER && route.kind != ShipRoute.LINER) puffs(point, t, time, k * 5 + n)
+            placed += Placed(point, facing, route.kind, k + n, !berthed, smoke && route.kind != ShipRoute.CONTAINER && route.kind != ShipRoute.LINER)
+        }
+    }
+    // The whole of each bridge that's opening, from bank to bank.
+    val spans = HashSet<Int>()
+    for (i in open) spans += bridgeTiles(map, i)
+    drawOpenBridges(spans, map, camera)
+    for (p in placed) {
+        ship(p.at, t, p.facing, p.kind, p.seed, wake = p.wake)
+        if (p.smoke) puffs(p.at, t, time, p.seed)
+    }
+    return spans
+}
+
+private class Placed(val at: Offset, val facing: Float, val kind: Int, val seed: Int, val wake: Boolean, val smoke: Boolean)
+
+/** The tiles of the bridge [i] is on, bank to bank. */
+private fun bridgeTiles(map: CityMap, i: Int): List<Int> {
+    val ew = map.bridge[i].toInt() and Bridge.ACROSS != 0
+    val dx = if (ew) 1 else 0
+    val dy = if (ew) 0 else 1
+    val x = i % map.width
+    val y = i / map.width
+    val out = ArrayList<Int>()
+    var k = 0
+    while (map.inside(x - dx * k, y - dy * k) && map.bridged(map.index(x - dx * k, y - dy * k))) { out += map.index(x - dx * k, y - dy * k); k++ }
+    k = 1
+    while (map.inside(x + dx * k, y + dy * k) && map.bridged(map.index(x + dx * k, y + dy * k))) { out += map.index(x + dx * k, y + dy * k); k++ }
+    return out
+}
+
+/**
+ * Bridges open for a ship: a lift bridge's span raised on its towers, its
+ * shadow on the water where it was; a swing bridge's span turned on its
+ * pivot to lie along the channel.
+ */
+private fun DrawScope.drawOpenBridges(tiles: Set<Int>, map: CityMap, camera: Camera) {
+    val t = camera.tilePx
+    val done = HashSet<Int>()
+    for (i in tiles) {
+        if (i in done) continue
+        val span = bridgeTiles(map, i)
+        done += span
+        val kind = map.bridgeKind(i) ?: continue
+        val ew = map.bridge[i].toInt() and Bridge.ACROSS != 0
+        val xs = span.map { it % map.width }
+        val ys = span.map { it / map.width }
+        val x0 = xs.min().toFloat()
+        val y0 = ys.min().toFloat()
+        val x1 = xs.max() + 1f
+        val y1 = ys.max() + 1f
+        val topLeft = camera.tileToScreen(x0, y0, size)
+        val bottomRight = camera.tileToScreen(x1, y1, size)
+        val w = bottomRight.x - topLeft.x
+        val h = bottomRight.y - topLeft.y
+        // The water shows where the deck was.
+        drawRect(OPEN_WATER, topLeft, Size(w, h))
+        if (kind == com.rm.infill.sim.BridgeKind.SWING) {
+            // Turned square to the road, on the middle of the span.
+            val mx = (topLeft.x + bottomRight.x) / 2
+            val my = (topLeft.y + bottomRight.y) / 2
+            val long = if (ew) w else h
+            val wide = t * 0.8f
+            val size = if (ew) Size(wide, long) else Size(long, wide)
+            drawRect(DECK_SHADOW, Offset(mx - size.width / 2 + t * 0.1f, my - size.height / 2 + t * 0.1f), size)
+            drawRect(STEEL, Offset(mx - size.width / 2, my - size.height / 2), size)
+            drawCircle(PIVOT, t * 0.3f, Offset(mx, my))
+        } else {
+            // Raised: its shadow where it was, the span itself lifted and drawn a little up the screen.
+            val lift = t * 0.6f
+            drawRect(DECK_SHADOW, topLeft + Offset(t * 0.15f, t * 0.15f), Size(w, h))
+            drawRect(STEEL, topLeft - Offset(0f, lift), Size(w, h))
+            drawRect(STEEL_EDGE, topLeft - Offset(0f, lift), Size(w, h), style = androidx.compose.ui.graphics.drawscope.Stroke(t * 0.06f))
         }
     }
 }
@@ -141,6 +221,15 @@ private const val SHIP_GAP = 2.4f
 private const val SWING = 2f
 
 private const val MIN_SHIP_PX = 8f
+
+/** How near a ship is, in tiles along its way, when a bridge opens for it. */
+private const val OPEN_REACH = 1.5f
+
+private val OPEN_WATER = Color(0xFF3A6FB0)
+private val DECK_SHADOW = Color(0x660A192D)
+private val STEEL = Color(0xFF5C636B)
+private val STEEL_EDGE = Color(0xFF3F4A56)
+private val PIVOT = Color(0xFF8E8A82)
 
 // By kind: steamer, collier, tanker, liner, container ship.
 private val LENGTHS = floatArrayOf(1.3f, 1.6f, 2.0f, 2.2f, 2.6f)

@@ -40,8 +40,8 @@ object Rail {
  * again whenever track or buildings change.
  */
 internal class RailNetwork(private val map: CityMap) {
-    /** Which line each track tile is on, -1 for none. */
-    val line = IntArray(map.size) { -1 }
+    /** Which line each track tile is on, -1 for none; the track in tunnels from [CityMap.size] up. */
+    val line = IntArray(2 * map.size) { -1 }
 
     /** Lines with track at the edge of the map, so trains come and go from outside. */
     var linked = BooleanArray(0)
@@ -62,14 +62,52 @@ internal class RailNetwork(private val map: CityMap) {
         private set
 
     /** Track under deep floodwater is closed until it drains, and broken track until it's mended. */
-    private fun deep(i: Int) = (map.flood[i].toInt() and 0xff) >= Balance.FLOOD_DAMAGE || map.out(i, Broken.RAIL)
+    private fun deep(i: Int) = (map.flood[i].toInt() and 0xff) >= Balance.FLOOD_DAMAGE || map.out(i, Broken.RAIL) ||
+        map.terrain[i] == Terrain.WATER && map.bridgeClosed(i)
+
+    private val n = map.size
+
+    /**
+     * The track as places a train can be: each tile's track on the surface,
+     * and from [n] up the track in a tunnel under it, the two joined at the
+     * portals. Calls [visit] with each place a step on from [node].
+     */
+    private inline fun next(node: Int, visit: (Int) -> Unit) {
+        val low = node >= n
+        val i = if (low) node - n else node
+        val x = i % map.width
+        val y = i / map.width
+        for (h in 1..4) {
+            val nx = x + Heading.DX[h]
+            val ny = y + Heading.DY[h]
+            if (!map.inside(nx, ny)) continue
+            val j = map.index(nx, ny)
+            if (low) {
+                if (map.portal[i].toInt() == h) {
+                    if (map.rail[j] == Rail.TRACK && !deep(j)) visit(j)
+                } else if (map.lowRail[j].toInt() != 0 && !map.tunnelShut(j) && Tunnel.goes(map.lowHeading[i].toInt(), h) && Tunnel.goes(map.lowHeading[j].toInt(), h)) {
+                    visit(n + j)
+                }
+            } else {
+                if (map.rail[j] == Rail.TRACK && !deep(j)) visit(j)
+                if (map.lowRail[j].toInt() != 0 && map.portal[j].toInt() == Heading.opposite(h) && !map.tunnelShut(j)) visit(n + j)
+            }
+        }
+    }
+
+    private fun edge(node: Int): Boolean {
+        if (node >= n) return false
+        val x = node % map.width
+        val y = node / map.width
+        return x == 0 || y == 0 || x == map.width - 1 || y == map.height - 1
+    }
 
     fun update(stations: List<Building>) {
         line.fill(-1)
         var lines = 0
         val linkedList = ArrayList<Boolean>()
-        val queue = IntArray(map.size)
-        for (start in 0 until map.size) {
+        val queue = IntArray(2 * n)
+        for (start in 0 until n) {
             if (map.rail[start] != Rail.TRACK || deep(start) || line[start] >= 0) continue
             var head = 0
             var tail = 0
@@ -78,17 +116,12 @@ internal class RailNetwork(private val map: CityMap) {
             var edge = false
             while (head < tail) {
                 val i = queue[head++]
-                val x = i % map.width
-                val y = i / map.width
-                if (x == 0 || y == 0 || x == map.width - 1 || y == map.height - 1) edge = true
-                for (h in 1..4) {
-                    val nx = x + Heading.DX[h]
-                    val ny = y + Heading.DY[h]
-                    if (!map.inside(nx, ny)) continue
-                    val j = map.index(nx, ny)
-                    if (map.rail[j] != Rail.TRACK || deep(j) || line[j] >= 0) continue
-                    line[j] = lines
-                    queue[tail++] = j
+                if (edge(i)) edge = true
+                next(i) { j ->
+                    if (line[j] < 0) {
+                        line[j] = lines
+                        queue[tail++] = j
+                    }
                 }
             }
             linkedList += edge
@@ -104,11 +137,9 @@ internal class RailNetwork(private val map: CityMap) {
             val steps = steps(stops[a])
             for (b in kept.indices) if (steps[stops[b]] >= 0) times[a][b] = steps[stops[b]] * Balance.RAIL_TIME
             var nearest = -1
-            for (i in 0 until map.size) {
+            for (i in 0 until n) {
                 if (steps[i] < 0) continue
-                val x = i % map.width
-                val y = i / map.width
-                if ((x == 0 || y == 0 || x == map.width - 1 || y == map.height - 1) && (nearest < 0 || steps[i] < nearest)) nearest = steps[i]
+                if (edge(i) && (nearest < 0 || steps[i] < nearest)) nearest = steps[i]
             }
             toEdge[a] = nearest
         }
@@ -117,51 +148,37 @@ internal class RailNetwork(private val map: CityMap) {
     /** Whether the stop's line reaches the edge of the map. */
     fun linked(stop: Int): Boolean = line[stops[stop]].let { it >= 0 && linked[it] }
 
-    /** Steps along the track from [from] to every tile, -1 where it doesn't reach. */
+    /** Steps along the track from [from] to every place, the tunnels from [CityMap.size] up; -1 where it doesn't reach. */
     fun steps(from: Int): IntArray {
-        val steps = IntArray(map.size) { -1 }
-        val queue = IntArray(map.size)
+        val steps = IntArray(2 * n) { -1 }
+        val queue = IntArray(2 * n)
         var head = 0
         var tail = 0
         steps[from] = 0
         queue[tail++] = from
         while (head < tail) {
             val i = queue[head++]
-            val x = i % map.width
-            val y = i / map.width
-            for (h in 1..4) {
-                val nx = x + Heading.DX[h]
-                val ny = y + Heading.DY[h]
-                if (!map.inside(nx, ny)) continue
-                val j = map.index(nx, ny)
-                if (map.rail[j] != Rail.TRACK || deep(j) || steps[j] >= 0) continue
-                steps[j] = steps[i] + 1
-                queue[tail++] = j
+            next(i) { j ->
+                if (steps[j] < 0) {
+                    steps[j] = steps[i] + 1
+                    queue[tail++] = j
+                }
             }
         }
         return steps
     }
 
-    /** The track from [from] back along [steps] to where they were counted from, one tile at a time. */
+    /** The track from [from] back along [steps] to where they were counted from, one place at a time, tunnels from [CityMap.size] up. */
     fun pathBack(steps: IntArray, from: Int): IntArray {
         if (steps[from] < 0) return IntArray(0)
         val out = IntArray(steps[from] + 1)
         var at = from
         out[0] = at
         for (k in 1 until out.size) {
-            val x = at % map.width
-            val y = at / map.width
-            // The first neighbour one step nearer, north to west, so it's always the same way.
-            for (h in 1..4) {
-                val nx = x + Heading.DX[h]
-                val ny = y + Heading.DY[h]
-                if (!map.inside(nx, ny)) continue
-                val j = map.index(nx, ny)
-                if (steps[j] == steps[at] - 1) {
-                    at = j
-                    break
-                }
-            }
+            // The first place one step nearer, north to west, so it's always the same way.
+            var back = -1
+            next(at) { j -> if (back < 0 && steps[j] == steps[at] - 1) back = j }
+            at = back
             out[k] = at
         }
         return out

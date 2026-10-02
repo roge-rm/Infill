@@ -262,7 +262,7 @@ class TransitTest {
         assertEquals(50, c.trips(50).lastModes[Mode.BUS.ordinal])
         // A line needs stops of its kind, and a way between them.
         assertFalse(c.plan(Action.AddLine(true, intArrayOf(c.i(2, 16), c.i(60, 16)), 2)).ok, "no tram stops")
-        // A road of its own, not joined to the street.
+        // A road of its own, with no way onto the street.
         c.apply(Action.BuildRoad(Action.roadPath(c.map, 8, 10, 12, 10, true), RoadType.STREET))
         c.apply(Action.PlaceStop(10, 10, Stop.BUS))
         assertEquals(Problem.NoRoute, c.plan(Action.AddLine(false, intArrayOf(c.i(2, 16), c.i(10, 10)), 2)).problem)

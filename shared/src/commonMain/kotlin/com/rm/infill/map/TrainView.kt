@@ -46,6 +46,8 @@ internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera
                 // Engine, tender, then the cars, each behind the last.
                 val s = if (forward) head - c * CAR_GAP else head + c * CAR_GAP
                 if (s < 0f || s > length) continue
+                // Out of sight in a tunnel.
+                if (route.hidden[min(path.size - 1, (s + 0.5f).toInt())]) continue
                 val (x, y, heading) = pointOn(path, s, map.width)
                 if (x < topLeft.x - 1 || y < topLeft.y - 1 || x > bottomRight.x + 1 || y > bottomRight.y + 1) continue
                 val tile = path[min(path.size - 1, (s + 0.5f).toInt())]

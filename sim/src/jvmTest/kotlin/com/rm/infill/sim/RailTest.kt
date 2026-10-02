@@ -22,7 +22,7 @@ class RailTest {
         for (y in 0 until 32) c.map.terrain[c.i(16, y)] = Terrain.WATER
         val plan = c.rail(10, 5, 20, 5)
         assertTrue(plan.ok)
-        assertEquals(10 * Prices.RAIL + Prices.RAIL * Prices.BRIDGE, plan.cost)
+        assertEquals(10 * Prices.RAIL + Prices.RAIL * BridgeKind.TRESTLE.price, plan.cost)
         assertEquals(Rail.TRACK, c.map.rail[c.i(16, 5)])
         // No turning on a bridge.
         val corner = c.plan(Action.BuildRail(Action.roadPath(c.map, 12, 10, 16, 14, true)))

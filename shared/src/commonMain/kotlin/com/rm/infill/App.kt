@@ -6,6 +6,14 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.unit.Density
+import com.rm.infill.res.dig_tunnel
+import com.rm.infill.ui.bridgeName
+import com.rm.infill.ui.bridgeChoices
+import com.rm.infill.ui.TrayCycle
+import com.rm.infill.sim.BridgeKind
+import com.rm.infill.res.event_bridge_shut
+import com.rm.infill.res.event_tunnel_flooded
+import com.rm.infill.res.label_bridge_kind
 import com.rm.infill.platform.AUTOSAVE
 import com.rm.infill.platform.BackButton
 import com.rm.infill.platform.Settings
@@ -344,7 +352,7 @@ private fun GameScreen(
 ) {
     run {
         val city = game.city
-        // How often disasters come is the player's setting, not the town's.
+        // How often disasters come is a player's setting, kept with the settings.
         city.disasterLevel = settings.disasters
         val density = LocalDensity.current.density
         val camera = remember(density) {
@@ -359,6 +367,8 @@ private fun GameScreen(
         var roadKind by remember { mutableStateOf(RoadType.DIRT) }
         var railKind by remember { mutableStateOf(RailKind.Track) }
         var portKind by remember { mutableStateOf(PortKind.Wharf) }
+        var bridgeKind by remember { mutableStateOf<BridgeKind?>(null) }
+        var tunnelling by remember { mutableStateOf(false) }
         var waterKind by remember { mutableStateOf(WaterKind.Main) }
         var transitKind by remember { mutableStateOf(TransitKind.TramTrack) }
         var junctionKind by remember { mutableStateOf(JunctionKind.Lights) }
@@ -470,6 +480,8 @@ private fun GameScreen(
                         EventKind.TramTrackBroken -> Message(Res.string.event_tram_track_broken, x = e.x, y = e.y)
                         EventKind.WireDown -> Message(Res.string.event_wire_down, x = e.x, y = e.y)
                         EventKind.TunnelShut -> Message(Res.string.event_tunnel_shut, x = e.x, y = e.y)
+                        EventKind.TunnelFlooded -> Message(Res.string.event_tunnel_flooded, x = e.x, y = e.y)
+                        EventKind.BridgeShut -> Message(Res.string.event_bridge_shut, x = e.x, y = e.y)
                         EventKind.Smog -> Message(Res.string.event_smog)
                         EventKind.DumpFull -> Message(Res.string.event_dump_full, x = e.x, y = e.y)
                         EventKind.Gale -> Message(Res.string.event_gale, x = e.x, y = e.y)
@@ -495,9 +507,9 @@ private fun GameScreen(
         }
 
         // What the drag would do, worked out again as it moves.
-        val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, phoneKind, portKind, game.revision) {
+        val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, phoneKind, portKind, bridgeKind, tunnelling, game.revision) {
             drag?.let { d ->
-                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
+                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
             }
         }
         val costText = preview?.let {
@@ -533,7 +545,7 @@ private fun GameScreen(
                 junctionKind = kinds[(kinds.indexOf(junctionKind) + 1) % kinds.size]
             }
             if (t == Tool.Transit && tool == Tool.Transit) {
-                // The list of lines is a window, not something to put down: the key steps past it.
+                // The list of lines opens a window, so the key steps past it.
                 val kinds = transitKindsIn(city).filter { !it.list }
                 transitKind = kinds[(kinds.indexOf(transitKind) + 1) % kinds.size]
                 lineDraft = emptyList()
@@ -599,7 +611,7 @@ private fun GameScreen(
                 else -> pick(Tool.Inspect)
             }
         }
-        // Android picks the back handler added last, not the one declared last, so this
+        // Android picks the back handler that was added last, so this
         // one stands aside while one of the app's windows is open over the game.
         BackButton(enabled = !windowOpen) { back() }
 
@@ -616,7 +628,7 @@ private fun GameScreen(
                     val kind = if (transitKind.line == 2) Stop.TRAM else Stop.BUS
                     if (city.map.stop[i].toInt() and kind != 0 && lineDraft.lastOrNull() != i) lineDraft = lineDraft + i
                 }
-                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind)
+                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling)
                 if (action != null) {
                     val made = action is Action.PaintDistrict && action.id == NEW_DISTRICT
                     val plan = game.apply(action)
@@ -707,7 +719,8 @@ private fun GameScreen(
             viewSize = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
             MapView(
                 game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, graphics, gestures, preview, costText, overlay,
-                underground = tool == Tool.Water || (tool == Tool.Transit && (transitKind == TransitKind.Subway || transitKind == TransitKind.Station)) ||
+                underground = tool == Tool.Water || tunnelling && (tool == Tool.Road || tool == Tool.Rail && railKind == RailKind.Track) ||
+                    tool == Tool.Bulldoze && bulldozeKind == BulldozeKind.Tunnel || (tool == Tool.Transit && (transitKind == TransitKind.Subway || transitKind == TransitKind.Station)) ||
                     (tool == Tool.Power && powerKind.buried) || (tool == Tool.Phone && phoneKind.duct),
                 focus = inspected?.let { (x, y) -> city.map.index(x, y) } ?: -1,
                 districts = if (tool != Tool.Districts) emptyList() else { game.revision; city.districts.map { it.id to it.name } },
@@ -848,9 +861,25 @@ private fun GameScreen(
                             )
                         }
                         Tool.Road -> ChoiceTray(atlas, roadChoices(city), roadKind, { roadKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab) {
+                            if (roadKind.bridges) {
+                                val kinds = bridgeChoices(city, rail = false)
+                                TrayCycle(Glyph.Bridge, stringResource(Res.string.label_bridge_kind), stringResource(bridgeName(bridgeKind))) {
+                                    bridgeKind = kinds[(kinds.indexOf(bridgeKind) + 1) % kinds.size]
+                                }
+                            }
+                            if (city.allowsTunnel(rail = false)) TrayToggle(Glyph.Tunnel, stringResource(Res.string.dig_tunnel), tunnelling) { tunnelling = !tunnelling }
                             TrayToggle(Glyph.Pipe, stringResource(Res.string.road_with_pipes), roadPipes) { roadPipes = !roadPipes }
                         }
-                        Tool.Rail -> ChoiceTray(atlas, railChoices(), railKind, { railKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
+                        Tool.Rail -> ChoiceTray(atlas, railChoices(), railKind, { railKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab) {
+                            if (railKind == RailKind.Track) {
+                                val kinds = bridgeChoices(city, rail = true)
+                                val shown = bridgeKind?.takeIf { it.rail }
+                                TrayCycle(Glyph.Bridge, stringResource(Res.string.label_bridge_kind), stringResource(bridgeName(shown))) {
+                                    bridgeKind = kinds[(kinds.indexOf(shown) + 1) % kinds.size]
+                                }
+                                TrayToggle(Glyph.Tunnel, stringResource(Res.string.dig_tunnel), tunnelling) { tunnelling = !tunnelling }
+                            }
+                        }
                         Tool.Port -> ChoiceTray(atlas, portChoices(city), portKind, { portKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
                         Tool.Transit -> ChoiceTray(atlas, transitChoices(city, transitNow), transitKind, {
                             if (it.list) linesOpen = true

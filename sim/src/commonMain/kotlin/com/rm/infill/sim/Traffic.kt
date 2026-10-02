@@ -174,6 +174,40 @@ internal class Traffic(private val map: CityMap) {
     var lastFreeBoardings = 0
         private set
 
+    /** Bridges trucks can't cross: too light, or posted as worn. */
+    private val heavyBan = BooleanArray(map.size)
+
+    /** Bridges with a toll, and what it puts drivers off by, in seconds; trucks pay twice. */
+    private val tolled = BooleanArray(map.size)
+    private var tollSeconds = 0
+
+    /** Seconds on average a lift or swing bridge holds the traffic for the ships. */
+    private val liftWait = IntArray(map.size)
+
+    /** Vehicles paying a toll this month and last, and trucks on each tile. */
+    private var tolls = 0
+    var lastTolls = 0
+        private set
+    private val trucks = IntArray(map.size)
+    val lastTrucks = IntArray(map.size)
+
+    /** Sets what's true of the bridges: which turn trucks away, which charge a toll and what it costs drivers in seconds. */
+    fun setBridges(heavy: BooleanArray, toll: BooleanArray, seconds: Int) {
+        heavy.copyInto(heavyBan)
+        toll.copyInto(tolled)
+        tollSeconds = seconds
+    }
+
+    /** Sets how long each lifting bridge holds the traffic for ships, on average. */
+    fun setLifts(wait: IntArray) = wait.copyInto(liftWait)
+
+    /** Whether the truck searching now carries fuel, which isn't let through tunnels. */
+    private var hazmat = false
+
+    /** Vehicles through each tunnel tile this month and last. */
+    private val lowVolume = IntArray(map.size)
+    val lastLowVolume = IntArray(map.size)
+
     /** Whether the search now is a truck's, which keeps off [noTrucks] streets where it can. */
     private var truck = false
 
@@ -317,6 +351,12 @@ internal class Traffic(private val map: CityMap) {
         railFreight.fill(0)
         portFreight.copyInto(lastPortFreight)
         portFreight.fill(0)
+        trucks.copyInto(lastTrucks)
+        trucks.fill(0)
+        lowVolume.copyInto(lastLowVolume)
+        lowVolume.fill(0)
+        lastTolls = tolls
+        tolls = 0
         lastJourneys = HashMap(journeys)
         journeys.clear()
         placed.fill(0)
@@ -377,6 +417,8 @@ internal class Traffic(private val map: CityMap) {
             // Freight goes by truck, on its own way round.
             if (f + c > 0) {
                 truck = true
+                // Fuel isn't let through tunnels.
+                hazmat = cargo[Good.FUEL.ordinal] > 0
                 send(origins[k], 0, 0, f, car = true, if (c > 0) cargo else null)
                 truck = false
             }
@@ -488,6 +530,7 @@ internal class Traffic(private val map: CityMap) {
                 TROLLEY -> trolleyFrom(a, d, st, net!!)
                 TRAM -> tramFrom(a, d, st, net!!)
                 SUBWAY -> subwayFrom(a, d, st, net!!)
+                UNDER -> underFrom(a, d, st)
             }
         }
         // The search ran out before the goods did: out of town if there's a way, else they stay where they are.
@@ -569,15 +612,55 @@ internal class Traffic(private val map: CityMap) {
             val ny = y + Heading.DY[h]
             if (!map.inside(nx, ny)) continue
             val b = ny * map.width + nx
+            // Down into a tunnel at its portal, from in front of it.
+            if (enters(a, b, h)) reach(state(UNDER, b), d + lowTime(b), st)
             val road = RoadType.of(map.road[b]) ?: continue
             // Deep floodwater closes the road.
             if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE) continue
             // As does digging it up.
             if (map.closed(b)) continue
             if (!canMove(map, a, b, h)) continue
+            // Trucks can't cross a bridge too light or worn for them.
+            if (truck && heavyBan[b]) continue
             // A truck keeps off streets it's banned from unless there's no other way.
-            val time = timeToCross(b, road)
+            val time = timeToCross(b, road) + if (tolled[b] && !tolled[a]) (if (truck) 2 * tollSeconds else tollSeconds) else 0
             reach(state(CAR, b), d + if (truck && noTrucks[b]) time * Balance.TRUCK_BAN_SLOW else time, st)
+        }
+    }
+
+    /** Whether a car on road tile [a] can go down into the tunnel whose portal is [b], toward [h]. */
+    private fun enters(a: Int, b: Int, h: Int): Boolean {
+        if (map.portal[b].toInt() != Heading.opposite(h) || map.lowRoad[b].toInt() == 0 || map.tunnelShut(b) || hazmat && truck) return false
+        return Tunnel.goes(map.lowHeading[b].toInt(), h) && map.roadHeading[a].toInt() != Heading.opposite(h)
+    }
+
+    /** Seconds to drive through a tunnel tile: its road's time, slower when it's full, with nothing to wait for. */
+    private fun lowTime(b: Int): Int {
+        val road = RoadType.of(map.lowRoad[b]) ?: return Balance.WALK_TIME
+        val load = max(lastLowVolume[b], lowVolume[b]) * 32 / road.capacity
+        return road.time + road.time * min(2 * 1024, load * load / 2) / 1024
+    }
+
+    /** In a tunnel: along it, the way it runs, and up and out at a portal onto the road in front of it. */
+    private fun underFrom(a: Int, d: Int, st: Int) {
+        val x = a % map.width
+        val y = a / map.width
+        for (h in 1..4) {
+            val nx = x + Heading.DX[h]
+            val ny = y + Heading.DY[h]
+            if (!map.inside(nx, ny)) continue
+            val b = ny * map.width + nx
+            if (map.portal[a].toInt() == h) {
+                // Out at the portal, onto a road that doesn't run against us.
+                val road = RoadType.of(map.road[b]) ?: continue
+                if (map.closed(b) || map.roadHeading[b].toInt() == Heading.opposite(h)) continue
+                if (truck && heavyBan[b]) continue
+                reach(state(CAR, b), d + timeToCross(b, road), st)
+                continue
+            }
+            if (map.lowRoad[b].toInt() == 0 || map.tunnelShut(b)) continue
+            if (!Tunnel.goes(map.lowHeading[a].toInt(), h) || !Tunnel.goes(map.lowHeading[b].toInt(), h)) continue
+            reach(state(UNDER, b), d + lowTime(b), st)
         }
     }
 
@@ -682,6 +765,9 @@ internal class Traffic(private val map: CityMap) {
                 CAR -> {
                     footfall[at] += trips
                     volume[at] += trips
+                    if (kind == FREIGHT) trucks[at] += trips
+                    val p = from[st]
+                    if (tolled[at] && p >= 0 && p / n == CAR && !tolled[p % n]) tolls += trips
                     mode = max(mode, Mode.CAR.ordinal)
                 }
                 BUS -> {
@@ -697,6 +783,11 @@ internal class Traffic(private val map: CityMap) {
                 TRAM -> {
                     tramVolume[at] += trips
                     mode = max(mode, Mode.TRAM.ordinal)
+                }
+                UNDER -> {
+                    lowVolume[at] += trips
+                    if (kind == FREIGHT) trucks[at] += trips
+                    mode = max(mode, Mode.CAR.ordinal)
                 }
                 SUBWAY -> {
                     subwayVolume[at] += trips
@@ -770,7 +861,7 @@ internal class Traffic(private val map: CityMap) {
         val buses = max(lastBusVolume[b], busVolume[b]) + max(lastTrolleyVolume[b], trolleyVolume[b])
         val load = (max(lastVolume[b], volume[b]) + buses / BUS_RIDERS) * 32 / capacity(b, road)
         val slow = min(2 * 1024, load * load / 2)
-        val time = road.time + road.time * slow / 1024 + (if (map.rail[b] == Rail.NONE) 0 else if (road.limited) Balance.HIGHWAY_CROSSING_DELAY else Balance.CROSSING_DELAY) + junctionWait(b, road)
+        val time = road.time + road.time * slow / 1024 + (if (map.rail[b] == Rail.NONE) 0 else if (road.limited) Balance.HIGHWAY_CROSSING_DELAY else Balance.CROSSING_DELAY) + junctionWait(b, road) + liftWait[b]
         // Wading through floodwater, or picking a way round the potholes.
         val wading = if ((map.flood[b].toInt() and 0xff) >= Balance.FLOODED) time * Balance.FLOOD_SLOW else time
         return if (map.potholed(b)) wading * Balance.POTHOLE_SLOW else wading
@@ -801,16 +892,24 @@ internal class Traffic(private val map: CityMap) {
      * traffic is now, or -1 where it can't be reached within a long trip.
      */
     fun travelTimes(start: Int, limit: Int = Balance.LONGEST_TRIP): IntArray {
-        val t = IntArray(n) { -1 }
-        if (map.road[start] == Road.NONE) return t
+        // On the roads, and in the tunnels under them at n and up.
+        val t = IntArray(2 * n) { -1 }
+        if (map.road[start] == Road.NONE) return IntArray(n) { -1 }
         val heap = LongHeap()
         t[start] = 0
         heap.push(0L shl 32 or start.toLong())
+        fun go(b: Int, nd: Int) {
+            if (nd > limit || (t[b] in 0..nd)) return
+            t[b] = nd
+            heap.push(nd.toLong() shl 32 or b.toLong())
+        }
         while (heap.size > 0) {
             val top = heap.pop()
             val d = (top ushr 32).toInt()
-            val a = (top and 0xffffffffL).toInt()
-            if (d > t[a]) continue
+            val s = (top and 0xffffffffL).toInt()
+            if (d > t[s]) continue
+            val low = s >= n
+            val a = if (low) s - n else s
             val x = a % map.width
             val y = a / map.width
             for (h in 1..4) {
@@ -818,16 +917,24 @@ internal class Traffic(private val map: CityMap) {
                 val ny = y + Heading.DY[h]
                 if (!map.inside(nx, ny)) continue
                 val b = ny * map.width + nx
+                if (low) {
+                    if (map.portal[a].toInt() == h) {
+                        val road = RoadType.of(map.road[b]) ?: continue
+                        if (!map.closed(b) && map.roadHeading[b].toInt() != Heading.opposite(h)) go(b, d + timeToCross(b, road))
+                    } else if (map.lowRoad[b].toInt() != 0 && !map.tunnelShut(b) && Tunnel.goes(map.lowHeading[a].toInt(), h) && Tunnel.goes(map.lowHeading[b].toInt(), h)) {
+                        go(n + b, d + lowTime(b))
+                    }
+                    continue
+                }
+                if (enters(a, b, h)) go(n + b, d + lowTime(b))
                 val road = RoadType.of(map.road[b]) ?: continue
                 if (map.closed(b) || !canMove(map, a, b, h)) continue
-                val nd = d + timeToCross(b, road)
-                if (nd > limit || (t[b] in 0..nd)) continue
-                t[b] = nd
-                heap.push(nd.toLong() shl 32 or b.toLong())
+                go(b, d + timeToCross(b, road) + if (tolled[b] && !tolled[a]) tollSeconds else 0)
             }
         }
-        return t
+        return t.copyOf(n)
     }
+
 
     /** Seconds to get through the crossing at [b], if it is one, by its control and how busy it is. */
     fun junctionWait(b: Int, road: RoadType): Int {
@@ -993,6 +1100,17 @@ internal class Traffic(private val map: CityMap) {
         for (a in arrayOf(portFreight, lastPortFreight)) sparse(r, a)
     }
 
+    /** Since save version 24. */
+    internal fun writeBridges(w: SaveWriter) {
+        for (a in arrayOf(trucks, lastTrucks, lowVolume, lastLowVolume)) sparse(w, a)
+        w.int(tolls); w.int(lastTolls)
+    }
+
+    internal fun readBridges(r: SaveReader) {
+        for (a in arrayOf(trucks, lastTrucks, lowVolume, lastLowVolume)) sparse(r, a)
+        tolls = r.int(); lastTolls = r.int()
+    }
+
     private fun tile(r: SaveReader): Int = r.int().also { if (it !in 0 until map.size) throw SaveError("traffic off the map") }
 
     private fun sparse(w: SaveWriter, a: IntArray) {
@@ -1016,7 +1134,8 @@ internal class Traffic(private val map: CityMap) {
         const val TRAM = 3
         const val SUBWAY = 4
         const val TROLLEY = 5
-        const val LAYERS = 6
+        const val UNDER = 6
+        const val LAYERS = 7
 
         // What a trip's for.
         private const val WORKER = 0
@@ -1039,6 +1158,8 @@ internal class Traffic(private val map: CityMap) {
             val la = ra?.limited == true
             val lb = rb?.limited == true
             if (la != lb && ra?.ramp != true && rb?.ramp != true && map.control[a] != Junction.INTERCHANGE && map.control[b] != Junction.INTERCHANGE) return false
+            // On a bridge, or the approach to a high one, only along it.
+            if (sideways(map, a, h) || sideways(map, b, h)) return false
             val back = Heading.opposite(h)
             val ha = map.roadHeading[a].toInt()
             val hb = map.roadHeading[b].toInt()
@@ -1048,6 +1169,14 @@ internal class Traffic(private val map: CityMap) {
                 return road(map, a, -h) || road(map, b, h) || !road(map, a, ha) || !road(map, b, Heading.opposite(hb))
             }
             return true
+        }
+
+        /** Whether going [h] crosses the bridge or approach on tile [i] from the side. */
+        private fun sideways(map: CityMap, i: Int, h: Int): Boolean {
+            val ew = h == Heading.EAST.toInt() || h == Heading.WEST.toInt()
+            val bridge = map.terrain[i] == Terrain.WATER && map.road[i] != Road.NONE
+            val axis = if (bridge) (if (map.bridge[i].toInt() and Bridge.ACROSS != 0) Bridge.ACROSS else 1) else map.approach[i].toInt() and 0xff
+            return axis != 0 && (axis == Bridge.ACROSS) != ew
         }
 
         /** Whether the neighbour of [i] toward [h] is road, or away from it if [h] is negative. */

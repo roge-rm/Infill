@@ -403,6 +403,29 @@ object Balance {
     const val SHIP_STEP = 10
     const val SHIP_SHORE = 4
     const val SHIP_LOAD = 40
+    /** What waiting for a bridge to open costs a ship's way, against a step of open water. */
+    const val SHIP_WAIT = 30
+    // Bridges: a worn one is posted against trucks at this much wear, and shut as unsafe at this much; how a shut
+    // one's marked; days a long high one stays shut after a gale; loads of trucks in a month that wear a bridge a
+    // month more. A lifting bridge holds the traffic this many seconds on average for each ship a month, and at
+    // most this long. Tolls: the cents to cross to start with and at most, and the seconds each cent puts a driver off.
+    const val POSTED_WEAR = 70
+    const val UNSAFE_WEAR = 100
+    const val SHUT_UNSAFE = 255
+    const val GALE_SHUT_DAYS = 2
+    const val TRUCK_WEAR_LOADS = 300
+    const val LIFT_DELAY = 4
+    const val LIFT_MAX = 60
+    const val TOLL_CENTS = 25
+    const val TOLL_MOST = 200
+    const val TOLL_SECONDS_PER_CENT = 4
+
+    // Tunnels: road tunnels from this year; their upkeep a tile, more for the fans and pumps of a road one; and how
+    // far from a tunnel power has to be to keep its pumps going.
+    const val ROAD_TUNNEL_YEAR = 1920
+    const val ROAD_TUNNEL_UPKEEP = 2.0
+    const val RAIL_TUNNEL_UPKEEP = 1.0
+
     /** Ships burn coal and smoke until this year. */
     const val STEAM_UNTIL = 1950
 

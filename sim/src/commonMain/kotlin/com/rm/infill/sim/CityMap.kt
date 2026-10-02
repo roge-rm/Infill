@@ -86,8 +86,66 @@ class CityMap(val width: Int, val height: Int) {
     /** Whether tile [i]'s pipe or track marked [bit] is out of use. */
     fun out(i: Int, bit: Int): Boolean = (broken[i].toInt() and bit) != 0 && underRepair(i)
 
+    /** For each bridge tile and each approach to one: its kind and what's set for it ([Bridge]). */
+    val bridge = ByteArray(size)
+
+    /** Days a bridge tile stays shut by the weather, or [Balance.SHUT_UNSAFE] while it's too worn to cross. */
+    val bridgeShut = ByteArray(size)
+
+    /** The kind of bridge on tile [i], if a road or track crosses water there: null for a plain one. */
+    fun bridgeKind(i: Int): BridgeKind? = BridgeKind.of(bridge[i].toInt() and Bridge.KIND)
+
+    /** For land leading up to a high bridge: [Bridge.ACROSS] if it runs east to west, 1 north to south, else 0. Worked out when the bridges change. */
+    val approach = ByteArray(size)
+
+    /**
+     * A second level under the ground: the road ([RoadType] id) or track in a
+     * tunnel under each tile, the way a one-way tunnel runs, and when it went
+     * in. At each end a portal, where it comes up: the [Heading] it opens
+     * toward, on a tile with nothing else on the surface. Under water it's a
+     * tunnel under the river, under a road or track an underpass, and under
+     * anything else cut and cover.
+     */
+    val lowRoad = ByteArray(size)
+    val lowHeading = ByteArray(size)
+    val lowRail = ByteArray(size)
+    val portal = ByteArray(size)
+    val lowLaid = ShortArray(size)
+
+    /** Whether a road or track runs in a tunnel under tile [i]. ([lowHeading] is a [Heading] one way, or [Tunnel.NORTH_SOUTH] or [Tunnel.EAST_WEST] both ways.) */
+    fun tunnelled(i: Int): Boolean = lowRoad[i].toInt() != 0 || lowRail[i].toInt() != 0
+
+    /** Whether the tunnel under tile [i] is shut: flooded, or being dug out again. */
+    fun tunnelShut(i: Int): Boolean = out(i, Broken.LOW)
+
+    /** Whether a road or track bridges the water on tile [i]. */
+    fun bridged(i: Int): Boolean = terrain[i] == Terrain.WATER && (road[i] != Road.NONE || rail[i] != Rail.NONE)
+
+    /** Whether the bridge on tile [i] is shut: by the town, by the weather or as unsafe. */
+    fun bridgeClosed(i: Int): Boolean = (bridge[i].toInt() and Bridge.SHUT) != 0 || bridgeShut[i].toInt() != 0
+
+    /** Whether tile [i] is the middle of a swing bridge, the pier it turns on, which ships go round. */
+    fun pivot(i: Int): Boolean {
+        if (bridgeKind(i) != BridgeKind.SWING || !bridged(i)) return false
+        val ew = (bridge[i].toInt() and Bridge.ACROSS) != 0
+        val dx = if (ew) 1 else 0
+        val dy = if (ew) 0 else 1
+        val x = i % width
+        val y = i / width
+        fun on(k: Int) = inside(x + dx * k, y + dy * k) && bridged(index(x + dx * k, y + dy * k))
+        var before = 0
+        while (on(-(before + 1))) before++
+        var after = 0
+        while (on(after + 1)) after++
+        return before == (before + after + 1) / 2
+    }
+
+    /** How much room the bridge on tile [i] leaves ships: plain ones are low. */
+    fun clearance(i: Int): Int = bridgeKind(i)?.clearance ?: Bridge.LOW
+
     /** Whether the road on tile [i] is shut: dug up for a pipe, or being relaid. */
     fun closed(i: Int): Boolean {
+        if (bridgeClosed(i) && terrain[i] == Terrain.WATER) return true
         val b = broken[i].toInt()
         if (b == 0 || !underRepair(i)) return false
         // A cable fault is dug up too.
@@ -149,11 +207,19 @@ class CityMap(val width: Int, val height: Int) {
     fun duct(i: Int): Boolean = phone[i].toInt() != 0 && (buried[i].toInt() and BURIED_PHONE) != 0
 
     /** The phone line on a tile, and when it went up, packed for undo. */
-    fun tileUtil(i: Int): Long = ((phone[i].toLong() and 0x3) shl 12) or (phoneLaid[i].toLong() and 0xfff)
+    fun tileUtil(i: Int): Long = ((lowLaid[i].toLong() and 0xfff) shl 33) or ((portal[i].toLong() and 0x7) shl 30) or
+        ((lowRail[i].toLong() and 0x1) shl 29) or ((lowHeading[i].toLong() and 0x7) shl 26) or ((lowRoad[i].toLong() and 0xf) shl 22) or
+        ((bridge[i].toLong() and 0xff) shl 14) or ((phone[i].toLong() and 0x3) shl 12) or (phoneLaid[i].toLong() and 0xfff)
 
     fun setTileUtil(i: Int, v: Long) {
         phone[i] = ((v shr 12) and 0x3).toByte()
         phoneLaid[i] = (v and 0xfff).toShort()
+        bridge[i] = ((v shr 14) and 0xff).toByte()
+        lowRoad[i] = ((v shr 22) and 0xf).toByte()
+        lowHeading[i] = ((v shr 26) and 0x7).toByte()
+        lowRail[i] = ((v shr 29) and 0x1).toByte()
+        portal[i] = ((v shr 30) and 0x7).toByte()
+        lowLaid[i] = ((v shr 33) and 0xfff).toShort()
     }
 
     /** Which lines on a tile run underground: [BURIED_POWER], [BURIED_PHONE]. */
@@ -306,7 +372,7 @@ class CityMap(val width: Int, val height: Int) {
         var h = FNV_OFFSET
         h = mix(h, width.toLong())
         h = mix(h, height.toLong())
-        for (layer in arrayOf(terrain, road, roadHeading, zone, density, power, rail, tram, wire, subway, stop, streetTrees, waterPipe, sewerPipe, stormPipe, bank, grime, fire, junction, control, lane, district)) for (b in layer) h = mix(h, b.toLong())
+        for (layer in arrayOf(terrain, road, roadHeading, zone, density, power, rail, tram, wire, subway, stop, streetTrees, waterPipe, sewerPipe, stormPipe, bank, grime, fire, junction, control, lane, district, bridge, lowRoad, lowHeading, lowRail, portal)) for (b in layer) h = mix(h, b.toLong())
         for (b in building) h = mix(mix(h, b.toLong()), (b ushr 8).toLong())
         return h
     }
@@ -336,4 +402,27 @@ object Phone {
     const val SERVICE_PHONE = 1
     const val SERVICE_BROADBAND = 2
     const val SERVICE_FAST = 3
+}
+
+/** The way a tunnel runs, in [CityMap.lowHeading]: one way along a [Heading], or both ways along one of these. */
+object Tunnel {
+    const val NORTH_SOUTH = 5
+    const val EAST_WEST = 6
+
+    /** The [CityMap.lowHeading] for a tunnel drawn [run]: its [heading] if one-way, else the way it runs. */
+    fun heading(run: Int, heading: Int): Int = when {
+        heading != 0 -> heading
+        run == Heading.EAST.toInt() || run == Heading.WEST.toInt() -> EAST_WEST
+        else -> NORTH_SOUTH
+    }
+
+    /** Whether a tunnel running [low] lets traffic go [h]. */
+    fun goes(low: Int, h: Int): Boolean {
+        val ew = h == Heading.EAST.toInt() || h == Heading.WEST.toInt()
+        return when (low) {
+            NORTH_SOUTH -> !ew
+            EAST_WEST -> ew
+            else -> low == h
+        }
+    }
 }

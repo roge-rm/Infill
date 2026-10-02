@@ -276,7 +276,7 @@ class WaterTest {
         val original = town(water = true)
         original.rainfall(80, frozen = false)
         val loaded = SaveGame.read(SaveGame.write(original))
-        // The disaster setting is the player's, not the town's.
+        // The disaster setting belongs to the player and isn't saved with the town.
         loaded.disasterLevel = original.disasterLevel
         for (layer in listOf<(City) -> ByteArray>({ it.map.waterPipe }, { it.map.sewerPipe }, { it.map.stormPipe }, { it.map.foul }, { it.map.flood }, { it.map.bank })) {
             assertTrue(layer(original).contentEquals(layer(loaded)))

@@ -258,7 +258,7 @@ enum class Glyph {
     Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
     Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance, Sack, Glass, Hat,
     Person, Briefcase, Wrench, Calendar, Snow, Gavel, Tag, Check, Warn, Building, Cable, Phone, Mast,
-    Anchor, Ship, Suitcase,
+    Anchor, Ship, Suitcase, Bridge,
 }
 
 /** The drawing for [tool]. */
@@ -449,6 +449,14 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
         Glyph.Mountain -> {
             drawPath(path(1f, 20f, 9f, 6f, 17f, 20f), c)
             drawPath(path(10f, 20f, 16f, 10f, 23f, 20f), c)
+        }
+        Glyph.Bridge -> {
+            // An arch over the water, the deck across its top.
+            drawRect(c, Offset(2 * u, 8 * u), Size(20 * u, 2.4f * u))
+            val arch = Path().apply { moveTo(3 * u, 20 * u); quadraticTo(12 * u, 4 * u, 21 * u, 20 * u) }
+            drawPath(arch, c, style = Stroke(2.2f * u))
+            for (x in listOf(7f, 12f, 17f)) line(x, 10f, x, if (x == 12f) 12f else 14f, 1.6f * u)
+            drawRect(c.copy(alpha = 0.4f), Offset(1 * u, 20 * u), Size(22 * u, 2 * u))
         }
         Glyph.Anchor -> {
             drawCircle(c, 2.2f * u, Offset(12 * u, 4.5f * u), style = Stroke(1.8f * u))

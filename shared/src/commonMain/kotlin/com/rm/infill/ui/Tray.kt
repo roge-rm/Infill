@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +50,14 @@ import com.rm.infill.map.Atlas
 import com.rm.infill.map.BuildingSprites
 import com.rm.infill.map.Overlay
 import com.rm.infill.map.TileAtlas
+import com.rm.infill.res.bridge_cable_stayed
+import com.rm.infill.res.bridge_suspension
+import com.rm.infill.res.bridge_concrete
+import com.rm.infill.res.bridge_lift
+import com.rm.infill.res.bridge_truss
+import com.rm.infill.res.bridge_swing
+import com.rm.infill.res.bridge_trestle
+import com.rm.infill.res.bridge_cheapest
 import com.rm.infill.res.Res
 import com.rm.infill.res.choice_building
 import com.rm.infill.res.close_view
@@ -59,6 +68,8 @@ import com.rm.infill.res.group_utilities
 import com.rm.infill.res.group_transport
 import com.rm.infill.res.tool_services
 import com.rm.infill.res.unfold_choices
+import org.jetbrains.compose.resources.StringResource
+import com.rm.infill.sim.BridgeKind
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.City
 import com.rm.infill.sim.Pipe
@@ -191,6 +202,42 @@ fun TrayToggle(glyph: Glyph, label: String, on: Boolean, onClick: () -> Unit) {
             .clickable(role = Role.Tab, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { GlyphIcon(glyph, if (on) c.onAccent else c.text, Modifier.size(20.dp)) }
+}
+
+/** A button that steps through some choices, showing the one chosen: [value], named [label] for screen readers. */
+@Composable
+fun TrayCycle(glyph: Glyph, label: String, value: String, onClick: () -> Unit) {
+    val c = Infill.colors
+    Row(
+        Modifier
+            .height(32.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(c.button)
+            .semantics { contentDescription = "$label: $value" }
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        GlyphIcon(glyph, c.text, Modifier.size(18.dp))
+        Text(value, color = c.text, fontSize = 13.sp, maxLines = 1)
+    }
+}
+
+/** The kinds of bridge [city] can build now, for a road or for [rail], with null first for the cheapest that fits. */
+fun bridgeChoices(city: City, rail: Boolean): List<BridgeKind?> =
+    listOf<BridgeKind?>(null) + BridgeKind.entries.filter { city.allows(it) && (!rail || it.rail) }
+
+/** What a kind of bridge is called, or the choice of the cheapest that fits. */
+fun bridgeName(kind: BridgeKind?): StringResource = when (kind) {
+    null -> Res.string.bridge_cheapest
+    BridgeKind.TRESTLE -> Res.string.bridge_trestle
+    BridgeKind.SWING -> Res.string.bridge_swing
+    BridgeKind.TRUSS -> Res.string.bridge_truss
+    BridgeKind.LIFT -> Res.string.bridge_lift
+    BridgeKind.CONCRETE -> Res.string.bridge_concrete
+    BridgeKind.SUSPENSION -> Res.string.bridge_suspension
+    BridgeKind.CABLE_STAYED -> Res.string.bridge_cable_stayed
 }
 
 /** A colour running from [low] to [high], for the line of a map view. */
@@ -530,7 +577,7 @@ fun serviceChoices(city: City, group: ServiceGroup): List<Choice<ServiceKind>> =
 
 @Composable
 fun bulldozeChoices(): List<Choice<BulldozeKind>> = BulldozeKind.entries.map { k ->
-    Choice(k, stringResource(k.title), ChoiceIcon(glyph = if (k == BulldozeKind.Renew) Glyph.Renew else Glyph.Bulldoze))
+    Choice(k, stringResource(k.title), ChoiceIcon(glyph = when (k) { BulldozeKind.Renew -> Glyph.Renew; BulldozeKind.Tunnel -> Glyph.Tunnel; else -> Glyph.Bulldoze }))
 }
 
 @Composable

@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import com.rm.infill.sim.Ageing
 import com.rm.infill.sim.Broken
@@ -39,6 +40,10 @@ internal fun DrawScope.drawUnderground(map: CityMap, camera: Camera, now: Int) {
         if (map.duct(i)) duct(map, x, y, corner, t)
         // Subway tunnels, wide, through the middle.
         pipe(map, map.subway, x, y, corner, t, 0f, if (map.out(i, Broken.SUBWAY)) BROKEN else TUNNEL, wide = true)
+        // Road and rail tunnels, and where they come up.
+        if (map.lowRoad[i].toInt() != 0) pipe(map, map.lowRoad, x, y, corner, t, 0f, if (map.tunnelShut(i)) BROKEN else ROAD_TUNNEL, wide = true)
+        if (map.lowRail[i].toInt() != 0) pipe(map, map.lowRail, x, y, corner, t, 0f, if (map.tunnelShut(i)) BROKEN else RAIL_TUNNEL, wide = true)
+        if (map.portal[i].toInt() != 0) drawCircle(PORTAL, t * 0.22f, Offset(corner.x + t / 2, corner.y + t / 2), style = Stroke(t * 0.08f))
     }
 }
 
@@ -58,10 +63,12 @@ internal fun DrawScope.drawWorks(map: CityMap, camera: Camera) {
     val t = camera.tilePx
     if (t < MIN_WORKS_PX) return
     forVisibleTiles(map, camera) { x, y, i ->
-        if (map.broken[i].toInt() == 0) return@forVisibleTiles
+        // A shut tunnel shows only at its portals, barred.
+        val shutPortal = map.portal[i].toInt() != 0 && map.tunnelShut(i)
+        if (map.broken[i].toInt() and Broken.LOW.inv() == 0 && !shutPortal) return@forVisibleTiles
         val c = camera.tileToScreen(x.toFloat(), y.toFloat(), size)
         when {
-            map.closed(i) || map.out(i, Broken.RAIL) -> {
+            map.closed(i) || map.out(i, Broken.RAIL) || shutPortal -> {
                 drawRect(DUG, Offset(c.x + t * 0.3f, c.y + t * 0.3f), Size(t * 0.4f, t * 0.4f))
                 for (edge in listOf(0.12f, 0.8f)) {
                     val y0 = c.y + t * edge
@@ -173,3 +180,8 @@ private val POTHOLE = Color(0xCC2A2622)
 
 /** Below this many pixels a tile, works and potholes aren't drawn. */
 private const val MIN_WORKS_PX = 10f
+
+/** Road tunnels grey, rail tunnels dark, portals ringed. */
+private val ROAD_TUNNEL = Color(0xDD8C8C90)
+private val RAIL_TUNNEL = Color(0xDD4A3A2E)
+private val PORTAL = Color(0xFFF2F2F2)

@@ -50,6 +50,11 @@ class GameState(val city: City) {
     }
 
     /** Tax rates in percent; any left out stay as they are. */
+    fun setTollRate(cents: Int) {
+        city.setTollRate(cents)
+        revision++
+    }
+
     fun setTaxes(r: Int = city.residentialTax, c: Int = city.commercialTax, i: Int = city.industrialTax) {
         city.residentialTax = r
         city.commercialTax = c
