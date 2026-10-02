@@ -7,6 +7,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.unit.Density
 import com.rm.infill.res.dig_tunnel
+import com.rm.infill.ui.railKindsIn
 import com.rm.infill.ui.bridgeName
 import com.rm.infill.ui.bridgeChoices
 import com.rm.infill.ui.TrayCycle
@@ -530,7 +531,10 @@ private fun GameScreen(
                 val roads = roadsIn(city)
                 roadKind = roads[(roads.indexOf(roadKind) + 1) % roads.size]
             }
-            if (t == Tool.Rail && tool == Tool.Rail) railKind = RailKind.entries[(railKind.ordinal + 1) % RailKind.entries.size]
+            if (t == Tool.Rail && tool == Tool.Rail) {
+                val kinds = railKindsIn(city)
+                railKind = kinds[(kinds.indexOf(railKind) + 1) % kinds.size]
+            }
             if (t == Tool.Water && tool == Tool.Water) {
                 val kinds = waterKindsIn(city)
                 waterKind = kinds[(kinds.indexOf(waterKind) + 1) % kinds.size]
@@ -870,7 +874,7 @@ private fun GameScreen(
                             if (city.allowsTunnel(rail = false)) TrayToggle(Glyph.Tunnel, stringResource(Res.string.dig_tunnel), tunnelling) { tunnelling = !tunnelling }
                             TrayToggle(Glyph.Pipe, stringResource(Res.string.road_with_pipes), roadPipes) { roadPipes = !roadPipes }
                         }
-                        Tool.Rail -> ChoiceTray(atlas, railChoices(), railKind, { railKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab) {
+                        Tool.Rail -> ChoiceTray(atlas, railChoices(city), railKind, { railKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab) {
                             if (railKind == RailKind.Track) {
                                 val kinds = bridgeChoices(city, rail = true)
                                 val shown = bridgeKind?.takeIf { it.rail }

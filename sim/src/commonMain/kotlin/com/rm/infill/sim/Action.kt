@@ -282,6 +282,7 @@ object Prices {
         BuildingType.PARK -> PARK
         BuildingType.STATION, BuildingType.STATION_NS -> STATION
         BuildingType.FREIGHT_YARD, BuildingType.FREIGHT_YARD_NS -> FREIGHT_YARD
+        BuildingType.FREIGHT_TERMINAL, BuildingType.FREIGHT_TERMINAL_NS -> 30_000L
         BuildingType.WHARF, BuildingType.WHARF_NS -> 4_000L
         BuildingType.DOCKS, BuildingType.DOCKS_NS -> 15_000L
         BuildingType.CONTAINER_PORT, BuildingType.CONTAINER_PORT_NS -> 50_000L

@@ -224,7 +224,7 @@ fun MapView(
         drawWorks(map, camera)
         val raised = if (ships) drawShips(game.city.shipRoutes, map, camera, weatherTime, graphics.trains, graphics.smoke && game.city.year < Balance.STEAM_UNTIL) else emptySet()
         // Road traffic waits for a train at a crossing, and for a bridge that's open for a ship.
-        val stopped = (if (trains) drawTrains(game.city.trainRoutes, map, camera, weatherTime, graphics.trains, graphics.smoke) else emptySet()) + raised
+        val stopped = (if (trains) drawTrains(game.city.trainRoutes, map, camera, weatherTime, graphics.trains, graphics.smoke, steam = game.city.year < Balance.STEAM_TRAINS_UNTIL) else emptySet()) + raised
         if (traffic) {
             drawVehicles(map, camera, game.city.year, weatherTime, graphics.vehicles, stopped)
             drawTransit(map, camera, weatherTime, game.city.lineStates())

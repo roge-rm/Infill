@@ -19,7 +19,7 @@ import kotlin.math.sin
  * the far end, and back again. A busier line has more trains, up to [most].
  * Returns the level crossings a train is on, so the road traffic can wait.
  */
-internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera: Camera, time: Float, most: Int, smoke: Boolean): Set<Int> {
+internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera: Camera, time: Float, most: Int, smoke: Boolean, steam: Boolean = true): Set<Int> {
     val t = camera.tilePx
     if (most == 0 || routes.isEmpty() || t < MIN_TILE_PX) return emptySet()
     val crossings = HashSet<Int>()
@@ -30,7 +30,7 @@ internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera
         if (path.size < 2) continue
         val length = (path.size - 1).toFloat()
         val trains = min(most, 1 + route.load / (Balance.TRAIN_LOAD * 30))
-        val cars = if (route.passengers) PASSENGER_CARS else FREIGHT_CARS
+        val cars = if (route.passengers) PASSENGER_CARS else if (route.containers) CONTAINER_CARS else FREIGHT_CARS
         val leg = length / SPEED
         val period = 2 * (leg + STOP)
         for (n in 0 until trains) {
@@ -53,19 +53,19 @@ internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera
                 val tile = path[min(path.size - 1, (s + 0.5f).toInt())]
                 if (map.road[tile].toInt() != 0) crossings += tile
                 val kind = when (c) {
-                    0 -> Car.Engine
-                    1 -> Car.Tender
-                    else -> if (route.passengers) Car.Coach else FREIGHT[(k * 3 + c) % FREIGHT.size]
+                    0 -> if (steam) Car.Engine else Car.Diesel
+                    1 -> if (steam) Car.Tender else Car.Diesel
+                    else -> if (route.passengers) Car.Coach else if (route.containers) Car.Container else FREIGHT[(k * 3 + c) % FREIGHT.size]
                 }
                 car(camera.tileToScreen(x, y, size), t, heading, kind, k + c)
-                if (c == 0 && smoke) puffs(camera.tileToScreen(x, y, size), t, time, k * 7 + n)
+                if (c == 0 && smoke && steam) puffs(camera.tileToScreen(x, y, size), t, time, k * 7 + n)
             }
         }
     }
     return crossings
 }
 
-private enum class Car { Engine, Tender, Coach, Boxcar, Hopper, Flatcar }
+private enum class Car { Engine, Tender, Diesel, Coach, Boxcar, Hopper, Flatcar, Container }
 
 private val FREIGHT = listOf(Car.Boxcar, Car.Hopper, Car.Flatcar, Car.Boxcar)
 
@@ -122,6 +122,12 @@ private fun DrawScope.car(at: Offset, t: Float, heading: Float, kind: Car, seed:
                 part(0.7f, 0.5f, BOILER)
                 drawCircle(Color.Black, t * 0.07f, at)
             }
+            Car.Diesel -> {
+                // A hood unit: the long body, the cab at the front end, the radiator grilles on the roof.
+                part(1f, 1f, DIESEL)
+                part(0.9f, 0.55f, DIESEL_ROOF)
+                drawRect(DIESEL_CAB, Offset(at.x + long * 0.25f, at.y - wide * 0.4f), Size(long * 0.2f, wide * 0.8f))
+            }
             Car.Tender -> {
                 part(1f, 1f, ENGINE)
                 part(0.7f, 0.6f, COAL)
@@ -141,6 +147,11 @@ private fun DrawScope.car(at: Offset, t: Float, heading: Float, kind: Car, seed:
             Car.Flatcar -> {
                 part(1f, 1f, FLATCAR)
                 part(0.6f, 0.7f, LUMBER)
+            }
+            Car.Container -> {
+                part(1f, 0.8f, FLATCAR)
+                part(0.9f, 0.9f, BOXES[seed.mod(BOXES.size)])
+                part(0.02f, 0.9f, FLATCAR)
             }
         }
     }
@@ -163,6 +174,11 @@ private const val CAR_LENGTH = 0.78f
 private const val CAR_GAP = 0.85f
 private const val PASSENGER_CARS = 3
 private const val FREIGHT_CARS = 5
+private const val CONTAINER_CARS = 8
+private val DIESEL = Color(0xFF8A2A22)
+private val DIESEL_ROOF = Color(0xFF5A5A60)
+private val DIESEL_CAB = Color(0xFFD8C8A0)
+private val BOXES = listOf(Color(0xFFB5452F), Color(0xFF2F5F9A), Color(0xFF3F8A4A), Color(0xFFD08A2A), Color(0xFF8A8F96), Color(0xFF7A3F7A))
 
 private const val MIN_TILE_PX = 12f
 

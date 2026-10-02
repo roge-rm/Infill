@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rm.infill.res.freight_terminal
 import com.rm.infill.GameState
 import com.rm.infill.map.MapRenderer
 import com.rm.infill.res.container_port
@@ -296,6 +297,7 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.PARK -> Res.string.park
     BuildingType.STATION, BuildingType.STATION_NS -> Res.string.station
     BuildingType.FREIGHT_YARD, BuildingType.FREIGHT_YARD_NS -> Res.string.freight_yard
+    BuildingType.FREIGHT_TERMINAL, BuildingType.FREIGHT_TERMINAL_NS -> Res.string.freight_terminal
     BuildingType.WHARF, BuildingType.WHARF_NS -> Res.string.wharf
     BuildingType.DOCKS, BuildingType.DOCKS_NS -> Res.string.docks
     BuildingType.CONTAINER_PORT, BuildingType.CONTAINER_PORT_NS -> Res.string.container_port

@@ -389,6 +389,16 @@ object Balance {
     const val RAIL_EXPORTS = 1.3
     const val RAIL_SETTLERS = 1.5
 
+    // A freight terminal on a line to the edge: the outside market, more than a yard's; how far works feel the
+    // pull of one and how much; a little more again with a port it's near, so containers go ship to train; and
+    // its monthly upkeep.
+    const val TERMINAL_EXPORTS = 1.6
+    const val TERMINAL_REACH = 10
+    const val TERMINAL_APPEAL = 8
+    const val PORT_RAIL_REACH = 8
+    const val PORT_RAIL_EXPORTS = 1.1
+    const val TERMINAL_UPKEEP = 150.0
+
     // Ports: the outside market with a port ships reach, by how big a port it is (none, a wharf, docks, a container
     // port); coal and fuel oil brought in by ship, against the usual markup; what the town charges a load through
     // a port and a visitor off a ship; and each kind of port's monthly upkeep.
@@ -426,8 +436,9 @@ object Balance {
     const val ROAD_TUNNEL_UPKEEP = 2.0
     const val RAIL_TUNNEL_UPKEEP = 1.0
 
-    /** Ships burn coal and smoke until this year. */
+    /** Ships burn coal and smoke until this year, and trains run on steam until this one. */
     const val STEAM_UNTIL = 1950
+    const val STEAM_TRAINS_UNTIL = 1955
 
     // Visitors, on an average day: some come to any town, more to a bigger one, and more for its parks and heritage.
     // Most can come by road once there are cars; trains, ships and planes bring more. They stay in hotels if

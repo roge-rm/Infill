@@ -125,6 +125,10 @@ enum class BuildingType(
     FREIGHT_YARD(Zone.NONE, 0, 20, width = 3, height = 2, pollution = 6),
     FREIGHT_YARD_NS(Zone.NONE, 0, 20, width = 2, height = 3, pollution = 6),
 
+    /** A freight terminal for containers (from 1965), much bigger than a yard: cranes over its sidings, and stacks. */
+    FREIGHT_TERMINAL(Zone.NONE, 0, 60, width = 5, height = 2, pollution = 8, year = 1965, life = 50),
+    FREIGHT_TERMINAL_NS(Zone.NONE, 0, 60, width = 2, height = 5, pollution = 8, year = 1965, life = 50),
+
     /**
      * Ports, beside water ships can reach from the edge of the map, lying east to west or north to south:
      * a wharf, docks with a passenger berth (from 1920), and a container port (from 1966).
@@ -184,7 +188,10 @@ enum class BuildingType(
     val station get() = this == STATION || this == STATION_NS
 
     /** Freight goes by train from here. */
-    val yard get() = this == FREIGHT_YARD || this == FREIGHT_YARD_NS
+    val yard get() = this == FREIGHT_YARD || this == FREIGHT_YARD_NS || terminal
+
+    /** A freight terminal, for containers. */
+    val terminal get() = this == FREIGHT_TERMINAL || this == FREIGHT_TERMINAL_NS
 
     /** Has to go beside the track. */
     val railway get() = station || yard

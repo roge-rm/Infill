@@ -2182,6 +2182,38 @@ def container_port(look, v, w, h):
     return b
 
 
+def freight_terminal(look, v, w, h):
+    """A freight terminal: two sidings along the track side, gantry cranes over them, container stacks behind and a
+    gate for the trucks. Track to the north or west (0, 1), south or east (2, 3)."""
+    b = Building(w, h, height=44)
+    lay = PortLayout(b, port_side(v, h > w))
+    style = v % 2
+    gx0, gy0 = b.ground(0, 0)
+    gx1, gy1 = b.ground(w * T - 1, h * T - 1)
+    noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), QUAY if look != "snow" else [c("#e3e8ec"), c("#d6dde3"), c("#eef2f5")], random.Random(7750))
+    for d0 in (2, 12):
+        x0, y0, x1, y1 = lay.rect(0, d0, lay.length - 1, d0 + 7)
+        rail_siding(b, look, x0, y0, x1, y1)
+    things = container_stacks(lay, look, 6, 26, lay.length - 30, lay.depth - 4, 7760 + v)
+    for a in range(10, lay.length - 24, 56):
+        r = lay.rect(a, 2, a + 12, 22)
+        things.append((r[3], lambda a=a: gantry_crane(lay, look, a, GANTRY_PAINT[1 - style])))
+    gate = lay.rect(lay.length - 24, lay.depth - 22, lay.length - 6, lay.depth - 6)
+
+    def office():
+        roof, wall = b.box(*gate, STOREY)
+        siding(b.d, wall, PAINT[2])
+        b.d.rectangle(wall, outline=OUTLINE)
+        b.d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#9aa0a6"), OUTLINE)
+    things.append((gate[3], office))
+    ordered(things)
+    return b
+
+
+def terminal_ew(look, v): return freight_terminal(look, v, 5, 2)
+def terminal_ns(look, v): return freight_terminal(look, v, 2, 5)
+
+
 def wharf_ew(look, v): return wharf(look, v, 3, 2)
 def wharf_ns(look, v): return wharf(look, v, 2, 3)
 def docks_ew(look, v): return docks(look, v, 4, 3)
@@ -3913,6 +3945,7 @@ BUILDINGS = [
     ("station_ew", station_ew, 4), ("station_ns", station_ns, 4), ("yard_ew", yard_ew, 4), ("yard_ns", yard_ns, 4),
     ("wharf_ew", wharf_ew, 4), ("wharf_ns", wharf_ns, 4), ("docks_ew", docks_ew, 4), ("docks_ns", docks_ns, 4),
     ("boxport_ew", boxport_ew, 4), ("boxport_ns", boxport_ns, 4),
+    ("terminal_ew", terminal_ew, 4), ("terminal_ns", terminal_ns, 4),
     ("pumping_station", pumping_station, 1), ("well_field", well_field, 1), ("tower", water_tower, 1),
     ("sewer_outfall", sewer_outfall, 1), ("storm_pond", storm_pond, 1), ("storm_outfall", storm_outfall, 1),
     ("school", school, 2), ("high_school", high_school, 2), ("clinic", clinic, 2), ("hospital", hospital, 1),

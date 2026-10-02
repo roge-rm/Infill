@@ -803,4 +803,5 @@
     <string name="pill_pumps_off">Pumps have no power</string>
     <string name="pill_tunnel_shut">Flooded</string>
     <string name="tunnel_portal">Tunnel portal</string>
+    <string name="freight_terminal">Freight terminal</string>
 </resources>

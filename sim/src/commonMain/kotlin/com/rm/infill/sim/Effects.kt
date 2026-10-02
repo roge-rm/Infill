@@ -40,6 +40,8 @@ internal object Effects {
     private val STATION_NS = BuildingType.STATION_NS.ordinal
     private val YARD = BuildingType.FREIGHT_YARD.ordinal
     private val YARD_NS = BuildingType.FREIGHT_YARD_NS.ordinal
+    private val TERMINAL = BuildingType.FREIGHT_TERMINAL.ordinal
+    private val TERMINAL_NS = BuildingType.FREIGHT_TERMINAL_NS.ordinal
 
     /** Cover from each station, strongest at it and fading to nothing at its reach. */
     fun cover(map: CityMap, stations: List<Building>, reach: Int, out: ByteArray) {
@@ -94,7 +96,7 @@ internal object Effects {
         val railway = map.rail.any { it != Rail.NONE }
         fun typeOn(i: Int) = map.buildingType[i].toInt() - 1
         val stations = if (railway) SummedArea(w, h) { val t = typeOn(it); if (t == STATION || t == STATION_NS) 1 else 0 } else null
-        val yards = if (railway) SummedArea(w, h) { val t = typeOn(it); if (t == YARD || t == YARD_NS) 1 else 0 } else null
+        val yards = if (railway) SummedArea(w, h) { val t = typeOn(it); if (t == YARD || t == YARD_NS || t == TERMINAL || t == TERMINAL_NS) 1 else 0 } else null
         val track = if (railway) SummedArea(w, h) { if (map.rail[it] != Rail.NONE) 1 else 0 } else null
         for (y in 0 until h) for (x in 0 until w) {
             val i = y * w + x

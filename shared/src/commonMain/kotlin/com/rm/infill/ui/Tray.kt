@@ -415,11 +415,12 @@ fun portChoices(city: City): List<Choice<PortKind>> = portKindsIn(city).map { k 
 }
 
 @Composable
-fun railChoices(): List<Choice<RailKind>> = RailKind.entries.map { k ->
+fun railChoices(city: City): List<Choice<RailKind>> = railKindsIn(city).map { k ->
     when (k) {
         RailKind.Track -> Choice(k, stringResource(k.title), ChoiceIcon(intArrayOf(Atlas.GRASS, Atlas.TRACK + ACROSS)), perTile(Prices.RAIL))
         RailKind.Station -> Choice(k, stringResource(k.title), building(BuildingType.STATION), buildingDetail(BuildingType.STATION))
         RailKind.Yard -> Choice(k, stringResource(k.title), building(BuildingType.FREIGHT_YARD), buildingDetail(BuildingType.FREIGHT_YARD))
+        RailKind.Terminal -> Choice(k, stringResource(k.title), building(BuildingType.FREIGHT_TERMINAL), buildingDetail(BuildingType.FREIGHT_TERMINAL))
     }
 }
 

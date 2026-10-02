@@ -2477,6 +2477,15 @@ class City(
     private var railPassengers = false
     private var railFreight = false
 
+    /** Freight terminals on lines to the edge, and the tiles near enough one for works to feel it. */
+    private var linkedTerminals: List<Building> = emptyList()
+    private val nearTerminal = BooleanArray(map.size)
+
+    /** Whether a terminal and a port are near each other, so containers go straight from ship to train. */
+    private fun portByRail(): Boolean = linkedTerminals.any { t ->
+        linkedPorts.any { p -> abs(p.x - t.x) + abs(p.y - t.y) <= Balance.PORT_RAIL_REACH + t.type.width + p.type.width }
+    }
+
     /** The lines trains ran last month, for drawing them: the track, and what they carried. */
     var trainRoutes: List<TrainRoute> = emptyList()
         private set
@@ -2488,6 +2497,11 @@ class City(
         val freightOut = BooleanArray(stops.size) { stops[it].type.yard && railway.linked(it) }
         railPassengers = stops.indices.any { passengers[it] && railway.linked(it) }
         railFreight = freightOut.any { it }
+        // The terminals on lines out, and the works near enough to one to feel it.
+        linkedTerminals = stops.indices.filter { stops[it].type.terminal && freightOut[it] }.map { stops[it] }
+        nearTerminal.fill(false)
+        val reach = Balance.TERMINAL_REACH
+        for (b in linkedTerminals) forRect(max(0, b.x - reach), max(0, b.y - reach), min(map.width - 1, b.x + b.type.width - 1 + reach), min(map.height - 1, b.y + b.type.height - 1 + reach)) { nearTerminal[it] = true }
         val times = Array(stops.size) { railway.times[it].copyOf() }
         traffic.setRail(IntArray(stops.size) { accessOf(stops[it]) }, railway.stops.copyOf(), times, passengers, freightOut)
     }
@@ -2535,6 +2549,13 @@ class City(
         val train = Balance.TRAIN_LOAD * 30
         for (i in 0 until map.size) map.railBusy[i] = min(255, busy[i] * 128 / train).toByte()
         trainRoutes = routes
+        markContainerTrains()
+    }
+
+    /** Freight trains from a terminal carry containers. */
+    private fun markContainerTrains() {
+        val terminals = railway.stops.indices.filter { railway.buildings[it].type.terminal }.map { railway.stops[it] }.toSet()
+        for (t in trainRoutes) t.containers = !t.passengers && t.tiles.isNotEmpty() && t.tiles[0] in terminals
     }
 
     /** A train's way along [path], tunnels and all: the tiles, with those under ground hidden but for the portals. */
@@ -5411,6 +5432,7 @@ class City(
                 score += 50 + (if (water) 5 else 0) - crime / 8 - shakedown
                 score += amenity(comms >= Phone.SERVICE_PHONE, Balance.PHONE_APPEAL, 1910, 1950, Balance.PHONE_NEEDED)
                 if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
+                if (nearTerminal[i]) score += Balance.TERMINAL_APPEAL
                 // A works that gets what it needs in town does better.
                 buildings[m.building[i]]?.let { score += it.local * Balance.LOCAL_APPEAL / 100 }
             }
@@ -5683,7 +5705,8 @@ class City(
         val years = year - START_YEAR
         val market = (Balance.EXPORT_BASE + Balance.EXPORT_PER_RESIDENT * s.population) *
             (1 + Balance.EXPORT_GROWTH * years) * (if (connected) 1.0 else Balance.UNCONNECTED_EXPORTS) *
-            (if (railFreight) Balance.RAIL_EXPORTS else 1.0) * Balance.PORT_EXPORTS[seaTier] * Economy.market(year, month) / 100.0
+            (if (linkedTerminals.isNotEmpty()) Balance.TERMINAL_EXPORTS else if (railFreight) Balance.RAIL_EXPORTS else 1.0) *
+            Balance.PORT_EXPORTS[seaTier] * (if (portByRail()) Balance.PORT_RAIL_EXPORTS else 1.0) * Economy.market(year, month) / 100.0
         val jobs = s.shopJobs + s.industryJobs + s.farmJobs + s.officeJobs + s.otherJobs
         // What the town brings in that it could make: from the land, and from the works.
         var fromLand = 0.0
@@ -5751,6 +5774,7 @@ class City(
         var plants = 0.0
         var stations = 0
         var yards = 0
+        var terminals = 0
         var waterworks = 0.0
         var schools = 0.0
         var care = 0.0
@@ -5822,6 +5846,7 @@ class City(
                     else -> Balance.PLANT_UPKEEP
                 } + fuelCost(b) + if (b.scrubbed) Balance.SCRUBBER_UPKEEP else 0.0
                 b.type.station -> stations++
+                b.type.terminal -> terminals++
                 b.type.yard -> yards++
             }
         }
@@ -5856,7 +5881,7 @@ class City(
         s.waterUpkeep = waterworks.roundToLong()
         s.phoneUpkeep = (phoneUpkeep + phoneLines).roundToLong()
         s.roadUpkeep = (roads + lines * Balance.LINE_UPKEEP + highLines * Balance.HIGH_LINE_UPKEEP + cables + junctions).roundToLong()
-        s.railUpkeep = (track + stations * Balance.STATION_UPKEEP + yards * Balance.YARD_UPKEEP).roundToLong()
+        s.railUpkeep = (track + stations * Balance.STATION_UPKEEP + yards * Balance.YARD_UPKEEP + terminals * Balance.TERMINAL_UPKEEP).roundToLong()
         s.powerUpkeep = plants.roundToLong()
         s.policeUpkeep = ((police * Balance.POLICE_UPKEEP + policeExtra) * policeFunding / 100).roundToLong()
         s.fireUpkeep = ((fire * Balance.FIRE_UPKEEP + fireExtra) * fireFunding / 100).roundToLong()
@@ -6402,6 +6427,7 @@ class City(
                     for (t in c.trainRoutes) repeat(r.count()) { r.int().let { k -> if (k in t.hidden.indices) t.hidden[k] = true } }
                 }
                 c.updateNetworks()
+                c.markContainerTrains()
                 savedLoad?.copyInto(c.grid.load)
                 c.updatePathways()
             } else {
@@ -6674,7 +6700,10 @@ class Stats {
 }
 
 /** A line a train ran last month: the track from end to end, and whether it carried passengers or freight, and how many. */
-class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int, val hidden: BooleanArray = BooleanArray(tiles.size))
+class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int, val hidden: BooleanArray = BooleanArray(tiles.size)) {
+    /** A train of containers, from a freight terminal. */
+    var containers = false
+}
 
 
 enum class EventKind { FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut }

@@ -1,5 +1,6 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.freight_terminal
 import com.rm.infill.res.bulldoze_tunnel
 import com.rm.infill.res.container_port
 import com.rm.infill.res.docks
@@ -303,7 +304,11 @@ enum class RailKind(val title: StringResource) {
     Track(Res.string.rail_track),
     Station(Res.string.station),
     Yard(Res.string.freight_yard),
+    Terminal(Res.string.freight_terminal),
 }
+
+/** What the rail tool can put down in [city]'s era. */
+fun railKindsIn(city: City): List<RailKind> = RailKind.entries.filter { it != RailKind.Terminal || city.allows(BuildingType.FREIGHT_TERMINAL) }
 
 /** What the ports tool puts down: each kind of port, lying east to west or north to south. */
 enum class PortKind(val title: StringResource, val eastWest: BuildingType, val northSouth: BuildingType) {
@@ -527,6 +532,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             RailKind.Track -> Action.BuildRail(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), bridge?.takeIf { it.rail }, tunnel)
             RailKind.Station -> Action.PlaceBuilding(railBuilding(map, BuildingType.STATION, BuildingType.STATION_NS, x1, y1), x1, y1)
             RailKind.Yard -> Action.PlaceBuilding(railBuilding(map, BuildingType.FREIGHT_YARD, BuildingType.FREIGHT_YARD_NS, x1, y1), x1, y1)
+            RailKind.Terminal -> Action.PlaceBuilding(railBuilding(map, BuildingType.FREIGHT_TERMINAL, BuildingType.FREIGHT_TERMINAL_NS, x1, y1), x1, y1)
         }
         Tool.Water -> when {
             water.pipe != null -> Action.BuildPipe(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), water.pipe, water.material)
