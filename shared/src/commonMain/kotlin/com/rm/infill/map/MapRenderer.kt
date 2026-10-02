@@ -964,8 +964,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         /** Residential, commercial and industrial, as RGB: the edge and dots, and the pale wash over the ground. */
         private const val LANE = 0xB8443A
         private const val LANE_ALPHA = 190
-        val ZONE_COLOURS = intArrayOf(0, 0x4CC23A, 0x3C78D7, 0xDCAA28, 0xA6703C, 0x9B5CC8)
-        private val ZONE_WASHES = intArrayOf(0, 0xDDF7B8, 0xC4DAFF, 0xFFE9A6, 0xEBD7B4, 0xE6D4F2)
+        val ZONE_COLOURS = intArrayOf(0, 0x4CC23A, 0x3C78D7, 0xDCAA28, 0xA6703C, 0x9B5CC8, 0x1FA89A)
+        private val ZONE_WASHES = intArrayOf(0, 0xDDF7B8, 0xC4DAFF, 0xFFE9A6, 0xEBD7B4, 0xE6D4F2, 0xC2EEE8)
         private const val ZONE_WASH = 95
         private const val ZONE_LINE = 230
         private const val ZONE_DOT = 255

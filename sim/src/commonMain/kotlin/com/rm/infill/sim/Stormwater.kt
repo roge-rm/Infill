@@ -56,6 +56,7 @@ object Stormwater {
         BuildingType.FARMSTEAD, BuildingType.COUNTRY_HOUSE, BuildingType.ACREAGE_HOME -> 25
         BuildingType.CROSSROADS_STORE -> 45
         BuildingType.ROADHOUSE -> 70
+        BuildingType.SHOPHOUSE, BuildingType.MAIN_STREET_FLATS, BuildingType.MIXED_BLOCK, BuildingType.PODIUM_TOWER -> 95
         BuildingType.WOODLOT -> 0
         BuildingType.MINE, BuildingType.COLLIERY -> 60
         BuildingType.OIL_WELL -> 30

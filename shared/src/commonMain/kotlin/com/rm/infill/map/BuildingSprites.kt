@@ -15,6 +15,10 @@ internal object BuildingSprites {
         for (t in BuildingType.entries) {
             val (f, n) = when (t) {
                 BuildingType.COTTAGE -> Atlas.COTTAGE to Atlas.COTTAGE_COUNT
+                BuildingType.SHOPHOUSE -> Atlas.SHOPHOUSE to Atlas.SHOPHOUSE_COUNT
+                BuildingType.MAIN_STREET_FLATS -> Atlas.FLATS_OVER_SHOPS to Atlas.FLATS_OVER_SHOPS_COUNT
+                BuildingType.MIXED_BLOCK -> Atlas.MIXED_BLOCK to Atlas.MIXED_BLOCK_COUNT
+                BuildingType.PODIUM_TOWER -> Atlas.PODIUM_TOWER to Atlas.PODIUM_TOWER_COUNT
                 BuildingType.TOWER_BLOCK -> Atlas.HIGHRISE to Atlas.HIGHRISE_COUNT
                 BuildingType.SLENDER_TOWER -> Atlas.SLENDER_TOWER to Atlas.SLENDER_TOWER_COUNT
                 BuildingType.FARMSTEAD -> Atlas.FARMSTEAD to Atlas.FARMSTEAD_COUNT

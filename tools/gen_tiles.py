@@ -4139,6 +4139,110 @@ def supertall(look, v):
     return b
 
 
+# Homes over shops, from the streetcar age: a shophouse, flats over a row of
+# shops, a mixed block over a parade, and a tower of flats on a podium of shops.
+
+def shopfront(d, wall, colour, look, door_at=None):
+    """Plate glass along the ground floor under a striped awning, and a door."""
+    x0, _, x1, y1 = wall
+    d.rectangle([x0 + 1, y1 - 5, x1 - 1, y1 - 1], PLATE_GLASS)
+    for xx in range(x0 + 7, x1 - 2, 8):
+        d.line([xx, y1 - 5, xx, y1 - 1], OUTLINE)
+    door(d, wall, c("#3a2a20"), door_at)
+    awning(d, wall, colour, look, 9)
+
+
+def shophouse(look, v):
+    """A narrow brick shop of two storeys, the family's rooms above, a sign over the window."""
+    storeys = 2 + (v == 2)
+    b = Building(height=storeys * STOREY + 6)
+    d = b.d
+    x0, x1 = [(6, 25), (4, 27), (7, 24)][v]
+    roof, wall = b.box(x0, 6, x1, 26, storeys * STOREY + 2)
+    col = [BRICK, c("#b0704e"), PAINT[3]][v]
+    brick(d, wall, col) if v != 2 else siding(d, wall, col)
+    windows(d, (wall[0], wall[1], wall[2], wall[3] - STOREY - 2), storeys - 1, sill=TRIM, every=5)
+    shopfront(d, wall, AWNINGS[v], look)
+    sign(d, wall[0] + 3, wall[2] - 3, wall[3] - STOREY - 4, AWNINGS[(v + 3) % len(AWNINGS)])
+    d.rectangle(wall, outline=OUTLINE)
+    cornice(d, wall, TRIM)
+    flat_roof(b.img, roof, look, random.Random(9990 + v), [("stack", 3, 3), ("hatch", 10, 8)], parapet=shade(col, 1.1))
+    return b
+
+
+def flats_over_shops(look, v):
+    """Four storeys on a main street: a row of shops below with their awnings, flats above with bay windows."""
+    b = Building(height=4 * STOREY + 6)
+    d = b.d
+    roof, wall = b.box(1, 4, 30, 27, 4 * STOREY + 2)
+    col = [BRICK20, c("#c9a86a"), c("#8a5a44")][v]
+    brick(d, wall, col)
+    upper = (wall[0], wall[1], wall[2], wall[3] - STOREY - 2)
+    windows(d, upper, 3, sill=TRIM, every=4)
+    # Two shops side by side.
+    mid = (wall[0] + wall[2]) // 2
+    shopfront(d, (wall[0], wall[1], mid, wall[3]), AWNINGS[v], look, door_at=wall[0] + 4)
+    shopfront(d, (mid, wall[1], wall[2], wall[3]), AWNINGS[v + 2], look, door_at=wall[2] - 4)
+    d.line([mid, wall[3] - 9, mid, wall[3]], shade(col, 0.7))
+    d.rectangle(wall, outline=OUTLINE)
+    cornice(d, wall, CORNICE)
+    flat_roof(b.img, roof, look, random.Random(10000 + v), [("stack", 3, 3), ("stack", 24, 3), ("tank", 12, 9)], parapet=CORNICE)
+    return b
+
+
+def mixed_block(look, v):
+    """Seven storeys of flats with balconies over a glass parade of shops, the shops a little deeper than the flats."""
+    b = Building(height=7 * STOREY + 6)
+    d = b.d
+    # The parade, out to the street.
+    roof, wall = b.box(1, 16, 30, 29, STOREY + 2)
+    d.rectangle(wall, c("#4a5058"))
+    shopfront(d, wall, AWNINGS[1 + v * 2], look)
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#8a8a88"), OUTLINE)
+    # The flats.
+    roof, wall = b.box(3, 3, 28, 18, 7 * STOREY)
+    col = [SLAB, c("#c8b49a")][v]
+    d.rectangle(wall, col)
+    x0, y0, x1, y1 = wall
+    for k in range(6):
+        yy = y0 + 2 + k * STOREY
+        for xx in range(x0 + 2, x1 - 3, 6):
+            d.rectangle([xx, yy, xx + 3, yy + 2], WINDOW)
+            d.line([xx - 1, yy + 3, xx + 4, yy + 3], c("#e8e8e4"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(10100 + v), [("hatch", 4, 4), ("vent", 16, 6)], parapet=shade(col, 1.08))
+    return b
+
+
+def podium_tower(look, v):
+    """A tower of flats on 2 by 2 tiles over a podium of shops round its foot, a garden on the podium's roof."""
+    b = Building(2, 2, height=28 * STOREY + 4)
+    d = b.d
+    plaza(b, look)
+    roof, wall = b.box(2, 24, 61, 61, 3 * STOREY)
+    d.rectangle(wall, [c("#d8d0bc"), c("#9a9690")][v])
+    x0, y0, x1, y1 = wall
+    for k, xx in enumerate(range(x0, x1 - 10, 15)):
+        shopfront(d, (xx, y0, xx + 14, y1), AWNINGS[(k + v * 2) % len(AWNINGS)], look)
+    d.rectangle(wall, outline=OUTLINE)
+    rx0, ry0, rx1, ry1 = roof
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#8a8a88"), OUTLINE)
+    if look != "snow":
+        noise_fill(b.img, (rx0 + 2, ry0 + 2, rx1 - 1, ry0 + 10), GRASS[look], random.Random(10200 + v))
+    # The tower, its balconies wrapping the front.
+    roof, wall = b.box(16, 6, 47, 32, 28 * STOREY)
+    col = [c("#e8e4da"), c("#c8ccd0")][v]
+    d.rectangle(wall, col)
+    x0, y0, x1, y1 = wall
+    for yy in range(y0 + 3, y1 - 2, STOREY):
+        d.rectangle([x0 + 1, yy, x1 - 1, yy + 2], [c("#5f7f94"), c("#4f6f86")][v])
+        d.line([x0 - 1, yy + 3, x1 + 1, yy + 3], c("#f2f2ea"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(10300 + v), [("hatch", 8, 8), ("vent", 20, 6)], parapet=shade(col, 0.9))
+    return b
+
+
 # The deeper services: a volunteer fire hall, a ladder company, an ambulance
 # station, a nursing home, a library and a college round its green.
 
@@ -4503,6 +4607,7 @@ BUILDINGS = [
     ("crossroads_store", crossroads_store, 2), ("roadhouse", roadhouse, 2),
     ("highrise", highrise, 2), ("slender_tower", slender_tower, 2), ("tall_hotel", highrise_hotel, 2),
     ("skyscraper", skyscraper, 2), ("supertall", supertall, 2),
+    ("shophouse", shophouse, 3), ("flats_over_shops", flats_over_shops, 3), ("mixed_block", mixed_block, 2), ("podium_tower", podium_tower, 2),
 ]
 
 

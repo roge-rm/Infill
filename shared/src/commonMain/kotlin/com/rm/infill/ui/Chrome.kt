@@ -55,6 +55,7 @@ import com.rm.infill.res.redo
 import com.rm.infill.res.undo
 import com.rm.infill.res.year
 import com.rm.infill.GameState
+import com.rm.infill.sim.Balance
 import com.rm.infill.sim.Zone
 import com.rm.infill.sim.Precipitation
 import com.rm.infill.res.temperature
@@ -141,7 +142,11 @@ fun StatusStrip(
             PersonCount(city.stats.population, textSize)
         }
         val st = city.stats
-        DemandBars(st.residentialDemand, st.commercialDemand, st.industryDemand, st.officeDemand, st.farmDemand, st.population + st.jobs, Modifier.padding(end = 4.dp))
+        // Homes over shops are wanted as far as both homes and shops are.
+        val mixed = if (!city.allowsZone(Zone.MIXED)) null
+        else if (st.residentialDemand > 0 && st.commercialDemand > 0) minOf(st.residentialDemand, st.commercialDemand * Balance.MIXED_PEOPLE_PER_JOB)
+        else minOf(0, minOf(st.residentialDemand, st.commercialDemand * Balance.MIXED_PEOPLE_PER_JOB))
+        DemandBars(st.residentialDemand, st.commercialDemand, st.industryDemand, st.officeDemand, st.farmDemand, mixed, st.population + st.jobs, Modifier.padding(end = 4.dp))
     }
     ChromeBox(modifier) {
         // On a narrow screen the readings go on a second line under the buttons.
@@ -220,19 +225,20 @@ private fun PersonCount(count: Int, size: androidx.compose.ui.unit.TextUnit) {
 }
 
 /**
- * Residential, commercial and industrial demand as three small bars, up for
+ * Demand for each zone as small bars, mixed use once it's come in, up for
  * more wanted and down for too much, scaled to the size of the town ([townSize]
  * is its people and jobs). Numbers rather than the stats themselves, which
  * change in place and so wouldn't be seen to change.
  */
 @Composable
-fun DemandBars(residential: Int, commercial: Int, industrial: Int, office: Int, farmland: Int, townSize: Int, modifier: Modifier = Modifier) {
+fun DemandBars(residential: Int, commercial: Int, industrial: Int, office: Int, farmland: Int, mixed: Int?, townSize: Int, modifier: Modifier = Modifier) {
     val c = Infill.colors
     val scale = max(20f, 0.06f * townSize)
-    val values = listOf(residential, commercial, industrial, office, farmland).map { (it / scale).coerceIn(-1f, 1f) }
-    val colours = listOf(Zone.RESIDENTIAL, Zone.COMMERCIAL, Zone.INDUSTRIAL, Zone.OFFICE, Zone.FARMLAND).map { zoneColour(it) }
+    val zones = listOfNotNull(Zone.RESIDENTIAL, Zone.COMMERCIAL, Zone.INDUSTRIAL, Zone.OFFICE, Zone.FARMLAND, if (mixed != null) Zone.MIXED else null)
+    val values = listOfNotNull(residential, commercial, industrial, office, farmland, mixed).map { (it / scale).coerceIn(-1f, 1f) }
+    val colours = zones.map { zoneColour(it) }
     val label = stringResource(Res.string.demand)
-    Canvas(modifier.size(width = 40.dp, height = 28.dp).semantics { contentDescription = label }) {
+    Canvas(modifier.size(width = (8 * values.size).dp, height = 28.dp).semantics { contentDescription = label }) {
         val bar = size.width / values.size
         val mid = size.height / 2f
         drawLine(c.chromeEdge, Offset(0f, mid), Offset(size.width, mid), 1.dp.toPx())

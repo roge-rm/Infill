@@ -572,6 +572,13 @@
     <string name="trade_in">Goods brought in</string>
     <string name="zone_office">Offices</string>
     <string name="inspect_zone_office">Zoned for offices</string>
+    <string name="zone_mixed">Mixed use</string>
+    <string name="inspect_zone_mixed">Zoned for mixed use</string>
+    <string name="building_shophouse">Shophouse</string>
+    <string name="building_main_street_flats">Flats over shops</string>
+    <string name="building_mixed_block">Mixed block</string>
+    <string name="building_podium_tower">Podium tower</string>
+    <string name="label_shop_jobs">Shop jobs</string>
     <string name="building_offices">Offices</string>
     <string name="building_office_building">Office building</string>
     <string name="building_office_tower">Office tower</string>

@@ -529,6 +529,13 @@ object Balance {
     const val UPSET_FADE = 5
     const val UPSET_APPEAL = 8
 
+    /** Homes for each shop job in a mixed building, roughly, for sharing demand between zones. */
+    const val MIXED_PEOPLE_PER_JOB = 3
+
+    /** From 2000, homes over shops near a tram or bus stop are wanted more: transit-oriented. */
+    const val MIXED_TRANSIT_FROM = 2000
+    const val MIXED_TRANSIT_APPEAL = 10
+
     /** People forced out of town put off settlers, by up to this share in percent, fading a twelfth a month. */
     const val DISPLACED_MOST = 50
 

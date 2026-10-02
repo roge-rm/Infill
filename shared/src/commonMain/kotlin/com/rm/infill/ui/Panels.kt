@@ -108,6 +108,10 @@ import com.rm.infill.res.inspect_coal_seam
 import com.rm.infill.res.Res
 import com.rm.infill.res.building_bank
 import com.rm.infill.res.building_cottage
+import com.rm.infill.res.building_shophouse
+import com.rm.infill.res.building_main_street_flats
+import com.rm.infill.res.building_mixed_block
+import com.rm.infill.res.building_podium_tower
 import com.rm.infill.res.building_tower_block
 import com.rm.infill.res.building_slender_tower
 import com.rm.infill.res.building_farmstead
@@ -296,6 +300,10 @@ import org.jetbrains.compose.resources.stringResource
 
 fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.COTTAGE -> Res.string.building_cottage
+    BuildingType.SHOPHOUSE -> Res.string.building_shophouse
+    BuildingType.MAIN_STREET_FLATS -> Res.string.building_main_street_flats
+    BuildingType.MIXED_BLOCK -> Res.string.building_mixed_block
+    BuildingType.PODIUM_TOWER -> Res.string.building_podium_tower
     BuildingType.TOWER_BLOCK -> Res.string.building_tower_block
     BuildingType.SLENDER_TOWER -> Res.string.building_slender_tower
     BuildingType.FARMSTEAD -> Res.string.building_farmstead

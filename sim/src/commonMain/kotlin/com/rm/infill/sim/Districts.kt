@@ -80,7 +80,7 @@ class District(val id: Int, var name: String) {
 
         /** Which of a district's taxes a zone pays. */
         fun taxIndex(zone: Byte): Int = when (zone) {
-            Zone.RESIDENTIAL -> 0
+            Zone.RESIDENTIAL, Zone.MIXED -> 0
             Zone.COMMERCIAL, Zone.OFFICE -> 1
             else -> 2
         }

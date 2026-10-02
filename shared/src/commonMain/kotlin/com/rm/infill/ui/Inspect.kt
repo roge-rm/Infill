@@ -23,6 +23,8 @@ import com.rm.infill.res.pill_upset
 import com.rm.infill.res.need_internet
 import com.rm.infill.res.need_phone
 import com.rm.infill.res.need_water
+import com.rm.infill.res.inspect_zone_mixed
+import com.rm.infill.res.label_shop_jobs
 import com.rm.infill.res.need_power
 import com.rm.infill.res.pill_not_fitted
 import com.rm.infill.res.pill_no_internet
@@ -198,7 +200,7 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     if (b.outage > 0 && t.service && b.built >= city.monthNow - 1) pills += PillItem(Glyph.Wrench, pluralStringResource(Res.plurals.renovating, b.outage, b.outage), Tone.Warn)
     else if (b.outage > 0) pills += PillItem(Glyph.Wrench, pluralStringResource(Res.plurals.broken_down, b.outage, b.outage), Tone.Bad)
     if ((map.flood[i].toInt() and 0xff) >= Balance.FLOODED) {
-        val shut = t.zone == Zone.COMMERCIAL || t.zone == Zone.INDUSTRIAL || t.zone == Zone.OFFICE
+        val shut = t.zone == Zone.COMMERCIAL || t.zone == Zone.INDUSTRIAL || t.zone == Zone.OFFICE || t.zone == Zone.MIXED
         pills += PillItem(Glyph.Rain, stringResource(if (shut) Res.string.inspect_shut else Res.string.inspect_flooded), Tone.Bad)
     } else if ((map.floodMemory[i].toInt() and 0xff) >= FLOODED_BEFORE) {
         pills += PillItem(Glyph.Rain, stringResource(Res.string.inspect_flooded_before), Tone.Warn)
@@ -242,7 +244,10 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
             val schooled = (h.schooled[Education.SCHOOLED] + h.schooled[Education.EDUCATED]) * 100 / h.adults
             stats += StatItem(Glyph.Briefcase, stringResource(Res.string.label_adults_schooled), "$schooled%", schooled / 100f, toneOf(schooled, 60, 30))
         }
-    } else if (t.capacity > 0 && t != BuildingType.PARK) {
+    }
+    // The shops under homes over shops; anything else that isn't a home is its jobs.
+    if (t.jobs > 0) stats += StatItem(Glyph.Crate, stringResource(Res.string.label_shop_jobs), groupThousands(t.jobs.toLong()))
+    else if (h == null && t.capacity > 0 && t != BuildingType.PARK) {
         stats += StatItem(Glyph.Briefcase, stringResource(Res.string.label_jobs), groupThousands(t.capacity.toLong()))
     }
 
@@ -418,6 +423,7 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
         Zone.INDUSTRIAL -> Res.string.inspect_zone_industrial
         Zone.FARMLAND -> Res.string.inspect_zone_farmland
         Zone.OFFICE -> Res.string.inspect_zone_office
+        Zone.MIXED -> Res.string.inspect_zone_mixed
         else -> null
     }
     val subtitle = listOfNotNull(

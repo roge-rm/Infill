@@ -24,10 +24,10 @@ object Density {
         else -> -1
     }
 
-    /** Whether zone [zone] can be zoned at [density]: rural for homes and shops, towers for homes, shops and offices. */
+    /** Whether zone [zone] can be zoned at [density]: rural for homes and shops, towers for all but works and farms. */
     fun fits(zone: Byte, density: Byte): Boolean = when (density) {
         RURAL -> zone == Zone.RESIDENTIAL || zone == Zone.COMMERCIAL
-        TOWER -> zone == Zone.RESIDENTIAL || zone == Zone.COMMERCIAL || zone == Zone.OFFICE
+        TOWER -> zone == Zone.RESIDENTIAL || zone == Zone.COMMERCIAL || zone == Zone.OFFICE || zone == Zone.MIXED
         else -> true
     }
 }
@@ -35,7 +35,8 @@ object Density {
 /**
  * Every kind of building. Zoned ones climb a ladder of [stage]s, one ladder a
  * zone running up through the densities, a few rungs with a choice of two.
- * [capacity] is residents for homes and jobs for everything else. A rung
+ * [capacity] is residents for homes and jobs for everything else; a mixed
+ * building has [capacity] residents over [jobs] shop jobs. A rung
  * needs the lot zoned for its [density], the utilities in [needs] (1 power, 2
  * mains water as well, 3 the sewer as well), its [year], the [appeal] and the
  * land [value] to pay for it, and takes [buildDays] to put up. Most stand on
@@ -57,6 +58,8 @@ enum class BuildingType(
     val buildDays: Int = 0,
     /** For the works the city runs: how many years it's expected to go before it starts breaking down. */
     val life: Int = 0,
+    /** Shop jobs under a mixed building's homes. */
+    val jobs: Int = 0,
 ) {
     COTTAGE(Zone.RESIDENTIAL, 1, 5, density = Density.LOW, buildDays = 20),
     HOUSE(Zone.RESIDENTIAL, 2, 9, density = Density.LOW, needs = 1, appeal = 55, buildDays = 30),
@@ -68,6 +71,12 @@ enum class BuildingType(
     /** Towers: a block of flats from the 1930s, then a slender glass one from 2000. */
     TOWER_BLOCK(Zone.RESIDENTIAL, 7, 600, width = 2, height = 2, density = Density.TOWER, needs = 3, year = 1930, appeal = 76, value = 150, buildDays = 300),
     SLENDER_TOWER(Zone.RESIDENTIAL, 8, 900, width = 2, height = 2, density = Density.TOWER, needs = 3, year = 2000, appeal = 80, value = 170, buildDays = 360),
+
+    /** Homes over shops: a shop with rooms above, flats over a row of shops, a block over a parade, a tower on a podium of shops. */
+    SHOPHOUSE(Zone.MIXED, 1, 4, density = Density.LOW, year = 1910, value = 40, buildDays = 40, jobs = 2),
+    MAIN_STREET_FLATS(Zone.MIXED, 2, 14, density = Density.MEDIUM, needs = 2, year = 1910, appeal = 54, value = 70, buildDays = 80, jobs = 5),
+    MIXED_BLOCK(Zone.MIXED, 3, 50, density = Density.HIGH, needs = 3, year = 1950, appeal = 64, value = 100, buildDays = 160, jobs = 14),
+    PODIUM_TOWER(Zone.MIXED, 4, 400, width = 2, height = 2, density = Density.TOWER, needs = 3, year = 2000, appeal = 78, value = 150, buildDays = 320, jobs = 80),
     /** Rural: a farmstead, a country house from 1920, and a house on acreage from 1950, each on a big lot. */
     FARMSTEAD(Zone.RESIDENTIAL, 1, 5, width = 2, height = 2, density = Density.RURAL, buildDays = 40),
     COUNTRY_HOUSE(Zone.RESIDENTIAL, 2, 8, width = 2, height = 2, density = Density.RURAL, needs = 1, year = 1920, appeal = 45, buildDays = 60),
@@ -299,7 +308,7 @@ enum class BuildingType(
     /** Built of brick or stone to last, so that once it's old enough it's valued as heritage. */
     val heritage get() = this == LARGE_HOUSE || this == ROW_HOUSES || this == TENEMENT || this == APARTMENTS || this == APARTMENT_COURT ||
         this == MAIN_STREET || this == BANK || this == HOTEL || this == OFFICE_BLOCK || this == DEPARTMENT_STORE ||
-        this == OFFICE_BUILDING || this == OFFICE_TOWER
+        this == OFFICE_BUILDING || this == OFFICE_TOWER || this == MAIN_STREET_FLATS
 
     /** Office work, wherever it stands: the office zone's, and office blocks and banks among the shops. */
     val office get() = zone == Zone.OFFICE || this == OFFICE_BLOCK || this == BANK

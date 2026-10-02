@@ -39,6 +39,7 @@ import com.rm.infill.res.junction_lights
 import com.rm.infill.res.junction_roundabout
 import com.rm.infill.res.junction_interchange
 import com.rm.infill.res.zone_office
+import com.rm.infill.res.zone_mixed
 import com.rm.infill.res.zone_farmland
 import com.rm.infill.res.Res
 import com.rm.infill.res.tool_bulldoze
@@ -507,6 +508,7 @@ enum class ZoneKind(val zone: Byte, val title: StringResource) {
     Commercial(Zone.COMMERCIAL, Res.string.zone_commercial),
     Industrial(Zone.INDUSTRIAL, Res.string.zone_industrial),
     Office(Zone.OFFICE, Res.string.zone_office),
+    Mixed(Zone.MIXED, Res.string.zone_mixed),
     Farmland(Zone.FARMLAND, Res.string.zone_farmland),
 }
 

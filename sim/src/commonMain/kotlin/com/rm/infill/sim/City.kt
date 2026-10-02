@@ -400,7 +400,7 @@ class City(
                 when {
                     m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE || m.rail[i] != Rail.NONE ||
                         m.bank[i].toInt() != 0 || m.portal[i].toInt() != 0 -> blocked += i
-                    !Density.fits(action.zone, action.density) || !allowsDensity(action.density) -> blocked += i
+                    !Density.fits(action.zone, action.density) || !allowsDensity(action.density) || !allowsZone(action.zone) -> blocked += i
                     m.zone[i] == action.zone && m.density[i] == action.density -> {}
                     // A zone's density can change under its buildings; they stay, but grow no further than it allows.
                     m.zone[i] == action.zone -> changes += i
@@ -1354,7 +1354,7 @@ class City(
               for (i in plan.changes) {
                 buildings[m.building[i]]?.let {
                     if (first < 0 && it.type.zone != Zone.NONE) first = i
-                    if (it.type.zone != Zone.NONE && it.underway == 0 && it.people == null) jobsLost += it.type.capacity
+                    if (it.type.zone != Zone.NONE && it.underway == 0) jobsLost += if (it.people == null) it.type.capacity else it.type.jobs
                     forcedOut += clearOut(it)
                     removed += it
                     removeBuilding(it)
@@ -1552,13 +1552,13 @@ class City(
      */
     fun worth(b: Building): Long {
         val per = when (b.type.zone) {
-            Zone.RESIDENTIAL -> Balance.WORTH_HOME
+            Zone.RESIDENTIAL, Zone.MIXED -> Balance.WORTH_HOME
             Zone.COMMERCIAL, Zone.OFFICE -> Balance.WORTH_SHOP
             Zone.INDUSTRIAL, Zone.FARMLAND -> Balance.WORTH_WORKS
             else -> return 0
         }
         val value = map.landValue[map.index(b.x, b.y)].toInt() and 0xff
-        var w = b.type.capacity.toLong() * per * (100 + value) / 200
+        var w = (b.type.capacity.toLong() * per + b.type.jobs.toLong() * Balance.WORTH_SHOP) * (100 + value) / 200
         if (b.underway > 0) w = w * (b.type.buildDays - b.underway) / max(1, b.type.buildDays)
         else if (b.people?.empty == true) w = w * Balance.WORTH_EMPTY / 100
         if (isHeritage(b)) w *= Balance.HERITAGE_WORTH
@@ -2654,6 +2654,9 @@ class City(
     fun allows(type: BuildingType): Boolean = everything || (year >= type.year && era >= Era.of(type.year))
 
     /** Whether lots can be zoned at [density] yet: towers come with the motor age. */
+    /** Whether [zone] can be zoned in this era: homes over shops from the streetcar age. */
+    fun allowsZone(zone: Byte) = everything || zone != Zone.MIXED || era >= Era.STREETCAR
+
     fun allowsDensity(density: Byte): Boolean = everything || density != Density.TOWER || era >= Era.MOTOR
 
     /** Lets anything be built whatever the year, for trying things out. Not saved. */
@@ -3023,7 +3026,13 @@ class City(
             val node = accessOf(b)
             if (node < 0) continue
             val c = b.type.capacity
-            when (b.type.zone) {
+            val zone = b.type.zone
+            // Homes over shops send out workers and shoppers and take in both.
+            if (zone == Zone.MIXED) {
+                jobsAt[node] += b.type.jobs
+                shopsAt[node] += b.type.jobs * Balance.SHOPPERS_PER_SHOP_JOB
+            }
+            when (if (zone == Zone.MIXED) Zone.RESIDENTIAL else zone) {
                 Zone.RESIDENTIAL -> {
                     val wealth = b.people?.wealth ?: Wealth.MIDDLE
                     // Where parking's limited, fewer drive.
@@ -4350,6 +4359,7 @@ class City(
         return when (t.zone) {
             Zone.RESIDENTIAL -> (b.people?.size ?: 0) * perPerson * (if (coolRoof(map.index(b.x, b.y)) || greenRoof(map.index(b.x, b.y))) 100 - Balance.COOL_ROOF_POWER else 100) / 100
             Zone.COMMERCIAL -> t.capacity * perPerson * 2
+            Zone.MIXED -> (b.people?.size ?: 0) * perPerson + t.jobs * perPerson * 2
             Zone.INDUSTRIAL -> t.capacity * perPerson * 4
             else -> t.capacity * perPerson * 2 +
                 if (t == BuildingType.TRAM_DEPOT || t == BuildingType.SUBWAY_STATION || t == BuildingType.BUS_GARAGE) tractionEach else 0
@@ -4429,9 +4439,9 @@ class City(
     }
 
     /** What [b] pays in tax, in percent: the town's rate for its zone, moved by its district's. */
-    private fun taxOf(b: Building, base: Int): Int {
+    private fun taxOf(b: Building, base: Int, index: Int = District.taxIndex(b.type.zone)): Int {
         val d = districtAt(map.index(b.x, b.y)) ?: return base
-        return (base + d.tax[District.taxIndex(b.type.zone)]).coerceIn(0, 20)
+        return (base + d.tax[index]).coerceIn(0, 20)
     }
 
     /** A district's figures, counted now. */
@@ -4452,6 +4462,7 @@ class City(
             val b = buildings[map.building[i]] ?: continue
             if (!seen.add(b.id) || b.underway > 0) continue
             if (b.people != null) people += b.people!!.size else jobs += b.type.capacity
+            jobs += b.type.jobs
         }
         val n = maxOf(1, tiles)
         return DistrictFigures(people, jobs, (value / n).toInt(), (crime / n).toInt(), (pollution / n).toInt(), tiles)
@@ -5063,7 +5074,7 @@ class City(
         if (!floodsStanding) return
         // Shops and works under water are shut today.
         for (b in buildings.values) {
-            if ((b.type.zone == Zone.COMMERCIAL || b.type.zone == Zone.INDUSTRIAL || b.type.zone == Zone.OFFICE) && flooded(b)) b.closedDays++
+            if ((b.type.zone == Zone.COMMERCIAL || b.type.zone == Zone.INDUSTRIAL || b.type.zone == Zone.OFFICE || b.type.zone == Zone.MIXED) && flooded(b)) b.closedDays++
         }
         val f = map.flood
         var any = false
@@ -5141,7 +5152,7 @@ class City(
 
     /** Fills a home with newcomers as it grows, or has some move out as it shrinks. Nothing for other buildings. */
     private fun fitHousehold(b: Building) {
-        if (b.type.zone != Zone.RESIDENTIAL || b.underway > 0) {
+        if ((b.type.zone != Zone.RESIDENTIAL && b.type.zone != Zone.MIXED) || b.underway > 0) {
             b.people = null
             return
         }
@@ -5583,7 +5594,7 @@ class City(
                 (zone != Zone.FARMLAND || Land.fits(t, map.terrain[i], map.resource[i])) &&
                 (!t.needsPower || map.powered[i]) && (!t.needsWater || map.watered[i]) && (!t.needsSewer || map.sewered[i]) &&
                 // Businesses can't grow into what the town hasn't the people to staff.
-                (zone == Zone.RESIDENTIAL || !skillsShort(t)) &&
+                (zone == Zone.RESIDENTIAL || zone == Zone.MIXED || !skillsShort(t)) &&
                 (!t.large || assemblyAt(t, i, b) >= 0)
         }.sortedByDescending { Density.rank(it.density) }
     }
@@ -5770,6 +5781,11 @@ class City(
      * land and people nearby; industry wants power and water.
      */
     fun attraction(i: Int, zone: Byte): Int {
+        // Homes over shops go by both, and from 2000 do better near a stop.
+        if (zone == Zone.MIXED) {
+            val both = (attraction(i, Zone.RESIDENTIAL) + attraction(i, Zone.COMMERCIAL)) / 2
+            return both + if (year >= Balance.MIXED_TRANSIT_FROM && nearStop(i)) Balance.MIXED_TRANSIT_APPEAL else 0
+        }
         val m = map
         val x = i % m.width
         val y = i / m.width
@@ -5866,6 +5882,13 @@ class City(
             if (it.cleanWorks && zone == Zone.INDUSTRIAL) score -= Balance.CLEAN_WORKS_APPEAL
         }
         return score - floodPenalty(i) - stigma
+    }
+
+    /** Whether a tram or bus stop is within [Balance.STOP_REACH] of lot [i]. */
+    private fun nearStop(i: Int): Boolean {
+        var near = false
+        around(i % map.width, i / map.width, Balance.STOP_REACH) { j, _ -> if (map.stop[j].toInt() != 0) near = true }
+        return near
     }
 
     /**
@@ -6018,6 +6041,10 @@ class City(
                 when (b.type.zone) {
                     Zone.RESIDENTIAL -> s.homesComing += c
                     Zone.COMMERCIAL -> s.shopJobsComing += c
+                    Zone.MIXED -> {
+                        s.homesComing += c
+                        s.shopJobsComing += b.type.jobs
+                    }
                     Zone.OFFICE -> s.officeJobsComing += c
                     Zone.INDUSTRIAL -> s.industryJobsComing += c
                     Zone.FARMLAND -> s.farmJobsComing += c
@@ -6027,6 +6054,10 @@ class City(
             when (b.type.zone) {
                 Zone.RESIDENTIAL -> residents += b.people?.size ?: 0
                 Zone.COMMERCIAL -> if (b.type.office) officeJobs += c else shopJobs += c
+                Zone.MIXED -> {
+                    residents += b.people?.size ?: 0
+                    shopJobs += b.type.jobs
+                }
                 Zone.OFFICE -> officeJobs += c
                 Zone.INDUSTRIAL -> industryJobs += c
                 Zone.FARMLAND -> farmJobs += c
@@ -6044,6 +6075,11 @@ class City(
                 s.byWealth[h.wealth] += h.size
                 health += h.health.toLong() * h.size
                 spending += h.size.toLong() * Demography.SPENDING_BY_WEALTH[h.wealth] / 100
+                // The shops under a mixed building's homes.
+                if (b.type.jobs > 0) {
+                    val skills = Demography.jobSkills(b.type)
+                    for (k in 0 until Education.LEVELS) jobsBy[k] += b.type.jobs.toLong() * skills[k]
+                }
             } else if (c > 0) {
                 val skills = Demography.jobSkills(b.type)
                 for (k in 0 until Education.LEVELS) jobsBy[k] += c.toLong() * skills[k]
@@ -6158,6 +6194,18 @@ class City(
         quota[Zone.INDUSTRIAL.toInt()] = cap(growOrShrink(taxed(industryGap, industrialTax), s.industryDemand), s.industryJobs)
         quota[Zone.FARMLAND.toInt()] = cap(growOrShrink(taxed(farmGap, industrialTax), s.farmDemand), s.farmJobs)
         quota[Zone.OFFICE.toInt()] = cap(growOrShrink(taxed(officeGap, commercialTax), s.officeDemand), s.officeJobs)
+        // Homes over shops answer both: where both are wanted they take up to half of each, in people, and the rest is
+        // left to their own zones. Where either is overbuilt they come down too.
+        val r = Zone.RESIDENTIAL.toInt()
+        val sh = Zone.COMMERCIAL.toInt()
+        quota[Zone.MIXED.toInt()] = when {
+            zoneLots(Zone.MIXED).isEmpty() -> 0
+            quota[r] > 0 && quota[sh] > 0 -> min(quota[r] / 2, quota[sh] * Balance.MIXED_PEOPLE_PER_JOB / 2).also {
+                quota[r] -= it
+                quota[sh] -= it / Balance.MIXED_PEOPLE_PER_JOB
+            }
+            else -> min(0, min(quota[r], quota[sh] * Balance.MIXED_PEOPLE_PER_JOB)) / 2
+        }
     }
 
     /** What a zone does this month: shrink by [standing] if what stands is already too much, else grow by [coming], or not at all. */
@@ -6237,6 +6285,12 @@ class City(
             b.closedDays = 0
             val worth = (0.5 + (map.landValue[map.index(b.x, b.y)].toInt() and 0xff) / 200.0) * open
             when {
+                // Homes over shops pay as both: the homes rate on the flats and the shops rate on the shops.
+                b.type.zone == Zone.MIXED -> {
+                    homes += b.type.capacity * worth * Demography.TAX_BY_WEALTH[b.people?.wealth ?: Wealth.MIDDLE] / 100.0 * taxOf(b, residentialTax) *
+                        (if (districtAt(map.index(b.x, b.y))?.rentControl == true) Balance.RENT_CONTROL_TAX / 100.0 else 1.0)
+                    shops += b.type.jobs * worth * taxOf(b, commercialTax, District.taxIndex(Zone.COMMERCIAL))
+                }
                 b.type.zone == Zone.RESIDENTIAL -> homes += b.type.capacity * worth * Demography.TAX_BY_WEALTH[b.people?.wealth ?: Wealth.MIDDLE] / 100.0 * taxOf(b, residentialTax) *
                     (if (districtAt(map.index(b.x, b.y))?.rentControl == true) Balance.RENT_CONTROL_TAX / 100.0 else 1.0)
                 b.type.office -> offices += b.type.capacity * worth * taxOf(b, commercialTax)
@@ -6602,6 +6656,8 @@ class City(
         // Since version 29: the neighbours' upset at clearings, and the people forced out.
         w.layer(map.upset)
         w.int(displaced)
+        // Since version 30: homes over shops.
+        w.int(quota[Zone.MIXED.toInt()])
     }
 
     companion object {
@@ -6878,6 +6934,7 @@ class City(
                     r.layer(m.upset)
                     c.displaced = r.int()
                 }
+                if (version >= 30) c.quota[Zone.MIXED.toInt()] = r.int()
                 c.updateNetworks()
                 c.markContainerTrains()
                 c.updateAirports()

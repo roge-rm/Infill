@@ -590,12 +590,13 @@ fun bulldozeChoices(): List<Choice<BulldozeKind>> = BulldozeKind.entries.map { k
 
 /** The kinds of zone, each priced at [density] or the nearest it may be given; rural land is cheaper to zone. */
 @Composable
-fun zoneChoices(city: City, density: DensityKind): List<Choice<ZoneKind>> = ZoneKind.entries.map { k ->
+fun zoneChoices(city: City, density: DensityKind): List<Choice<ZoneKind>> = ZoneKind.entries.filter { city.allowsZone(it.zone) }.map { k ->
     val sample = when (k) {
         ZoneKind.Residential -> BuildingType.HOUSE
         ZoneKind.Commercial -> BuildingType.SHOP
         ZoneKind.Industrial -> BuildingType.WORKSHOP
         ZoneKind.Office -> BuildingType.OFFICES
+        ZoneKind.Mixed -> BuildingType.SHOPHOUSE
         ZoneKind.Farmland -> BuildingType.FARM
     }
     Choice(k, stringResource(k.title), ChoiceIcon(intArrayOf(BuildingSprites.sprite(sample.ordinal, 0)), back = zoneColour(k.zone)),
