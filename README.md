@@ -17,14 +17,14 @@ Dan (rm)
 
 <table>
   <tr>
-    <td align="center"><img src="screenshots/downtown.png" width="250" alt="Downtown"><br>Downtown: towers, a department store and works</td>
-    <td align="center"><img src="screenshots/country.png" width="250" alt="The country"><br>Farms, woods, the river and the power stations</td>
-    <td align="center"><img src="screenshots/people.png" width="250" alt="The people window"><br>Who lives in the town</td>
+    <td align="center" width="33%"><img src="screenshots/downtown.png" width="100%" alt="Downtown"><br>Downtown</td>
+    <td align="center" width="33%"><img src="screenshots/country.png" width="100%" alt="The country"><br>The country</td>
+    <td align="center" width="33%"><img src="screenshots/people.png" width="100%" alt="The people"><br>The people</td>
   </tr>
   <tr>
-    <td align="center"><img src="screenshots/traffic.png" width="250" alt="The traffic view"><br>The traffic view on a busy avenue</td>
-    <td align="center"><img src="screenshots/freight.png" width="250" alt="A freight train"><br>A freight train and its yard</td>
-    <td align="center"><img src="screenshots/underground.png" width="250" alt="Underground"><br>Cable and pipes under the river</td>
+    <td align="center" width="33%"><img src="screenshots/traffic.png" width="100%" alt="Traffic"><br>Traffic</td>
+    <td align="center" width="33%"><img src="screenshots/freight.png" width="100%" alt="Freight by rail"><br>Freight by rail</td>
+    <td align="center" width="33%"><img src="screenshots/underground.png" width="100%" alt="Underground"><br>Underground</td>
   </tr>
 </table>
 
