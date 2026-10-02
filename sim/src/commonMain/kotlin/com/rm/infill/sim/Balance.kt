@@ -529,6 +529,16 @@ object Balance {
     const val UPSET_FADE = 5
     const val UPSET_APPEAL = 8
 
+    /**
+     * The status line: a shortage of power or water this many percent of
+     * what's wanted, a zone this wanted, a sample of this many of its lots,
+     * and garbage collected under this percent.
+     */
+    const val ADVICE_SHORT = 5
+    const val ADVICE_DEMAND = 20
+    const val ADVICE_SAMPLE = 60
+    const val ADVICE_GARBAGE = 80
+
     /** Homes for each shop job in a mixed building, roughly, for sharing demand between zones. */
     const val MIXED_PEOPLE_PER_JOB = 3
 

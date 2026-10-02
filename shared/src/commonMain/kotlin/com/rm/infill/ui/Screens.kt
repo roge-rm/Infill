@@ -59,6 +59,7 @@ import com.rm.infill.map.imageBitmapOf
 import com.rm.infill.platform.AUTOSAVE
 import com.rm.infill.platform.Settings
 import com.rm.infill.platform.ThemeChoice
+import com.rm.infill.platform.ToolSide
 import com.rm.infill.res.tool_districts
 import com.rm.infill.res.tool_traffic
 import com.rm.infill.res.disasters
@@ -404,6 +405,16 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
                         },
                     )
                 }) { settings.theme = it }
+                SettingHead(Res.string.tool_side, Glyph.Arrows)
+                Chips(ToolSide.entries, settings.toolSide, {
+                    stringResource(
+                        when (it) {
+                            ToolSide.Auto -> Res.string.tool_side_auto
+                            ToolSide.Left -> Res.string.tool_side_left
+                            ToolSide.Right -> Res.string.tool_side_right
+                        },
+                    )
+                }) { settings.toolSide = it }
                 SettingHead(Res.string.disasters, Glyph.Warn)
                 Chips(listOf(0, 1, 2), settings.disasters, {
                     stringResource(listOf(Res.string.disasters_off, Res.string.disasters_fewer, Res.string.disasters_normal)[it])

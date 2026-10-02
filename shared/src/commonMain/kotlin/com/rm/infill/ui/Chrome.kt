@@ -22,6 +22,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import kotlin.math.ceil
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -103,6 +111,8 @@ fun StatusStrip(
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Cameras the strip runs round, as stretches across the window in pixels: the buttons keep clear of them. */
+    cameras: List<ClosedFloatingPointRange<Float>> = emptyList(),
 ) {
     val c = Infill.colors
     game.revision
@@ -152,7 +162,8 @@ fun StatusStrip(
         // On a narrow screen the readings go on a second line under the buttons.
         if (twoLines) {
             Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gap)) { buttons() }
+                if (cameras.isEmpty()) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gap)) { buttons() }
+                else ClearOf(cameras, gap) { buttons() }
                 Row(
                     Modifier.padding(start = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -178,6 +189,34 @@ fun StatusStrip(
                 }
             }
         }
+    }
+}
+
+/**
+ * A row of [content] spaced by [spacing], each moved along past any of the
+ * [cameras] (stretches across the window, in pixels) it would sit over.
+ */
+@Composable
+private fun ClearOf(cameras: List<ClosedFloatingPointRange<Float>>, spacing: Dp, content: @Composable () -> Unit) {
+    var left by remember { mutableFloatStateOf(0f) }
+    val sorted = remember(cameras) { cameras.sortedBy { it.start } }
+    Layout(content, Modifier.onGloballyPositioned { left = it.positionInWindow().x }) { measurables, constraints ->
+        val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
+        val space = spacing.roundToPx()
+        val xs = IntArray(placeables.size)
+        var x = 0
+        for ((k, p) in placeables.withIndex()) {
+            for (cam in sorted) {
+                val from = cam.start - left - space
+                val to = cam.endInclusive - left + space
+                if (x < to && x + p.width > from) x = ceil(to).toInt()
+            }
+            xs[k] = x
+            x += p.width + space
+        }
+        val width = (x - space).coerceIn(constraints.minWidth, constraints.maxWidth)
+        val height = placeables.maxOfOrNull { it.height } ?: 0
+        layout(width, height) { placeables.forEachIndexed { k, p -> p.place(xs[k], (height - p.height) / 2) } }
     }
 }
 

@@ -38,6 +38,10 @@ fun saveFileName(name: String): String {
 
 const val AUTOSAVE = "autosave"
 
+/** Where the cameras are cut out of the screen, in window pixels; none in a browser. */
+@androidx.compose.runtime.Composable
+expect fun cameraCutouts(): List<androidx.compose.ui.geometry.Rect>
+
 /** While [enabled], the system back button (Android's) calls [onBack] instead of leaving the app. */
 @androidx.compose.runtime.Composable
 expect fun BackButton(enabled: Boolean, onBack: () -> Unit)

@@ -12,6 +12,9 @@ import com.rm.infill.ui.KeyAction
 
 enum class ThemeChoice { Auto, Light, Dark }
 
+/** Which side the tools go down when they run down the side: away from the camera, or always left or right. */
+enum class ToolSide { Auto, Left, Right }
+
 /** The player's settings for this device, kept as they change. */
 @Stable
 class Settings(private val store: Platform) {
@@ -43,6 +46,16 @@ class Settings(private val store: Platform) {
         set(v) {
             scaleState = v
             store.setSetting(SCALE, v.toString())
+        }
+
+    private var toolSideState by mutableStateOf(
+        store.setting(TOOL_SIDE)?.let { v -> ToolSide.entries.firstOrNull { it.name == v } } ?: ToolSide.Auto,
+    )
+    var toolSide: ToolSide
+        get() = toolSideState
+        set(v) {
+            toolSideState = v
+            store.setSetting(TOOL_SIDE, v.name)
         }
 
     private var disastersState by mutableStateOf(store.setting(DISASTERS)?.toIntOrNull()?.coerceIn(0, 2) ?: 2)
@@ -116,6 +129,7 @@ class Settings(private val store: Platform) {
         private const val THEME = "theme"
         private const val SCALE = "ui_scale"
         private const val DISASTERS = "disasters"
+        private const val TOOL_SIDE = "tool_side"
         private const val KEYS = "keys"
 
         /** The actions there were when the keys were saved, so ones added since can have their defaults. */

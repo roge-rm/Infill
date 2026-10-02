@@ -1827,6 +1827,7 @@ class City(
         carbon()
         record()
         newEra()
+        updateAdvice()
     }
 
     // ---- wear and repairs --------------------------------------------------------------
@@ -5563,8 +5564,12 @@ class City(
             }
         }
         townChanges += best
+        grown[zone.toInt()]++
         return added
     }
+
+    /** Buildings each zone has put up or grown since the advice was last worked out. */
+    private val grown = IntArray(Zone.COUNT)
 
     /**
      * What could go up on lot [i] next, in place of [b] if it's there: the next
@@ -6209,6 +6214,79 @@ class City(
                 quota[sh] -= it / Balance.MIXED_PEOPLE_PER_JOB
             }
             else -> min(0, min(quota[r], quota[sh] * Balance.MIXED_PEOPLE_PER_JOB)) / 2
+        }
+    }
+
+    /** What's holding the town back, worst first, worked out each month. */
+    var advice: List<Advice> = emptyList()
+        private set
+
+    /**
+     * Works out [advice]: money and utilities short, then each zone that's
+     * wanted and can't grow, and why, from a sample of its lots.
+     */
+    internal fun updateAdvice() {
+        val s = stats
+        val out = ArrayList<Advice>()
+        if (funds < 0) out += Advice(AdviceKind.DEBT)
+        if (s.powerShort > 0 && s.powerDemand > 0 && s.powerShort * 100 / s.powerDemand >= Balance.ADVICE_SHORT) out += Advice(AdviceKind.POWER_SHORT)
+        if (s.waterShort > 0 && s.waterUsed > 0 && s.waterShort * 100 / s.waterUsed >= Balance.ADVICE_SHORT) out += Advice(AdviceKind.WATER_SHORT)
+        val wanted = listOf(
+            Zone.RESIDENTIAL to s.residentialDemand, Zone.COMMERCIAL to s.commercialDemand, Zone.INDUSTRIAL to s.industryDemand,
+            Zone.OFFICE to s.officeDemand, Zone.FARMLAND to s.farmDemand,
+        )
+        for ((zone, demand) in wanted) {
+            // A zone that's grown this month isn't stuck.
+            if (demand < Balance.ADVICE_DEMAND || grown[zone.toInt()] > 0) continue
+            stuck(zone)?.let { out += it }
+        }
+        grown.fill(0)
+        if (s.wasteCollected < Balance.ADVICE_GARBAGE) {
+            val b = buildings.values.firstOrNull { it.uncollected }
+            out += Advice(AdviceKind.GARBAGE, x = b?.x ?: -1, y = b?.y ?: -1)
+        }
+        advice = out
+    }
+
+    /** Why [zone], wanted, isn't growing, or null if some of its lots can. */
+    private fun stuck(zone: Byte): Advice? {
+        val lots = zoneLots(zone)
+        if (lots.isEmpty()) return Advice(AdviceKind.ZONE_MORE, zone)
+        val counts = IntArray(AdviceKind.entries.size)
+        val where = IntArray(AdviceKind.entries.size) { -1 }
+        val step = maxOf(1, lots.size / Balance.ADVICE_SAMPLE)
+        var k = 0
+        while (k < lots.size) {
+            val i = lots[k]
+            k += step
+            val b = buildings[map.building[i]]
+            if (b != null && (b.underway > 0 || b.type.zone != zone)) return null
+            // A full lot that's grown as far as it's let is fine.
+            if (b != null && b.type.next.isEmpty()) continue
+            val reason = whyNot(b, i, zone) ?: return null
+            counts[reason.ordinal]++
+            if (where[reason.ordinal] < 0) where[reason.ordinal] = i
+        }
+        val worst = counts.indices.maxByOrNull { counts[it] } ?: return null
+        if (counts[worst] == 0) return null
+        return Advice(AdviceKind.entries[worst], zone, where[worst] % map.width, where[worst] / map.width)
+    }
+
+    /** Why nothing can go up next on lot [i] of [zone] in place of [b], or null if something can. */
+    private fun whyNot(b: Building?, i: Int, zone: Byte): AdviceKind? {
+        if (!nearRoad[i]) return AdviceKind.NO_ROAD
+        if (choices(b, i, zone, attraction(i, zone)).isNotEmpty()) return null
+        val rung = (if (b == null) BuildingType.rung(zone, 1) else b.type.next).filter { it.year <= year }
+        if (rung.isEmpty()) return null
+        // The easiest it could be: the first that the lot's density allows.
+        val height = heightAt(i)
+        val t = rung.firstOrNull { Density.rank(it.density) <= Density.rank(height) && (it.density == Density.RURAL) == (height == Density.RURAL) } ?: return null
+        return when {
+            t.needsPower && !map.powered[i] -> AdviceKind.NO_POWER
+            t.needsWater && !map.watered[i] -> AdviceKind.NO_WATER
+            t.needsSewer && !map.sewered[i] -> AdviceKind.NO_SEWER
+            zone != Zone.RESIDENTIAL && zone != Zone.MIXED && skillsShort(t) -> AdviceKind.NO_STAFF
+            else -> AdviceKind.UNAPPEALING
         }
     }
 
@@ -6944,6 +7022,7 @@ class City(
                 c.updateAirports()
                 savedLoad?.copyInto(c.grid.load)
                 c.updatePathways()
+                c.updateAdvice()
             } else {
                 // Before ageing nothing kept its age: count everything as laid half the town's life ago.
                 val guess = (c.monthNow / 2).toShort()

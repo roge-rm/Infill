@@ -21,6 +21,10 @@ import com.rm.infill.platform.AUTOSAVE
 import com.rm.infill.platform.BackButton
 import com.rm.infill.platform.Settings
 import com.rm.infill.platform.ThemeChoice
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.ui.platform.LocalLayoutDirection
+import com.rm.infill.platform.ToolSide
+import com.rm.infill.platform.cameraCutouts
 import com.rm.infill.platform.platform
 import com.rm.infill.platform.saveFileName
 import com.rm.infill.res.cuts_off_port
@@ -117,6 +121,7 @@ import com.rm.infill.ui.MessageChip
 import com.rm.infill.ui.Preview
 import com.rm.infill.ui.ToolDrag
 import com.rm.infill.ui.ZoneKind
+import com.rm.infill.ui.AdviceLine
 import com.rm.infill.ui.DensityKind
 import com.rm.infill.ui.PowerKind
 import com.rm.infill.ui.RailKind
@@ -759,40 +764,80 @@ private fun GameScreen(
             val twoLines = layout.narrow && layout.shape == ScreenShape.Tall
             // A phone on its side hasn't the height for undo and redo down the rail, so they go along the top.
             val historyOnTop = twoLines || (sideTools && layout.short)
+            // On an upright phone with its camera in the top edge, the strip goes up round it: if each camera is small
+            // enough to leave room for the buttons, and short enough to stay within the strip's first row.
+            val windowPx = with(LocalDensity.current) { maxWidth.toPx() }
+            val rowPx = with(LocalDensity.current) { CAMERA_ROW.dp.toPx() }
+            val cameras = cameraCutouts().filter { it.top <= 0f && it.height > 0f }.let { top ->
+                if (twoLines && top.isNotEmpty() && top.all { it.width <= windowPx * CAMERA_SHARE && it.bottom <= rowPx }) top.map { it.left..it.right } else emptyList()
+            }
             StatusStrip(
                 game, onMenu, paused, { paused = !paused }, speed, { speed = (speed + 1) % SPEEDS.size },
                 overlay != Overlay.None || choosingOverlay, { if (overlay != Overlay.None) viewTab = viewGroup(overlay); choosingOverlay = !choosingOverlay },
                 { budgetOpen = true }, { peopleOpen = true }, { eraShown = city.era },
                 Sky.sun(sunStep, month).strength == 0f, layout.compact || layout.narrow,
                 twoLines = twoLines, withHistory = historyOnTop, onUndo = ::undo, onRedo = ::redo,
-                Modifier
-                    // Beside the tools rather than above them when they run down the side.
-                    .align(if (sideTools && !layout.large) Alignment.TopCenter else Alignment.TopStart)
-                    .onSizeChanged { stripSize = it }
-                    .windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-                    .padding(gap),
-            )
-            message?.let { m ->
-                MessageChip(
-                    when {
-                        m.arg != null -> stringResource(m.text, stringResource(m.arg))
-                        m.name != null -> stringResource(m.text, m.name)
-                        else -> stringResource(m.text)
-                    },
-                    if (m.x >= 0) ({ camera.centreOn(m.x, m.y) }) else null,
+                if (cameras.isNotEmpty()) {
+                    // Up into the band the camera takes, across the screen, the camera sitting on it with the buttons clear of it.
                     Modifier
                         .align(Alignment.TopCenter)
-                        // Just under the strip, however many lines it takes.
-                        .padding(top = with(LocalDensity.current) { stripSize.height.toDp() })
-                        .windowInsetsPadding(safe.only(WindowInsetsSides.Horizontal)),
-                )
+                        .onSizeChanged { stripSize = it }
+                        .windowInsetsPadding(safe.only(WindowInsetsSides.Horizontal))
+                        .padding(start = gap, end = gap, top = CAMERA_GAP.dp)
+                        .fillMaxWidth()
+                } else {
+                    Modifier
+                        // Centred, but to the left on a large screen, leaving room for the city panel on the right.
+                        .align(if (layout.large) Alignment.TopStart else Alignment.TopCenter)
+                        .onSizeChanged { stripSize = it }
+                        .windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                        .padding(gap)
+                },
+                cameras = cameras,
+            )
+            // Under the strip, however many lines it takes: what's holding the town back, then any message.
+            Column(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = with(LocalDensity.current) { stripSize.height.toDp() })
+                    .windowInsetsPadding(safe.only(WindowInsetsSides.Horizontal))
+                    .padding(horizontal = gap),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                game.revision
+                AdviceLine(city.advice, { x, y -> camera.centreOn(x, y) })
+                message?.let { m ->
+                    MessageChip(
+                        when {
+                            m.arg != null -> stringResource(m.text, stringResource(m.arg))
+                            m.name != null -> stringResource(m.text, m.name)
+                            else -> stringResource(m.text)
+                        },
+                        if (m.x >= 0) ({ camera.centreOn(m.x, m.y) }) else null,
+                    )
+                }
+            }
+            // Down the side away from the camera, or the side the player picked. With no camera on either side,
+            // a large screen keeps them left of the city panel and a phone puts them on the right.
+            val cutout = WindowInsets.displayCutout
+            val dir = LocalLayoutDirection.current
+            val px = LocalDensity.current
+            val toolsRight = when (settings.toolSide) {
+                ToolSide.Left -> false
+                ToolSide.Right -> true
+                ToolSide.Auto -> when {
+                    cutout.getLeft(px, dir) > 0 -> true
+                    cutout.getRight(px, dir) > 0 -> false
+                    else -> !layout.large
+                }
             }
             if (sideTools) {
                 ToolBar(
                     tool.group, ::pickGroup, game.canUndo, game.canRedo, ::undo, ::redo, vertical = true, compact = compactTools,
                     modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .windowInsetsPadding(safe.only(WindowInsetsSides.Start))
+                        .align(if (toolsRight) Alignment.CenterEnd else Alignment.CenterStart)
+                        .windowInsetsPadding(safe.only(if (toolsRight) WindowInsetsSides.End else WindowInsetsSides.Start))
                         .padding(gap),
                     withHistory = !historyOnTop,
                 )
@@ -1003,6 +1048,15 @@ private val DEV_WEATHER = listOf(
 private const val SECONDS_PER_MONTH = 600.0
 private val SPEEDS = doubleArrayOf(0.5, 1.0, 4.0)
 private const val MAX_DAYS_PER_FRAME = 4
+
+/**
+ * Round a camera in the top edge: the gap above the strip, the deepest a
+ * camera can reach and still sit within its first row, and the widest it can
+ * be, as a share of the screen, and leave room for the buttons.
+ */
+private const val CAMERA_GAP = 6
+private const val CAMERA_ROW = 54
+private const val CAMERA_SHARE = 0.3f
 
 /** How long a message stays. */
 private const val MESSAGE_MS = 2500L
