@@ -60,6 +60,20 @@ internal fun DrawScope.drawNeighbours(neighbours: Array<Border?>, map: CityMap, 
                     else drawRect(colour, Offset(at.x, at.y + t * offset - w / 2), Size(t, w), alpha = fade)
                 }
                 if (b.road[k] != Road.NONE) bar(ROAD, 0.6f)
+                // Where this town's road or track meets it at the border: a link, marked on the line.
+                val mine = Border.tile(map, edge, k.coerceIn(0, (if (across) map.width else map.height) - 1))
+                val linked = (b.road[k] != Road.NONE && map.road[mine] != Road.NONE) || (b.rail[k] != Rail.NONE && map.rail[mine] != Rail.NONE)
+                if (linked && d == 0) {
+                    val r = t * 0.22f
+                    val c = when (edge) {
+                        Border.NORTH -> Offset(at.x + t / 2, at.y + t)
+                        Border.EAST -> Offset(at.x, at.y + t / 2)
+                        Border.SOUTH -> Offset(at.x + t / 2, at.y)
+                        else -> Offset(at.x + t, at.y + t / 2)
+                    }
+                    drawCircle(LINK_EDGE, r * 1.3f, c)
+                    drawCircle(LINK, r, c)
+                }
                 if (b.rail[k] != Rail.NONE) {
                     bar(BALLAST, 0.45f)
                     bar(RAIL, 0.06f, 0.4f)
@@ -116,3 +130,5 @@ private val POLE = Color(0xFF3A2E24)
 private val PYLON = Color(0xFF2A2A2E)
 private val PIPE = Color(0xFF3C78D7)
 private val PHONE = Color(0xFFD08A2A)
+private val LINK = Color(0xFF4CC23A)
+private val LINK_EDGE = Color(0xFFF2EEE4)

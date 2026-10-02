@@ -539,6 +539,13 @@ object Balance {
     const val ADVICE_SAMPLE = 60
     const val ADVICE_GARBAGE = 80
 
+    /**
+     * Commuters a month a link over the border carries: for a road, this
+     * percent of its capacity, and for a track, so many by train.
+     */
+    const val COMMUTERS_PER_CAPACITY = 50
+    const val RAIL_LINK_COMMUTERS = 1500
+
     /** Water meeting the map's edge along this many tiles is open sea, which rivers run down to. */
     const val SEA_EDGE = 24
 

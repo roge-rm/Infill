@@ -33,6 +33,9 @@ class City(
      */
     var neighbours: Array<Border?> = arrayOfNulls(4)
 
+    /** The neighbours' workers and jobs to spare on each edge, as they were left; set with [neighbours]. */
+    var neighbourSpare: Array<Neighbour?> = arrayOfNulls(4)
+
     /** For land put in place after the city was made: the river's flow is worked out again. */
     internal fun landChanged() {
         flowDirty = true
@@ -1829,6 +1832,7 @@ class City(
         fadeUpset()
         heatWaveDays = 0
         census()
+        commute()
         updateAirports()
         tourism()
         startTraffic()
@@ -3154,6 +3158,15 @@ class City(
             }
         }
         stats.workingFromHome = wfh
+        // Commuters come and go at the links: those coming in start there, those going out end there.
+        if (commutersIn.isNotEmpty() || commutersOut.isNotEmpty()) {
+            val share = Cars.share(year, Wealth.MIDDLE)
+            for ((i, c) in commutersIn) if (map.road[i] != Road.NONE) {
+                workersAt[i] += c
+                carWorkers[i] += c * share
+            }
+            for ((i, c) in commutersOut) if (map.road[i] != Road.NONE) jobsAt[i] += c
+        }
         // Visitors go shopping too: from their hotels, and day trippers from the stations and ports they came in at.
         val stay = 100 - Balance.STAY_SHARE
         val stations = railway.stops.indices.filter { railway.buildings[it].type.station && railway.linked(it) }.map { railway.buildings[it] }
@@ -6118,6 +6131,91 @@ class City(
      * town-wide, the best schooled to the jobs that need them most and the
      * rest down from there.
      */
+    /**
+     * The edge tiles where this town meets a neighbour on the same road or
+     * track, with what each can carry in commuters a month, by edge.
+     */
+    fun links(): List<Pair<Int, Int>> {
+        val out = ArrayList<Pair<Int, Int>>()
+        for (edge in 0 until 4) {
+            val b = neighbours[edge] ?: continue
+            val length = if (edge == Border.NORTH || edge == Border.SOUTH) map.width else map.height
+            for (k in 0 until minOf(length, b.length)) {
+                val i = Border.tile(map, edge, k)
+                val road = RoadType.of(map.road[i])
+                val carries = when {
+                    road != null && b.road[k] != Road.NONE -> road.capacity * Balance.COMMUTERS_PER_CAPACITY / 100
+                    map.rail[i] != Rail.NONE && b.rail[k] != Rail.NONE -> Balance.RAIL_LINK_COMMUTERS
+                    else -> 0
+                }
+                if (carries > 0) out += i to carries
+            }
+        }
+        return out
+    }
+
+    /** Commuters on each link tile this month: coming in to work here, and going out to work in a neighbour. */
+    private val commutersIn = HashMap<Int, Int>()
+    private val commutersOut = HashMap<Int, Int>()
+
+    /**
+     * People out of work here take the jobs going in the neighbours, and the
+     * neighbours' idle take the jobs going here, as far as the links carry,
+     * worked out after the census. Commuters going out count against how many
+     * are out of work; those coming in fill jobs, taking from the shortages.
+     */
+    private fun commute() {
+        val s = stats
+        commutersIn.clear()
+        commutersOut.clear()
+        s.commutersIn = 0
+        s.commutersOut = 0
+        val links = links()
+        if (links.isEmpty()) return
+        var idle = s.idle
+        var vacant = s.vacant
+        for (edge in 0 until 4) {
+            val n = neighbourSpare[edge] ?: continue
+            val here = links.filter { (i, _) -> edgeOf(i) == edge }
+            if (here.isEmpty()) continue
+            var theirJobs = n.vacant
+            var theirIdle = n.idle
+            for ((i, carries) in here) {
+                val out = minOf(idle, theirJobs, carries)
+                val inn = minOf(vacant, theirIdle, carries - out)
+                if (out > 0) commutersOut[i] = out
+                if (inn > 0) commutersIn[i] = inn
+                idle -= out
+                theirJobs -= out
+                vacant -= inn
+                theirIdle -= inn
+                s.commutersOut += out
+                s.commutersIn += inn
+            }
+        }
+        // Out of work, less those who found it next door; shortages, less what commuters fill.
+        s.unemployment = if (s.workers == 0) 0 else idle * 100 / s.workers
+        if (s.vacant > 0) {
+            val left = vacant * 100 / s.vacant
+            for (k in 0 until Education.LEVELS) skillShortage[k] = skillShortage[k] * left / 100
+        }
+        s.idle = idle
+        s.vacant = vacant
+    }
+
+    /** Which edge tile [i] is on: north, east, south or west, or -1 inside the map. */
+    private fun edgeOf(i: Int): Int {
+        val x = i % map.width
+        val y = i / map.width
+        return when {
+            y == 0 -> Border.NORTH
+            x == map.width - 1 -> Border.EAST
+            y == map.height - 1 -> Border.SOUTH
+            x == 0 -> Border.WEST
+            else -> -1
+        }
+    }
+
     private fun census() {
         val s = stats
         var residents = 0
@@ -6235,6 +6333,8 @@ class City(
         }
         val idle = free.sum()
         s.unemployment = if (s.workers == 0) 0 else idle * 100 / s.workers
+        s.idle = idle
+        s.vacant = (0 until Education.LEVELS).sumOf { s.jobsBy[it] - s.filledBy[it] }.coerceAtLeast(0)
         for (k in 0 until Education.LEVELS) {
             skillShortage[k] = if (s.jobsBy[k] == 0) 0 else (s.jobsBy[k] - s.filledBy[k]) * 100 / s.jobsBy[k]
         }
@@ -6281,7 +6381,8 @@ class City(
             (100 - displacedCut()) / 100.0
         // Homes for the people the jobs need, children and the elderly with them.
         val workersPerResident = if (s.population == 0) Balance.LABOUR_SHARE else (s.workers.toDouble() / s.population).coerceIn(0.25, 0.6)
-        val seekers = jobs / workersPerResident + settlers - s.population
+        // Work over the border counts as jobs here for those who live here; jobs here done by commuters don't need homes.
+        val seekers = (jobs + s.commutersOut - s.commutersIn) / workersPerResident + settlers - s.population
         s.homeSeekers = taxed(seekers, residentialTax)
         // The empty homes take what they can of it before anyone builds.
         val homeGap = seekers - s.emptyRoom
@@ -6832,6 +6933,8 @@ class City(
         // Since version 31: the region it's in, if any, and its square there.
         w.string(region ?: "")
         w.int(square)
+        // Since version 32: commuters and what's to spare.
+        for (v in intArrayOf(s.idle, s.vacant, s.commutersIn, s.commutersOut)) w.int(v)
     }
 
     companion object {
@@ -7113,6 +7216,10 @@ class City(
                     c.region = r.string().ifEmpty { null }
                     c.square = r.int()
                 }
+                if (version >= 32) {
+                    val s = c.stats
+                    s.idle = r.int(); s.vacant = r.int(); s.commutersIn = r.int(); s.commutersOut = r.int()
+                }
                 c.updateNetworks()
                 c.markContainerTrains()
                 c.updateAirports()
@@ -7265,6 +7372,12 @@ class Stats {
     var otherJobs = 0
     /** Percent of workers without a job, or without a way to get to one. */
     var unemployment = 0
+
+    /** Workers with no work, and jobs no one's doing, after commuters; and the commuters each way. */
+    var idle = 0
+    var vacant = 0
+    var commutersIn = 0
+    var commutersOut = 0
 
     /** The average commute in minutes. */
     var commute = 0

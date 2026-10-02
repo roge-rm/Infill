@@ -74,7 +74,13 @@ class RegionTown(
     val population: Int,
     val borders: Array<Border>,
     val picture: ByteArray,
+    /** Its workers with no work, and its jobs no one's doing, as it was left: what a neighbour's commuters can take up. */
+    val idle: Int = 0,
+    val vacant: Int = 0,
 )
+
+/** What a neighbour has along the shared edge, and the workers and jobs it has to spare. */
+class Neighbour(val border: Border, val idle: Int, val vacant: Int)
 
 /**
  * A region: [size] by [size] squares, each with room for a town of [side] by
@@ -119,11 +125,15 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
         return if (x in 0 until size && y in 0 until size) y * size + x else -1
     }
 
-    /** What [city]'s neighbours have along the edges they share with it, as they were left. */
-    fun bordersOf(city: City): Array<Border?> = Array(4) { edge ->
+    /** [city]'s neighbours on each edge, as they were left: what they have along the shared edge, and to spare. */
+    fun neighboursOf(city: City): Array<Neighbour?> = Array(4) { edge ->
         val n = neighbour(city.square, edge)
-        if (n < 0) null else towns[n]?.borders?.get(Border.facing(edge))
+        val t = if (n < 0) null else towns[n]
+        if (t == null) null else Neighbour(t.borders[Border.facing(edge)], t.idle, t.vacant)
     }
+
+    /** What [city]'s neighbours have along the edges they share with it, as they were left. */
+    fun bordersOf(city: City): Array<Border?> = neighboursOf(city).map { it?.border }.toTypedArray()
 
     /** The file a town on [square] of the region kept in [regionFile] is saved in. */
     fun townFile(regionFile: String, square: Int) = "$regionFile-$square"
@@ -132,7 +142,7 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
     fun record(city: City, file: String) {
         towns[city.square] = RegionTown(
             city.name, file, city.year, city.month, city.stats.population,
-            Array(4) { Border.of(city.map, it) }, look(city.map),
+            Array(4) { Border.of(city.map, it) }, look(city.map), city.stats.idle, city.stats.vacant,
         )
     }
 
@@ -152,6 +162,8 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
             w.string(t.name); w.string(t.file); w.int(t.year); w.int(t.month); w.int(t.population)
             for (b in t.borders) b.writeTo(w)
             w.layer(t.picture)
+            // Since version 4: its workers and jobs to spare.
+            w.int(t.idle); w.int(t.vacant)
         }
         return w.bytes()
     }
@@ -162,7 +174,7 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
         val SIDES = listOf(64, 96, 128, 192, 256)
 
         private const val MAGIC = 0x494E5247 // "INRG"
-        private const val VERSION = 3
+        private const val VERSION = 4
 
         fun read(bytes: ByteArray): Region {
             val r = SaveReader(bytes)
@@ -183,7 +195,9 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
                     val townName = r.string(); val file = r.string(); val year = r.int(); val month = r.int(); val people = r.int()
                     val borders = Array(4) { Border(side).also { b -> b.readFrom(r) } }
                     val picture = ByteArray(side * side).also { r.layer(it) }
-                    region.towns[k] = RegionTown(townName, file, year, month, people, borders, picture)
+                    val idle = if (version >= 4) r.int() else 0
+                    val vacant = if (version >= 4) r.int() else 0
+                    region.towns[k] = RegionTown(townName, file, year, month, people, borders, picture, idle, vacant)
                 }
                 return region
             } catch (e: IndexOutOfBoundsException) {

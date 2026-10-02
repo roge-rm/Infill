@@ -566,6 +566,9 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
                 StatItem(Glyph.Cross, stringResource(Res.string.health), healthWord(s.health).replaceFirstChar { it.uppercase() }, s.health / 100f, toneOf(s.health, 65, 45)),
                 StatItem(Glyph.Briefcase, stringResource(Res.string.label_unemployed), stringResource(Res.string.percent, s.unemployment), s.unemployment / 100f, when { s.unemployment >= 15 -> Tone.Bad; s.unemployment >= 7 -> Tone.Warn; else -> Tone.Good }),
                 if (s.commute > 0) StatItem(Glyph.Car, stringResource(Res.string.label_commute), stringResource(Res.string.value_minutes, s.commute)) else null,
+                // Over the border to the neighbours and back, for a town in a region.
+                if (s.commutersOut > 0) StatItem(Glyph.Arrows, stringResource(Res.string.commuting_out), n(s.commutersOut)) else null,
+                if (s.commutersIn > 0) StatItem(Glyph.Arrows, stringResource(Res.string.commuting_in), n(s.commutersIn)) else null,
                 StatItem(Glyph.Lights, stringResource(Res.string.traffic_flow), stringResource(Res.string.percent, s.flow), s.flow / 100f, toneOf(s.flow, 80, 50)),
                 if (s.emptyHomes > 0) StatItem(Glyph.Tag, stringResource(Res.string.empty_homes), n(s.emptyHomes)) else null,
             ),

@@ -313,7 +313,14 @@ private fun Screens(settings: Settings) {
 
     /** Plays [city], with its neighbours' borders if it's in a region. */
     fun play(city: City) {
-        city.region?.let { file -> readRegion(file)?.let { r -> region = r; regionFile = file; city.neighbours = r.bordersOf(city) } }
+        city.region?.let { file ->
+            readRegion(file)?.let { r ->
+                region = r
+                regionFile = file
+                city.neighbourSpare = r.neighboursOf(city)
+                city.neighbours = city.neighbourSpare.map { it?.border }.toTypedArray()
+            }
+        }
         game = GameState(city)
         loadOpen = false
         menuOpen = false

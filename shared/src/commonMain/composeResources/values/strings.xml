@@ -456,6 +456,8 @@
     <string name="theme">Theme</string>
     <string name="theme_auto">Auto</string>
     <string name="kind_town">A town on its own</string>
+    <string name="commuting_out">Working next door</string>
+    <string name="commuting_in">Coming in to work</string>
     <string name="kind_region">A region of towns</string>
     <string name="town_size">Town size</string>
     <string name="sea">Sea</string>
