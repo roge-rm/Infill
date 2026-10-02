@@ -17,14 +17,14 @@ Dan (rm)
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="screenshots/downtown.png" width="100%" alt="Downtown"><br>Downtown</td>
-    <td align="center" width="33%"><img src="screenshots/country.png" width="100%" alt="The country"><br>The country</td>
-    <td align="center" width="33%"><img src="screenshots/people.png" width="100%" alt="The people"><br>The people</td>
+    <td align="center" width="33%"><img src="screenshots/downtown.png" width="100%" alt="Downtown"></td>
+    <td align="center" width="33%"><img src="screenshots/country.png" width="100%" alt="The country"></td>
+    <td align="center" width="33%"><img src="screenshots/people.png" width="100%" alt="The people"></td>
   </tr>
   <tr>
-    <td align="center" width="33%"><img src="screenshots/traffic.png" width="100%" alt="Traffic"><br>Traffic</td>
-    <td align="center" width="33%"><img src="screenshots/freight.png" width="100%" alt="Freight by rail"><br>Freight by rail</td>
-    <td align="center" width="33%"><img src="screenshots/underground.png" width="100%" alt="Underground"><br>Underground</td>
+    <td align="center" width="33%"><img src="screenshots/traffic.png" width="100%" alt="Traffic"></td>
+    <td align="center" width="33%"><img src="screenshots/freight.png" width="100%" alt="Freight by rail"></td>
+    <td align="center" width="33%"><img src="screenshots/underground.png" width="100%" alt="Underground"></td>
   </tr>
 </table>
 
