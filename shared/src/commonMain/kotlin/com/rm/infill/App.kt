@@ -177,6 +177,9 @@ import com.rm.infill.map.Sky
 import com.rm.infill.map.rememberTileAtlas
 import kotlinx.coroutines.delay
 import com.rm.infill.sim.City
+import com.rm.infill.ui.RegionScreen
+import com.rm.infill.ui.RegionRow
+import com.rm.infill.sim.Region
 import com.rm.infill.sim.CityEvent
 import com.rm.infill.ui.CityPanel
 import com.rm.infill.ui.KeyAction
@@ -245,13 +248,16 @@ fun App() {
     }
 }
 
-private enum class Screen { Start, New, Game }
+private enum class Screen { Start, New, Game, Region }
 
 @Composable
 private fun Screens(settings: Settings) {
     var screen by remember { mutableStateOf(Screen.Start) }
     var game by remember { mutableStateOf<GameState?>(null) }
     var loadOpen by remember { mutableStateOf(false) }
+    // The region open, and the file it's kept in.
+    var region by remember { mutableStateOf<Region?>(null) }
+    var regionFile by remember { mutableStateOf<String?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     val notice = remember { mutableStateOf<Message?>(null) }
@@ -261,9 +267,57 @@ private fun Screens(settings: Settings) {
             .sortedBy { if (it.first == AUTOSAVE) 0 else 1 }
     }
     val lastSave = saves.firstOrNull { it.first == AUTOSAVE }?.second
+    val regions = remember(savesChanged, loadOpen, screen) {
+        platform.saves().mapNotNull { f ->
+            platform.readSave(f)?.takeIf { Region.isRegion(it) }?.let { bytes ->
+                runCatching { Region.read(bytes) }.getOrNull()?.let { r -> RegionRow(f, r.name, r.towns.count { it != null }, r.towns.size) }
+            }
+        }
+    }
+
+    /** The region [file], read, or null if it can't be. */
+    fun readRegion(file: String): Region? = platform.readSave(file)?.let { runCatching { Region.read(it) }.getOrNull() }
+
+    /** A town in a region is saved in its own file too, and noted in the region for its neighbours and the region's map. */
+    fun saveToRegion(city: City) {
+        val file = city.region ?: return
+        val r = (if (regionFile == file) region else null) ?: readRegion(file) ?: return
+        val townFile = r.townFile(file, city.square)
+        platform.writeSave(townFile, SaveGame.write(city))
+        r.record(city, townFile)
+        platform.writeSave(file, r.write())
+        region = r
+        regionFile = file
+    }
 
     fun autosave() {
-        game?.let { platform.writeSave(AUTOSAVE, SaveGame.write(it.city)) }
+        game?.let {
+            platform.writeSave(AUTOSAVE, SaveGame.write(it.city))
+            saveToRegion(it.city)
+        }
+    }
+
+    /** Shows the region [file]. */
+    fun openRegion(file: String) {
+        val r = readRegion(file)
+        if (r == null) {
+            notice.value = Message(Res.string.load_failed)
+            return
+        }
+        region = r
+        regionFile = file
+        loadOpen = false
+        menuOpen = false
+        screen = Screen.Region
+    }
+
+    /** Plays [city], with its neighbours' borders if it's in a region. */
+    fun play(city: City) {
+        city.region?.let { file -> readRegion(file)?.let { r -> region = r; regionFile = file; city.neighbours = r.bordersOf(city) } }
+        game = GameState(city)
+        loadOpen = false
+        menuOpen = false
+        screen = Screen.Game
     }
 
     fun load(file: String) {
@@ -277,10 +331,7 @@ private fun Screens(settings: Settings) {
             notice.value = Message(Res.string.load_failed)
             return
         }
-        game = GameState(city)
-        loadOpen = false
-        menuOpen = false
-        screen = Screen.Game
+        play(city)
     }
 
     // Put away or hidden: the game saves itself.
@@ -298,12 +349,36 @@ private fun Screens(settings: Settings) {
             onSettings = { settingsOpen = true },
         )
         Screen.New -> NewCityScreen(
-            onStart = { name, seed, options ->
-                game = GameState(City(seed, terrain = options).also { it.name = name })
-                screen = Screen.Game
+            onStart = { name, seed, options, grid, side ->
+                if (grid > 0) {
+                    val file = "region-" + saveFileName(name)
+                    platform.writeSave(file, Region(name, seed, options, grid, side).write())
+                    savesChanged++
+                    openRegion(file)
+                } else {
+                    game = GameState(City(seed, side, side, options).also { it.name = name })
+                    screen = Screen.Game
+                }
             },
             onBack = { screen = if (game != null) Screen.Game else Screen.Start },
         )
+        Screen.Region -> region?.let { r ->
+            RegionScreen(
+                r,
+                onPlay = { square ->
+                    val t = r.towns[square] ?: return@RegionScreen
+                    load(t.file)
+                },
+                onFound = { square, name ->
+                    val file = regionFile ?: return@RegionScreen
+                    val city = r.found(square, name, file)
+                    saveToRegion(city)
+                    savesChanged++
+                    play(city)
+                },
+                onBack = { screen = if (game != null) Screen.Game else Screen.Start },
+            )
+        }
         Screen.Game -> game?.let { g ->
             key(g) {
                 GameScreen(
@@ -317,7 +392,9 @@ private fun Screens(settings: Settings) {
         MenuWindow(
             onSave = {
                 game?.let {
-                    platform.writeSave(saveFileName(it.city.name), SaveGame.write(it.city))
+                    // A town in a region is kept in the region; one on its own under its name.
+                    if (it.city.region != null) saveToRegion(it.city)
+                    else platform.writeSave(saveFileName(it.city.name), SaveGame.write(it.city))
                     notice.value = Message(Res.string.saved, name = it.city.name)
                     savesChanged++
                 }
@@ -328,19 +405,32 @@ private fun Screens(settings: Settings) {
             onSettings = { settingsOpen = true },
             onMain = { autosave(); menuOpen = false; screen = Screen.Start },
             onClose = { menuOpen = false },
+            onRegion = game?.city?.region?.let { file ->
+                {
+                    autosave()
+                    game = null
+                    savesChanged++
+                    openRegion(file)
+                }
+            },
         )
     }
     if (loadOpen) {
-        LoadWindow(saves, ::load, { platform.deleteSave(it); savesChanged++ }, { loadOpen = false })
+        LoadWindow(saves, ::load, { file ->
+            // A region goes with its towns.
+            readRegion(file)?.towns?.forEach { t -> t?.let { platform.deleteSave(it.file) } }
+            platform.deleteSave(file)
+            savesChanged++
+        }, { loadOpen = false }, regions, ::openRegion)
     }
     if (settingsOpen) SettingsWindow(settings) { settingsOpen = false }
     // Android's back button: close what's open, or step back a screen. From the start screen it leaves.
-    BackButton(enabled = menuOpen || loadOpen || settingsOpen || screen == Screen.New) {
+    BackButton(enabled = menuOpen || loadOpen || settingsOpen || screen == Screen.New || screen == Screen.Region) {
         when {
             settingsOpen -> settingsOpen = false
             loadOpen -> loadOpen = false
             menuOpen -> menuOpen = false
-            screen == Screen.New -> screen = if (game != null) Screen.Game else Screen.Start
+            screen == Screen.New || screen == Screen.Region -> screen = if (game != null) Screen.Game else Screen.Start
         }
     }
     if (screen != Screen.Game) {

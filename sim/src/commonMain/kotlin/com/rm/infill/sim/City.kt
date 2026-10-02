@@ -21,6 +21,23 @@ class City(
 
     /** What the player calls the town. */
     var name = "New town"
+
+    /** The region file this town belongs to, null for a town on its own, and its square there. */
+    var region: String? = null
+    var square = -1
+
+    /**
+     * What the neighbours have along each shared edge (north, east, south,
+     * west), as they were left, null where there's none. Read from the region
+     * when the town's loaded; not saved with it.
+     */
+    var neighbours: Array<Border?> = arrayOfNulls(4)
+
+    /** For land put in place after the city was made: the river's flow is worked out again. */
+    internal fun landChanged() {
+        flowDirty = true
+        networksChanged()
+    }
     val rng = Rng(seed)
     val weather = Weather(seed, terrain?.climate ?: Climate.TEMPERATE)
 
@@ -2142,6 +2159,12 @@ class City(
                     queue[tail++] = j
                 }
             }
+            // Water open to the sea runs out to it: downstream is towards the long stretch of coast. The sea's deep
+            // as well as long, where a river running along the edge is only a few tiles across.
+            if (edges.count { deep(it) } >= Balance.SEA_EDGE) {
+                seaward(edges, f)
+                continue
+            }
             // A river meets the edge at two places far apart; it comes in at the first of them in reading order.
             val inlet = edges.minOrNull() ?: continue
             val outlet = edges.maxOrNull() ?: continue
@@ -2170,6 +2193,72 @@ class City(
         }
         flowCache = f
         return f
+    }
+
+    /** Whether edge tile [i] has water [Balance.SEA_DEPTH] tiles in from the edge too, as the sea does. */
+    private fun deep(i: Int): Boolean {
+        val m = map
+        val x = i % m.width
+        val y = i / m.width
+        val d = Balance.SEA_DEPTH
+        fun wet(nx: Int, ny: Int) = m.inside(nx, ny) && m.terrain[m.index(nx, ny)] == Terrain.WATER
+        return (x == 0 && wet(d, y)) || (x == m.width - 1 && wet(x - d, y)) || (y == 0 && wet(x, d)) || (y == m.height - 1 && wet(x, y - d))
+    }
+
+    /**
+     * For water open to the sea, meeting the map's [edges]: each tile's flow
+     * by how far it is from the sea, so a river runs down to it. The sea is
+     * the long stretches of edge; short ones are rivers coming in.
+     */
+    private fun seaward(edges: List<Int>, f: IntArray) {
+        val m = map
+        val w = m.width
+        val h = m.height
+        // Round the edge in order: along the top, down the right, back along the bottom, up the left.
+        val ring = ArrayList<Int>(2 * (w + h))
+        for (x in 0 until w) ring += m.index(x, 0)
+        for (y in 1 until h) ring += m.index(w - 1, y)
+        for (x in w - 2 downTo 0) ring += m.index(x, h - 1)
+        for (y in h - 2 downTo 1) ring += m.index(0, y)
+        val on = edges.toHashSet()
+        val coast = ArrayList<Int>()
+        var run = ArrayList<Int>()
+        // Starting where the ring isn't water, so a run doesn't wrap round the start.
+        val begin = ring.indexOfFirst { it !in on }.coerceAtLeast(0)
+        for (k in ring.indices) {
+            val i = ring[(begin + k) % ring.size]
+            if (i in on) run += i
+            else {
+                if (run.size >= Balance.SEA_EDGE) coast += run
+                run = ArrayList()
+            }
+        }
+        if (run.size >= Balance.SEA_EDGE) coast += run
+        if (coast.isEmpty()) coast += edges
+        val dist = IntArray(m.size) { -1 }
+        val queue = IntArray(m.size)
+        var head = 0
+        var tail = 0
+        for (i in coast) if (dist[i] < 0) {
+            dist[i] = 0
+            queue[tail++] = i
+        }
+        while (head < tail) {
+            val i = queue[head++]
+            val x = i % w
+            val y = i / w
+            for (k in 0 until 4) {
+                val nx = x + DX[k]
+                val ny = y + DY[k]
+                if (!m.inside(nx, ny)) continue
+                val j = m.index(nx, ny)
+                if (dist[j] >= 0 || m.terrain[j] != Terrain.WATER) continue
+                dist[j] = dist[i] + 1
+                queue[tail++] = j
+            }
+        }
+        val far = (0 until tail).maxOfOrNull { dist[queue[it]] } ?: 0
+        for (k in 0 until tail) f[queue[k]] = far - dist[queue[k]]
     }
 
     /**
@@ -6740,6 +6829,9 @@ class City(
         w.int(displaced)
         // Since version 30: homes over shops.
         w.int(quota[Zone.MIXED.toInt()])
+        // Since version 31: the region it's in, if any, and its square there.
+        w.string(region ?: "")
+        w.int(square)
     }
 
     companion object {
@@ -7017,6 +7109,10 @@ class City(
                     c.displaced = r.int()
                 }
                 if (version >= 30) c.quota[Zone.MIXED.toInt()] = r.int()
+                if (version >= 31) {
+                    c.region = r.string().ifEmpty { null }
+                    c.square = r.int()
+                }
                 c.updateNetworks()
                 c.markContainerTrains()
                 c.updateAirports()

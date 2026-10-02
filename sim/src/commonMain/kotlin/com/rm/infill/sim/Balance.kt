@@ -539,6 +539,12 @@ object Balance {
     const val ADVICE_SAMPLE = 60
     const val ADVICE_GARBAGE = 80
 
+    /** Water meeting the map's edge along this many tiles is open sea, which rivers run down to. */
+    const val SEA_EDGE = 24
+
+    /** How far in from the edge water has to reach to count as the sea there. */
+    const val SEA_DEPTH = 5
+
     /** Homes for each shop job in a mixed building, roughly, for sharing demand between zones. */
     const val MIXED_PEOPLE_PER_JOB = 3
 

@@ -223,6 +223,7 @@ fun MapView(
                 )
             }
         }
+        drawNeighbours(game.city.neighbours, map, camera, atlas, look)
         drawFloods(map, camera)
         drawWorks(map, camera)
         if (planes) drawPlanes(game.city.airportsShown(), camera, weatherTime, jets = game.city.year >= Balance.JET_YEAR)

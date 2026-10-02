@@ -31,6 +31,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import kotlin.math.roundToInt
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -78,6 +81,9 @@ import com.rm.infill.sim.TerrainOptions
 import com.rm.infill.sim.Resource
 import com.rm.infill.ui.theme.Infill
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import com.rm.infill.sim.City
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringArrayResource
 import org.jetbrains.compose.resources.stringResource
@@ -163,10 +169,17 @@ fun summaryLine(s: SaveSummary): String {
     return stringResource(Res.string.save_line, months.getOrElse(s.month) { "" }, s.year, groupThousands(s.population.toLong()))
 }
 
-/** The map for a new city: its name, which map, how much water and woods, and a river or not, with a picture of it. */
+/**
+ * The map for a new city, or a new region of nine: its name, which map, how
+ * much water and woods, and a river or not, with a picture of it.
+ */
 @Composable
-fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions) -> Unit, onBack: () -> Unit) {
+fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions, grid: Int, side: Int) -> Unit, onBack: () -> Unit) {
     val c = Infill.colors
+    var region by remember { mutableStateOf(false) }
+    // A town's size in tiles a side, and for a region how many towns across.
+    var side by remember { mutableStateOf(City.DEFAULT_SIZE) }
+    var grid by remember { mutableStateOf(3) }
     var seed by remember { mutableStateOf(Random.nextLong(1, 1_000_000)) }
     // The name comes from the map number until one is typed in or asked for.
     var typed by remember { mutableStateOf<String?>(null) }
@@ -177,22 +190,37 @@ fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions) -
     var river by remember { mutableStateOf(true) }
     var quakes by remember { mutableStateOf(false) }
     var climate by remember { mutableStateOf(Climate.TEMPERATE) }
+    var sea by remember { mutableStateOf(com.rm.infill.sim.Sea.NONE) }
     var preview by remember { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(seed, water, trees, river, climate) {
+    LaunchedEffect(seed, water, trees, river, climate, region, side, grid, sea) {
         // A moment's wait, so holding a button doesn't make a map for every step.
         delay(120)
-        val m = CityMap(128, 128)
-        TerrainGen.generate(m, seed, TerrainOptions(water, trees, river, climate = climate))
-        preview = terrainImage(m)
+        val across = if (region) side * grid else side
+        // Away from the screen, since the biggest region's land takes a moment.
+        preview = withContext(Dispatchers.Default) {
+            val m = CityMap(across, across)
+            TerrainGen.generate(m, seed, TerrainOptions(water, trees, river, climate = climate, sea = sea))
+            terrainImage(m)
+        }
     }
     Page {
         Text(stringResource(Res.string.new_city), color = c.text, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+        Chips(listOf(false, true), region, { stringResource(if (it) Res.string.kind_region else Res.string.kind_town) }) { region = it }
         Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(c.button)) {
             preview?.let { Image(it, null, Modifier.fillMaxSize(), filterQuality = FilterQuality.None) }
+            // A region's squares.
+            if (region) androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val n = grid
+                for (k in 1 until n) {
+                    val a = size.width * k / n
+                    drawLine(androidx.compose.ui.graphics.Color(0xCCF2EEE4), androidx.compose.ui.geometry.Offset(a, 0f), androidx.compose.ui.geometry.Offset(a, size.height), 2.dp.toPx())
+                    drawLine(androidx.compose.ui.graphics.Color(0xCCF2EEE4), androidx.compose.ui.geometry.Offset(0f, a), androidx.compose.ui.geometry.Offset(size.width, a), 2.dp.toPx())
+                }
+            }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
-                name, { typed = it.take(30) }, label = { Text(stringResource(Res.string.city_name)) }, singleLine = true,
+                name, { typed = it.take(30) }, label = { Text(stringResource(if (region) Res.string.region_name else Res.string.city_name)) }, singleLine = true,
                 modifier = Modifier.weight(1f),
             )
             Box(Modifier.widthIn(max = 160.dp)) {
@@ -211,12 +239,15 @@ fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions) -
             )
             Box(Modifier.widthIn(max = 160.dp)) { BigButton(stringResource(Res.string.another_map)) { seed = Random.nextLong(1, 1_000_000) } }
         }
+        StepSlider(Res.string.town_size, com.rm.infill.sim.Region.SIDES, side, { stringResource(Res.string.tiles_a_side, it) }) { side = it }
+        if (region) StepSlider(Res.string.region_grid, com.rm.infill.sim.Region.GRIDS, grid, { stringResource(Res.string.grid_of, it, it) }) { grid = it }
+        StepSlider(Res.string.sea, com.rm.infill.sim.Sea.entries, sea, { stringResource(seaName(it)) }) { sea = it }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(stringResource(Res.string.climate), color = c.text, fontSize = 15.sp)
             Chips(Climate.entries, climate, { stringResource(climateName(it)) }) { climate = it }
         }
-        NumberRow(Res.string.water, water, 10, 0..100) { water = it }
-        NumberRow(Res.string.woods, trees, 10, 0..100) { trees = it }
+        StepSlider(Res.string.water, (0..100 step 10).toList(), water, { stringResource(Res.string.percent, it) }) { water = it }
+        StepSlider(Res.string.woods, (0..100 step 10).toList(), trees, { stringResource(Res.string.percent, it) }) { trees = it }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(Res.string.river), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
             Chips(listOf(true, false), river, { stringResource(if (it) Res.string.yes else Res.string.no) }) { river = it }
@@ -226,7 +257,7 @@ fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions) -
             Chips(listOf(true, false), quakes, { stringResource(if (it) Res.string.yes else Res.string.no) }) { quakes = it }
         }
         BigButton(stringResource(Res.string.start), primary = true) {
-            onStart(name.ifBlank { TownNames.make(seed) }, seed, TerrainOptions(water, trees, river, quakes, climate))
+            onStart(name.ifBlank { TownNames.make(seed) }, seed, TerrainOptions(water, trees, river, quakes, climate, sea), if (region) grid else 0, side)
         }
         BigButton(stringResource(Res.string.back), onClick = onBack)
     }
@@ -240,15 +271,37 @@ fun climateName(c: Climate) = when (c) {
     Climate.DRY -> Res.string.climate_dry
 }
 
-/** A labelled number with buttons to step it within [range]. */
+/** A labelled slider that stops at each of [options], the one chosen named beside the label. */
 @Composable
-fun NumberRow(label: StringResource, value: Int, step: Int, range: IntRange, set: (Int) -> Unit) {
+fun <T> StepSlider(label: StringResource, options: List<T>, value: T, name: @Composable (T) -> String, set: (T) -> Unit) {
     val c = Infill.colors
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(label), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
-        Chips(listOf(-1, 1), 0, { if (it < 0) "−" else "+" }) { set((value + it * step).coerceIn(range)) }
-        Text(stringResource(Res.string.percent, value), color = c.text, fontSize = 15.sp, modifier = Modifier.widthIn(min = 52.dp).padding(start = 8.dp))
+    val at = options.indexOf(value).coerceAtLeast(0)
+    Column {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(label), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            Text(name(value), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Slider(
+            value = at.toFloat(),
+            onValueChange = { v -> options.getOrNull(v.roundToInt())?.let { if (it != value) set(it) } },
+            valueRange = 0f..(options.size - 1).toFloat(),
+            steps = (options.size - 2).coerceAtLeast(0),
+            colors = SliderDefaults.colors(
+                thumbColor = c.accent, activeTrackColor = c.accent, inactiveTrackColor = c.button,
+                activeTickColor = c.onAccent, inactiveTickColor = c.textDim,
+            ),
+        )
     }
+}
+
+/** What each kind of sea is called. */
+fun seaName(sea: com.rm.infill.sim.Sea) = when (sea) {
+    com.rm.infill.sim.Sea.NONE -> Res.string.sea_none
+    com.rm.infill.sim.Sea.ONE_SIDE -> Res.string.sea_one_side
+    com.rm.infill.sim.Sea.TWO_SIDES -> Res.string.sea_two_sides
+    com.rm.infill.sim.Sea.THREE_SIDES -> Res.string.sea_three_sides
+    com.rm.infill.sim.Sea.ISLAND -> Res.string.sea_island
+    com.rm.infill.sim.Sea.ISLANDS -> Res.string.sea_islands
 }
 
 /** A row of choices with the chosen one lit, wrapping when they don't fit. */
@@ -276,12 +329,41 @@ fun <T> Chips(options: List<T>, selected: T, label: @Composable (T) -> String, o
 
 /** The saved cities, newest first, to load or delete. */
 @Composable
-fun LoadWindow(saves: List<Pair<String, SaveSummary>>, onLoad: (String) -> Unit, onDelete: (String) -> Unit, onClose: () -> Unit) {
+fun LoadWindow(
+    saves: List<Pair<String, SaveSummary>>,
+    onLoad: (String) -> Unit,
+    onDelete: (String) -> Unit,
+    onClose: () -> Unit,
+    /** Regions, by file, name, how many towns and room for how many: opening one shows its map. */
+    regions: List<RegionRow> = emptyList(),
+    onRegion: (String) -> Unit = {},
+) {
     val c = Infill.colors
     var deleting by remember { mutableStateOf<String?>(null) }
     Window(Res.string.load, onClose, Glyph.List) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (saves.isEmpty()) Text(stringResource(Res.string.no_saves), color = c.textDim, fontSize = 14.sp)
+            if (saves.isEmpty() && regions.isEmpty()) Text(stringResource(Res.string.no_saves), color = c.textDim, fontSize = 14.sp)
+            for ((file, name, towns, room) in regions) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(c.button)
+                        .clickable(role = Role.Button) { onRegion(file) }
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(c.accent), contentAlignment = Alignment.Center) {
+                        GlyphIcon(Glyph.District, c.onAccent, Modifier.size(18.dp))
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(name, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(Res.string.region_towns, towns, room), color = c.textDim, fontSize = 13.sp)
+                    }
+                    ActionButton(ActionItem(Glyph.Remove, stringResource(Res.string.delete), confirm = true) { onDelete(file) })
+                }
+            }
             for ((file, s) in saves) {
                 Row(
                     Modifier
@@ -314,12 +396,25 @@ fun LoadWindow(saves: List<Pair<String, SaveSummary>>, onLoad: (String) -> Unit,
     }
 }
 
+/** A region in the load list: its file, name, how many towns and room for how many. */
+data class RegionRow(val file: String, val name: String, val towns: Int, val room: Int)
+
 /** The game's menu: save, load, start again, settings, or back to the main screen. */
 @Composable
-fun MenuWindow(onSave: () -> Unit, onLoad: () -> Unit, onNew: () -> Unit, onSettings: () -> Unit, onMain: () -> Unit, onClose: () -> Unit) {
+fun MenuWindow(
+    onSave: () -> Unit,
+    onLoad: () -> Unit,
+    onNew: () -> Unit,
+    onSettings: () -> Unit,
+    onMain: () -> Unit,
+    onClose: () -> Unit,
+    /** Back to the region's map, for a town in one. */
+    onRegion: (() -> Unit)? = null,
+) {
     Window(Res.string.menu, onClose, Glyph.List) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             BigButton(stringResource(Res.string.save), primary = true, glyph = Glyph.Check, onClick = onSave)
+            if (onRegion != null) BigButton(stringResource(Res.string.menu_region), glyph = Glyph.District, onClick = onRegion)
             BigButton(stringResource(Res.string.load), glyph = Glyph.List, onClick = onLoad)
             BigButton(stringResource(Res.string.new_city), glyph = Glyph.Plus, onClick = onNew)
             BigButton(stringResource(Res.string.settings), glyph = Glyph.Auto, onClick = onSettings)
