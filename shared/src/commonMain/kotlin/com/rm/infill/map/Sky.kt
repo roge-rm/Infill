@@ -1,5 +1,6 @@
 package com.rm.infill.map
 
+import com.rm.infill.sim.Climate
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
@@ -108,18 +109,32 @@ object Sky {
 
 /** Which look the map is drawn in for each month, until weather decides when there's snow. */
 object Seasons {
-    fun lookFor(month: Int): Int = when (month) {
-        0, 1, 11 -> Atlas.SNOW
-        2, 10 -> Atlas.BARE
-        3, 4 -> Atlas.SPRING
-        5, 6, 7 -> Atlas.SUMMER
-        else -> Atlas.AUTUMN
+    /**
+     * By the month's average in [climate]: snow below freezing, bare when
+     * cold, summer in the warmest months, and spring or autumn between as
+     * it's warming or cooling. A warm month with little rain is dry, the
+     * grass burnt to straw.
+     */
+    fun lookFor(month: Int, climate: Climate = Climate.TEMPERATE): Int {
+        val t = climate.temperature[month]
+        val next = climate.temperature[(month + 1) % 12]
+        return when {
+            t <= -1 -> Atlas.SNOW
+            t <= 4 -> Atlas.BARE
+            t >= 18 && climate.wetDays[month] <= DRY_DAYS -> Atlas.DRY
+            t >= 18 || t >= climate.hottest - 2 -> Atlas.SUMMER
+            next > t -> Atlas.SPRING
+            else -> Atlas.AUTUMN
+        }
     }
+
+    /** A month with no more than this chance of rain in a day, in percent, is dry once it's warm. */
+    private const val DRY_DAYS = 10
 
     /** A month that looks like [look], for the sun when a look is picked by hand. */
     fun monthOf(look: Int): Int = when (look) {
         Atlas.SPRING -> 4
-        Atlas.SUMMER -> 6
+        Atlas.SUMMER, Atlas.DRY -> 6
         Atlas.AUTUMN -> 9
         Atlas.BARE -> 10
         else -> 0

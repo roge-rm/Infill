@@ -1,5 +1,7 @@
 package com.rm.infill.sim
 
+import kotlin.math.min
+
 /** The power on a tile, if any: an ordinary line, or a high-voltage one (from the 1920s). */
 object Power {
     const val NONE: Byte = 0
@@ -102,10 +104,12 @@ object Electricity {
     }
 
     /** What the peak is above the month's average, in percent: the evening, winter's dark, and summer's air conditioning from the 1960s. */
-    fun peak(year: Int, month: Int): Int {
-        val winter = if (month == 11 || month <= 1) 25 else if (month == 10 || month == 2) 10 else 0
+    fun peak(year: Int, month: Int, climate: Climate = Climate.TEMPERATE, warming: Int = 0): Int {
+        // Heating in the cold months, and air conditioning, coming in from 1960, in the hot ones; [warming] in tenths of a degree.
+        val t = climate.temperature[month] + warming / 10
+        val winter = if (t < 12) min(45, (12 - t) * 3 / 2) else 0
         val cooling = ((year - 1960) * 100 / 40).coerceIn(0, 100)
-        val summer = if (month in 5..7) 25 * cooling / 100 else 0
+        val summer = if (t > 16) min(60, (t - 16) * 4) * cooling / 100 else 0
         return 100 + Balance.EVENING_PEAK + winter + summer
     }
 }

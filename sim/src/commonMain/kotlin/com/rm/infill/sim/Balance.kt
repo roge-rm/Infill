@@ -190,8 +190,8 @@ object Balance {
     const val BLIZZARD = 85
     const val BLIZZARD_DAYS = 4
     const val BLIZZARD_WIND = 65
-    // Heat waves: this hot, and what a hot home loses in health; elderly deaths a month per thousand for each 10 of heat.
-    const val HEAT_WAVE = 30
+    // Heat waves (as hot as the climate's [Climate.heatWave]): what a hot home loses in health; elderly deaths a month
+    // per thousand for each 10 of heat.
     const val HEAT_HEALTH = 10
     const val HEAT_DEATHS = 2
     const val HEAT_WAVE_PEAK = 15

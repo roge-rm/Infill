@@ -1,10 +1,13 @@
 package com.rm.infill.sim
 
 /**
- * How much of a new map is water and woods, from 0 to 100, and whether a river
- * runs across it.
+ * How much of a new map is water and woods, from 0 to 100, whether a river
+ * runs across it, whether it has earthquakes, and its [climate], which has
+ * more woods or fewer.
  */
-data class TerrainOptions(val water: Int = 30, val trees: Int = 40, val river: Boolean = true, val quakes: Boolean = false)
+data class TerrainOptions(
+    val water: Int = 30, val trees: Int = 40, val river: Boolean = true, val quakes: Boolean = false, val climate: Climate = Climate.TEMPERATE,
+)
 
 /**
  * Makes the land for a new city: lakes where a noise field is lowest, a river
@@ -31,12 +34,12 @@ object TerrainGen {
 
         // Woods: the highest share of another noise field, then a few trees on their own.
         val woods = IntArray(map.size) { fractal(it % map.width, it / map.width, woodSeed) }
-        val woodShare = options.trees.coerceIn(0, 100) * 55 / 100
+        val woodShare = (options.trees.coerceIn(0, 100) * options.climate.trees / 100).coerceIn(0, 100) * 55 / 100
         val woodLine = percentile(woods, 100 - woodShare)
         for (i in 0 until map.size) {
             if (t[i] != Terrain.GRASS) continue
             if (woodShare > 0 && woods[i] >= woodLine) t[i] = Terrain.TREES
-            else if (rng.nextInt(1000) < options.trees / 2) t[i] = Terrain.TREES
+            else if (rng.nextInt(1000) < options.trees * options.climate.trees / 200) t[i] = Terrain.TREES
         }
         resources(map, seed)
     }

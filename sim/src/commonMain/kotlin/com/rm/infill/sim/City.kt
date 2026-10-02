@@ -22,7 +22,10 @@ class City(
     /** What the player calls the town. */
     var name = "New town"
     val rng = Rng(seed)
-    val weather = Weather(seed)
+    val weather = Weather(seed, terrain?.climate ?: Climate.TEMPERATE)
+
+    /** The map's climate. */
+    val climate: Climate get() = weather.climate
 
     /** Whole dollars. */
     var funds: Long = START_FUNDS
@@ -2186,7 +2189,7 @@ class City(
             snowedIn = max(1, Balance.BLIZZARD_DAYS - garages)
             events += CityEvent(EventKind.Blizzard, -1, -1, null)
         }
-        if (w.temperature >= Balance.HEAT_WAVE) {
+        if (w.temperature >= w.climate.heatWave) {
             if (heatWaveDays == 0) events += CityEvent(EventKind.HeatWave, -1, -1, null)
             heatWaveDays += Balance.WEATHER_DAYS
         }
@@ -4023,7 +4026,7 @@ class City(
         val traction = buildings.values.count { it.type == BuildingType.TRAM_DEPOT || it.type == BuildingType.SUBWAY_STATION || it.type == BuildingType.BUS_GARAGE }
         val tractionEach = if (traction == 0) 0 else traffic.electricRiders() * Balance.TRACTION_W / traction
         // A heat wave in the air-conditioned years pushes the peak up.
-        val peak = Electricity.peak(year, month) + if (heatWaveDays > 0 && year >= 1960) Balance.HEAT_WAVE_PEAK else 0
+        val peak = Electricity.peak(year, month, climate) + if (heatWaveDays > 0 && year >= 1960) Balance.HEAT_WAVE_PEAK else 0
         batteryCharge = charge(perPerson, tractionEach)
         grid.update(buildings.values, { b -> draw(b, perPerson, tractionEach) }, { b -> available(b) }, peak)
         stats.powerCapacity = grid.capacity / 1000
@@ -6261,6 +6264,8 @@ class City(
         }
         // Since version 25: air freight.
         w.int(s.airLoads)
+        // Since version 26: the climate.
+        w.int(climate.ordinal)
     }
 
     companion object {
@@ -6526,6 +6531,7 @@ class City(
                     for (t in c.trainRoutes) repeat(r.count()) { r.int().let { k -> if (k in t.hidden.indices) t.hidden[k] = true } }
                 }
                 if (version >= 25) c.stats.airLoads = r.int()
+                if (version >= 26) c.weather.climate = Climate.entries.getOrElse(r.int()) { Climate.TEMPERATE }
                 c.updateNetworks()
                 c.markContainerTrains()
                 c.updateAirports()

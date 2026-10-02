@@ -429,7 +429,7 @@ private fun GameScreen(
         val weather = if (weatherOverride >= 0) DEV_WEATHER[weatherOverride]
         else WeatherLook.of(w.cloud, w.precipitation, w.intensity, w.fog, w.windDirection, w.windSpeed, city.stats.smog)
         // Snow on the ground decides the winter look; a winter month without it is bare.
-        val seasonal = Seasons.lookFor(city.month)
+        val seasonal = Seasons.lookFor(city.month, city.climate)
         val look = when {
             lookOverride >= 0 -> lookOverride
             w.snowCover >= Weather.SNOW_LOOK -> Atlas.SNOW

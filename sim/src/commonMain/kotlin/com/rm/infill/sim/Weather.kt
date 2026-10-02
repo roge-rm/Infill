@@ -8,17 +8,50 @@ enum class Precipitation { None, Rain, Snow }
 
 /**
  * A map's climate: the average temperature of each month in °C, how cloudy
- * each month tends to be (0 to 100) and the chance of rain or snow on a day.
- * Temperate is a city at about 50° north, well inland.
+ * each month tends to be (0 to 100) and the chance of rain or snow on a day;
+ * one autumn or winter spell in [galeOdds] has a gale, one wet spell in
+ * [cloudburst] is a cloudburst, it's a heat wave from [heatWave] °C, and its
+ * land has [trees] percent of the usual woods.
  */
-class Climate(val temperature: IntArray, val cloudiness: IntArray, val wetDays: IntArray) {
-    companion object {
-        val TEMPERATE = Climate(
-            temperature = intArrayOf(-5, -4, 1, 8, 14, 19, 22, 21, 16, 9, 3, -2),
-            cloudiness = intArrayOf(70, 66, 62, 56, 52, 46, 42, 44, 50, 60, 70, 72),
-            wetDays = intArrayOf(40, 36, 38, 38, 40, 38, 34, 32, 32, 34, 40, 42),
-        )
-    }
+enum class Climate(
+    val temperature: IntArray, val cloudiness: IntArray, val wetDays: IntArray,
+    val galeOdds: Int, val cloudburst: Int, val heatWave: Int, val trees: Int,
+) {
+    /** About 50° north, well inland. */
+    TEMPERATE(
+        temperature = intArrayOf(-5, -4, 1, 8, 14, 19, 22, 21, 16, 9, 3, -2),
+        cloudiness = intArrayOf(70, 66, 62, 56, 52, 46, 42, 44, 50, 60, 70, 72),
+        wetDays = intArrayOf(40, 36, 38, 38, 40, 38, 34, 32, 32, 34, 40, 42),
+        galeOdds = 120, cloudburst = 20, heatWave = 30, trees = 100,
+    ),
+
+    /** About 60° north: long snowy winters and short summers. */
+    NORTHERN(
+        temperature = intArrayOf(-15, -13, -7, 1, 8, 14, 17, 15, 9, 2, -5, -12),
+        cloudiness = intArrayOf(70, 65, 60, 55, 52, 50, 52, 56, 62, 70, 75, 74),
+        wetDays = intArrayOf(42, 38, 36, 34, 36, 40, 44, 46, 44, 44, 46, 44),
+        galeOdds = 100, cloudburst = 30, heatWave = 27, trees = 130,
+    ),
+
+    /** On the coast at about 48° north: mild and wet all year, windy in winter, little snow. */
+    COASTAL(
+        temperature = intArrayOf(4, 5, 6, 8, 11, 14, 17, 17, 15, 11, 7, 5),
+        cloudiness = intArrayOf(78, 75, 70, 64, 60, 56, 52, 54, 60, 70, 78, 80),
+        wetDays = intArrayOf(58, 52, 50, 44, 40, 38, 34, 36, 44, 54, 58, 60),
+        galeOdds = 60, cloudburst = 20, heatWave = 28, trees = 90,
+    ),
+
+    /** About 35° north, inland: hot summers, mild winters, little rain but heavy when it comes. */
+    DRY(
+        temperature = intArrayOf(8, 10, 14, 18, 23, 29, 33, 32, 27, 20, 13, 9),
+        cloudiness = intArrayOf(40, 38, 34, 28, 22, 14, 10, 12, 18, 26, 34, 40),
+        wetDays = intArrayOf(26, 24, 20, 14, 8, 2, 1, 2, 6, 14, 20, 26),
+        galeOdds = 160, cloudburst = 6, heatWave = 38, trees = 30,
+    ),
+    ;
+
+    /** The warmest month's average. */
+    val hottest: Int get() = temperature.max()
 }
 
 /**
@@ -27,7 +60,11 @@ class Climate(val temperature: IntArray, val cloudiness: IntArray, val wetDays: 
  * cold days rather than a new roll each morning. It has its own random
  * numbers, so the weather never changes how the town grows.
  */
-class Weather(seed: Long, private val climate: Climate = Climate.TEMPERATE) {
+class Weather(seed: Long, climate: Climate = Climate.TEMPERATE) {
+    /** The map's climate, set when the town's made or loaded. */
+    var climate = climate
+        internal set
+
     private val rng = Rng(seed xor WEATHER_SALT)
     private var warmth = 0 // how far from the month's average, in tenths of a degree
     private var cloudBias = 0
@@ -82,7 +119,7 @@ class Weather(seed: Long, private val climate: Climate = Climate.TEMPERATE) {
         val wet = cloud >= 55 && rng.nextInt(100) < climate.wetDays[month] * cloud / 60
         if (wet) {
             precipitation = if (temperature <= 0) Precipitation.Snow else Precipitation.Rain
-            intensity = if (rng.nextInt(CLOUDBURST) == 0) 85 + rng.nextInt(16) else min(70, 10 + (cloud - 55) / 2 + rng.nextInt(30))
+            intensity = if (rng.nextInt(climate.cloudburst) == 0) 85 + rng.nextInt(16) else min(70, 10 + (cloud - 55) / 2 + rng.nextInt(30))
         } else {
             precipitation = Precipitation.None
             intensity = 0
@@ -94,7 +131,7 @@ class Weather(seed: Long, private val climate: Climate = Climate.TEMPERATE) {
         windDirection = (windDirection + rng.nextInt(41) - 20 + 360) % 360
         windSpeed = (windSpeed + rng.nextInt(21) - 10).coerceIn(5, 85)
         // Now and then in autumn and winter, a gale.
-        if ((month >= 9 || month <= 2) && rng.nextInt(GALE_ODDS) == 0) windSpeed = GALE + rng.nextInt(10)
+        if ((month >= 9 || month <= 2) && rng.nextInt(climate.galeOdds) == 0) windSpeed = GALE + rng.nextInt(10)
 
         // Snow lies when it falls below freezing, and melts with warmth, and faster in rain.
         if (precipitation == Precipitation.Snow) snowCover = min(100, snowCover + (intensity / 3 + 5) * days / 2 + 1)
@@ -122,12 +159,8 @@ class Weather(seed: Long, private val climate: Climate = Climate.TEMPERATE) {
     companion object {
         private const val WEATHER_SALT = 0x5eed_c10dL
 
-        /** Wind this strong is a gale; one autumn or winter spell in [GALE_ODDS] has one. */
+        /** Wind this strong is a gale. */
         const val GALE = 90
-        const val GALE_ODDS = 120
-
-        /** One wet spell in this many is a cloudburst. */
-        private const val CLOUDBURST = 20
 
         /** Snow cover from which the map is drawn in its snow look. */
         const val SNOW_LOOK = 25

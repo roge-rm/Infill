@@ -1,5 +1,10 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.climate_dry
+import com.rm.infill.res.climate_coastal
+import com.rm.infill.res.climate_northern
+import com.rm.infill.res.climate_temperate
+import com.rm.infill.res.climate
 import com.rm.infill.res.app_icon
 import org.jetbrains.compose.resources.painterResource
 import androidx.compose.foundation.Image
@@ -61,6 +66,7 @@ import com.rm.infill.res.disasters_fewer
 import com.rm.infill.res.disasters_normal
 import com.rm.infill.res.earthquakes
 import com.rm.infill.res.*
+import com.rm.infill.sim.Climate
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.TownNames
 import com.rm.infill.sim.SaveSummary
@@ -168,12 +174,13 @@ fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions) -
     var trees by remember { mutableStateOf(40) }
     var river by remember { mutableStateOf(true) }
     var quakes by remember { mutableStateOf(false) }
+    var climate by remember { mutableStateOf(Climate.TEMPERATE) }
     var preview by remember { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(seed, water, trees, river) {
+    LaunchedEffect(seed, water, trees, river, climate) {
         // A moment's wait, so holding a button doesn't make a map for every step.
         delay(120)
         val m = CityMap(128, 128)
-        TerrainGen.generate(m, seed, TerrainOptions(water, trees, river))
+        TerrainGen.generate(m, seed, TerrainOptions(water, trees, river, climate = climate))
         preview = terrainImage(m)
     }
     Page {
@@ -202,6 +209,10 @@ fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions) -
             )
             Box(Modifier.widthIn(max = 160.dp)) { BigButton(stringResource(Res.string.another_map)) { seed = Random.nextLong(1, 1_000_000) } }
         }
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(stringResource(Res.string.climate), color = c.text, fontSize = 15.sp)
+            Chips(Climate.entries, climate, { stringResource(climateName(it)) }) { climate = it }
+        }
         NumberRow(Res.string.water, water, 10, 0..100) { water = it }
         NumberRow(Res.string.woods, trees, 10, 0..100) { trees = it }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -213,10 +224,18 @@ fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions) -
             Chips(listOf(true, false), quakes, { stringResource(if (it) Res.string.yes else Res.string.no) }) { quakes = it }
         }
         BigButton(stringResource(Res.string.start), primary = true) {
-            onStart(name.ifBlank { TownNames.make(seed) }, seed, TerrainOptions(water, trees, river, quakes))
+            onStart(name.ifBlank { TownNames.make(seed) }, seed, TerrainOptions(water, trees, river, quakes, climate))
         }
         BigButton(stringResource(Res.string.back), onClick = onBack)
     }
+}
+
+/** What a climate's called. */
+fun climateName(c: Climate) = when (c) {
+    Climate.TEMPERATE -> Res.string.climate_temperate
+    Climate.NORTHERN -> Res.string.climate_northern
+    Climate.COASTAL -> Res.string.climate_coastal
+    Climate.DRY -> Res.string.climate_dry
 }
 
 /** A labelled number with buttons to step it within [range]. */

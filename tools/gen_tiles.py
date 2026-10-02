@@ -25,7 +25,7 @@ OUT_KT = ROOT / "shared/src/commonMain/kotlin/com/rm/infill/map/Atlas.kt"
 OVERRIDES = ROOT / "tools/art/overrides"
 
 T = 32
-LOOKS = ["spring", "summer", "autumn", "bare", "snow"]
+LOOKS = ["spring", "summer", "autumn", "bare", "snow", "dry"]
 # Every rectangle sits on this grid so the smaller atlases divide exactly.
 GRID = 4
 ATLAS_WIDTH = 1024
@@ -47,6 +47,8 @@ GRASS = {
     "autumn": [c("#8c9747"), c("#7d883e"), c("#9ea653")],
     "bare": [c("#7d8150"), c("#6f7446"), c("#8a8c5c")],
     "snow": [c("#e9eff3"), c("#d5dfe6"), c("#f7fafc")],
+    # A dry summer: the grass burnt to straw.
+    "dry": [c("#b5a35c"), c("#a59352"), c("#c3b16a")],
 }
 WATER = {look: c("#3a6fb0") for look in LOOKS} | {"snow": c("#31609c")}
 RIPPLE = {look: c("#5a8fcc") for look in LOOKS} | {"snow": c("#4c7db8")}
@@ -62,6 +64,7 @@ SNOW_SHADE = c("#c9d6e0")
 LEAF = {
     "spring": [[c("#4f9a3c"), c("#6cb84e"), c("#95d06a")]] * 3,
     "summer": [[c("#2f6b2a"), c("#3d8233"), c("#57a045")]] * 3,
+    "dry": [[c("#4a5e2c"), c("#5f7536"), c("#7c8e48")]] * 3,
     "autumn": [
         [c("#a4481c"), c("#cf6e28"), c("#eb9a45")],
         [c("#842822"), c("#b0402e"), c("#d66748")],
@@ -1396,7 +1399,8 @@ def park(look, v):
     img, d = b.img, b.d
     rng = random.Random(7700 + v)
     top = b.lift
-    lawn = GRASS[look] if look != "summer" else [c("#6aae4a"), c("#5f9f42"), c("#78bc56")]
+    # Watered, so green even in a dry summer.
+    lawn = GRASS[look] if look not in ("summer", "dry") else [c("#6aae4a"), c("#5f9f42"), c("#78bc56")]
     noise_fill(img, (0, top, T, top + T), lawn, rng)
     path = PATH if look != "snow" else c("#e6ecf0")
     if v == 0:
@@ -1419,7 +1423,7 @@ def park(look, v):
     elif v == 3:
         for bx, by in ((3, 3), (19, 3), (3, 19), (19, 19)):
             d.rectangle([bx, top + by, bx + 9, top + by + 8], c("#6b4a30"))
-            if look in ("spring", "summer"):
+            if look in ("spring", "summer", "dry"):
                 for _ in range(10):
                     d.point((bx + 1 + rng.randrange(8), top + by + 1 + rng.randrange(7)), rng.choice(FLOWERS))
             elif look == "snow":
@@ -3351,6 +3355,7 @@ def recycling(look, v):
 FIELD = {
     "spring": [c("#7a5a3a"), c("#6fa848")],
     "summer": [c("#c9a84a"), c("#dcbc5a")],
+    "dry": [c("#c9a84a"), c("#dcbc5a")],
     "autumn": [c("#9a8048"), c("#b89a58")],
     "bare": [c("#7a5a3e"), c("#6a4c32")],
     "snow": [c("#e9eff3"), c("#cfd9e1")],
@@ -3364,7 +3369,7 @@ def farm(look, v):
     ground, crop = FIELD[look]
     gx0, gy0 = b.ground(1, 1)
     gx1, gy1 = b.ground(62, 62)
-    hedge = c("#4f7a34") if look in ("spring", "summer") else c("#6b5a44")
+    hedge = c("#4f7a34") if look in ("spring", "summer", "dry") else c("#6b5a44")
     # Two or three fields, each its own way.
     fields = [((1, 1, 40, 30), True), ((1, 33, 40, 62), False), ((43, 33, 62, 62), True)] if v % 2 == 0 else \
         [((1, 1, 62, 22), False), ((1, 25, 30, 62), True), ((33, 25, 62, 62), False)]
@@ -3595,7 +3600,7 @@ def roundabout(look, mask):
         d.polygon([tip, base_l, base_r], c("#d8d4c8"))
     island = c("#5a9a3c") if look != "snow" else c("#e4ebf0")
     d.ellipse([cx - 6, cy - 6, cx + 6, cy + 6], island, c("#d8d4c8"))
-    if look in ("spring", "summer", "autumn"):
+    if look in ("spring", "summer", "autumn", "dry"):
         d.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], c("#3d8233") if look != "autumn" else c("#cf6e28"))
     return img
 

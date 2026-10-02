@@ -819,4 +819,9 @@
     <string name="pill_no_water">No water</string>
     <string name="pill_no_phone">No phone</string>
     <string name="pill_no_internet">No internet</string>
+    <string name="climate">Climate</string>
+    <string name="climate_temperate">Temperate</string>
+    <string name="climate_northern">Northern</string>
+    <string name="climate_coastal">Coastal</string>
+    <string name="climate_dry">Dry</string>
 </resources>
