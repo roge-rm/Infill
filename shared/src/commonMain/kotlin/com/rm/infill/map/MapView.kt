@@ -1,5 +1,6 @@
 package com.rm.infill.map
 
+import com.rm.infill.platform.platform
 import com.rm.infill.sim.Balance
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.Zone
@@ -170,7 +171,8 @@ fun MapView(
                     val change = event.changes.firstOrNull() ?: continue
                     when (event.type) {
                         PointerEventType.Scroll -> {
-                            val notches = change.scrollDelta.y
+                            // In notches, however the platform counts them; a hard flick zooms a few steps, never the whole way.
+                            val notches = (change.scrollDelta.y / platform.scrollPerNotch).coerceIn(-WHEEL_MOST, WHEEL_MOST)
                             if (notches != 0f) camera.zoomBy(WHEEL_STEP.pow(-notches), change.position, view())
                             change.consume()
                         }
@@ -290,3 +292,4 @@ private suspend fun AwaitPointerEventScope.gesture(
 
 /** Each notch of the wheel zooms by this much. */
 private const val WHEEL_STEP = 1.15f
+private const val WHEEL_MOST = 3f

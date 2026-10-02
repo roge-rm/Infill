@@ -63,6 +63,7 @@ class CoolingTest {
     fun notBeforeTheirTime() {
         val c = town(1960)
         c.everything = false
+        City::class.java.getDeclaredField("era").apply { isAccessible = true }.set(c, Era.MOTOR)
         c.district { d -> d.coolRoofs = true }
         val withRoofs = c.averageHeat()
         c.district { d -> d.coolRoofs = false }

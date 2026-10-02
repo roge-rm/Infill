@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Mode
 import com.rm.infill.sim.LineState
@@ -37,13 +38,32 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
         val i = map.index(x, y)
         // Nothing on a road that's dug up.
         if (map.road[i].toInt() == 0 || i in crossings || map.closed(i)) continue
-        val busy = map.congestion[i].toInt() and 0xff
-        if (busy == 0) continue
         val across = road(x - 1, y) || road(x + 1, y)
         val down = road(x, y - 1) || road(x, y + 1)
-        // Only along straight runs; junctions and bends stay clear.
-        if (across == down) continue
         val heading = map.roadHeading[i].toInt()
+        if (across && down) {
+            // Round a bend of a two-way road, each lane in from one side and out the other; junctions stay clear.
+            val ways = (0 until 4).filter { road(x + Heading.DX[it + 1], y + Heading.DY[it + 1]) }
+            if (ways.size != 2 || heading != 0) continue
+            val a = map.index(x + Heading.DX[ways[0] + 1], y + Heading.DY[ways[0] + 1])
+            val b = map.index(x + Heading.DX[ways[1] + 1], y + Heading.DY[ways[1] + 1])
+            // As busy as the busier road either side, so what comes up to the bend is seen going round it.
+            val busy = maxOf(map.congestion[i].toInt() and 0xff, map.congestion[a].toInt() and 0xff, map.congestion[b].toInt() and 0xff)
+            if (busy == 0) continue
+            val slots = min(most, 1 + busy / 96)
+            val speed = BASE_SPEED * (1f - min(0.75f, busy / 340f))
+            for (lane in 0..1) for (k in 0 until slots) {
+                val seed = x * 7919 + y * 104729 + lane * 31 + k * 977
+                if (k == 0 && unit(seed) * 128f > busy + 16) continue
+                val along = (time * speed + (k + unit(seed * 3) * 0.5f) / slots) % 1f
+                val (cx, cy, angle) = if (lane == 0) pointThrough(a, i, b, along, map.width, LANE) else pointThrough(b, i, a, along, map.width, LANE)
+                vehicle(camera.tileToScreen(cx, cy, size), t, angle, unit(seed * 5) < cars, seed)
+            }
+            continue
+        }
+        // Along straight runs.
+        val busy = map.congestion[i].toInt() and 0xff
+        if (busy == 0 || !across && !down) continue
         val slots = min(most, 1 + busy / 96)
         val speed = BASE_SPEED * (1f - min(0.75f, busy / 340f))
         for (lane in 0..1) {
@@ -68,7 +88,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                 val cx = if (across) x + u else x + side
                 val cy = if (across) y + side else y + u
                 val car = unit(seed * 5) < cars
-                vehicle(camera.tileToScreen(cx, cy, size), t, dir, car, seed)
+                vehicle(camera.tileToScreen(cx, cy, size), t, DEGREES[dir], car, seed)
             }
         }
     }
@@ -91,69 +111,56 @@ internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, li
         val tram = line.mode == Mode.TRAM
         val speed = if (tram) TRAM_TILES else BUS_TILES
         for (k in 0 until line.vehicles) {
+            // Along the route from tile middle to tile middle, round the bends; buses keep to the right.
             val pos = (time * speed + k * n / line.vehicles.toFloat()) % n
-            val step = pos.toInt()
-            val frac = pos - step
-            val a = route[step % n]
-            val b = route[(step + 1) % n]
-            val ax = a % map.width
-            val ay = a / map.width
-            val dx = b % map.width - ax
-            val dy = b / map.width - ay
-            // Buses keep to the right of the way they're going.
-            val side = if (tram) 0f else KERB
-            val cx = ax + 0.5f + dx * frac - dy * side
-            val cy = ay + 0.5f + dy * frac + dx * side
+            val i = floor(pos + 0.5f).toInt()
+            val u = pos + 0.5f - i
+            val (cx, cy, heading) = pointThrough(route[(i - 1 + n) % n], route[i % n], route[(i + 1) % n], u, map.width, if (tram) 0f else KERB)
             if (cx < topLeft.x - 1 || cx > bottomRight.x + 1 || cy < topLeft.y - 1 || cy > bottomRight.y + 1) continue
             val at = camera.tileToScreen(cx, cy, size)
-            val across = dx != 0
             when (line.mode) {
-                Mode.TRAM -> car(at, t, across, 0.7f, 0.24f, TRAM_BODY, TRAM_ENDS)
+                Mode.TRAM -> car(at, t, heading, 0.7f, 0.24f, TRAM_BODY, TRAM_ENDS)
                 Mode.TROLLEY -> {
-                    car(at, t, across, 0.45f, 0.17f, TROLLEY_BODY, GLASS)
-                    // Its two poles up to the wire.
-                    val back = if (across) Offset(at.x - t * 0.15f * dx, at.y) else Offset(at.x, at.y - t * 0.15f * dy)
-                    val up = if (across) Offset(back.x - t * 0.2f * dx, back.y - t * 0.05f) else Offset(back.x - t * 0.05f, back.y - t * 0.2f * dy)
-                    drawLine(POLE, back, up, max(1f, t * 0.03f))
+                    car(at, t, heading, 0.45f, 0.17f, TROLLEY_BODY, GLASS)
+                    // Its two poles back and up to the wire.
+                    rotate(heading, at) {
+                        val back = Offset(at.x - t * 0.15f, at.y)
+                        drawLine(POLE, back, Offset(back.x - t * 0.2f, back.y - t * 0.05f), max(1f, t * 0.03f))
+                    }
                 }
-                else -> car(at, t, across, 0.45f, 0.17f, BUS_BODY, GLASS)
+                else -> car(at, t, heading, 0.45f, 0.17f, BUS_BODY, GLASS)
             }
         }
     }
 }
 
-private fun DrawScope.car(at: Offset, t: Float, across: Boolean, length: Float, width: Float, body: Color, ends: Color) {
+/** A tram, bus or trolleybus centred on [at], [heading] degrees clockwise from east, its ends picked out. */
+private fun DrawScope.car(at: Offset, t: Float, heading: Float, length: Float, width: Float, body: Color, ends: Color) {
     val l = t * length
     val w = t * width
-    val size = if (across) Size(l, w) else Size(w, l)
-    val topLeft = Offset(at.x - size.width / 2, at.y - size.height / 2)
-    drawRect(body, topLeft, size)
-    val end = if (across) Size(l * 0.12f, w) else Size(w, l * 0.12f)
-    drawRect(ends, topLeft, end)
-    drawRect(ends, if (across) Offset(topLeft.x + l - end.width, topLeft.y) else Offset(topLeft.x, topLeft.y + l - end.height), end)
+    rotate(heading, at) {
+        val topLeft = Offset(at.x - l / 2, at.y - w / 2)
+        drawRect(body, topLeft, Size(l, w))
+        val end = Size(l * 0.12f, w)
+        drawRect(ends, topLeft, end)
+        drawRect(ends, Offset(topLeft.x + l - end.width, topLeft.y), end)
+    }
 }
 
-/** One vehicle centred on [at], facing [dir]: a horse and cart, or a car. */
-private fun DrawScope.vehicle(at: Offset, t: Float, dir: Int, car: Boolean, seed: Int) {
-    val along = dir == Heading.EAST.toInt() || dir == Heading.WEST.toInt()
+/** One vehicle centred on [at], [heading] degrees clockwise from east: a horse and cart, or a car. */
+private fun DrawScope.vehicle(at: Offset, t: Float, heading: Float, car: Boolean, seed: Int) {
     val length = t * 0.28f
     val width = t * 0.13f
-    val size = if (along) Size(length, width) else Size(width, length)
-    val topLeft = Offset(at.x - size.width / 2, at.y - size.height / 2)
     val body = if (car) CAR_COLOURS[(seed ushr 3).mod(CAR_COLOURS.size)] else CART_COLOURS[(seed ushr 3).mod(CART_COLOURS.size)]
-    drawRect(body, topLeft, size)
-    // The front: a horse ahead of a cart, or a windscreen.
-    val front = if (car) 0.3f else 0.4f
-    val frontColour = if (car) GLASS else HORSE
-    val part = if (along) Size(length * front, width * (if (car) 0.8f else 0.6f)) else Size(width * (if (car) 0.8f else 0.6f), length * front)
-    val inset = if (along) Offset(0f, (width - part.height) / 2) else Offset((width - part.width) / 2, 0f)
-    val frontAt = when (dir) {
-        Heading.EAST.toInt() -> Offset(topLeft.x + length * (1 - front), topLeft.y + inset.y)
-        Heading.WEST.toInt() -> Offset(topLeft.x, topLeft.y + inset.y)
-        Heading.SOUTH.toInt() -> Offset(topLeft.x + inset.x, topLeft.y + length * (1 - front))
-        else -> Offset(topLeft.x + inset.x, topLeft.y)
+    // Drawn facing east, then turned.
+    rotate(heading, at) {
+        val topLeft = Offset(at.x - length / 2, at.y - width / 2)
+        drawRect(body, topLeft, Size(length, width))
+        // The front: a horse ahead of a cart, or a windscreen.
+        val front = if (car) 0.3f else 0.4f
+        val part = Size(length * front, width * (if (car) 0.8f else 0.6f))
+        drawRect(if (car) GLASS else HORSE, Offset(topLeft.x + length * (1 - front), topLeft.y + (width - part.height) / 2), part)
     }
-    drawRect(frontColour, frontAt, part)
 }
 
 private fun unit(n: Int): Float {
@@ -171,6 +178,12 @@ private const val BASE_SPEED = 0.5f
  */
 private const val NEAR = 0.65f
 private const val FAR = 0.35f
+
+/** How far right of the middle a lane is, round a bend. */
+private const val LANE = NEAR - 0.5f
+
+/** Each heading as degrees clockwise from east, by its number: none, north, east, south, west. */
+private val DEGREES = floatArrayOf(0f, 270f, 0f, 90f, 180f)
 
 /** Too small to see below this. */
 private const val MIN_TILE_PX = 12f

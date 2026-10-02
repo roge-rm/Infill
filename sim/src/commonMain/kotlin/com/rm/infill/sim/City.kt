@@ -185,8 +185,9 @@ class City(
             }
             is Action.PaintDistrict -> {
                 val id = if (action.id == NEW_DISTRICT) nextDistrictId else action.id
-                val ok = action.id == 0 || action.id == NEW_DISTRICT && districts.size < Balance.MAX_DISTRICTS ||
-                    districts.any { it.id == action.id }
+                // Districts come with the streetcar age; erasing one is always allowed.
+                val ok = action.id == 0 || allowsDistricts() && (action.id == NEW_DISTRICT && districts.size < Balance.MAX_DISTRICTS ||
+                    districts.any { it.id == action.id })
                 if (ok) forRect(action.x0, action.y0, action.x1, action.y1) { i ->
                     if (m.terrain[i] != Terrain.WATER && m.district[i].toInt() and 0xff != id) changes += i
                 }
@@ -2654,6 +2655,9 @@ class City(
     fun allows(type: BuildingType): Boolean = everything || (year >= type.year && era >= Era.of(type.year))
 
     /** Whether lots can be zoned at [density] yet: towers come with the motor age. */
+    /** Whether districts can be drawn in this era: from the streetcar age, once the town's past a village. */
+    fun allowsDistricts() = everything || era >= Era.STREETCAR
+
     /** Whether [zone] can be zoned in this era: homes over shops from the streetcar age. */
     fun allowsZone(zone: Byte) = everything || zone != Zone.MIXED || era >= Era.STREETCAR
 

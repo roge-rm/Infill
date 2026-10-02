@@ -242,4 +242,13 @@ class DistrictTest {
         val loaded = SaveGame.read(SaveGame.write(c))
         assertTrue(loaded.districts[0].rentControl)
     }
+
+    @Test
+    fun districtsWaitForTheStreetcarAge() {
+        val c = City(5, 64, 64, TerrainOptions(water = 0, trees = 0, river = false))
+        assertFalse(c.allowsDistricts())
+        assertFalse(c.apply(Action.PaintDistrict(10, 10, 20, 20, NEW_DISTRICT)).ok)
+        City::class.java.getDeclaredField("era").apply { isAccessible = true }.set(c, Era.STREETCAR)
+        assertTrue(c.apply(Action.PaintDistrict(10, 10, 20, 20, NEW_DISTRICT)).ok)
+    }
 }

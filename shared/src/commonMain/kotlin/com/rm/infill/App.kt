@@ -585,7 +585,7 @@ private fun GameScreen(
                 if (choosingOverlay) choosingOverlay = false else trayFolded = !trayFolded
                 return
             }
-            pick(lastTool[g] ?: g.tools.first())
+            pick(lastTool[g]?.takeIf { it != Tool.Districts || city.allowsDistricts() } ?: g.tools.first())
         }
 
         fun tell(problem: Problem?) {
@@ -708,7 +708,7 @@ private fun GameScreen(
                             KeyAction.ToolServices -> pick(Tool.Services)
                             KeyAction.ToolTransit -> pick(Tool.Transit)
                             KeyAction.ToolTraffic -> pick(Tool.Traffic)
-                            KeyAction.ToolDistricts -> pick(Tool.Districts)
+                            KeyAction.ToolDistricts -> if (city.allowsDistricts()) pick(Tool.Districts)
                             KeyAction.Budget -> budgetOpen = !budgetOpen
                             KeyAction.Graphs -> graphsOpen = !graphsOpen
                             KeyAction.People -> peopleOpen = !peopleOpen

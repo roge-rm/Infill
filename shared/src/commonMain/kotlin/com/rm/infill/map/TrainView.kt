@@ -80,15 +80,35 @@ internal fun pointOn(path: IntArray, s: Float, width: Int): Triple<Float, Float,
     val n = path.size
     val i = (s + 0.5f).toInt().coerceIn(0, n - 1)
     val u = (s - (i - 0.5f)).coerceIn(0f, 1f)
-    val cx = path[i] % width + 0.5f
-    val cy = path[i] / width + 0.5f
-    fun way(a: Int, b: Int) = (b % width - a % width) to (b / width - a / width)
-    val (ix, iy) = if (i > 0) way(path[i - 1], path[i]) else way(path[i], path[i + 1])
-    val (ox, oy) = if (i < n - 1) way(path[i], path[i + 1]) else ix to iy
-    if (ix == ox && iy == oy) {
-        return Triple(cx + ix * (u - 0.5f), cy + iy * (u - 0.5f), degrees(atan2(iy.toFloat(), ix.toFloat())))
+    return pointThrough(if (i > 0) path[i - 1] else -1, path[i], if (i < n - 1) path[i + 1] else -1, u, width)
+}
+
+/**
+ * Where something is [u] of the way across tile [here], come from [prev] and
+ * going on to [next] (-1 for neither, at an end), and its heading in degrees
+ * clockwise from east: straight through, or round a quarter circle about the
+ * corner between the edge it came in by and the one it leaves by. [side] moves
+ * it that far to the right of the way it's going, for a lane, so round a bend
+ * it keeps the same distance from the middle.
+ */
+internal fun pointThrough(prev: Int, here: Int, next: Int, u: Float, width: Int, side: Float = 0f): Triple<Float, Float, Float> {
+    val cx = here % width + 0.5f
+    val cy = here / width + 0.5f
+    fun way(a: Int, b: Int) = (b % width - a % width).coerceIn(-1, 1) to (b / width - a / width).coerceIn(-1, 1)
+    val (ix, iy) = if (prev >= 0) way(prev, here) else if (next >= 0) way(here, next) else 1 to 0
+    val (ox, oy) = if (next >= 0) way(here, next) else ix to iy
+    fun offset(x: Float, y: Float, heading: Float): Triple<Float, Float, Float> {
+        if (side == 0f) return Triple(x, y, degrees(heading))
+        return Triple(x - side * sin(heading), y + side * cos(heading), degrees(heading))
     }
-    // Round the corner between the edge it came in by and the one it leaves by.
+    if (ix == ox && iy == oy) {
+        return offset(cx + ix * (u - 0.5f), cy + iy * (u - 0.5f), atan2(iy.toFloat(), ix.toFloat()))
+    }
+    if (ix == -ox && iy == -oy) {
+        // Turning back at the end of a line: in to the middle, then out the way it came.
+        return if (u < 0.5f) offset(cx + ix * (u - 0.5f), cy + iy * (u - 0.5f), atan2(iy.toFloat(), ix.toFloat()))
+        else offset(cx + ox * (u - 0.5f), cy + oy * (u - 0.5f), atan2(oy.toFloat(), ox.toFloat()))
+    }
     val cornerX = cx - ix * 0.5f + ox * 0.5f
     val cornerY = cy - iy * 0.5f + oy * 0.5f
     val from = atan2(cy - iy * 0.5f - cornerY, cx - ix * 0.5f - cornerX)
@@ -96,9 +116,9 @@ internal fun pointOn(path: IntArray, s: Float, width: Int): Triple<Float, Float,
     if (sweep > PI) sweep -= (2 * PI).toFloat()
     if (sweep < -PI) sweep += (2 * PI).toFloat()
     val a = from + sweep * u
-    // Moving round the circle one way or the other, the track runs square to the radius.
+    // Moving round the circle one way or the other, the way runs square to the radius.
     val heading = a + if (sweep > 0) (PI / 2).toFloat() else -(PI / 2).toFloat()
-    return Triple(cornerX + 0.5f * cos(a), cornerY + 0.5f * sin(a), degrees(heading))
+    return offset(cornerX + 0.5f * cos(a), cornerY + 0.5f * sin(a), heading)
 }
 
 private fun degrees(radians: Float) = radians * 180f / PI.toFloat()

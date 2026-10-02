@@ -191,8 +191,43 @@ ARROW = (236, 232, 220, 210)
 MEDIAN = 4  # half a boulevard's median, on each carriageway
 
 
+def bend(lo, hi):
+    """A corner's curve, worked out as the bend from the south round to the east: the
+    radius of its inside and outside edges, and where their centre is (on both axes)."""
+    width = hi - lo + 1
+    # A road as wide as the tile can only round its outside corner.
+    if width >= T:
+        return 0, T // 2, T // 2
+    inner = max(0, min(width // 3, T - 1 - lo - width))
+    outer = width + inner
+    return inner, outer, lo + outer
+
+
 def road_shape(mask, lo, hi):
-    """Whether a pixel is on a road that's [lo, hi] wide and joins the neighbours in [mask]."""
+    """Whether a pixel is on a road that's [lo, hi] wide and joins the neighbours in [mask].
+    Round a corner the outside edge curves, and the inside is filled in a little."""
+    square = square_road_shape(mask, lo, hi)
+    if mask not in (3, 6, 9, 12):
+        return square
+    # Worked out as the corner from the south round to the east, flipped for the others.
+    flip_x = bool(mask & 8)
+    flip_y = bool(mask & 1)
+    # Both edges are arcs round one point, so the road keeps its width round the bend.
+    inner, outer, centre = bend(lo, hi)
+    def inside(x, y):
+        if not (0 <= x < T and 0 <= y < T):
+            return square(x, y)
+        cx = T - 1 - x if flip_x else x
+        cy = T - 1 - y if flip_y else y
+        if lo <= cx < centre and lo <= cy < centre:
+            d = (cx + 0.5 - centre) ** 2 + (cy + 0.5 - centre) ** 2
+            return inner * inner <= d <= outer * outer
+        return square(x, y)
+    return inside
+
+
+def square_road_shape(mask, lo, hi):
+    """Whether a pixel is on a road that's [lo, hi] wide and joins the neighbours in [mask], with square corners."""
     def inside(x, y):
         if not (0 <= x < T and 0 <= y < T):
             # Past the tile's edge the road carries on only where it's joined.
@@ -215,20 +250,53 @@ def near_edge(inside, x, y, d):
 
 
 def track_lines(px, mask, at, lo, hi, col, rng, chance):
-    """Lines along each way the road goes, at the offsets [at] across it."""
+    """Lines along each way the road goes, at the offsets [at] across it. Round
+    a corner they turn with it, the outer line outside the inner; a branch's
+    lines stop at the lines of the road it joins."""
+    def down(x, y0, y1):
+        for y in range(min(y0, y1), max(y0, y1) + 1):
+            if rng.random() < chance: px[x, y] = col
+    def across(y, x0, x1):
+        for x in range(min(x0, x1), max(x0, x1) + 1):
+            if rng.random() < chance: px[x, y] = col
+    near, far = min(at), max(at)
+    if mask in (3, 6, 9, 12) and hi - lo < T - 1:
+        # A corner: each line curves round with the road, about the same centre as its edges.
+        # Worked out as the bend from the south round to the east, flipped for the others.
+        flip_x = bool(mask & 8)
+        flip_y = bool(mask & 1)
+        _, _, centre = bend(lo, hi)
+        def put(cx, cy):
+            if 0 <= cx < T and 0 <= cy < T and rng.random() < chance:
+                px[T - 1 - cx if flip_x else cx, T - 1 - cy if flip_y else cy] = col
+        for a in at:
+            r = centre - a
+            steps = max(8, int(r * 3))
+            done = set()
+            for k in range(steps + 1):
+                t = math.pi / 2 * k / steps
+                p = (round(centre - r * math.cos(t)), round(centre - r * math.sin(t)))
+                if p not in done:
+                    done.add(p)
+                    put(*p)
+            # On to the tile's edges, if the curve stops short of them.
+            for y in range(centre + 1, T):
+                put(a, y)
+            for x in range(centre + 1, T):
+                put(x, a)
+        return
     vertical = mask & 5 or mask == 0
     horizontal = mask & 10
     for a in at:
         if vertical:
-            top = 0 if mask & 1 else lo + 2
-            bottom = T - 1 if mask & 4 else hi - 2
-            for y in range(top, bottom + 1):
-                if rng.random() < chance: px[a, y] = col
+            # Joining a road across, it stops at that road's nearer line; a dead end stops short.
+            top = 0 if mask & 1 else far if horizontal else lo + 2
+            bottom = T - 1 if mask & 4 else near if horizontal else hi - 2
+            down(a, top, bottom)
         if horizontal:
-            left = 0 if mask & 8 else lo + 2
-            right = T - 1 if mask & 2 else hi - 2
-            for x in range(left, right + 1):
-                if rng.random() < chance: px[x, a] = col
+            left = 0 if mask & 8 else far if vertical else lo + 2
+            right = T - 1 if mask & 2 else near if vertical else hi - 2
+            across(a, left, right)
 
 
 def road(look, mask):

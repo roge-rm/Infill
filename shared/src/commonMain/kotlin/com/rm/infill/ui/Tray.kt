@@ -535,6 +535,8 @@ fun toolTabs(tool: Tool, city: City): List<TrayTab> = tool.group.tools.flatMap {
             val open = waterKindsIn(city).filter { it != WaterKind.Remove }.flatMap { it.groups }.toSet()
             WaterGroup.entries.filter { it in open }.map { TrayTab(it, stringResource(it.title), waterGlyph(it)) }
         }
+        // Districts come with the streetcar age.
+        Tool.Districts -> if (city.allowsDistricts()) listOf(TrayTab(t, stringResource(t.title), toolGlyph(t))) else emptyList()
         else -> listOf(TrayTab(t, stringResource(t.title), toolGlyph(t)))
     }
 }

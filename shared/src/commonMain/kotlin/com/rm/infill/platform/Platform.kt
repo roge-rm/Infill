@@ -20,6 +20,9 @@ interface Platform {
     /** A graphics level that suits this device, used until the player picks one. */
     val suggestedGraphics: GraphicsLevel
 
+    /** How much a mouse wheel scrolls for one notch: a notch on Android, pixels in a browser. */
+    val scrollPerNotch: Float get() = 1f
+
     /** Called when the app goes into the background or the page is hidden. */
     fun onHidden(action: () -> Unit)
 }
