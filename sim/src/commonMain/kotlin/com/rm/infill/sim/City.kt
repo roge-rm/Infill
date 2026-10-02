@@ -723,7 +723,8 @@ class City(
 
     /** Whether [b] is a service worn enough to renovate, and open. */
     fun renovatable(b: Building): Boolean =
-        b.type.service && b.type.life > 0 && b.outage == 0 && b.underway == 0 && Ageing.wear(monthNow - b.built, b.type.life) >= Balance.RENEWABLE_WEAR
+        b.type.zone == Zone.NONE && (b.type.service || Needs.of(b.type).isNotEmpty()) && b.outage == 0 && b.underway == 0 &&
+            (b.type.life > 0 && Ageing.wear(monthNow - b.built, b.type.life) >= Balance.RENEWABLE_WEAR || unmet(b).any { it.second })
 
     /** Whether what was laid on tile [i] in [laid], expected to last [life] years, is worn enough to relay. */
     private fun worn(laid: ShortArray, i: Int, life: Int): Boolean = Ageing.wear(monthNow - laid[i], life) >= Balance.RENEWABLE_WEAR
@@ -1627,6 +1628,8 @@ class City(
         updateGrime()
         updateServices()
         updateComms()
+        railFlags()
+        updatePorts()
         updatePathways()
         wearOut()
         floodTunnels(underWaterOnly = true)
@@ -2493,9 +2496,14 @@ class City(
 
     private fun updateRail() {
         railway.update(buildings.values.filter { it.type.railway })
+        railFlags()
+    }
+
+    /** Which stations take passengers and which yards send freight out, as far as they have what they need. Monthly, and when the railway changes. */
+    private fun railFlags() {
         val stops = railway.buildings
-        val passengers = BooleanArray(stops.size) { stops[it].type.station }
-        val freightOut = BooleanArray(stops.size) { stops[it].type.yard && railway.linked(it) }
+        val passengers = BooleanArray(stops.size) { stops[it].type.station && working(stops[it]) }
+        val freightOut = BooleanArray(stops.size) { stops[it].type.yard && railway.linked(it) && working(stops[it]) }
         railPassengers = stops.indices.any { passengers[it] && railway.linked(it) }
         railFreight = freightOut.any { it }
         // The terminals on lines out, and the works near enough to one to feel it.
@@ -3313,11 +3321,48 @@ class City(
         }
     }
 
-    /** How well [b] still works for its age, in percent: fully until its expected life, less past it. */
+    /** How well [b] works, in percent: for its age, fully until its expected life and less past it, and for what it needs. */
     fun condition(b: Building): Int {
-        if (b.type.life == 0) return 100
+        val fit = fit(b)
+        if (b.type.life == 0) return fit
         val wear = Ageing.wear(monthNow - b.built, b.type.life)
-        return if (wear <= 100) 100 else max(Balance.WORN_SERVICE, 100 - (wear - 100) / 2)
+        return (if (wear <= 100) 100 else max(Balance.WORN_SERVICE, 100 - (wear - 100) / 2)) * fit / 100
+    }
+
+    /** Whether [b] has [need] where it stands: the line, the main or the service reaching it. */
+    fun reaches(b: Building, need: Need): Boolean {
+        val i = map.index(b.x, b.y)
+        return when (need) {
+            Need.POWER -> map.powered[i]
+            Need.WATER -> map.watered[i] && map.sewered[i]
+            Need.PHONE -> map.comms[i] >= Phone.SERVICE_PHONE
+            Need.BROADBAND -> map.comms[i] >= Phone.SERVICE_BROADBAND
+        }
+    }
+
+    /** Whether [b] was built or renovated since [year], so it's fitted for what came in then. */
+    fun fitted(b: Building, year: Int): Boolean = b.built >= Ageing.monthOf(year, 0)
+
+    /** What [b] needs now and hasn't got, and whether each is for want of renovating: the service is there but it isn't fitted for it. */
+    fun unmet(b: Building): List<Pair<Need, Boolean>> = Needs.of(b.type).filter { (_, from) -> year >= from }.mapNotNull { (need, from) ->
+        when {
+            !reaches(b, need) -> need to false
+            !fitted(b, from) -> need to true
+            else -> null
+        }
+    }
+
+    /** Whether [b] does its work at all: half or better for what it needs. */
+    fun working(b: Building): Boolean = fit(b) >= Needs.WORKING
+
+    /** Whether what buildings need counts. Only tests about something else turn it off. */
+    internal var needsApply = true
+
+    /** How well [b] works for what it needs, in percent. */
+    fun fit(b: Building): Int {
+        if (!needsApply || b.type.zone != Zone.NONE || b.underway > 0) return 100
+        val lost = unmet(b).sumOf { it.first.cost }
+        return max(Needs.LEAST, 100 - lost)
     }
 
     /** [b]'s strength: its kind's, for its age, nothing while it's shut. */
@@ -3789,7 +3834,7 @@ class City(
 
     // ---- airports ----------------------------------------------------------------
 
-    private val airports get() = buildings.values.filter { it.type.airport && it.underway == 0 && it.outage == 0 && accessOf(it) >= 0 }
+    private val airports get() = buildings.values.filter { it.type.airport && it.underway == 0 && it.outage == 0 && accessOf(it) >= 0 && working(it) }
 
     /** The airports with planes coming and going, for drawing them. */
     fun airportsShown(): List<Building> = airports
@@ -3855,8 +3900,8 @@ class City(
         val ways = IntArray(Tourism.MODES)
         if (connected) ways[Tourism.ROAD] = Balance.ROAD_VISITORS + Balance.ROAD_VISITORS_BY_CAR * Cars.share(year, Wealth.MIDDLE) / 100
         ways[Tourism.RAIL] = railway.stops.indices.count { railway.buildings[it].type.station && railway.linked(it) } * Balance.RAIL_VISITORS
-        ways[Tourism.SEA] = linkedPorts.sumOf { Balance.SEA_VISITORS[it.type.portTier] }
-        ways[Tourism.AIR] = airports.sumOf { Balance.AIR_VISITORS[it.type.airTier] }
+        ways[Tourism.SEA] = linkedPorts.sumOf { Balance.SEA_VISITORS[it.type.portTier] * fit(it) / 100 }
+        ways[Tourism.AIR] = airports.sumOf { Balance.AIR_VISITORS[it.type.airTier] * fit(it) / 100 }
         val room = ways.sum()
         val visitors = if (room == 0) 0 else min(draw.toInt(), room)
         s.visitors = visitors
@@ -3914,7 +3959,7 @@ class City(
 
     /** Which ports ships can reach, and the freight they take. */
     private fun updatePorts() {
-        val linked = if (buildings.values.any { it.type.port }) ports.filter { ships().reaches(Port.berth(map, it)) } else emptyList()
+        val linked = if (buildings.values.any { it.type.port }) ports.filter { working(it) && ships().reaches(Port.berth(map, it)) } else emptyList()
         linkedPorts = linked
         seaTier = linked.maxOfOrNull { it.type.portTier } ?: 0
         traffic.setPorts(IntArray(linked.size) { accessOf(linked[it]) })
@@ -5770,7 +5815,7 @@ class City(
         s.farmDemand = taxed(farmGap - s.farmJobsComing, industrialTax)
         // Office work grows with the town and with the century.
         val perHundred = Balance.OFFICES_1900 + (Balance.OFFICES_2000 - Balance.OFFICES_1900) * (years / 100.0).coerceIn(0.0, 1.0)
-        val officeGap = Balance.OFFICE_BASE + s.population * perHundred / 100.0 + Balance.AIR_OFFICES[airTier] - s.officeJobs
+        val officeGap = Balance.OFFICE_BASE + s.population * perHundred / 100.0 + airports.sumOf { Balance.AIR_OFFICES[it.type.airTier] * fit(it) / 100 } - s.officeJobs
         s.officeDemand = taxed(officeGap - s.officeJobsComing, commercialTax)
         // The shops answer what people spend, more the better off they are.
         val shopGap = s.spending / Balance.RESIDENTS_PER_SHOP_JOB - s.shopJobs.toDouble()
@@ -5939,7 +5984,7 @@ class City(
         // Dues on the loads through the ports, and on visitors off the ships.
         s.portLoads = traffic.lastPortFreight.sum()
         // Air freight: what the airports can take of the goods sent away.
-        s.airLoads = min(airports.sumOf { Balance.AIR_CARGO[it.type.airTier] }, s.goodsExported.sum())
+        s.airLoads = min(airports.sumOf { Balance.AIR_CARGO[it.type.airTier] * fit(it) / 100 }, s.goodsExported.sum())
         s.duesIncome = (s.portLoads * Balance.PORT_DUE + s.visitorsBy[Tourism.SEA] * Balance.SEA_VISITOR_DUE +
             s.visitorsBy[Tourism.AIR] * Balance.LANDING_FEE + s.airLoads * Balance.AIR_CARGO_FEE).roundToLong()
         s.tolls = traffic.lastTolls

@@ -18,6 +18,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.rm.infill.res.need_internet
+import com.rm.infill.res.need_phone
+import com.rm.infill.res.need_water
+import com.rm.infill.res.need_power
+import com.rm.infill.res.pill_not_fitted
+import com.rm.infill.res.pill_no_internet
+import com.rm.infill.res.pill_no_phone
+import com.rm.infill.res.pill_no_water
+import com.rm.infill.res.label_working
 import com.rm.infill.res.label_office_draw
 import com.rm.infill.res.label_visitors
 import com.rm.infill.GameState
@@ -54,6 +63,8 @@ import com.rm.infill.res.label_port_loads
 import com.rm.infill.res.pill_no_sea_route
 import com.rm.infill.res.pill_open_sea
 import com.rm.infill.res.*
+import com.rm.infill.sim.Needs
+import com.rm.infill.sim.Need
 import com.rm.infill.sim.Bridge
 import com.rm.infill.sim.Action
 import com.rm.infill.sim.Ageing
@@ -191,7 +202,12 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
         pills += PillItem(Glyph.Rain, stringResource(Res.string.inspect_flooded_before), Tone.Warn)
     }
     val wantsPower = t.needsPower || t == BuildingType.TRAM_DEPOT || t == BuildingType.SUBWAY_STATION
-    if (built && wantsPower && !Generation.station(t) && !map.powered[i]) pills += PillItem(Glyph.Bolt, stringResource(Res.string.no_power), Tone.Bad)
+    val unmet = if (built) city.unmet(b) else emptyList()
+    if (built && wantsPower && !Generation.station(t) && !map.powered[i] && unmet.none { it.first == Need.POWER }) pills += PillItem(Glyph.Bolt, stringResource(Res.string.no_power), Tone.Bad)
+    // What a city-run building needs and hasn't got, and what it has outside but isn't fitted for.
+    for ((need, renovate) in unmet) if (!renovate) pills += PillItem(needGlyph(need), stringResource(needMissing(need)), Tone.Bad)
+    // Outside, but not fitted for it until it's renovated.
+    for ((need, renovate) in unmet) if (renovate) pills += PillItem(needGlyph(need), stringResource(Res.string.pill_not_fitted, stringResource(needName(need))), Tone.Warn)
     if (b.uncollected) pills += PillItem(Glyph.Bin, stringResource(Res.string.inspect_garbage), Tone.Warn)
     if (t.zone == Zone.COMMERCIAL && !t.office && built && city.shortOfStock(b)) pills += PillItem(Glyph.Crate, stringResource(Res.string.pill_short_of_stock), Tone.Warn)
     if (t.railway) {
@@ -201,8 +217,8 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     }
     if (t.port) {
         if (!city.reachable(b)) pills += PillItem(Glyph.Road, stringResource(Res.string.pill_no_road), Tone.Bad)
-        pills += if (city.portLinked(b)) PillItem(Glyph.Ship, stringResource(Res.string.pill_open_sea), Tone.Good)
-        else PillItem(Glyph.Ship, stringResource(Res.string.pill_no_sea_route), Tone.Bad)
+        if (!city.portLinked(b)) pills += PillItem(Glyph.Ship, stringResource(Res.string.pill_no_sea_route), Tone.Bad)
+        else if (city.working(b)) pills += PillItem(Glyph.Ship, stringResource(Res.string.pill_open_sea), Tone.Good)
     }
     if (b.scrubbed) pills += PillItem(Glyph.Scrubber, stringResource(Res.string.inspect_scrubbed), Tone.Good)
     if (city.isHeritage(b)) pills += PillItem(Glyph.Star, stringResource(Res.string.heritage), Tone.Good)
@@ -229,7 +245,7 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     if ((t.service || t == BuildingType.EXCHANGE) && t != BuildingType.PARK && built) {
         val staffed = city.staffed(t)
         stats += StatItem(Glyph.Person, stringResource(Res.string.label_staffed), "$staffed%", staffed / 100f, toneOf(staffed, 90, 60))
-        if (t.life > 0) {
+        if (t.life > 0 || unmet.isNotEmpty()) {
             val condition = city.condition(b)
             stats += StatItem(Glyph.Wrench, stringResource(Res.string.label_condition), "$condition%", condition / 100f, toneOf(condition, 100, 80))
         }
@@ -333,7 +349,12 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     }
 
     // What can be done: renovate a worn service, fit scrubbers, pull it down.
-    if (t.service && city.renovatable(b)) {
+    // How well a station, port or airport works for what it needs.
+    if (!t.service && t != BuildingType.EXCHANGE && unmet.isNotEmpty()) {
+        val fit = city.fit(b)
+        stats += StatItem(Glyph.Wrench, stringResource(Res.string.label_working), "$fit%", fit / 100f, toneOf(fit, 100, Needs.WORKING))
+    }
+    if (city.renovatable(b)) {
         val renew = Action.RenewArea(b.x, b.y, b.x, b.y)
         val plan = city.plan(renew)
         if (plan.ok) actions += ActionItem(Glyph.Wrench, stringResource(Res.string.action_renovate), moneyText(plan.cost)) { onAction(renew) }
@@ -535,6 +556,27 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
     if (plan.ok) actions.add(0, ActionItem(Glyph.Renew, stringResource(Res.string.action_renew), moneyText(plan.cost)) { onAction(renew) })
 
     return Card(tileIcon(map, i, road), title, subtitle, pills, stats, actions)
+}
+
+private fun needGlyph(need: Need): Glyph = when (need) {
+    Need.POWER -> Glyph.Bolt
+    Need.WATER -> Glyph.Drop
+    Need.PHONE -> Glyph.Phone
+    Need.BROADBAND -> Glyph.Mast
+}
+
+private fun needName(need: Need) = when (need) {
+    Need.POWER -> Res.string.need_power
+    Need.WATER -> Res.string.need_water
+    Need.PHONE -> Res.string.need_phone
+    Need.BROADBAND -> Res.string.need_internet
+}
+
+private fun needMissing(need: Need) = when (need) {
+    Need.POWER -> Res.string.no_power
+    Need.WATER -> Res.string.pill_no_water
+    Need.PHONE -> Res.string.pill_no_phone
+    Need.BROADBAND -> Res.string.pill_no_internet
 }
 
 /** A picture of what's on a tile with no building: its road, track, line or ground. */

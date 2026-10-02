@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 class PortTest {
     /** An empty map in [year] with a river down x 40 to 42 from edge to edge, and a lake with no way out. */
     private fun watery(year: Int = 1930): City {
-        val c = City(15, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true; it.disasterLevel = 0 }
+        val c = City(15, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true; it.disasterLevel = 0; it.needsApply = false }
         City::class.java.getDeclaredField("funds").apply { isAccessible = true }.setLong(c, 5_000_000L)
         City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, year)
         val m = c.map

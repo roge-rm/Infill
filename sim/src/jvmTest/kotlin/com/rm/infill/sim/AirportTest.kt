@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 class AirportTest {
     /** A town along a street to the edge, with an airport of [type] east of it if there's one. */
     private fun town(type: BuildingType?, year: Int = 1980): City {
-        val c = City(31, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true; it.disasterLevel = 0 }
+        val c = City(31, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true; it.disasterLevel = 0; it.needsApply = false }
         City::class.java.getDeclaredField("funds").apply { isAccessible = true }.setLong(c, 5_000_000L)
         City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, year)
         val m = c.map
@@ -59,6 +59,9 @@ class AirportTest {
     fun airportsAreSavedAndOldTownsLoad() {
         val c = town(BuildingType.AIRPORT)
         val back = SaveGame.read(SaveGame.write(c))
+        // The switch for what buildings need isn't saved.
+        back.needsApply = false
+        City::class.java.getDeclaredMethod("updateAirports").apply { isAccessible = true }.invoke(back)
         assertEquals(c.stats.airLoads, back.stats.airLoads)
         assertEquals(c.airTier, back.airTier)
         assertTrue(back.map.noise.contentEquals(c.map.noise))

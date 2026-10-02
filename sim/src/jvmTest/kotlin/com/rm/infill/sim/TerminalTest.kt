@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 class TerminalTest {
     /** Works off a road that doesn't reach the edge, beside a line that does, with a [type] on it. */
     private fun town(type: BuildingType, months: Int = 14): City {
-        val c = City(29, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true; it.disasterLevel = 0 }
+        val c = City(29, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true; it.disasterLevel = 0; it.needsApply = false }
         City::class.java.getDeclaredField("funds").apply { isAccessible = true }.setLong(c, 5_000_000L)
         City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, 1970)
         val m = c.map

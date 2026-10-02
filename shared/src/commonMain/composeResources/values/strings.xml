@@ -810,4 +810,13 @@
     <string name="label_office_draw">Office jobs it draws</string>
     <string name="overlay_noise">Noise</string>
     <string name="tool_air">Air</string>
+    <string name="pill_not_fitted">Not fitted for %1$s</string>
+    <string name="need_power">power</string>
+    <string name="need_water">water</string>
+    <string name="need_phone">the phone</string>
+    <string name="need_internet">internet</string>
+    <string name="label_working">Working</string>
+    <string name="pill_no_water">No water</string>
+    <string name="pill_no_phone">No phone</string>
+    <string name="pill_no_internet">No internet</string>
 </resources>

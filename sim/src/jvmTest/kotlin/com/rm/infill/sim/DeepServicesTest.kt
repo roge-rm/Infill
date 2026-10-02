@@ -70,6 +70,8 @@ class DeepServicesTest {
     @Test
     fun aWornServiceWorksLessUntilRenovated() {
         val c = street(1990)
+        // Age alone; what it needs is tested apart.
+        c.needsApply = false
         assertTrue(c.apply(Action.PlaceBuilding(BuildingType.FIRE_STATION, 10, 10)).ok)
         c.tick()
         val b = c.buildingAt(10, 10)!!
