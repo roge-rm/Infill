@@ -196,9 +196,10 @@ class CityMap(val width: Int, val height: Int) {
 
     /**
      * The way from a lot off the road to the road, for the map to draw: a path
-     * leaving the tile north 1, east 2, south 4 or west 8; a back lane along
-     * one edge (bits 4 to 6, the edge as 1 to 4 for north to west); and what
-     * it's made of (bits 7 and 8: dirt, gravel or paved). Worked out each month.
+     * leaving the tile north 1, east 2, south 4 or west 8; back lanes along
+     * its edges, the same four shifted up 4, since a tile where a lane along a
+     * row meets one down a column has two; and what it's made of (bits 8 and
+     * 9: dirt, gravel or paved). Worked out each month.
      */
     val pathway = ShortArray(size)
 

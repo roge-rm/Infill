@@ -3160,12 +3160,6 @@ class City(
             dy > 0 -> 4
             else -> 8
         }
-        fun edge(dx: Int, dy: Int) = when {
-            dy < 0 -> 1
-            dx > 0 -> 2
-            dy > 0 -> 3
-            else -> 4
-        }
         // A path or lane can cross yards, but not water, track or a road it isn't meeting.
         fun open(x: Int, y: Int): Boolean {
             if (!m.inside(x, y)) return false
@@ -3187,7 +3181,7 @@ class City(
                 RoadType.DIRT -> 0
                 RoadType.GRAVEL, RoadType.LANE -> 1
                 else -> 2
-            } shl 7
+            } shl 8
             val dense = m.density[start] >= Density.MEDIUM
             // The way, a tile and its marks at a time, kept only if it gets there.
             val marks = ArrayList<Pair<Int, Int>>()
@@ -3201,7 +3195,7 @@ class City(
                 val (sx, sy) = if (abs(ry) >= abs(rx)) 0 to (if (ry > 0) 1 else -1) else (if (rx > 0) 1 else -1) to 0
                 if (dense && abs(rx) + abs(ry) == 2) {
                     // A back lane along this row's edge facing the road, out to whichever end meets a road sooner.
-                    val lane = (edge(sx, sy) shl 4) or surface
+                    val lane = (bit(sx, sy) shl 4) or surface
                     val ways = listOf(sy to sx, -sy to -sx).map { (px, py) ->
                         val run = ArrayList<Int>()
                         var cx = x

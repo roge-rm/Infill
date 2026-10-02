@@ -38,7 +38,9 @@ class PathwayTest {
         val dy = intArrayOf(-1, 0, 1, 0)
         val bits = intArrayOf(1, 2, 4, 8)
         fun road(x: Int, y: Int) = m.inside(x, y) && m.road[m.index(x, y)] != Road.NONE
-        fun lane(i: Int) = (m.pathway[i].toInt() shr 4) and 7
+        // Lanes along a row (on a north or south edge) and down a column (east or west).
+        fun rowLane(i: Int) = (m.pathway[i].toInt() shr 4) and 5 != 0
+        fun columnLane(i: Int) = (m.pathway[i].toInt() shr 4) and 10 != 0
         val reached = BooleanArray(m.size)
         val queue = ArrayDeque<Int>()
         fun reach(i: Int) {
@@ -53,12 +55,9 @@ class PathwayTest {
             val y = i / w
             val p = m.pathway[i].toInt()
             for (k in 0 until 4) if (p and bits[k] != 0 && road(x + dx[k], y + dy[k])) reach(i)
-            val e = lane(i)
-            if (e != 0) {
-                // Along the lane is across the edge it lies on.
-                val along = if (e == 1 || e == 3) listOf(1, 3) else listOf(0, 2)
-                for (k in along) if (road(x + dx[k], y + dy[k])) reach(i)
-            }
+            // Along a lane is across the edge it lies on.
+            if (rowLane(i)) for (k in listOf(1, 3)) if (road(x + dx[k], y + dy[k])) reach(i)
+            if (columnLane(i)) for (k in listOf(0, 2)) if (road(x + dx[k], y + dy[k])) reach(i)
         }
         while (queue.isNotEmpty()) {
             val i = queue.removeFirst()
@@ -75,8 +74,8 @@ class PathwayTest {
                 // A path joined both ways, or a lane carrying on along the same edge.
                 val back = bits[(k + 2) % 4]
                 val path = (p and bits[k] != 0 && q and back != 0) || (q and back != 0 && p and bits[k] != 0)
-                val e = lane(i)
-                val along = e != 0 && lane(j) == e && (if (e == 1 || e == 3) k == 1 || k == 3 else k == 0 || k == 2)
+                val lanes = (m.pathway[i].toInt() shr 4) and (m.pathway[j].toInt() shr 4)
+                val along = if (k == 1 || k == 3) lanes and 5 != 0 else lanes and 10 != 0
                 if (path || along) reach(j)
             }
         }

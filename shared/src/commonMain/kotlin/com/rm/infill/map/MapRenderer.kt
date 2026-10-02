@@ -551,7 +551,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         // roofs stand in the rest. A lane on a lot's top or right side is drawn by the tile beyond it.
         val below = if (map.inside(tx, ty + 1)) map.pathway[map.index(tx, ty + 1)].toInt() else 0
         val left = if (map.inside(tx - 1, ty)) map.pathway[map.index(tx - 1, ty)].toInt() else 0
-        if (p == 0 && (below shr 4) and 7 != 1 && (left shr 4) and 7 != 2) return
+        if (p == 0 && below and LANE_N == 0 && left and LANE_E == 0) return
         val w = max(1, s * 4 / 32)
         val lane = max(2, s * 5 / 32)
         // Paths meet at each tile's bottom left corner: north is up the left edge from it, east along the
@@ -560,13 +560,17 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             val colour = pathColour(p)
             if (p and 1 != 0 || (p and 4 != 0 && roadAt(tx, ty + 1))) surface.fill(dx, dy, w, s, colour, PATH_ALPHA)
             if (p and 2 != 0 || (p and 8 != 0 && roadAt(tx - 1, ty))) surface.fill(dx, dy + s - w, s, w, colour, PATH_ALPHA)
-            when ((p shr 4) and 7) {
-                3 -> surface.fill(dx, dy + s - lane, s, lane, pathColour(p), BACK_LANE_ALPHA)
-                4 -> surface.fill(dx, dy, lane, s, pathColour(p), BACK_LANE_ALPHA)
+            if (p and LANE_S != 0) surface.fill(dx, dy + s - lane, s, lane, colour, BACK_LANE_ALPHA)
+            if (p and LANE_W != 0) surface.fill(dx, dy, lane, s, colour, BACK_LANE_ALPHA)
+            // A path that comes onto a lane running along this tile's top or right side meets it at the bottom
+            // left corner like any other, so it carries on up the left edge or along the bottom to reach it.
+            if (p and 15 != 0) {
+                if (p and LANE_N != 0) surface.fill(dx, dy, w, s, colour, PATH_ALPHA)
+                if (p and LANE_E != 0) surface.fill(dx, dy + s - w, s, w, colour, PATH_ALPHA)
             }
         }
-        if ((below shr 4) and 7 == 1) surface.fill(dx, dy + s - lane, s, lane, pathColour(below), BACK_LANE_ALPHA)
-        if ((left shr 4) and 7 == 2) surface.fill(dx, dy, lane, s, pathColour(left), BACK_LANE_ALPHA)
+        if (below and LANE_N != 0) surface.fill(dx, dy + s - lane, s, lane, pathColour(below), BACK_LANE_ALPHA)
+        if (left and LANE_E != 0) surface.fill(dx, dy, lane, s, pathColour(left), BACK_LANE_ALPHA)
     }
 
     /**
@@ -592,15 +596,15 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         // Lanes along a row reach in from the side; lanes down a column from above or below.
         fun rowLane(x: Int, y: Int): Int {
             val own = at(x, y)
-            if ((own shr 4) and 7 == 3) return own
+            if (own and LANE_S != 0) return own
             val below = at(x, y + 1)
-            return if ((below shr 4) and 7 == 1) below else 0
+            return if (below and LANE_N != 0) below else 0
         }
         fun columnLane(x: Int, y: Int): Int {
             val own = at(x, y)
-            if ((own shr 4) and 7 == 4) return own
+            if (own and LANE_W != 0) return own
             val left = at(x - 1, y)
-            return if ((left shr 4) and 7 == 2) left else 0
+            return if (left and LANE_E != 0) left else 0
         }
         rowLane(tx - 1, ty).let { if (it != 0) surface.fill(dx, dy + s - lane, verge, lane, colour(it), BACK_LANE_ALPHA) }
         rowLane(tx + 1, ty).let { if (it != 0) surface.fill(dx + s - verge, dy + s - lane, verge, lane, colour(it), BACK_LANE_ALPHA) }
@@ -609,7 +613,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     }
 
     /** What a path or lane's made of, by [CityMap.pathway]: where two meet on a tile their marks add up, so the better wins. */
-    private fun pathColour(p: Int) = PATH_COLOURS[minOf(PATH_COLOURS.size - 1, (p shr 7) and 3)]
+    private fun pathColour(p: Int) = PATH_COLOURS[minOf(PATH_COLOURS.size - 1, (p shr 8) and 3)]
 
     private fun roadAt(x: Int, y: Int) = map.inside(x, y) && map.road[map.index(x, y)] != Road.NONE
 
@@ -950,6 +954,12 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         private const val SOOT = 0x3F3830
 
         /** Paths and back lanes: worn dirt, gravel, then paving; a path's a little fainter than a lane. */
+        /** Back lanes in [CityMap.pathway], along a tile's north, east, south and west edges. */
+        private const val LANE_N = 0x10
+        private const val LANE_E = 0x20
+        private const val LANE_S = 0x40
+        private const val LANE_W = 0x80
+
         /** The widest building, in tiles. */
         private val WIDEST = com.rm.infill.sim.BuildingType.entries.maxOf { it.width }
 
