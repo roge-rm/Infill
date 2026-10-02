@@ -743,4 +743,25 @@
     <string name="offshore_wind">Offshore wind</string>
     <string name="road_highway">Highway</string>
     <string name="road_ramp">Ramp</string>
+    <string name="tool_port">Ports</string>
+    <string name="wharf">Wharf</string>
+    <string name="docks">Docks</string>
+    <string name="container_port">Container port</string>
+    <string name="no_sea_route">Ships can't get to that water from the edge of the map</string>
+    <string name="cuts_off_port">That would shut a port off from the sea</string>
+    <string name="income_dues">Dues and tolls</string>
+    <string name="upkeep_ports">Ports</string>
+    <string name="visitors">Visitors</string>
+    <string name="by_road">By road</string>
+    <string name="by_rail">By rail</string>
+    <string name="by_sea">By sea</string>
+    <string name="by_air">By air</string>
+    <string name="label_visitors">Visitors a day</string>
+    <string name="label_hotel_rooms">Hotel rooms taken</string>
+    <string name="label_guests">Guests</string>
+    <string name="pill_open_sea">Ships come</string>
+    <string name="pill_no_sea_route">No way out to sea</string>
+    <string name="label_port_loads">Loads a month</string>
+    <string name="label_ships">Ships a month</string>
+    <string name="overlay_visitors">Visitors</string>
 </resources>

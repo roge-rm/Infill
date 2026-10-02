@@ -1,5 +1,9 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.container_port
+import com.rm.infill.res.docks
+import com.rm.infill.res.wharf
+import com.rm.infill.res.tool_port
 import com.rm.infill.res.tool_districts
 import com.rm.infill.res.services_police
 import com.rm.infill.res.transit_trams
@@ -140,6 +144,7 @@ import com.rm.infill.res.density_medium
 import com.rm.infill.res.density_high
 import com.rm.infill.sim.Pipe
 import com.rm.infill.sim.Plan
+import com.rm.infill.sim.Port
 import com.rm.infill.sim.Rail
 import com.rm.infill.sim.RoadType
 import com.rm.infill.sim.Zone
@@ -159,6 +164,7 @@ enum class Tool(val title: StringResource) {
     Traffic(Res.string.tool_traffic),
     Districts(Res.string.tool_districts),
     Phone(Res.string.tool_phone),
+    Port(Res.string.tool_port),
 }
 
 /**
@@ -169,7 +175,7 @@ enum class ToolGroup(val title: StringResource, val tools: List<Tool>) {
     Inspect(Res.string.tool_inspect, listOf(Tool.Inspect)),
     Bulldoze(Res.string.tool_bulldoze, listOf(Tool.Bulldoze)),
     Zones(Res.string.group_zones, listOf(Tool.Zone, Tool.Districts)),
-    Transport(Res.string.group_transport, listOf(Tool.Road, Tool.Rail, Tool.Transit, Tool.Traffic)),
+    Transport(Res.string.group_transport, listOf(Tool.Road, Tool.Rail, Tool.Transit, Tool.Traffic, Tool.Port)),
     Utilities(Res.string.group_utilities, listOf(Tool.Power, Tool.Water, Tool.Phone)),
     Services(Res.string.tool_services, listOf(Tool.Services)),
 }
@@ -295,6 +301,23 @@ enum class RailKind(val title: StringResource) {
     Track(Res.string.rail_track),
     Station(Res.string.station),
     Yard(Res.string.freight_yard),
+}
+
+/** What the ports tool puts down: each kind of port, lying east to west or north to south. */
+enum class PortKind(val title: StringResource, val eastWest: BuildingType, val northSouth: BuildingType) {
+    Wharf(Res.string.wharf, BuildingType.WHARF, BuildingType.WHARF_NS),
+    Docks(Res.string.docks, BuildingType.DOCKS, BuildingType.DOCKS_NS),
+    Container(Res.string.container_port, BuildingType.CONTAINER_PORT, BuildingType.CONTAINER_PORT_NS),
+}
+
+/** The ports [city] can build in its era. */
+fun portKindsIn(city: City): List<PortKind> = PortKind.entries.filter { city.allows(it.eastWest) }
+
+/** A port with its top left on [x], [y], lying whichever way has water along it, east to west if neither does. */
+fun portBuilding(map: CityMap, kind: PortKind, x: Int, y: Int): BuildingType = when {
+    Port.waterSide(map, kind.eastWest, x, y) != 0 -> kind.eastWest
+    Port.waterSide(map, kind.northSouth, x, y) != 0 -> kind.northSouth
+    else -> kind.eastWest
 }
 
 /**
@@ -461,8 +484,9 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
     fun action(
         tool: Tool, zone: ZoneKind, density: DensityKind, bulldoze: BulldozeKind, power: PowerKind, service: ServiceKind, road: RoadType, roadPipes: Boolean,
         rail: RailKind, water: WaterKind, transit: TransitKind, map: CityMap, junction: JunctionKind = JunctionKind.Lights,
-        district: Int = NEW_DISTRICT, phone: PhoneKind = PhoneKind.Copper,
+        district: Int = NEW_DISTRICT, phone: PhoneKind = PhoneKind.Copper, port: PortKind = PortKind.Wharf,
     ): Action? = when (tool) {
+        Tool.Port -> Action.PlaceBuilding(portBuilding(map, port, x1, y1), x1, y1)
         Tool.Phone -> when {
             phone.building != null -> Action.PlaceBuilding(phone.building, x1, y1)
             phone.line -> Action.BuildPhoneLine(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), phone.fibre, phone.duct)

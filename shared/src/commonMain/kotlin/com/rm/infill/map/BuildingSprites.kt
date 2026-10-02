@@ -7,6 +7,10 @@ internal object BuildingSprites {
     private val first = IntArray(BuildingType.entries.size)
     private val count = IntArray(BuildingType.entries.size)
 
+    /** How many rows below a building's top row its sprite can reach up from: its height and how far it rises above it. */
+    var rows = 0
+        private set
+
     init {
         for (t in BuildingType.entries) {
             val (f, n) = when (t) {
@@ -31,6 +35,12 @@ internal object BuildingSprites {
                 BuildingType.STATION_NS -> Atlas.STATION_NS to Atlas.STATION_NS_COUNT
                 BuildingType.FREIGHT_YARD -> Atlas.YARD_EW to Atlas.YARD_EW_COUNT
                 BuildingType.FREIGHT_YARD_NS -> Atlas.YARD_NS to Atlas.YARD_NS_COUNT
+                BuildingType.WHARF -> Atlas.WHARF_EW to Atlas.WHARF_EW_COUNT
+                BuildingType.WHARF_NS -> Atlas.WHARF_NS to Atlas.WHARF_NS_COUNT
+                BuildingType.DOCKS -> Atlas.DOCKS_EW to Atlas.DOCKS_EW_COUNT
+                BuildingType.DOCKS_NS -> Atlas.DOCKS_NS to Atlas.DOCKS_NS_COUNT
+                BuildingType.CONTAINER_PORT -> Atlas.BOXPORT_EW to Atlas.BOXPORT_EW_COUNT
+                BuildingType.CONTAINER_PORT_NS -> Atlas.BOXPORT_NS to Atlas.BOXPORT_NS_COUNT
                 BuildingType.PUMPING_STATION -> Atlas.PUMPING_STATION to Atlas.PUMPING_STATION_COUNT
                 BuildingType.WELL_FIELD -> Atlas.WELL_FIELD to Atlas.WELL_FIELD_COUNT
                 BuildingType.WATER_TOWER -> Atlas.TOWER to Atlas.TOWER_COUNT
@@ -90,6 +100,10 @@ internal object BuildingSprites {
             }
             first[t.ordinal] = f
             count[t.ordinal] = n
+            for (v in 0 until n) {
+                val rise = Atlas.rects[(f + v) * 5 + 4]
+                rows = maxOf(rows, t.height - 1 + (rise + MapRenderer.TILE - 1) / MapRenderer.TILE)
+            }
         }
     }
 

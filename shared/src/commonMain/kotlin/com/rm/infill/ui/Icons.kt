@@ -258,6 +258,7 @@ enum class Glyph {
     Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
     Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance, Sack, Glass, Hat,
     Person, Briefcase, Wrench, Calendar, Snow, Gavel, Tag, Check, Warn, Building, Cable, Phone, Mast,
+    Anchor, Ship, Suitcase,
 }
 
 /** The drawing for [tool]. */
@@ -273,6 +274,7 @@ fun toolGlyph(tool: Tool): Glyph = when (tool) {
     Tool.Services -> Glyph.Civic
     Tool.Transit -> Glyph.Tram
     Tool.Traffic -> Glyph.Lights
+    Tool.Port -> Glyph.Anchor
     Tool.Districts -> Glyph.District
 }
 
@@ -447,6 +449,28 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
         Glyph.Mountain -> {
             drawPath(path(1f, 20f, 9f, 6f, 17f, 20f), c)
             drawPath(path(10f, 20f, 16f, 10f, 23f, 20f), c)
+        }
+        Glyph.Anchor -> {
+            drawCircle(c, 2.2f * u, Offset(12 * u, 4.5f * u), style = Stroke(1.8f * u))
+            line(12f, 7f, 12f, 21f, 2.2f * u)
+            line(7f, 10f, 17f, 10f, 2f * u)
+            val p = Path().apply {
+                moveTo(4 * u, 14 * u); quadraticTo(5 * u, 21 * u, 12 * u, 21 * u); quadraticTo(19 * u, 21 * u, 20 * u, 14 * u)
+            }
+            drawPath(p, c, style = Stroke(2.2f * u))
+            drawPath(path(2f, 15f, 6f, 13f, 5.5f, 17f), c)
+            drawPath(path(22f, 15f, 18f, 13f, 18.5f, 17f), c)
+        }
+        Glyph.Ship -> {
+            drawPath(path(2f, 14f, 22f, 14f, 19f, 20f, 5f, 20f), c)
+            drawRect(c, Offset(7 * u, 9 * u), Size(10 * u, 5 * u))
+            drawRect(c, Offset(13 * u, 4 * u), Size(3 * u, 5 * u))
+        }
+        Glyph.Suitcase -> {
+            drawRoundRect(c, Offset(3 * u, 8 * u), Size(18 * u, 13 * u), CornerRadius(2 * u))
+            drawRect(c, Offset(9 * u, 4 * u), Size(6 * u, 4 * u), style = Stroke(1.8f * u))
+            drawRect(c.copy(alpha = 0.35f), Offset(8 * u, 8 * u), Size(1.5f * u, 13 * u))
+            drawRect(c.copy(alpha = 0.35f), Offset(14.5f * u, 8 * u), Size(1.5f * u, 13 * u))
         }
         Glyph.Crate -> {
             drawRect(c, Offset(4 * u, 4 * u), Size(16 * u, 16 * u), style = Stroke(2.2f * u))

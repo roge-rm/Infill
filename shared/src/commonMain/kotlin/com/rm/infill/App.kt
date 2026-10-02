@@ -12,6 +12,8 @@ import com.rm.infill.platform.Settings
 import com.rm.infill.platform.ThemeChoice
 import com.rm.infill.platform.platform
 import com.rm.infill.platform.saveFileName
+import com.rm.infill.res.cuts_off_port
+import com.rm.infill.res.no_sea_route
 import com.rm.infill.res.load_failed
 import com.rm.infill.res.saved
 import com.rm.infill.sim.SaveError
@@ -105,6 +107,8 @@ import com.rm.infill.ui.ZoneKind
 import com.rm.infill.ui.DensityKind
 import com.rm.infill.ui.PowerKind
 import com.rm.infill.ui.RailKind
+import com.rm.infill.ui.PortKind
+import com.rm.infill.ui.portChoices
 import com.rm.infill.ui.WaterKind
 import com.rm.infill.ui.roadName
 import com.rm.infill.ui.roadsIn
@@ -354,6 +358,7 @@ private fun GameScreen(
         var phoneKind by remember { mutableStateOf(PhoneKind.Exchange) }
         var roadKind by remember { mutableStateOf(RoadType.DIRT) }
         var railKind by remember { mutableStateOf(RailKind.Track) }
+        var portKind by remember { mutableStateOf(PortKind.Wharf) }
         var waterKind by remember { mutableStateOf(WaterKind.Main) }
         var transitKind by remember { mutableStateOf(TransitKind.TramTrack) }
         var junctionKind by remember { mutableStateOf(JunctionKind.Lights) }
@@ -490,9 +495,9 @@ private fun GameScreen(
         }
 
         // What the drag would do, worked out again as it moves.
-        val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, phoneKind, game.revision) {
+        val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, phoneKind, portKind, game.revision) {
             drag?.let { d ->
-                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
+                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
             }
         }
         val costText = preview?.let {
@@ -501,6 +506,8 @@ private fun GameScreen(
             else if (it.plan.problem == Problem.NeedsWater) stringResource(Res.string.needs_water)
             else if (it.plan.problem == Problem.NeedsTramTrack) stringResource(Res.string.needs_tram_track)
             else if (it.plan.problem == Problem.NeedsTunnel) stringResource(Res.string.needs_tunnel)
+            else if (it.plan.problem == Problem.NoSeaRoute) stringResource(Res.string.no_sea_route)
+            else if (it.plan.problem == Problem.CutsOffPort) stringResource(Res.string.cuts_off_port)
             else stringResource(Res.string.money, groupThousands(it.plan.cost))
         } ?: ""
 
@@ -562,6 +569,8 @@ private fun GameScreen(
                 Problem.NeedsTramTrack -> Message(Res.string.needs_tram_track)
                 Problem.NeedsTunnel -> Message(Res.string.needs_tunnel)
                 Problem.NoRoute -> Message(Res.string.no_route)
+                Problem.NoSeaRoute -> Message(Res.string.no_sea_route)
+                Problem.CutsOffPort -> Message(Res.string.cuts_off_port)
                 else -> message
             }
         }
@@ -607,7 +616,7 @@ private fun GameScreen(
                     val kind = if (transitKind.line == 2) Stop.TRAM else Stop.BUS
                     if (city.map.stop[i].toInt() and kind != 0 && lineDraft.lastOrNull() != i) lineDraft = lineDraft + i
                 }
-                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind)
+                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind)
                 if (action != null) {
                     val made = action is Action.PaintDistrict && action.id == NEW_DISTRICT
                     val plan = game.apply(action)
@@ -842,6 +851,7 @@ private fun GameScreen(
                             TrayToggle(Glyph.Pipe, stringResource(Res.string.road_with_pipes), roadPipes) { roadPipes = !roadPipes }
                         }
                         Tool.Rail -> ChoiceTray(atlas, railChoices(), railKind, { railKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
+                        Tool.Port -> ChoiceTray(atlas, portChoices(city), portKind, { portKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
                         Tool.Transit -> ChoiceTray(atlas, transitChoices(city, transitNow), transitKind, {
                             if (it.list) linesOpen = true
                             else {

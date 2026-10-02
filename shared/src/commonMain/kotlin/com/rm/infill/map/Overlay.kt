@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import com.rm.infill.res.overlay_visitors
 import com.rm.infill.res.Res
 import com.rm.infill.res.overlay_crime
 import com.rm.infill.res.overlay_fire
@@ -81,6 +82,8 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Heat(Res.string.overlay_heat, Color(0xFF6FA8C8), Color(0xFFD8402F)),
     Garbage(Res.string.overlay_garbage, Color(0xFF4CAF50), Color(0xFF8A5A2A)),
     Land(Res.string.overlay_land, Color(0xFF6FA848), Color(0xFF2E2E34)),
+    /** What brings visitors and where they stay: parks, heritage and the ways in at full strength, hotels by how full they are. */
+    Visitors(Res.string.overlay_visitors, Color(0xFFE6F2F0), Color(0xFF16A2A2)),
     Goods(Res.string.overlay_goods, Color(0xFFD84343), Color(0xFF4CAF50)),
     Junctions(Res.string.overlay_junctions, Color(0xFF4CAF50), Color(0xFFD8302F)),
     /** For the road being inspected: where the vehicles on it came from and went, and the roads between. */
@@ -107,7 +110,7 @@ private fun crimeLayer(overlay: Overlay, map: CityMap): ByteArray? = when (overl
  */
 internal fun overlayImage(
     overlay: Overlay, map: CityMap, homeAt: (Int) -> Household?, wearAt: (Int) -> Int, uncollectedAt: (Int) -> Boolean,
-    localAt: (Int) -> Int, waitAt: (Int) -> Int, focus: IntArray?, loadAt: (Int) -> Int, ridersAt: (Int) -> Int,
+    localAt: (Int) -> Int, waitAt: (Int) -> Int, focus: IntArray?, loadAt: (Int) -> Int, visitorAt: (Int) -> Int = { -1 }, ridersAt: (Int) -> Int,
 ): ImageBitmap? {
     if (overlay == Overlay.None) return null
     val most = if (overlay == Overlay.Trips) maxOf(1, focus?.maxOrNull() ?: 1) else 1
@@ -194,6 +197,7 @@ internal fun overlayImage(
                 continue
             }
             // Works, farms, mines and coal stations: red where it all comes from or goes out of town, green where it's the town's own.
+            Overlay.Visitors -> visitorAt(i).takeIf { it >= 0 } ?: continue
             Overlay.Goods -> localAt(i).takeIf { it >= 0 }?.let { it * 255 / 100 } ?: continue
             // Each crossing, green when it's quick to get through and red when traffic backs up: a minute or more.
             Overlay.Junctions -> {
@@ -219,7 +223,7 @@ internal fun overlayImage(
         val everywhere = overlay == Overlay.LandValue || overlay == Overlay.Power || overlay == Overlay.Traffic ||
             overlay == Overlay.Railway || overlay == Overlay.Water || overlay == Overlay.Runoff ||
             overlay == Overlay.Schooling || overlay == Overlay.Health || overlay == Overlay.Wealth || overlay == Overlay.Age ||
-            overlay == Overlay.Heat || overlay == Overlay.Garbage || overlay == Overlay.Goods || overlay == Overlay.Junctions || overlay == Overlay.Reach || overlay == Overlay.LineLoad
+            overlay == Overlay.Heat || overlay == Overlay.Garbage || overlay == Overlay.Goods || overlay == Overlay.Junctions || overlay == Overlay.Reach || overlay == Overlay.LineLoad || overlay == Overlay.Visitors
         if (!everywhere && v == 0) continue
         pixels[i] = mix(overlay.low, overlay.high, v / 255f)
     }

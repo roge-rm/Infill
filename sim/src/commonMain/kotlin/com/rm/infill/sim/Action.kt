@@ -159,7 +159,7 @@ enum class Pipe(val price: Long) { WATER(15), SEWER(20), STORM(18) }
 /** The id a [Action.PaintDistrict] gives to make a new district. */
 const val NEW_DISTRICT = -1
 
-enum class Problem { NotEnoughMoney, NothingToDo, Blocked, TownBuiltThere, NeedsTrack, NeedsWater, NeedsTramTrack, NeedsTunnel, NoRoute }
+enum class Problem { NotEnoughMoney, NothingToDo, Blocked, TownBuiltThere, NeedsTrack, NeedsWater, NeedsTramTrack, NeedsTunnel, NoRoute, NoSeaRoute, CutsOffPort }
 
 /**
  * What an action would do: its [cost], the tiles it [changes] and the ones it
@@ -256,6 +256,9 @@ object Prices {
         BuildingType.PARK -> PARK
         BuildingType.STATION, BuildingType.STATION_NS -> STATION
         BuildingType.FREIGHT_YARD, BuildingType.FREIGHT_YARD_NS -> FREIGHT_YARD
+        BuildingType.WHARF, BuildingType.WHARF_NS -> 4_000L
+        BuildingType.DOCKS, BuildingType.DOCKS_NS -> 15_000L
+        BuildingType.CONTAINER_PORT, BuildingType.CONTAINER_PORT_NS -> 50_000L
         BuildingType.PUMPING_STATION -> PUMPING_STATION
         BuildingType.WELL_FIELD -> WELL_FIELD
         BuildingType.WATER_TOWER -> WATER_TOWER

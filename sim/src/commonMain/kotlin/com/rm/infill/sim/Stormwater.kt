@@ -66,6 +66,8 @@ object Stormwater {
         BuildingType.PARK -> 5
         BuildingType.STATION, BuildingType.STATION_NS -> 75
         BuildingType.FREIGHT_YARD, BuildingType.FREIGHT_YARD_NS -> 70
+        BuildingType.WHARF, BuildingType.WHARF_NS, BuildingType.DOCKS, BuildingType.DOCKS_NS -> 80
+        BuildingType.CONTAINER_PORT, BuildingType.CONTAINER_PORT_NS -> 90
         BuildingType.PUMPING_STATION -> 60
         BuildingType.WELL_FIELD -> 10
         BuildingType.WATER_TOWER -> 40

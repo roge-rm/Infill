@@ -8,6 +8,7 @@ import com.rm.infill.sim.Stop
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Heading
 import com.rm.infill.sim.Junction
+import com.rm.infill.sim.Port
 import com.rm.infill.sim.Power
 import com.rm.infill.sim.Rail
 import com.rm.infill.sim.Resource
@@ -196,7 +197,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
 
     /** Marks the chunks that show tile [x], [y] out of date, including those its sprites and shadows reach. */
     fun changed(x: Int, y: Int) {
-        for (cy in (y - SHADOW_MARGIN) / CHUNK..(y + SHADOW_MARGIN + 1) / CHUNK) {
+        for (cy in (y - max(SHADOW_MARGIN, SPRITE_ROWS)) / CHUNK..(y + SHADOW_MARGIN + 1) / CHUNK) {
             for (cx in (x - SHADOW_MARGIN) / CHUNK..(x + SHADOW_MARGIN) / CHUNK) {
                 if (cx in 0 until chunksX && cy in 0 until chunksY) versions[cy * chunksX + cx]++
             }
@@ -291,8 +292,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         if (sun != null) {
             surface.beginShadows(SHADOW_ALPHA * sun.strength)
             val thin = r.look == Atlas.BARE || r.look == Atlas.SNOW
-            for (ty in max(0, y0 - SHADOW_MARGIN) until min(map.height, y1 + SHADOW_MARGIN)) {
-                for (tx in max(0, x0 - SHADOW_MARGIN) until min(map.width, x1 + SHADOW_MARGIN)) {
+            // A building's shadow is cast from its top left tile, so big ones reach in from further up and left.
+            for (ty in max(0, y0 - SHADOW_MARGIN - TALLEST + 1) until min(map.height, y1 + SHADOW_MARGIN)) {
+                for (tx in max(0, x0 - SHADOW_MARGIN - WIDEST + 1) until min(map.width, x1 + SHADOW_MARGIN)) {
                     val id = spriteAt(tx, ty, anchorOnly = true) ?: continue
                     shadows(surface, level, id, (tx - x0) * s, (ty - y0) * s, sun, thin && id < Atlas.COTTAGE)
                 }
@@ -302,7 +304,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
 
         // Sprites, back rows first, each building from its bottom row so what's in
         // front of it covers it. The rows below this chunk reach up into it.
-        // Buildings up to three tiles wide reach in from the two columns to the left.
+        // Wide buildings reach in from the columns to the left.
         for (ty in y0 until min(y1 + SPRITE_ROWS, map.height)) for (tx in max(0, x0 - WIDEST + 1) until x1) {
             val i = map.index(tx, ty)
             val type = map.buildingType[i].toInt()
@@ -378,6 +380,12 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         if (t.railway) {
             // The pair of looks for the side the track is on, south or east being the second pair.
             val side = Rail.trackSide(map, t, x, y)
+            val far = side == Heading.SOUTH.toInt() || side == Heading.EAST.toInt()
+            return BuildingSprites.sprite(type, (if (far) 2 else 0) + (map.buildingVariant[map.index(x, y)].toInt() and 0xff) % 2)
+        }
+        if (t.port) {
+            // Likewise the side the water's on.
+            val side = Port.waterSide(map, t, x, y)
             val far = side == Heading.SOUTH.toInt() || side == Heading.EAST.toInt()
             return BuildingSprites.sprite(type, (if (far) 2 else 0) + (map.buildingVariant[map.index(x, y)].toInt() and 0xff) % 2)
         }
@@ -880,6 +888,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         /** The widest building, in tiles. */
         private val WIDEST = com.rm.infill.sim.BuildingType.entries.maxOf { it.width }
 
+        /** The deepest building, in tiles. */
+        private val TALLEST = com.rm.infill.sim.BuildingType.entries.maxOf { it.height }
+
         /** The asphalt where a ramp joins a highway, summer and snow. */
         private const val RAMP_JOIN = 0x67645F
         private const val RAMP_JOIN_SNOW = 0xB4B6B8
@@ -907,7 +918,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         private const val RUST = 0x8A4A2A
 
         /** How many rows below a chunk have sprites tall enough to reach into it. */
-        const val SPRITE_ROWS = 3
+        val SPRITE_ROWS get() = BuildingSprites.rows
 
         /** One-way roads get an arrow every this many tiles. */
         private const val ARROW_EVERY = 3

@@ -363,6 +363,11 @@ fun roadIcon(t: RoadType): ChoiceIcon {
 }
 
 @Composable
+fun portChoices(city: City): List<Choice<PortKind>> = portKindsIn(city).map { k ->
+    Choice(k, stringResource(k.title), building(k.eastWest), buildingDetail(k.eastWest))
+}
+
+@Composable
 fun railChoices(): List<Choice<RailKind>> = RailKind.entries.map { k ->
     when (k) {
         RailKind.Track -> Choice(k, stringResource(k.title), ChoiceIcon(intArrayOf(Atlas.GRASS, Atlas.TRACK + ACROSS)), perTile(Prices.RAIL))
@@ -544,7 +549,7 @@ fun zoneChoices(): List<Choice<ZoneKind>> = ZoneKind.entries.map { k ->
 enum class ViewGroup { Town, Utilities, Services, Transport }
 
 fun viewGroup(o: Overlay): ViewGroup = when (o) {
-    Overlay.None, Overlay.LandValue, Overlay.Wealth, Overlay.Age, Overlay.Pollution, Overlay.Heat, Overlay.Land -> ViewGroup.Town
+    Overlay.None, Overlay.LandValue, Overlay.Wealth, Overlay.Age, Overlay.Pollution, Overlay.Heat, Overlay.Land, Overlay.Visitors -> ViewGroup.Town
     Overlay.Power, Overlay.LineLoad, Overlay.Water, Overlay.Runoff, Overlay.Garbage, Overlay.Comms -> ViewGroup.Utilities
     Overlay.Crime, Overlay.Theft, Overlay.Vice, Overlay.Rackets, Overlay.Police, Overlay.Fire, Overlay.Ladders, Overlay.Ambulance, Overlay.Schooling, Overlay.Health -> ViewGroup.Services
     Overlay.Traffic, Overlay.Junctions, Overlay.Trips, Overlay.Reach, Overlay.Transit, Overlay.Railway, Overlay.Goods -> ViewGroup.Transport
@@ -580,6 +585,7 @@ fun overlayChoices(group: ViewGroup): List<Choice<Overlay>> = Overlay.entries.fi
         Overlay.Ambulance -> Glyph.Ambulance
         Overlay.Traffic -> Glyph.Car
         Overlay.Railway -> Glyph.Rail
+        Overlay.Visitors -> Glyph.Suitcase
         Overlay.Water -> Glyph.Drop
         Overlay.Runoff -> Glyph.Rain
         Overlay.Schooling -> Glyph.Cap

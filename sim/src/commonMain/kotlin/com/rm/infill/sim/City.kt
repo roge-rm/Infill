@@ -480,6 +480,9 @@ class City(
         val problem = when {
             action is Action.PlaceBuilding && blocked.isNotEmpty() -> Problem.Blocked
             action is Action.PlaceBuilding && action.type.railway && Rail.trackSide(m, action.type, action.x, action.y) == 0 -> Problem.NeedsTrack
+            action is Action.PlaceBuilding && action.type.port && Port.waterSide(m, action.type, action.x, action.y) == 0 -> Problem.NeedsWater
+            action is Action.PlaceBuilding && action.type.port && !ships().reaches(Port.berth(m, action.type, action.x, action.y)) -> Problem.NoSeaRoute
+            (action is Action.BuildRoad || action is Action.BuildRail || action is Action.PlaceBuilding && action.type.inWater) && cutsOffPort(changes) -> Problem.CutsOffPort
             action is Action.PlaceBuilding && action.type.onWater && !besideWater(action.type, action.x, action.y) -> Problem.NeedsWater
             action is Action.PlaceBuilding && action.type == BuildingType.TRAM_DEPOT && besideTram(action.type, action.x, action.y).isEmpty() -> Problem.NeedsTramTrack
             action is Action.PlaceBuilding && action.type == BuildingType.SUBWAY_STATION && m.inside(action.x, action.y) &&
@@ -1349,6 +1352,7 @@ class City(
         updatePeople()
         heatWaveDays = 0
         census()
+        tourism()
         startTraffic()
         updateCrime()
         Effects.landValue(map, { i -> buildings[map.building[i]]?.type }, nearRoad, map.landValue) { i ->
@@ -2328,7 +2332,9 @@ class City(
     internal fun fuelCost(b: Building): Double {
         val (g, per) = burns(b) ?: return Generation.fuel(b.type) * stationOutput(b) / 1_000_000.0
         val loads = stationOutput(b) / 1_000_000.0 * per
-        return loads * g.price * (b.local + (100 - b.local) * Balance.IMPORT_MARKUP) / 100.0
+        // Coal and oil come cheaper by ship.
+        val markup = if (seaTier > 0) Balance.PORT_IMPORT_MARKUP else Balance.IMPORT_MARKUP
+        return loads * g.price * (b.local + (100 - b.local) * markup) / 100.0
     }
 
     /**
@@ -2519,6 +2525,17 @@ class City(
             }
         }
         stats.workingFromHome = wfh
+        // Visitors go shopping too: from their hotels, and day trippers from the stations and ports they came in at.
+        val stay = 100 - Balance.STAY_SHARE
+        val stations = railway.stops.indices.filter { railway.buildings[it].type.station && railway.linked(it) }.map { railway.buildings[it] }
+        for ((at, by) in listOf(stations to Tourism.RAIL, linkedPorts.filter { Balance.SEA_VISITORS[it.type.portTier] > 0 } to Tourism.SEA)) {
+            if (at.isEmpty()) continue
+            val each = stats.visitorsBy[by] * stay / 100 / at.size / Balance.RESIDENTS_PER_SHOPPER
+            for (b in at) accessOf(b).let { if (it >= 0) shoppersAt[it] += each }
+        }
+        for (b in buildings.values) if (b.type == BuildingType.HOTEL && b.served > 0) {
+            accessOf(b).let { if (it >= 0) shoppersAt[it] += b.served / Balance.RESIDENTS_PER_SHOPPER }
+        }
         // Goods, in hundredths of a load until each tile's are added up.
         val goodsAt = Array(Good.COUNT) { IntArray(n) }
         val wantedAt = Array(Good.COUNT) { IntArray(n) }
@@ -2553,6 +2570,7 @@ class City(
         stats.flow = traffic.lastFlow
         stats.greenTrips = greenTrips()
         updateTrains()
+        updateShips()
 
         val s = stats
         if (traffic.workersSent > 0) {
@@ -3156,6 +3174,7 @@ class City(
 
     private fun networksChanged() {
         networksDirty = true
+        shippingDirty = true
     }
 
     private fun updateNetworks() {
@@ -3203,9 +3222,137 @@ class City(
             railChanged = false
             updateRail()
         }
+        updatePorts()
         updateWater()
         updatePower()
         updateTransit()
+    }
+
+    // ---- visitors ----------------------------------------------------------------
+
+    /**
+     * Visitors this month: as many as the town draws, with its size, parks and
+     * heritage, as far as the ways in can bring them. A share stays in the
+     * hotels, the nearest parks filling first, and they all spend in the shops.
+     */
+    private fun tourism() {
+        val s = stats
+        var draw = Balance.VISITORS_BASE + Balance.VISITORS_PER_RESIDENT * s.population
+        val hotels = ArrayList<Building>()
+        for (b in buildings.values) {
+            if (b.underway > 0) continue
+            if (b.type == BuildingType.PARK) draw += Balance.PARK_DRAW
+            if (b.type == BuildingType.HOTEL) hotels += b
+            if (isHeritage(b)) draw += Balance.HERITAGE_DRAW
+        }
+        // Fewer come in hard times, or to a town known for its crime.
+        draw = draw * Tourism.share(year) / 100.0 * Economy.market(year, month) / 100.0 * (100 - min(50, s.crime * 50 / 128)) / 100.0
+        val ways = IntArray(Tourism.MODES)
+        if (connected) ways[Tourism.ROAD] = Balance.ROAD_VISITORS + Balance.ROAD_VISITORS_BY_CAR * Cars.share(year, Wealth.MIDDLE) / 100
+        ways[Tourism.RAIL] = railway.stops.indices.count { railway.buildings[it].type.station && railway.linked(it) } * Balance.RAIL_VISITORS
+        ways[Tourism.SEA] = linkedPorts.sumOf { Balance.SEA_VISITORS[it.type.portTier] }
+        val room = ways.sum()
+        val visitors = if (room == 0) 0 else min(draw.toInt(), room)
+        s.visitors = visitors
+        for (k in 0 until Tourism.MODES) s.visitorsBy[k] = if (room == 0) 0 else visitors * ways[k] / room
+        // Hotels with parks near them fill first.
+        var staying = visitors * Balance.STAY_SHARE / 100
+        var rooms = 0
+        val parks = hotels.associate { h -> h.id to parksNear(h, Balance.HOTEL_PARKS) }
+        for (h in hotels.sortedWith(compareByDescending<Building> { parks[it.id] }.thenBy { it.id })) {
+            h.room = h.type.capacity * Balance.ROOMS_PER_JOB
+            h.served = min(staying, h.room)
+            staying -= h.served
+            rooms += h.room
+        }
+        s.rooms = rooms
+        s.guests = hotels.sumOf { it.served }
+        s.spending += ((s.guests * Balance.GUEST_SPEND + (visitors - s.guests) * Balance.TRIPPER_SPEND) / 100)
+    }
+
+    /** Park tiles within [reach] of building [b]. */
+    private fun parksNear(b: Building, reach: Int): Int {
+        var n = 0
+        forRect(max(0, b.x - reach), max(0, b.y - reach), min(map.width - 1, b.x + b.type.width - 1 + reach), min(map.height - 1, b.y + b.type.height - 1 + reach)) { i ->
+            if (buildings[map.building[i]]?.type == BuildingType.PARK) n++
+        }
+        return n
+    }
+
+    // ---- ports -------------------------------------------------------------------
+
+    private val shipping = Shipping(map)
+    private var shippingDirty = true
+
+    /** The biggest port ships can reach, by [BuildingType.portTier], 0 for none. */
+    var seaTier = 0
+        private set
+
+    /** The ports ships reach. */
+    private var linkedPorts: List<Building> = emptyList()
+
+    /** The ships each port had last month, for drawing them. */
+    var shipRoutes: List<ShipRoute> = emptyList()
+        private set
+
+    /** The water as ships see it now. */
+    private fun ships(): Shipping {
+        if (shippingDirty) {
+            shippingDirty = false
+            shipping.update()
+        }
+        return shipping
+    }
+
+    private val ports get() = buildings.values.filter { it.type.port && it.underway == 0 }
+
+    /** Which ports ships can reach, and the freight they take. */
+    private fun updatePorts() {
+        val linked = if (buildings.values.any { it.type.port }) ports.filter { ships().reaches(Port.berth(map, it)) } else emptyList()
+        linkedPorts = linked
+        seaTier = linked.maxOfOrNull { it.type.portTier } ?: 0
+        traffic.setPorts(IntArray(linked.size) { accessOf(linked[it]) })
+    }
+
+    /** Whether ships can reach port [b]. */
+    fun portLinked(b: Building): Boolean = ships().reaches(Port.berth(map, b))
+
+    /** Loads through port [b] last month. */
+    fun portLoads(b: Building): Int = accessOf(b).let { if (it < 0) 0 else traffic.lastPortFreight[it] }
+
+    /**
+     * Whether putting something across the water on [tiles] would leave a
+     * port ships reach now with no way out to the edge.
+     */
+    private fun cutsOffPort(tiles: Collection<Int>): Boolean {
+        val here = ports
+        if (here.isEmpty() || tiles.none { map.terrain[it] == Terrain.WATER && ships().passable(it) }) return false
+        val reached = here.map { Port.berth(map, it) }.filter { ships().reaches(it) }
+        if (reached.isEmpty()) return false
+        val test = Shipping(map)
+        test.update(tiles.toSet())
+        return reached.any { !test.reaches(it) }
+    }
+
+    /** The ships that came to each port last month: the way in, and the kind, by its trade and the year. */
+    private fun updateShips() {
+        val routes = ArrayList<ShipRoute>()
+        for (b in ports) {
+            val berth = Port.berth(map, b)
+            if (!ships().reaches(berth)) continue
+            val path = ships().routeTo(berth)
+            val loads = portLoads(b)
+            val ships = (loads + Balance.SHIP_LOAD - 1) / Balance.SHIP_LOAD
+            val kind = when {
+                b.type.portTier == 3 -> ShipRoute.CONTAINER
+                stats.goodsImported[Good.OIL.ordinal] + stats.goodsImported[Good.FUEL.ordinal] > stats.goodsImported[Good.COAL.ordinal] && year >= 1920 -> ShipRoute.TANKER
+                stats.goodsImported[Good.COAL.ordinal] > 0 -> ShipRoute.COLLIER
+                else -> ShipRoute.STEAMER
+            }
+            routes += ShipRoute(path, kind, max(1, ships))
+            if (Balance.SEA_VISITORS[b.type.portTier] > 0 && stats.visitorsBy[Tourism.SEA] > 0) routes += ShipRoute(path, ShipRoute.LINER, 1)
+        }
+        shipRoutes = routes
     }
 
     // ---- power -------------------------------------------------------------------
@@ -4992,7 +5139,7 @@ class City(
         val years = year - START_YEAR
         val market = (Balance.EXPORT_BASE + Balance.EXPORT_PER_RESIDENT * s.population) *
             (1 + Balance.EXPORT_GROWTH * years) * (if (connected) 1.0 else Balance.UNCONNECTED_EXPORTS) *
-            (if (railFreight) Balance.RAIL_EXPORTS else 1.0) * Economy.market(year, month) / 100.0
+            (if (railFreight) Balance.RAIL_EXPORTS else 1.0) * Balance.PORT_EXPORTS[seaTier] * Economy.market(year, month) / 100.0
         val jobs = s.shopJobs + s.industryJobs + s.farmJobs + s.officeJobs + s.otherJobs
         // What the town brings in that it could make: from the land, and from the works.
         var fromLand = 0.0
@@ -5169,7 +5316,11 @@ class City(
         s.parkUpkeep = (parks * Balance.PARK_UPKEEP * parkFunding / 100).roundToLong()
         // Rides from stops with free fares bring in nothing.
         s.fareIncome = (max(0, traffic.boardings() - traffic.lastFreeBoardings) * Balance.FARE).roundToLong()
-        s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.officeIncome + s.fareIncome
+        // Dues on the loads through the ports, and on visitors off the ships.
+        s.portLoads = traffic.lastPortFreight.sum()
+        s.duesIncome = (s.portLoads * Balance.PORT_DUE + s.visitorsBy[Tourism.SEA] * Balance.SEA_VISITOR_DUE).roundToLong()
+        s.portUpkeep = ports.sumOf { Balance.PORT_UPKEEP[it.type.portTier] }.roundToLong()
+        s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.officeIncome + s.fareIncome + s.duesIncome + s.tollIncome
         var tramTiles = 0
         var wires = 0
         var tunnels = 0
@@ -5211,7 +5362,7 @@ class City(
         disasterBill = 0
         s.schoolUpkeep = (schools * schoolFunding / 100).roundToLong()
         s.healthUpkeep = (care * healthFunding / 100).roundToLong()
-        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost + s.phoneUpkeep
+        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost + s.phoneUpkeep + s.portUpkeep
         funds += s.income - s.upkeep
     }
 
@@ -5409,6 +5560,19 @@ class City(
         val loaded = (0 until map.size).filter { grid.load[it] != 0 }
         w.count(loaded.size)
         for (i in loaded) { w.int(i); w.int(grid.load[i]) }
+        // Since version 23: ports, ships and visitors.
+        traffic.writePorts(w)
+        w.count(shipRoutes.size)
+        for (route in shipRoutes) {
+            w.count(route.tiles.size)
+            for (i in route.tiles) w.int(i)
+            w.int(route.kind); w.int(route.ships)
+        }
+        for (v in longArrayOf(s.portUpkeep, s.duesIncome, s.tollIncome)) w.long(v)
+        for (v in intArrayOf(s.portLoads, s.visitors, s.guests, s.rooms, *s.visitorsBy)) w.int(v)
+        val hotels = buildings.values.filter { it.type == BuildingType.HOTEL && it.room > 0 }
+        w.count(hotels.size)
+        for (b in hotels) { w.int(b.id); w.int(b.served); w.int(b.room) }
     }
 
     companion object {
@@ -5643,6 +5807,25 @@ class City(
                     s.phoneUpkeep = r.long(); s.withPhone = r.long().toInt(); s.withBroadband = r.long().toInt(); s.workingFromHome = r.long().toInt()
                 }
                 val savedLoad = if (version >= 22) IntArray(m.size).also { a -> repeat(r.count()) { a[r.int()] = r.int() } } else null
+                if (version >= 23) {
+                    c.traffic.readPorts(r)
+                    val routes = ArrayList<ShipRoute>()
+                    repeat(r.count()) {
+                        val tiles = IntArray(r.count()) { r.int().also { i -> if (i !in 0 until m.size) throw SaveError("a ship off the map") } }
+                        routes += ShipRoute(tiles, r.int(), r.int())
+                    }
+                    c.shipRoutes = routes
+                    val s = c.stats
+                    s.portUpkeep = r.long(); s.duesIncome = r.long(); s.tollIncome = r.long()
+                    s.portLoads = r.int(); s.visitors = r.int(); s.guests = r.int(); s.rooms = r.int()
+                    for (k in 0 until Tourism.MODES) s.visitorsBy[k] = r.int()
+                    repeat(r.count()) {
+                        val b = c.buildings[r.int()]
+                        val served = r.int()
+                        val room = r.int()
+                        if (b != null) { b.served = served; b.room = room }
+                    }
+                }
                 c.updateNetworks()
                 savedLoad?.copyInto(c.grid.load)
                 c.updatePathways()
@@ -5867,6 +6050,18 @@ class Stats {
     /** The telephone: exchanges, masts and lines, a month. */
     var phoneUpkeep = 0L
 
+    /** Ports: their upkeep, the dues and tolls the town took in, and the loads through its ports last month. */
+    var portUpkeep = 0L
+    var duesIncome = 0L
+    var tollIncome = 0L
+    var portLoads = 0
+
+    /** Visitors in town on an average day last month, by how they came ([Tourism]); those with hotel rooms, and the rooms. */
+    var visitors = 0
+    val visitorsBy = IntArray(Tourism.MODES)
+    var guests = 0
+    var rooms = 0
+
     /** Percent of homes and businesses with a phone, and with broadband; workers at home on any day. */
     var withPhone = 0
     var withBroadband = 0
@@ -5899,6 +6094,7 @@ class Stats {
 
 /** A line a train ran last month: the track from end to end, and whether it carried passengers or freight, and how many. */
 class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int)
+
 
 enum class EventKind { FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut }
 

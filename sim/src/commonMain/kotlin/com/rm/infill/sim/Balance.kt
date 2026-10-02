@@ -389,6 +389,41 @@ object Balance {
     const val RAIL_EXPORTS = 1.3
     const val RAIL_SETTLERS = 1.5
 
+    // Ports: the outside market with a port ships reach, by how big a port it is (none, a wharf, docks, a container
+    // port); coal and fuel oil brought in by ship, against the usual markup; what the town charges a load through
+    // a port and a visitor off a ship; and each kind of port's monthly upkeep.
+    val PORT_EXPORTS = doubleArrayOf(1.0, 1.15, 1.3, 1.6)
+    const val PORT_IMPORT_MARKUP = 1.2
+    const val PORT_DUE = 0.4
+    const val SEA_VISITOR_DUE = 0.5
+    val PORT_UPKEEP = doubleArrayOf(0.0, 30.0, 80.0, 250.0)
+
+    // Ships: what a step costs a ship, and more for each bit of shore beside it, so they keep to the middle; loads
+    // that make a ship's worth, for how many come.
+    const val SHIP_STEP = 10
+    const val SHIP_SHORE = 4
+    const val SHIP_LOAD = 40
+    /** Ships burn coal and smoke until this year. */
+    const val STEAM_UNTIL = 1950
+
+    // Visitors, on an average day: some come to any town, more to a bigger one, and more for its parks and heritage.
+    // Most can come by road once there are cars; trains, ships and planes bring more. They stay in hotels if
+    // there's room, a share of them, and spend more than people who live here; day trippers spend less.
+    const val VISITORS_BASE = 20.0
+    const val VISITORS_PER_RESIDENT = 0.02
+    const val PARK_DRAW = 1.5
+    const val HERITAGE_DRAW = 4.0
+    const val ROAD_VISITORS = 30
+    const val ROAD_VISITORS_BY_CAR = 150
+    const val RAIL_VISITORS = 60
+    val SEA_VISITORS = intArrayOf(0, 20, 150, 0)
+    const val STAY_SHARE = 50
+    const val ROOMS_PER_JOB = 3
+    const val GUEST_SPEND = 150
+    const val TRIPPER_SPEND = 80
+    /** How far a hotel looks for parks to please its guests, in tiles. */
+    const val HOTEL_PARKS = 4
+
     /** Monthly upkeep of a tile of pipe, and of each part of the waterworks. */
     const val PIPE_UPKEEP = 0.15
     const val PUMP_UPKEEP = 30.0

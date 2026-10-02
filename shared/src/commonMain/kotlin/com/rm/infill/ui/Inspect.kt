@@ -21,6 +21,12 @@ import androidx.compose.ui.unit.dp
 import com.rm.infill.GameState
 import com.rm.infill.map.Atlas
 import com.rm.infill.map.BuildingSprites
+import com.rm.infill.res.value_of
+import com.rm.infill.res.label_guests
+import com.rm.infill.res.label_ships
+import com.rm.infill.res.label_port_loads
+import com.rm.infill.res.pill_no_sea_route
+import com.rm.infill.res.pill_open_sea
 import com.rm.infill.res.*
 import com.rm.infill.sim.Action
 import com.rm.infill.sim.Ageing
@@ -166,6 +172,11 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
         pills += if (city.railLinked(b)) PillItem(Glyph.Rail, stringResource(Res.string.inspect_linked), Tone.Good)
         else PillItem(Glyph.Rail, stringResource(Res.string.inspect_not_linked), Tone.Warn)
     }
+    if (t.port) {
+        if (!city.reachable(b)) pills += PillItem(Glyph.Road, stringResource(Res.string.pill_no_road), Tone.Bad)
+        pills += if (city.portLinked(b)) PillItem(Glyph.Ship, stringResource(Res.string.pill_open_sea), Tone.Good)
+        else PillItem(Glyph.Ship, stringResource(Res.string.pill_no_sea_route), Tone.Bad)
+    }
     if (b.scrubbed) pills += PillItem(Glyph.Scrubber, stringResource(Res.string.inspect_scrubbed), Tone.Good)
     if (city.isHeritage(b)) pills += PillItem(Glyph.Star, stringResource(Res.string.heritage), Tone.Good)
 
@@ -259,6 +270,15 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     if (t == BuildingType.DUMP) {
         val full = (b.fill.toLong() * 100 / Balance.DUMP_ROOM).toInt()
         stats += StatItem(Glyph.Bin, stringResource(Res.string.label_full), "$full%", full / 100f, when { full >= 90 -> Tone.Bad; full >= 70 -> Tone.Warn; else -> Tone.Good })
+    }
+    if (t.port && built) {
+        val loads = city.portLoads(b)
+        stats += StatItem(Glyph.Crate, stringResource(Res.string.label_port_loads), groupThousands(loads.toLong()))
+        stats += StatItem(Glyph.Ship, stringResource(Res.string.label_ships), groupThousands(((loads + Balance.SHIP_LOAD - 1) / Balance.SHIP_LOAD).toLong()))
+    }
+    if (t == BuildingType.HOTEL && built && b.room > 0) {
+        val share = b.served * 100 / b.room
+        stats += StatItem(Glyph.Suitcase, stringResource(Res.string.label_guests), stringResource(Res.string.value_of, groupThousands(b.served.toLong()), groupThousands(b.room.toLong())), share / 100f, toneOf(share, 60, 20))
     }
     if (t.railway) {
         if (t.station) stats += StatItem(Glyph.Person, stringResource(Res.string.label_riders), groupThousands(city.riders(b).toLong()))

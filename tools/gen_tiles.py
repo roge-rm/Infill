@@ -1852,6 +1852,242 @@ def yard_ns(look, v):
     return b
 
 
+# ---- ports -----------------------------------------------------------------------
+# Ports lie along the water on one long side: a quay with bollards, cranes at the
+# edge and sheds or stacks behind. A wharf has a derrick and a shed, docks have
+# level-luffing cranes, a siding and a warehouse, and a container port has tall
+# gantry cranes over rows of stacked containers.
+
+QUAY = [c("#8d8a82"), c("#85827a"), c("#95928a")]
+QUAY_TIMBER = [c("#8a6a45"), c("#7d5f3d"), c("#94744d")]
+QUAY_EDGE = c("#55524c")
+BOLLARD = c("#2a2a2a")
+CRANE_PAINT = c("#c9a23a")
+GANTRY_PAINT = [c("#b8452e"), c("#2f5f9a")]
+CONTAINERS = [c("#b5452f"), c("#2f5f9a"), c("#3f8a4a"), c("#d08a2a"), c("#8a8f96"), c("#7a3f7a"), c("#c9c2b0")]
+
+
+class PortLayout:
+    """Places things on a port by how far along the quay and how far back from the water they are."""
+
+    def __init__(self, b, side):
+        self.b, self.side = b, side
+        self.W, self.H = b.w * T, b.h * T
+
+    @property
+    def length(self):
+        return self.W if self.side in "ns" else self.H
+
+    @property
+    def depth(self):
+        return self.H if self.side in "ns" else self.W
+
+    def rect(self, a0, d0, a1, d1):
+        """A box from along-and-back to tile pixels."""
+        if self.side == "n": return a0, d0, a1, d1
+        if self.side == "s": return a0, self.H - 1 - d1, a1, self.H - 1 - d0
+        if self.side == "w": return d0, a0, d1, a1
+        return self.W - 1 - d1, a0, self.W - 1 - d0, a1
+
+
+def quay(lay, look, back, timber=False):
+    """The quay along the water, [back] pixels deep, with a dark edge and bollards."""
+    b = lay.b
+    x0, y0, x1, y1 = lay.rect(0, 0, lay.length - 1, back)
+    gx0, gy0 = b.ground(x0, y0)
+    gx1, gy1 = b.ground(x1, y1)
+    cols = (QUAY_TIMBER if timber else QUAY) if look != "snow" else [c("#e3e8ec"), c("#d6dde3"), c("#eef2f5")]
+    noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), cols, random.Random(7710))
+    if timber and look != "snow":
+        horizontal = lay.side in "ns"
+        if horizontal:
+            for xx in range(gx0 + 2, gx1, 4): b.d.line([xx, gy0, xx, gy1], shade(QUAY_TIMBER[0], 0.8))
+        else:
+            for yy in range(gy0 + 2, gy1, 4): b.d.line([gx0, yy, gx1, yy], shade(QUAY_TIMBER[0], 0.8))
+    ex0, ey0, ex1, ey1 = lay.rect(0, 0, lay.length - 1, 1)
+    b.d.rectangle([*b.ground(ex0, ey0), *b.ground(ex1, ey1)], QUAY_EDGE)
+    for a in range(5, lay.length - 3, 10):
+        bx, by, _, _ = lay.rect(a, 3, a + 1, 4)
+        b.d.rectangle([*b.ground(bx, by), *b.ground(bx + 1, by + 1)], BOLLARD)
+
+
+def derrick(lay, look, a, back):
+    """A small crane on the quay: a post and a jib out over the water."""
+    b = lay.b
+    x0, y0, x1, y1 = lay.rect(a, back, a + 4, back + 4)
+    roof, wall = b.box(x0, y0, x1, y1, 6)
+    b.d.rectangle(wall, shade(CRANE_PAINT, 0.7), OUTLINE)
+    b.d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else CRANE_PAINT, OUTLINE)
+    # The jib, from the top of the post out over the edge of the quay.
+    tx, ty = (roof[0] + roof[2]) // 2, (roof[1] + roof[3]) // 2
+    ex, ey, _, _ = lay.rect(a + 2, 0, a + 2, 0)
+    gx, gy = b.ground(ex, ey)
+    b.d.line([tx, ty - 3, gx, gy - 10], c("#3a3a3a"))
+    b.d.line([gx, gy - 10, gx, gy - 4], c("#3a3a3a"))
+
+
+def luffing_crane(lay, look, a, back):
+    """A dockside crane: a portal on legs, a cab and a long jib leaning out over the water."""
+    b = lay.b
+    x0, y0, x1, y1 = lay.rect(a, back, a + 8, back + 8)
+    roof, wall = b.box(x0, y0, x1, y1, 16)
+    d = b.d
+    # Legs, open between.
+    d.rectangle([wall[0], wall[1], wall[0] + 1, wall[3]], shade(CRANE_PAINT, 0.6))
+    d.rectangle([wall[2] - 1, wall[1], wall[2], wall[3]], shade(CRANE_PAINT, 0.6))
+    d.rectangle([roof[0], roof[1], roof[2], roof[1] + 4], SNOW_ROOF[0] if look == "snow" else CRANE_PAINT, OUTLINE)
+    # The cab on top, and the jib.
+    cx, cy = (roof[0] + roof[2]) // 2, roof[1]
+    d.rectangle([cx - 3, cy - 6, cx + 3, cy], shade(CRANE_PAINT, 0.9), OUTLINE)
+    d.point((cx - 1, cy - 4), WINDOW)
+    d.point((cx + 1, cy - 4), WINDOW)
+    ex, ey, _, _ = lay.rect(a + 4, 0, a + 4, 0)
+    gx, gy = b.ground(ex, ey)
+    tip = (gx + (gx - cx) // 3, gy - 26)
+    d.line([cx, cy - 4, tip[0], tip[1]], c("#3a3a3a"), 2)
+    d.line([tip[0], tip[1], tip[0], tip[1] + 12], c("#2a2a2a"))
+    b.casters[-1] = (1, x0, y0, x1 + 1, y1 + 1, 22)
+
+
+def gantry_crane(lay, look, a, colour):
+    """A container crane: tall legs astride the quay and a boom reaching out over the water."""
+    b = lay.b
+    x0, y0, x1, y1 = lay.rect(a, 2, a + 12, 22)
+    roof, wall = b.box(x0, y0, x1, y1, 40)
+    d = b.d
+    paint = SNOW_ROOF[0] if look == "snow" else colour
+    # Four legs, a cross beam and the machinery house on top.
+    for lx in (roof[0], roof[2] - 1):
+        d.rectangle([lx, roof[1], lx + 1, wall[3]], shade(colour, 0.75))
+    d.line([roof[0], roof[3], roof[2], roof[3]], shade(colour, 0.6))
+    d.rectangle([roof[0], roof[1] + 2, roof[2], roof[1] + 6], paint, OUTLINE)
+    mx = (roof[0] + roof[2]) // 2
+    d.rectangle([mx - 4, roof[1] - 4, mx + 4, roof[1] + 2], c("#d8d4cc"), OUTLINE)
+    # The boom, out past the quay edge over the water side of the sprite.
+    if lay.side in "ns":
+        top = roof[1] + 3
+        d.rectangle([roof[0] + 4, top - 1, roof[2] - 4, top + 1], shade(colour, 0.9))
+    else:
+        reach = -10 if lay.side == "w" else 10
+        d.line([mx, roof[1] + 4, mx + reach, roof[1] + 4], shade(colour, 0.9), 3)
+    b.casters[-1] = (1, x0, y0, x1 + 1, y1 + 1, 40)
+
+
+def container_stacks(lay, look, a0, d0, a1, d1, seed):
+    """Blocks of containers stacked one to three high, as things to draw in order."""
+    b = lay.b
+    rng = random.Random(seed)
+    things = []
+
+    def stack(x0, y0, x1, y1, high, col):
+        roof, wall = b.box(x0, y0, x1, y1, high)
+        b.d.rectangle(wall, shade(col, 0.72), OUTLINE)
+        b.d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else col, OUTLINE)
+
+    for a in range(a0, a1 - 11, 13):
+        for dd in range(d0, d1 - 4, 6):
+            if rng.random() < 0.15:
+                continue
+            high = rng.choice((2, 4, 4, 6))
+            r = lay.rect(a, dd, a + 11, dd + 4)
+            things.append((r[3], lambda r=r, high=high, col=rng.choice(CONTAINERS): stack(*r, high, col)))
+    return things
+
+
+def port_warehouse(b, look, x0, y0, x1, y1, style):
+    """A tall brick warehouse with rows of loading doors."""
+    roof, wall = b.box(x0, y0, x1, y1, STOREY * 3)
+    brick(b.d, wall, BRICKS[1 + style])
+    windows(b.d, wall, 3)
+    b.d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(7720 + style), features=(("stack", 4, 3),) if style == 0 else ())
+
+
+def port_side(v, vertical):
+    near = v < 2
+    return ("w" if near else "e") if vertical else ("n" if near else "s")
+
+
+def ordered(things):
+    """Draws things further north first, so nearer ones stand in front."""
+    for _, f in sorted(things, key=lambda t: t[0]):
+        f()
+
+
+def wharf(look, v, w, h):
+    """A wharf: a timber quay, a derrick, a goods shed and crates. Water north or west (0, 1), south or east (2, 3)."""
+    b = Building(w, h, height=STOREY + 14)
+    lay = PortLayout(b, port_side(v, h > w))
+    style = v % 2
+    yard_ground(b, look, 1, 1, w * T - 2, h * T - 2)
+    quay(lay, look, 10, timber=True)
+    things = []
+    for k, a in enumerate((14, lay.length - 24)):
+        r = lay.rect(a, 11, a + 4, 15)
+        things.append((r[3], lambda a=a: derrick(lay, look, a, 11)))
+    shed = lay.rect(8 if style == 0 else 22, 22, lay.length - (22 if style == 0 else 8), lay.depth - 8)
+    things.append((shed[3], lambda: goods_shed(b, look, *shed, style)))
+    cr = lay.rect(4, lay.depth - 6, lay.length - 4, lay.depth - 3)
+    if lay.side in "ns":
+        things.append((cr[3] + 1, lambda: yard(b, look, "crates" if style == 0 else "barrels", cr[0] + 2, cr[0] + 20, cr[3])))
+    ordered(things)
+    return b
+
+
+def docks(look, v, w, h):
+    """Docks: a stone quay, two dockside cranes, a siding, a transit shed and a warehouse."""
+    b = Building(w, h, height=STOREY * 3 + 22)
+    lay = PortLayout(b, port_side(v, h > w))
+    style = v % 2
+    yard_ground(b, look, 1, 1, w * T - 2, h * T - 2)
+    quay(lay, look, 12)
+    sx0, sy0, sx1, sy1 = lay.rect(0, 22, lay.length - 1, 29)
+    rail_siding(b, look, sx0, sy0, sx1, sy1)
+    things = []
+    for a in (16, lay.length - 30):
+        r = lay.rect(a, 3, a + 8, 11)
+        things.append((r[3], lambda a=a: luffing_crane(lay, look, a, 3)))
+    shed = lay.rect(6, 34, lay.length - 7, 58)
+    things.append((shed[3], lambda: goods_shed(b, look, *shed, style)))
+    ware = lay.rect(10 if style == 0 else lay.length // 2, 64, lay.length // 2 - 4 if style == 0 else lay.length - 10, lay.depth - 6)
+    things.append((ware[3], lambda: port_warehouse(b, look, *ware, style)))
+    ordered(things)
+    return b
+
+
+def container_port(look, v, w, h):
+    """A container port: a long concrete quay, gantry cranes and rows of stacked containers."""
+    b = Building(w, h, height=44)
+    lay = PortLayout(b, port_side(v, h > w))
+    style = v % 2
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(w * T - 2, h * T - 2)
+    noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), QUAY if look != "snow" else [c("#e3e8ec"), c("#d6dde3"), c("#eef2f5")], random.Random(7730))
+    quay(lay, look, 24)
+    things = container_stacks(lay, look, 6, 30, lay.length - 6, lay.depth - 14, 7740 + v)
+    for a in range(18, lay.length - 20, 52):
+        r = lay.rect(a, 2, a + 12, 22)
+        things.append((r[3], lambda a=a: gantry_crane(lay, look, a, GANTRY_PAINT[style])))
+    gate = lay.rect(lay.length - 22, lay.depth - 10, lay.length - 6, lay.depth - 3)
+
+    def office():
+        roof, wall = b.box(*gate, STOREY)
+        siding(b.d, wall, PAINT[2])
+        b.d.rectangle(wall, outline=OUTLINE)
+        b.d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#9aa0a6"), OUTLINE)
+    things.append((gate[3], office))
+    ordered(things)
+    return b
+
+
+def wharf_ew(look, v): return wharf(look, v, 3, 2)
+def wharf_ns(look, v): return wharf(look, v, 2, 3)
+def docks_ew(look, v): return docks(look, v, 4, 3)
+def docks_ns(look, v): return docks(look, v, 3, 4)
+def boxport_ew(look, v): return container_port(look, v, 6, 3)
+def boxport_ns(look, v): return container_port(look, v, 3, 6)
+
+
 # ---- water ---------------------------------------------------------------------
 # The waterworks: a steam pumping station of brick with its chimney, a fenced
 # well field with pump houses, a water tank on legs, and outfalls where the
@@ -3573,6 +3809,8 @@ BUILDINGS = [
     ("coal_plant", coal_plant, 1),
     ("police_station", police_station, 1), ("fire_station", fire_station, 1), ("park", park, 4),
     ("station_ew", station_ew, 4), ("station_ns", station_ns, 4), ("yard_ew", yard_ew, 4), ("yard_ns", yard_ns, 4),
+    ("wharf_ew", wharf_ew, 4), ("wharf_ns", wharf_ns, 4), ("docks_ew", docks_ew, 4), ("docks_ns", docks_ns, 4),
+    ("boxport_ew", boxport_ew, 4), ("boxport_ns", boxport_ns, 4),
     ("pumping_station", pumping_station, 1), ("well_field", well_field, 1), ("tower", water_tower, 1),
     ("sewer_outfall", sewer_outfall, 1), ("storm_pond", storm_pond, 1), ("storm_outfall", storm_outfall, 1),
     ("school", school, 2), ("high_school", high_school, 2), ("clinic", clinic, 2), ("hospital", hospital, 1),

@@ -125,6 +125,17 @@ enum class BuildingType(
     FREIGHT_YARD(Zone.NONE, 0, 20, width = 3, height = 2, pollution = 6),
     FREIGHT_YARD_NS(Zone.NONE, 0, 20, width = 2, height = 3, pollution = 6),
 
+    /**
+     * Ports, beside water ships can reach from the edge of the map, lying east to west or north to south:
+     * a wharf, docks with a passenger berth (from 1920), and a container port (from 1966).
+     */
+    WHARF(Zone.NONE, 0, 30, width = 3, height = 2, pollution = 4, life = 50),
+    WHARF_NS(Zone.NONE, 0, 30, width = 2, height = 3, pollution = 4, life = 50),
+    DOCKS(Zone.NONE, 0, 80, width = 4, height = 3, pollution = 6, year = 1920, life = 60),
+    DOCKS_NS(Zone.NONE, 0, 80, width = 3, height = 4, pollution = 6, year = 1920, life = 60),
+    CONTAINER_PORT(Zone.NONE, 0, 60, width = 6, height = 3, pollution = 8, year = 1966, life = 50),
+    CONTAINER_PORT_NS(Zone.NONE, 0, 60, width = 3, height = 6, pollution = 8, year = 1966, life = 50),
+
     /** Water: a pumping station beside a river or lake, a well field anywhere, a tower, and an outfall for the sewers. */
     PUMPING_STATION(Zone.NONE, 0, 6, width = 2, height = 2, life = 40),
     WELL_FIELD(Zone.NONE, 0, 2, width = 2, height = 2, life = 25),
@@ -178,14 +189,25 @@ enum class BuildingType(
     /** Has to go beside the track. */
     val railway get() = station || yard
 
+    /** Ships load and unload here. */
+    val port get() = portTier > 0
+
+    /** How big a port it is: 1 a wharf, 2 docks, 3 a container port, 0 for anything else. */
+    val portTier: Int get() = when (this) {
+        WHARF, WHARF_NS -> 1
+        DOCKS, DOCKS_NS -> 2
+        CONTAINER_PORT, CONTAINER_PORT_NS -> 3
+        else -> 0
+    }
+
     val needsPower get() = needs >= 1
     val needsWater get() = needs >= 2
     val needsSewer get() = needs >= 3
 
-    /** Has to be beside water. */
     /** Stands out in the water, every tile of it. */
     val inWater get() = this == RIVER_TURBINE || this == TIDAL_TURBINE || this == OFFSHORE_WIND
 
+    /** Has to be beside water. */
     val onWater get() = this == PUMPING_STATION || outfall || this == STORM_OUTFALL || this == HYDRO_PLANT
 
     /** Where the sewers come out. */

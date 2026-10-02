@@ -126,6 +126,13 @@ internal class Traffic(private val map: CityMap) {
     /** The freight yard on a line to the edge that each road tile reaches, or -1. */
     private val outlet = IntArray(map.size) { -1 }
 
+    /** Road tiles that reach a port ships come to. */
+    private val harbour = BooleanArray(map.size)
+
+    /** Loads through the port reached from each road tile, this month and last. */
+    private val portFreight = IntArray(map.size)
+    val lastPortFreight = IntArray(map.size)
+
     /** This month and last: passengers boarding or leaving at each road tile, and freight sent by train from it. */
     private val riders = IntArray(map.size)
     val lastRiders = IntArray(map.size)
@@ -218,6 +225,15 @@ internal class Traffic(private val map: CityMap) {
         for (a in node.indices) for (b in node.indices) if (!passengers[a] || !passengers[b]) times[a][b] = -1
     }
 
+    /** Sets the ports ships reach, by the road tile each is reached from (-1 if none). */
+    fun setPorts(node: IntArray) {
+        harbour.fill(false)
+        for (a in node) if (a >= 0) harbour[a] = true
+    }
+
+    /** Whether freight can leave town from road tile [a]: the edge, a freight yard on a line out, or a port. */
+    private fun exit(a: Int) = edge(a) || outlet[a] >= 0 || harbour[a]
+
     // Search state, reused, over every tile in every layer: a state is the layer times the map's size, plus the tile.
     // A state's distance counts only if its stamp is this search's.
     private val dist = IntArray(LAYERS * map.size)
@@ -299,6 +315,8 @@ internal class Traffic(private val map: CityMap) {
         riders.fill(0)
         railFreight.copyInto(lastRailFreight)
         railFreight.fill(0)
+        portFreight.copyInto(lastPortFreight)
+        portFreight.fill(0)
         lastJourneys = HashMap(journeys)
         journeys.clear()
         placed.fill(0)
@@ -431,10 +449,10 @@ internal class Traffic(private val map: CityMap) {
                     carry(st, t, SHOPPER)
                 }
             }
-            if (layer == CAR && f > 0 && (edge(a) || outlet[a] >= 0)) {
+            if (layer == CAR && f > 0 && exit(a)) {
                 shipped[start] += f
                 carry(st, f, FREIGHT)
-                if (!edge(a)) outByRail(a, f)
+                if (!edge(a)) outBy(a, f)
                 f = 0
             }
             if (layer == CAR && c > 0) {
@@ -451,7 +469,7 @@ internal class Traffic(private val map: CityMap) {
                     shipped[start] += t
                     carry(st, t, FREIGHT)
                 }
-                if (c > 0 && out < 0 && (edge(a) || outlet[a] >= 0)) {
+                if (c > 0 && out < 0 && exit(a)) {
                     out = st
                     outAt = d
                 }
@@ -489,11 +507,15 @@ internal class Traffic(private val map: CityMap) {
         shipped[start] += loads
         carry(out, loads, FREIGHT)
         val a = out % n
-        if (!edge(a)) outByRail(a, loads)
+        if (!edge(a)) outBy(a, loads)
     }
 
-    /** Freight leaving town by train from the yard reached from road tile [a]. */
-    private fun outByRail(a: Int, loads: Int) {
+    /** Freight leaving town by train from the yard reached from road tile [a], or else by ship from its port. */
+    private fun outBy(a: Int, loads: Int) {
+        if (outlet[a] < 0) {
+            portFreight[a] += loads
+            return
+        }
         railFreight[a] += loads
         val key = (stopTrack[outlet[a]].toLong() shl 32) or 0xffffffffL
         journeys[key] = (journeys[key] ?: 0) + loads
@@ -960,6 +982,15 @@ internal class Traffic(private val map: CityMap) {
         val last = HashMap<Long, Int>()
         repeat(r.count()) { last[r.long()] = r.int() }
         lastJourneys = last
+    }
+
+    /** Since save version 23. */
+    internal fun writePorts(w: SaveWriter) {
+        for (a in arrayOf(portFreight, lastPortFreight)) sparse(w, a)
+    }
+
+    internal fun readPorts(r: SaveReader) {
+        for (a in arrayOf(portFreight, lastPortFreight)) sparse(r, a)
     }
 
     private fun tile(r: SaveReader): Int = r.int().also { if (it !in 0 until map.size) throw SaveError("traffic off the map") }

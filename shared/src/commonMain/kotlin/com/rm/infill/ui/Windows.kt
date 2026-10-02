@@ -1,5 +1,14 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.label_hotel_rooms
+import com.rm.infill.res.label_visitors
+import com.rm.infill.res.by_air
+import com.rm.infill.res.by_sea
+import com.rm.infill.res.by_rail
+import com.rm.infill.res.by_road
+import com.rm.infill.res.visitors
+import com.rm.infill.res.upkeep_ports
+import com.rm.infill.res.income_dues
 import com.rm.infill.res.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
@@ -282,6 +291,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
                 Triple(Glyph.Building, Res.string.tax_industrial, s.industrialIncome),
                 if (s.officeIncome > 0) Triple(Glyph.Briefcase, Res.string.income_offices, s.officeIncome) else null,
                 if (s.fareIncome > 0) Triple(Glyph.Bus, Res.string.income_fares, s.fareIncome) else null,
+                if (s.duesIncome + s.tollIncome > 0) Triple(Glyph.Anchor, Res.string.income_dues, s.duesIncome + s.tollIncome) else null,
             )
             val upkeep = listOfNotNull(
                 Triple(Glyph.Road, Res.string.upkeep_roads, s.roadUpkeep),
@@ -299,6 +309,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
                 if (s.environmentUpkeep > 0) Triple(Glyph.Bin, Res.string.upkeep_garbage, s.environmentUpkeep) else null,
                 if (s.disasterCost > 0) Triple(Glyph.Warn, Res.string.upkeep_disasters, s.disasterCost) else null,
                 if (s.phoneUpkeep > 0) Triple(Glyph.Phone, Res.string.upkeep_phone, s.phoneUpkeep) else null,
+                if (s.portUpkeep > 0) Triple(Glyph.Anchor, Res.string.upkeep_ports, s.portUpkeep) else null,
             )
             // Every bar against the biggest, in or out.
             val most = maxOf(1L, (income + upkeep).maxOf { it.third })
@@ -514,6 +525,9 @@ private val MODES = listOf(
     Color(0xFF8FBF6A), Color(0xFF8A8F98), Color(0xFF2FA85A), Color(0xFF16A2A2), Color(0xFFD8302F), Color(0xFF2F6FD8), Color(0xFF8E44AD),
 )
 
+/** Colours for the ways visitors come: road, rail, sea and air. */
+private val VISITOR_COLOURS = listOf(Color(0xFF8A8F98), Color(0xFF8E44AD), Color(0xFF2F6FD8), Color(0xFF16A2A2))
+
 /** Who lives in the town, the work they're schooled for, places at school and with a doctor, and how justice is doing. */
 @Composable
 fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
@@ -585,6 +599,16 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
                     StatItem(Glyph.Phone, stringResource(Res.string.label_with_phone), stringResource(Res.string.percent, s.withPhone), s.withPhone / 100f, toneOf(s.withPhone, 80, 40)),
                     if (s.withBroadband > 0) StatItem(Glyph.Mast, stringResource(Res.string.label_with_broadband), stringResource(Res.string.percent, s.withBroadband), s.withBroadband / 100f, toneOf(s.withBroadband, 70, 30)) else null,
                     if (s.workingFromHome > 0) StatItem(Glyph.Building, stringResource(Res.string.label_wfh), n(s.workingFromHome)) else null,
+                ),
+            )
+        }
+        if (s.visitors > 0) Section(stringResource(Res.string.visitors), Glyph.Suitcase) {
+            val ways = listOf(Res.string.by_road, Res.string.by_rail, Res.string.by_sea, Res.string.by_air)
+            BarWithKey(ways.indices.filter { s.visitorsBy[it] > 0 }.map { Triple(stringResource(ways[it]), s.visitorsBy[it], VISITOR_COLOURS[it]) })
+            StatGrid(
+                listOf(
+                    StatItem(Glyph.Suitcase, stringResource(Res.string.label_visitors), n(s.visitors)),
+                    places(Glyph.Building, stringResource(Res.string.label_hotel_rooms), s.guests, s.rooms),
                 ),
             )
         }

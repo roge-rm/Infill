@@ -1,5 +1,6 @@
 package com.rm.infill.map
 
+import com.rm.infill.sim.Balance
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.Zone
 import androidx.compose.foundation.Canvas
@@ -99,7 +100,8 @@ fun MapView(
     val fires = game.city.burningNow > 0
     val traffic = graphics.vehicles > 0 && game.city.stats.population > 0
     val trains = graphics.trains > 0 && game.city.trainRoutes.isNotEmpty()
-    val animate = running && (fires || traffic || trains || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
+    val ships = graphics.trains > 0 && game.city.shipRoutes.isNotEmpty()
+    val animate = running && (fires || traffic || trains || ships || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
     val focusData = remember(overlay, focus, game.revision) {
         when {
             focus < 0 -> null
@@ -112,7 +114,16 @@ fun MapView(
         overlayImage(overlay, map, { game.city.building(map.building[it])?.people }, { game.city.wearAt(it) }, { game.city.building(map.building[it])?.uncollected == true }, { i ->
             game.city.building(map.building[i])?.takeIf { it.kind >= 0 || it.type.zone == Zone.FARMLAND || it.type.zone == Zone.COMMERCIAL && !it.type.office ||
                 it.type == BuildingType.COAL_PLANT || it.type == BuildingType.OIL_PLANT }?.local ?: -1
-        }, { game.city.junctionWait(it) }, focusData, { game.city.lineLoad(it) }) {
+        }, { game.city.junctionWait(it) }, focusData, { game.city.lineLoad(it) }, visitorAt = { i ->
+            val b = game.city.building(map.building[i])
+            when {
+                b == null -> -1
+                b.type == BuildingType.HOTEL -> if (b.room == 0) 0 else maxOf(30, b.served * 255 / b.room)
+                b.type == BuildingType.PARK || game.city.isHeritage(b) -> 255
+                b.type.station || b.type.port -> 200
+                else -> -1
+            }
+        }) {
             game.city.tramRiders(it) + game.city.busRiders(it) + game.city.trolleyRiders(it) + game.city.subwayRiders(it)
         }
     }
@@ -211,6 +222,7 @@ fun MapView(
         }
         drawFloods(map, camera)
         drawWorks(map, camera)
+        if (ships) drawShips(game.city.shipRoutes, map, camera, weatherTime, graphics.trains, graphics.smoke && game.city.year < Balance.STEAM_UNTIL)
         val stopped = if (trains) drawTrains(game.city.trainRoutes, map, camera, weatherTime, graphics.trains, graphics.smoke) else emptySet()
         if (traffic) {
             drawVehicles(map, camera, game.city.year, weatherTime, graphics.vehicles, stopped)

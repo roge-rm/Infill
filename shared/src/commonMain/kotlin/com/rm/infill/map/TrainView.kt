@@ -74,7 +74,7 @@ private val FREIGHT = listOf(Car.Boxcar, Car.Hopper, Car.Flatcar, Car.Boxcar)
  * one it's left by: straight through, or round a quarter circle where the
  * track bends, as it's drawn.
  */
-private fun pointOn(path: IntArray, s: Float, width: Int): Triple<Float, Float, Float> {
+internal fun pointOn(path: IntArray, s: Float, width: Int): Triple<Float, Float, Float> {
     val n = path.size
     val i = (s + 0.5f).toInt().coerceIn(0, n - 1)
     val u = (s - (i - 0.5f)).coerceIn(0f, 1f)
@@ -102,7 +102,7 @@ private fun pointOn(path: IntArray, s: Float, width: Int): Triple<Float, Float, 
 private fun degrees(radians: Float) = radians * 180f / PI.toFloat()
 
 /** Slow away and slow in, quicker in between. */
-private fun ease(u: Float): Float = u * u * (3 - 2 * u)
+internal fun ease(u: Float): Float = u * u * (3 - 2 * u)
 
 private fun DrawScope.car(at: Offset, t: Float, heading: Float, kind: Car, seed: Int) {
     val long = t * CAR_LENGTH
@@ -145,7 +145,7 @@ private fun DrawScope.car(at: Offset, t: Float, heading: Float, kind: Car, seed:
 }
 
 /** A few puffs of smoke rising from the engine. */
-private fun DrawScope.puffs(at: Offset, t: Float, time: Float, seed: Int) {
+internal fun DrawScope.puffs(at: Offset, t: Float, time: Float, seed: Int) {
     for (k in 0 until 4) {
         val age = (time * 0.8f + k / 4f + seed * 0.13f) % 1f
         drawCircle(SMOKE, t * (0.08f + age * 0.18f), Offset(at.x + age * t * 0.3f, at.y - t * 0.2f - age * t * 0.9f), alpha = 0.55f * (1 - age))
