@@ -24,11 +24,11 @@ class CableTest {
         City::class.java.declaredMethods.first { it.name == name && it.parameterCount == args.size }.apply { isAccessible = true }.invoke(this, *args)
 
     @Test
-    fun cableGoesUnderRiversAndTrackWhereLinesCant() {
+    fun cableGoesUnderRiversWhereLinesCant() {
         val c = city()
-        // Poles go up either side but can't stand in the river or on the track.
+        // Poles can't stand in the river, though the wires span the track.
         val poles = c.plan(Action.BuildPowerLine(Action.roadPath(c.map, 25, 10, 45, 10, true)))
-        assertTrue(c.map.index(30, 10) in poles.blocked.toList() && c.map.index(40, 10) in poles.blocked.toList())
+        assertTrue(c.map.index(30, 10) in poles.blocked.toList() && c.map.index(40, 10) !in poles.blocked.toList())
         val funds = c.funds
         val plan = c.across(10, 25, 45, buried = true)
         assertTrue(plan.ok)
@@ -139,5 +139,26 @@ class CableTest {
         val people = old.stats.population
         repeat(70) { old.tick() }
         assertTrue(old.stats.population > people / 2)
+    }
+
+    @Test
+    fun linesOnPolesSpanTrackStraightAcross() {
+        val c = city()
+        val m = c.map
+        // Track runs north to south down x 40: a line east to west crosses it, one along it doesn't.
+        assertTrue(c.across(10, 35, 39).ok)
+        assertTrue(c.across(10, 41, 45).ok)
+        val over = c.plan(Action.BuildPowerLine(Action.roadPath(m, 38, 10, 42, 10, true)))
+        assertTrue(m.index(40, 10) in over.changes.toList(), "the line spans the track")
+        assertTrue(c.apply(Action.BuildPowerLine(Action.roadPath(m, 38, 10, 42, 10, true))).ok)
+        assertEquals(Power.LINE, m.power[m.index(40, 10)])
+        val along = c.plan(Action.BuildPowerLine(Action.roadPath(m, 40, 20, 40, 25, false)))
+        assertTrue(along.changes.none { it % m.width == 40 }, "not along the track")
+        // A phone line too.
+        assertTrue(m.index(40, 12) in c.plan(Action.BuildPhoneLine(Action.roadPath(m, 38, 12, 42, 12, true))).changes.toList())
+        // And new track can go under a line straight across, but not turn under it.
+        assertTrue(c.across(30, 10, 20).ok)
+        assertTrue(m.index(15, 30) in c.plan(Action.BuildRail(Action.roadPath(m, 15, 25, 15, 35, false))).changes.toList())
+        assertTrue(m.index(15, 30) !in c.plan(Action.BuildRail(Action.roadPath(m, 15, 25, 18, 30, false))).changes.toList())
     }
 }

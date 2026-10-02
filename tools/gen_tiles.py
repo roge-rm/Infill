@@ -3607,6 +3607,21 @@ def phone_line(look, mask, fibre):
     return img, lift, [(0, cx, foot - lift, PHONE_HEIGHT, 1, 0)]
 
 
+def phone_span(across, fibre):
+    """A phone wire over a tile with no pole, as over track."""
+    lift = lift_for(PHONE_HEIGHT + T // 2)
+    img = Image.new("RGBA", (T, T + lift), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    wire = FIBRE_WIRE if fibre else COPPER_WIRE
+    cx, foot = 6, 26 + lift
+    top = foot - PHONE_HEIGHT
+    if across:
+        d.line([(x, top + round(2 * math.sin(math.pi * x / T))) for x in range(T + 1)], wire)
+    else:
+        d.line([cx, top - (foot - lift), cx, top - (foot - lift) + T], wire)
+    return img, lift
+
+
 def exchange(look, v):
     """A telephone exchange on 2 by 1 tiles: plain brick, tall windows for the switchboards, an aerial on the roof."""
     b = Building(2, 1, height=2 * STOREY + 14)
@@ -3708,6 +3723,23 @@ def hv_line(look, mask):
     if look == "snow":
         d.point((cx, top - 1), SNOW)
     return img, lift, [(0, cx, foot - lift, PYLON_HEIGHT, 2, 0)]
+
+
+def span(height, base, gaps, wire, cx, across):
+    """Wires over a tile with no pole of their own, as over track: joined to
+    the poles either side at their height, sagging a little between. [across]
+    is east to west; otherwise north to south."""
+    lift = lift_for(height + T // 2)
+    img = Image.new("RGBA", (T, T + lift), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    top = 16 + lift - height + base
+    for gap in gaps:
+        if across:
+            pts = [(x, top + gap + 3 + round(2 * math.sin(math.pi * x / T))) for x in range(T + 1)]
+            d.line(pts, wire)
+        else:
+            d.line([cx + gap, top - T // 2, cx + gap, top + T // 2], wire)
+    return img, lift
 
 
 def street_trees(look):
@@ -3881,6 +3913,19 @@ def sprites_for(look):
     for mask in range(16):
         img, lift, casters = hv_line(look, mask)
         out.append((f"hv_line_{mask}", img, lift, casters))
+    # Spans: north to south (0) and east to west (1), over track where no pole can stand.
+    for k in range(2):
+        img, lift = span(POLE_HEIGHT, 0, (-3, 3) if k else (1,), WIRE, 15, k == 1)
+        out.append((f"power_span_{k}", img, lift, []))
+    for k in range(2):
+        img, lift = span(PYLON_HEIGHT, 2, (-5, 0, 5) if k else (-4, 0, 4), HV_WIRE, 15, k == 1)
+        out.append((f"hv_span_{k}", img, lift, []))
+    for k in range(2):
+        img, lift = phone_span(k == 1, False)
+        out.append((f"copper_span_{k}", img, lift, []))
+    for k in range(2):
+        img, lift = phone_span(k == 1, True)
+        out.append((f"fibre_span_{k}", img, lift, []))
     for mask in range(16):
         img, lift, casters = phone_line(look, mask, False)
         out.append((f"copper_line_{mask}", img, lift, casters))
@@ -3977,7 +4022,7 @@ def write_kotlin(names, flat, pos, size):
             lines.append('            "' + text[i:i + 2000] + '"')
         return "decode(\n" + " +\n".join(lines or ['            ""']) + ",\n        )"
 
-    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "copper_line", "fibre_line", "street_trees", "seam", "junction", "roundabout", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
+    groups = ["grass", "water", "shore", "corner"] + [r[0] for r in ROAD_ART] + ["arrow", "median", "bridge", "rails", "track", "crossing", "trestle", "tree", "forest"] + [b[0] for b in BUILDINGS] + ["power_line", "hv_line", "copper_line", "fibre_line", "power_span", "hv_span", "copper_span", "fibre_span", "street_trees", "seam", "junction", "roundabout", "for_sale", "tramway", "trolley_wire", "tram_stop", "bus_stop"]
     # A sprite's name must start with exactly one group's, or the counts go wrong.
     for n in names:
         owners = [g for g in groups if n.startswith(g + "_")]

@@ -1,10 +1,47 @@
 # Infill
 
-Infill is a city builder for Android 8.1 and up, and it also runs in a web browser.
+Infill is a city builder for Android 8.1 and up.
+It also runs in a web browser.
 
-You start with a small town in 1900 and a few simple tools, and as the years go by the city and the systems that run it get deeper. New technology arrives in eras, and parts of your city get redone as it does: wells give way to water mains, streetcars to cars and back to transit, low rise blocks to something denser.
+You start with a small town in 1900 and a few simple tools, and as the years go by the town and everything that keeps it running gets deeper. New things arrive in eras, and parts of your town get redone as they do: wells give way to water mains, streetcars to cars and back to transit, low houses to something denser.
 
-It's very early. Right now there's a generated map with rivers, lakes and woods, through the seasons and the time of day, and you can lay dirt roads, zone land and bulldoze, but nothing grows yet.
+It's at 0.8.5 and very playable, but not finished. Let me know what works and what doesn't, or open an issue here.
+
+Made with Claude Opus 5.5.
+
+Dan (rm)
+
+---
+
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center"><img src="screenshots/downtown.png" width="250" alt="Downtown"><br>Downtown: towers, a department store and works</td>
+    <td align="center"><img src="screenshots/country.png" width="250" alt="The country"><br>Farms, woods, the river and the power stations</td>
+    <td align="center"><img src="screenshots/people.png" width="250" alt="The people window"><br>Who lives in the town</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/traffic.png" width="250" alt="The traffic view"><br>The traffic view on a busy avenue</td>
+    <td align="center"><img src="screenshots/freight.png" width="250" alt="A freight train"><br>A freight train and its yard</td>
+    <td align="center"><img src="screenshots/underground.png" width="250" alt="Underground"><br>Cable and pipes under the river</td>
+  </tr>
+</table>
+
+## What's in it
+
+- Zones for homes, shops, offices, works and farms, at three densities, with lots that fill in over time
+- Roads from dirt tracks to boulevards, junctions with stop signs, lights and roundabouts, and traffic you can watch and fix
+- Rail, trams, buses, trolleybuses and a subway, with lines you plan stop by stop
+- Power from coal to nuclear, lines on poles or underground, and the load on each
+- Water mains, sewers and storm drains that age and need relaying
+- Telephone exchanges, then fibre and masts
+- Goods made from what's in the ground, sold in town or sent away
+- Police, fire, schools, health, parks and waste, each with buildings that age and staff the town has to find
+- Crime of different kinds, with courts and jails to deal with it
+- Districts with their own taxes and rules
+- Weather, seasons, floods, fires and the odd disaster
+- Map views for nearly all of it
 
 ## Building
 
@@ -15,7 +52,8 @@ You need the Android SDK.
 ./gradlew :sim:jvmTest                         # the simulation's tests
 ./gradlew :shared:wasmJsBrowserDistribution    # the browser version
 tools/serve_web.sh                             # serve it on port 8790
-uv run --with pillow tools/gen_tiles.py        # draw the tiles again
+cd tools && uv run --with pillow gen_tiles.py  # draw the tiles again
+cd tools && uv run --with pillow make_icon.py  # make the icons from icon.png
 ```
 
 | | |

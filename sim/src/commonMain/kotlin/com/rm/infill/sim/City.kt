@@ -308,7 +308,9 @@ class City(
                         water && (turns[k] || m.road[i] != Road.NONE) -> blocked += i
                         // Across a road only straight over it, as a level crossing.
                         m.road[i] != Road.NONE && (turns[k] || !across(i, runs[k].toInt(), m.road)) -> blocked += i
-                        m.power[i] != Power.NONE -> blocked += i
+                        // Under a line on poles or a phone line only straight across it, where the wires span the track.
+                        (m.power[i] != Power.NONE && !m.cable(i) || m.phone[i].toInt() != 0 && !m.duct(i)) &&
+                            (turns[k] || !across(i, runs[k].toInt(), m.power) && m.power[i] != Power.NONE || !across(i, runs[k].toInt(), m.phone) && m.phone[i].toInt() != 0) -> blocked += i
                         else -> {
                             changes += i
                             cost += Prices.RAIL * (if (water) Prices.BRIDGE else 1) + clearing(i)
@@ -316,9 +318,12 @@ class City(
                     }
                 }
             }
-            is Action.BuildPhoneLine -> for (i in action.tiles) {
+            is Action.BuildPhoneLine -> {
+              val path = action.tiles.filter { inMap(it) }
+              val (runs, turns) = runsOf(path)
+              for ((k, i) in path.withIndex()) {
                 val kind = if (action.fibre) Phone.FIBRE else Phone.COPPER
-                val crossing = m.terrain[i] == Terrain.WATER || m.rail[i] != Rail.NONE
+                val crossing = m.terrain[i] == Terrain.WATER || (m.rail[i] != Rail.NONE && (turns[k] || !across(i, runs[k].toInt(), m.rail)))
                 when {
                     !inMap(i) -> {}
                     m.building[i] != 0 || m.zone[i] != Zone.NONE -> blocked += i
@@ -337,16 +342,20 @@ class City(
                     }
                 }
             }
+              }
             is Action.RemovePhone -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
                 if (m.phone[i].toInt() != 0) {
                     changes += i
                     cost += Prices.REMOVE_PHONE
                 }
             }
-            is Action.BuildPowerLine -> for (i in action.tiles) {
+            is Action.BuildPowerLine -> {
+              val path = action.tiles.filter { inMap(it) }
+              val (runs, turns) = runsOf(path)
+              for ((k, i) in path.withIndex()) {
                 val kind = if (action.high) Power.HIGH else Power.LINE
-                // Cable goes under rivers and track that poles can't stand in.
-                val crossing = m.terrain[i] == Terrain.WATER || m.rail[i] != Rail.NONE
+                // Cable goes under rivers, which poles can't stand in; wires on poles span track straight across it.
+                val crossing = m.terrain[i] == Terrain.WATER || (m.rail[i] != Rail.NONE && (turns[k] || !across(i, runs[k].toInt(), m.rail)))
                 when {
                     !inMap(i) -> {}
                     m.building[i] != 0 || m.zone[i] != Zone.NONE -> blocked += i
@@ -367,6 +376,7 @@ class City(
                     }
                 }
             }
+              }
             is Action.PlaceZone -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
                 when {
                     m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE || m.rail[i] != Rail.NONE ||

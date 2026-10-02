@@ -421,6 +421,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     /** A pole or a pylon, with its wires to the neighbours that carry the same kind of line. */
     private fun lineSprite(x: Int, y: Int): Int {
         val kind = map.power[map.index(x, y)]
+        // Over track there's no pole, just the wires across.
+        if (map.rail[map.index(x, y)] != Rail.NONE) return (if (kind == Power.HIGH) Atlas.HV_SPAN else Atlas.POWER_SPAN) + spanAcross(x, y)
         return (if (kind == Power.HIGH) Atlas.HV_LINE else Atlas.POWER_LINE) + powerMask(x, y, kind)
     }
 
@@ -428,6 +430,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     /** A phone line's pole and wires, joined to the line each way and to exchanges and masts. */
     private fun phoneSprite(x: Int, y: Int): Int {
         val kind = map.phone[map.index(x, y)]
+        if (map.rail[map.index(x, y)] != Rail.NONE) return (if (kind == com.rm.infill.sim.Phone.FIBRE) Atlas.FIBRE_SPAN else Atlas.COPPER_SPAN) + spanAcross(x, y)
         fun joins(nx: Int, ny: Int): Boolean {
             if (!map.inside(nx, ny)) return false
             val j = map.index(nx, ny)
@@ -441,6 +444,12 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         if (joins(x, y + 1)) m = m or 4
         if (joins(x - 1, y)) m = m or 8
         return (if (kind == com.rm.infill.sim.Phone.FIBRE) Atlas.FIBRE_LINE else Atlas.COPPER_LINE) + m
+    }
+
+    /** 1 when the track under a span runs north to south, so the wires go east to west. */
+    private fun spanAcross(x: Int, y: Int): Int {
+        fun rail(nx: Int, ny: Int) = map.inside(nx, ny) && map.rail[map.index(nx, ny)] != Rail.NONE
+        return if (rail(x, y - 1) || rail(x, y + 1)) 1 else 0
     }
 
     private fun powerMask(x: Int, y: Int, kind: Byte): Int {
