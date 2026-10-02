@@ -546,6 +546,10 @@ object Balance {
     const val COMMUTERS_PER_CAPACITY = 50
     const val RAIL_LINK_COMMUTERS = 1500
 
+    /** Loads of goods a month a link carries: for a road, this percent of its capacity, and for a track, so many. */
+    const val LOADS_PER_CAPACITY = 10
+    const val RAIL_LINK_LOADS = 600
+
     /** Water meeting the map's edge along this many tiles is open sea, which rivers run down to. */
     const val SEA_EDGE = 24
 

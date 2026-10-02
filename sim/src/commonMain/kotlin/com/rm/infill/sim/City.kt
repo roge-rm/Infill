@@ -36,6 +36,22 @@ class City(
     /** The neighbours' workers and jobs to spare on each edge, as they were left; set with [neighbours]. */
     var neighbourSpare: Array<Neighbour?> = arrayOfNulls(4)
 
+    /** Commuters across each edge this month: going out to work in the neighbour there, and coming in from it. */
+    val edgeOut = IntArray(4)
+    val edgeIn = IntArray(4)
+
+    /** Shop jobs' worth of spending across each edge, and loads of each good: going out, and coming in. */
+    val edgeShopOut = IntArray(4)
+    val edgeShopIn = IntArray(4)
+    val edgeGoodsOut = Array(4) { IntArray(Good.COUNT) }
+    val edgeGoodsIn = Array(4) { IntArray(Good.COUNT) }
+
+    /** Works out what crosses the borders now, for a town just loaded into its region, rather than waiting for the month. */
+    fun meetNeighbours() {
+        commute()
+        trade()
+    }
+
     /** For land put in place after the city was made: the river's flow is worked out again. */
     internal fun landChanged() {
         flowDirty = true
@@ -1836,6 +1852,7 @@ class City(
         updateAirports()
         tourism()
         startTraffic()
+        trade()
         updateCrime()
         Effects.landValue(map, { i -> buildings[map.building[i]]?.type }, nearRoad, map.landValue) { i ->
             // People and jobs on the tile, a building's shared over its lots.
@@ -3166,6 +3183,15 @@ class City(
                 carWorkers[i] += c * share
             }
             for ((i, c) in commutersOut) if (map.road[i] != Road.NONE) jobsAt[i] += c
+        }
+        // Shoppers and lorries at the first road link on each edge with trade.
+        for ((i, _) in links()) {
+            val e = edgeOf(i)
+            if (e < 0 || map.road[i] == Road.NONE) continue
+            if (edgeShopIn[e] + edgeShopOut[e] + edgeGoodsIn[e].sum() + edgeGoodsOut[e].sum() == 0) continue
+            shoppersAt[i] += (edgeShopIn[e] * Balance.RESIDENTS_PER_SHOP_JOB / Balance.RESIDENTS_PER_SHOPPER).toInt()
+            shopsAt[i] += (edgeShopOut[e] * Balance.SHOPPERS_PER_SHOP_JOB)
+            freightAt[i] += edgeGoodsIn[e].sum() + edgeGoodsOut[e].sum()
         }
         // Visitors go shopping too: from their hotels, and day trippers from the stations and ports they came in at.
         val stay = 100 - Balance.STAY_SHARE
@@ -6168,10 +6194,18 @@ class City(
         val s = stats
         commutersIn.clear()
         commutersOut.clear()
+        edgeOut.fill(0)
+        edgeIn.fill(0)
+        // Starting again from what the census found, before last time's commuters were taken off.
+        s.idle += s.commutersOut
+        s.vacant += s.commutersIn
         s.commutersIn = 0
         s.commutersOut = 0
         val links = links()
-        if (links.isEmpty()) return
+        if (links.isEmpty()) {
+            s.unemployment = if (s.workers == 0) 0 else s.idle * 100 / s.workers
+            return
+        }
         var idle = s.idle
         var vacant = s.vacant
         for (edge in 0 until 4) {
@@ -6191,6 +6225,8 @@ class City(
                 theirIdle -= inn
                 s.commutersOut += out
                 s.commutersIn += inn
+                edgeOut[edge] += out
+                edgeIn[edge] += inn
             }
         }
         // Out of work, less those who found it next door; shortages, less what commuters fill.
@@ -6201,6 +6237,81 @@ class City(
         }
         s.idle = idle
         s.vacant = vacant
+    }
+
+    /**
+     * Shopping and goods over the border, worked out once the month's goods
+     * are in: a town short of shops spends next door where there are shops to
+     * spare, and the other way; goods a neighbour has spare come in before
+     * any from outside, and goods it's short of go out, as far as the links
+     * carry loads.
+     */
+    private fun trade() {
+        val s = stats
+        for (e in 0 until 4) {
+            edgeShopOut[e] = 0
+            edgeShopIn[e] = 0
+            edgeGoodsOut[e].fill(0)
+            edgeGoodsIn[e].fill(0)
+        }
+        s.shoppingOut = 0
+        s.shoppingIn = 0
+        s.fromNeighbours.fill(0)
+        s.toNeighbours.fill(0)
+        val gap = (s.spending / Balance.RESIDENTS_PER_SHOP_JOB - s.shopJobs).toInt()
+        var short = maxOf(0, gap)
+        var spare = maxOf(0, -gap)
+        val links = links()
+        if (links.isNotEmpty()) {
+            val goodsSpare = IntArray(Good.COUNT) { s.goodsExported[it] }
+            val goodsShort = IntArray(Good.COUNT) { s.goodsImported[it] }
+            for (edge in 0 until 4) {
+                val n = neighbourSpare[edge] ?: continue
+                val here = links.filter { (i, _) -> edgeOf(i) == edge }
+                if (here.isEmpty()) continue
+                // Shoppers as commuters, in shop jobs' worth; loads by road at a share of the road, more by track.
+                val people = here.sumOf { it.second }
+                val shops = (people / Balance.RESIDENTS_PER_SHOP_JOB).toInt()
+                var loads = here.sumOf { (i, _) ->
+                    val road = RoadType.of(map.road[i])
+                    if (road != null) road.capacity * Balance.LOADS_PER_CAPACITY / 100 else Balance.RAIL_LINK_LOADS
+                }
+                val out = minOf(short, n.shopsSpare, shops)
+                val inn = minOf(spare, n.shopsShort, shops - out)
+                edgeShopOut[edge] = out
+                edgeShopIn[edge] = inn
+                short -= out
+                spare -= inn
+                s.shoppingOut += out
+                s.shoppingIn += inn
+                for (g in 0 until Good.COUNT) {
+                    val gIn = minOf(goodsShort[g], n.goodsSpare[g], loads)
+                    loads -= gIn
+                    val gOut = minOf(goodsSpare[g], n.goodsShort[g], loads)
+                    loads -= gOut
+                    edgeGoodsIn[edge][g] = gIn
+                    edgeGoodsOut[edge][g] = gOut
+                    goodsShort[g] -= gIn
+                    goodsSpare[g] -= gOut
+                    s.fromNeighbours[g] += gIn
+                    s.toNeighbours[g] += gOut
+                }
+            }
+            // What comes from next door counts as the town's own to the shops and works that use it.
+            for (b in buildings.values) {
+                val needed = needs(b)
+                if (needed.isEmpty() || b.underway > 0) continue
+                var share = 0
+                for ((g, _) in needed) {
+                    val imported = s.goodsImported[g.ordinal]
+                    if (imported > 0) share += s.fromNeighbours[g.ordinal] * 100 / imported
+                }
+                share /= needed.size
+                b.local = minOf(100, b.local + (100 - b.local) * share / 100)
+            }
+        }
+        s.shopsShort = short
+        s.shopsSpare = spare
     }
 
     /** Which edge tile [i] is on: north, east, south or west, or -1 inside the map. */
@@ -6335,6 +6446,9 @@ class City(
         s.unemployment = if (s.workers == 0) 0 else idle * 100 / s.workers
         s.idle = idle
         s.vacant = (0 until Education.LEVELS).sumOf { s.jobsBy[it] - s.filledBy[it] }.coerceAtLeast(0)
+        // Fresh counts, before anyone's crossed the border.
+        s.commutersIn = 0
+        s.commutersOut = 0
         for (k in 0 until Education.LEVELS) {
             skillShortage[k] = if (s.jobsBy[k] == 0) 0 else (s.jobsBy[k] - s.filledBy[k]) * 100 / s.jobsBy[k]
         }
@@ -6362,8 +6476,11 @@ class City(
         var fromLand = 0.0
         var fromWorks = 0.0
         for (g in Good.entries) {
-            if (g.fromLand) fromLand += s.goodsImported[g.ordinal] / Balance.LOADS_PER_FARM_JOB
-            else fromWorks += s.goodsImported[g.ordinal] / Balance.LOADS_PER_WORKS_JOB
+            // What next door supplies needn't be made here; what next door's short of can be.
+            val k = g.ordinal
+            val wanted = s.goodsImported[k] - s.fromNeighbours[k] + s.toNeighbours[k]
+            if (g.fromLand) fromLand += wanted / Balance.LOADS_PER_FARM_JOB
+            else fromWorks += wanted / Balance.LOADS_PER_WORKS_JOB
         }
         // What's going up already counts against demand.
         val industryGap = market + fromWorks - s.industryJobs
@@ -6375,7 +6492,8 @@ class City(
         val officeGap = Balance.OFFICE_BASE + s.population * perHundred / 100.0 + airports.sumOf { Balance.AIR_OFFICES[it.type.airTier] * fit(it) / 100 } - s.officeJobs
         s.officeDemand = taxed(officeGap - s.officeJobsComing, commercialTax)
         // The shops answer what people spend, more the better off they are.
-        val shopGap = s.spending / Balance.RESIDENTS_PER_SHOP_JOB - s.shopJobs.toDouble()
+        // Shoppers from next door want shops here; shoppers going next door don't.
+        val shopGap = s.spending / Balance.RESIDENTS_PER_SHOP_JOB - s.shopJobs.toDouble() + s.shoppingIn - s.shoppingOut
         s.commercialDemand = taxed(shopGap - s.shopJobsComing, commercialTax)
         val settlers = (Balance.SETTLERS + Balance.SETTLERS_PER_RESIDENT * s.population) * (if (railPassengers) Balance.RAIL_SETTLERS else 1.0) * Balance.AIR_SETTLERS[airTier] *
             (100 - displacedCut()) / 100.0
@@ -6933,8 +7051,19 @@ class City(
         // Since version 31: the region it's in, if any, and its square there.
         w.string(region ?: "")
         w.int(square)
-        // Since version 32: commuters and what's to spare.
+        // Since version 32: commuters and what's to spare; since 33, across each edge.
         for (v in intArrayOf(s.idle, s.vacant, s.commutersIn, s.commutersOut)) w.int(v)
+        for (v in edgeOut) w.int(v)
+        for (v in edgeIn) w.int(v)
+        // Since version 34: shopping and goods over the border.
+        for (v in intArrayOf(s.shoppingOut, s.shoppingIn, s.shopsShort, s.shopsSpare)) w.int(v)
+        for (v in edgeShopOut) w.int(v)
+        for (v in edgeShopIn) w.int(v)
+        w.count(Good.COUNT)
+        for (g in 0 until Good.COUNT) {
+            w.int(s.fromNeighbours[g]); w.int(s.toNeighbours[g])
+            for (e in 0 until 4) { w.int(edgeGoodsOut[e][g]); w.int(edgeGoodsIn[e][g]) }
+        }
     }
 
     companion object {
@@ -7220,6 +7349,27 @@ class City(
                     val s = c.stats
                     s.idle = r.int(); s.vacant = r.int(); s.commutersIn = r.int(); s.commutersOut = r.int()
                 }
+                if (version >= 33) {
+                    for (k in 0 until 4) c.edgeOut[k] = r.int()
+                    for (k in 0 until 4) c.edgeIn[k] = r.int()
+                }
+                if (version >= 34) {
+                    val s = c.stats
+                    s.shoppingOut = r.int(); s.shoppingIn = r.int(); s.shopsShort = r.int(); s.shopsSpare = r.int()
+                    for (k in 0 until 4) c.edgeShopOut[k] = r.int()
+                    for (k in 0 until 4) c.edgeShopIn[k] = r.int()
+                    repeat(r.count()) { g ->
+                        val from = r.int()
+                        val to = r.int()
+                        val outs = IntArray(4)
+                        val ins = IntArray(4)
+                        for (e in 0 until 4) { outs[e] = r.int(); ins[e] = r.int() }
+                        if (g < Good.COUNT) {
+                            s.fromNeighbours[g] = from; s.toNeighbours[g] = to
+                            for (e in 0 until 4) { c.edgeGoodsOut[e][g] = outs[e]; c.edgeGoodsIn[e][g] = ins[e] }
+                        }
+                    }
+                }
                 c.updateNetworks()
                 c.markContainerTrains()
                 c.updateAirports()
@@ -7379,6 +7529,16 @@ class Stats {
     var commutersIn = 0
     var commutersOut = 0
 
+    /** Shop jobs' worth of spending going next door and coming from it; short of shops or with shops to spare, after that. */
+    var shoppingOut = 0
+    var shoppingIn = 0
+    var shopsShort = 0
+    var shopsSpare = 0
+
+    /** Loads of each good from the neighbours and to them, last month. */
+    val fromNeighbours = IntArray(Good.COUNT)
+    val toNeighbours = IntArray(Good.COUNT)
+
     /** The average commute in minutes. */
     var commute = 0
     var residentialDemand = 0
@@ -7404,7 +7564,11 @@ class Stats {
 
     /** What last month's goods sent out of town fetched, and what was brought in cost, in dollars. */
     val exportValue: Long get() = Good.entries.sumOf { (goodsExported[it.ordinal] * it.price * Balance.LOAD_VALUE).toLong() }
-    val importValue: Long get() = Good.entries.sumOf { (goodsImported[it.ordinal] * it.importPrice * Balance.LOAD_VALUE).toLong() }
+    /** What came in: from outside at the import price, from next door at the town price. */
+    val importValue: Long get() = Good.entries.sumOf {
+        val k = it.ordinal
+        ((goodsImported[k] - fromNeighbours[k]) * it.importPrice * Balance.LOAD_VALUE + fromNeighbours[k] * it.price * Balance.LOAD_VALUE).toLong()
+    }
 
     var residentialIncome = 0L
     var commercialIncome = 0L

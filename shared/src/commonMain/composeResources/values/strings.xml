@@ -190,6 +190,10 @@
     <string name="building_office_block">Office block</string>
     <string name="building_department_store">Department store</string>
     <string name="building_works">Works</string>
+    <plurals name="loads_a_month">
+        <item quantity="one">%1$s load a month</item>
+        <item quantity="other">%1$s loads a month</item>
+    </plurals>
     <plurals name="going_up">
         <item quantity="one">Going up, a day to go</item>
         <item quantity="other">Going up, %1$d days to go</item>
@@ -458,6 +462,10 @@
     <string name="kind_town">A town on its own</string>
     <string name="commuting_out">Working next door</string>
     <string name="commuting_in">Coming in to work</string>
+    <string name="shopping_out">Shopping next door</string>
+    <string name="shopping_in">Shoppers from next door</string>
+    <string name="goods_to_neighbours">Goods to next door</string>
+    <string name="goods_from_neighbours">Goods from next door</string>
     <string name="kind_region">A region of towns</string>
     <string name="town_size">Town size</string>
     <string name="sea">Sea</string>

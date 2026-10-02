@@ -366,10 +366,15 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
         // What the town's businesses trade. The town's own money is above.
         if (s.exportValue > 0 || s.importValue > 0) {
             Section(stringResource(Res.string.trade), Glyph.Crate) {
+                val from = s.fromNeighbours.sum()
+                val to = s.toNeighbours.sum()
                 StatGrid(
-                    listOf(
+                    listOfNotNull(
                         StatItem(Glyph.Arrows, stringResource(Res.string.trade_out), moneyText(s.exportValue)),
                         StatItem(Glyph.Arrows, stringResource(Res.string.trade_in), moneyText(s.importValue)),
+                        // Over the border, in loads a month.
+                        if (to > 0) StatItem(Glyph.Crate, stringResource(Res.string.goods_to_neighbours), pluralStringResource(Res.plurals.loads_a_month, to, groupThousands(to.toLong()))) else null,
+                        if (from > 0) StatItem(Glyph.Crate, stringResource(Res.string.goods_from_neighbours), pluralStringResource(Res.plurals.loads_a_month, from, groupThousands(from.toLong()))) else null,
                     ),
                 )
             }
@@ -569,6 +574,9 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
                 // Over the border to the neighbours and back, for a town in a region.
                 if (s.commutersOut > 0) StatItem(Glyph.Arrows, stringResource(Res.string.commuting_out), n(s.commutersOut)) else null,
                 if (s.commutersIn > 0) StatItem(Glyph.Arrows, stringResource(Res.string.commuting_in), n(s.commutersIn)) else null,
+                // Spending over the border, as the shoppers it takes.
+                if (s.shoppingOut > 0) StatItem(Glyph.Crate, stringResource(Res.string.shopping_out), n((s.shoppingOut * com.rm.infill.sim.Balance.RESIDENTS_PER_SHOP_JOB).toInt())) else null,
+                if (s.shoppingIn > 0) StatItem(Glyph.Crate, stringResource(Res.string.shopping_in), n((s.shoppingIn * com.rm.infill.sim.Balance.RESIDENTS_PER_SHOP_JOB).toInt())) else null,
                 StatItem(Glyph.Lights, stringResource(Res.string.traffic_flow), stringResource(Res.string.percent, s.flow), s.flow / 100f, toneOf(s.flow, 80, 50)),
                 if (s.emptyHomes > 0) StatItem(Glyph.Tag, stringResource(Res.string.empty_homes), n(s.emptyHomes)) else null,
             ),

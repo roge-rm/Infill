@@ -74,13 +74,98 @@ class RegionTown(
     val population: Int,
     val borders: Array<Border>,
     val picture: ByteArray,
-    /** Its workers with no work, and its jobs no one's doing, as it was left: what a neighbour's commuters can take up. */
-    val idle: Int = 0,
-    val vacant: Int = 0,
+    /**
+     * Its workers with no work, and its jobs no one's doing, as it was left,
+     * less what neighbours have taken up since by the ledger.
+     */
+    var idle: Int = 0,
+    var vacant: Int = 0,
+    /** Shop jobs' worth of spending it's short of shops for, or has shops to spare for; loads of each good it has spare or is short of. */
+    var shopsShort: Int = 0,
+    var shopsSpare: Int = 0,
+    val goodsSpare: IntArray = IntArray(Good.COUNT),
+    val goodsShort: IntArray = IntArray(Good.COUNT),
 )
 
-/** What a neighbour has along the shared edge, and the workers and jobs it has to spare. */
-class Neighbour(val border: Border, val idle: Int, val vacant: Int)
+/**
+ * What a neighbour has along the shared edge, and what it has to spare for
+ * this town: its workers with no work and jobs no one's doing, counting what
+ * this town already takes by the ledger.
+ */
+class Neighbour(
+    val border: Border,
+    val idle: Int,
+    val vacant: Int,
+    val shopsShort: Int = 0,
+    val shopsSpare: Int = 0,
+    val goodsSpare: IntArray = IntArray(Good.COUNT),
+    val goodsShort: IntArray = IntArray(Good.COUNT),
+)
+
+/** What crosses between two towns in a region, kept in its [Ledger]. */
+enum class Flow {
+    /** People living in the first town working in the second. */
+    COMMUTERS,
+
+    /** Shop jobs' worth of the first town's spending in the second's shops. */
+    SHOPPING,
+    ;
+
+    companion object {
+        /** Loads of good [g] from the first town to the second, as a kind in the [Ledger]. */
+        fun goods(g: Int) = entries.size + g
+
+        /** How many kinds there are. */
+        val KINDS = entries.size + Good.COUNT
+    }
+}
+
+/**
+ * What crosses each border in a region, from one town to the next: one
+ * amount each way for each [Flow], seen the same from both sides, so
+ * nothing's counted twice. Each town sets the amounts on its own borders as
+ * it's played, against what its neighbours had to spare.
+ */
+class Ledger {
+    private val amounts = HashMap<Int, IntArray>()
+
+    private fun key(from: Int, to: Int) = from * 256 + to
+
+    fun get(from: Int, to: Int, flow: Flow): Int = get(from, to, flow.ordinal)
+
+    fun set(from: Int, to: Int, flow: Flow, amount: Int) = set(from, to, flow.ordinal, amount)
+
+    /** By kind: a [Flow]'s number, or [Flow.goods] for a good. */
+    fun get(from: Int, to: Int, kind: Int): Int = amounts[key(from, to)]?.get(kind) ?: 0
+
+    fun set(from: Int, to: Int, kind: Int, amount: Int) {
+        amounts.getOrPut(key(from, to)) { IntArray(Flow.KINDS) }[kind] = amount
+    }
+
+    internal fun writeTo(w: SaveWriter) {
+        val kept = amounts.filterValues { a -> a.any { it != 0 } }
+        w.count(kept.size)
+        w.count(Flow.KINDS)
+        for ((k, a) in kept) {
+            w.int(k)
+            for (v in a) w.int(v)
+        }
+    }
+
+    internal fun readFrom(r: SaveReader) {
+        val entries = r.count()
+        val n = r.count()
+        repeat(entries) {
+            val k = r.int()
+            val a = IntArray(Flow.KINDS)
+            for (f in 0 until n) {
+                val v = r.int()
+                if (f < a.size) a[f] = v
+            }
+            amounts[k] = a
+        }
+    }
+}
 
 /**
  * A region: [size] by [size] squares, each with room for a town of [side] by
@@ -90,6 +175,7 @@ class Neighbour(val border: Border, val idle: Int, val vacant: Int)
  */
 class Region(val name: String, val seed: Long, val land: TerrainOptions, val size: Int = 3, val side: Int = City.DEFAULT_SIZE) {
     val towns = arrayOfNulls<RegionTown>(size * size)
+    val ledger = Ledger()
 
     private var whole: CityMap? = null
 
@@ -129,7 +215,18 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
     fun neighboursOf(city: City): Array<Neighbour?> = Array(4) { edge ->
         val n = neighbour(city.square, edge)
         val t = if (n < 0) null else towns[n]
-        if (t == null) null else Neighbour(t.borders[Border.facing(edge)], t.idle, t.vacant)
+        // What it has to spare, plus what this town already takes of it, since that's this town's to decide again.
+        val sq = city.square
+        if (t == null) null
+        else Neighbour(
+            t.borders[Border.facing(edge)],
+            t.idle + ledger.get(n, sq, Flow.COMMUTERS),
+            t.vacant + ledger.get(sq, n, Flow.COMMUTERS),
+            t.shopsShort + ledger.get(n, sq, Flow.SHOPPING),
+            t.shopsSpare + ledger.get(sq, n, Flow.SHOPPING),
+            IntArray(Good.COUNT) { g -> t.goodsSpare[g] + ledger.get(n, sq, Flow.goods(g)) },
+            IntArray(Good.COUNT) { g -> t.goodsShort[g] + ledger.get(sq, n, Flow.goods(g)) },
+        )
     }
 
     /** What [city]'s neighbours have along the edges they share with it, as they were left. */
@@ -138,11 +235,45 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
     /** The file a town on [square] of the region kept in [regionFile] is saved in. */
     fun townFile(regionFile: String, square: Int) = "$regionFile-$square"
 
-    /** Notes down [city], kept in [file], as it is now, for the region map and its neighbours. */
+    /**
+     * Notes down [city], kept in [file], as it is now, for the region map and
+     * its neighbours: what crosses each of its borders goes in the ledger, and
+     * each neighbour's spare is put right for what's changed.
+     */
     fun record(city: City, file: String) {
+        val sq = city.square
+        for (edge in 0 until 4) {
+            val n = neighbour(sq, edge)
+            val t = if (n < 0) null else towns[n]
+            if (t == null) continue
+            val out = city.edgeOut[edge]
+            val inn = city.edgeIn[edge]
+            t.vacant = (t.vacant + ledger.get(sq, n, Flow.COMMUTERS) - out).coerceAtLeast(0)
+            t.idle = (t.idle + ledger.get(n, sq, Flow.COMMUTERS) - inn).coerceAtLeast(0)
+            ledger.set(sq, n, Flow.COMMUTERS, out)
+            ledger.set(n, sq, Flow.COMMUTERS, inn)
+            // Shopping and goods the same way: what this town takes up comes off the neighbour's spare.
+            val shopOut = city.edgeShopOut[edge]
+            val shopIn = city.edgeShopIn[edge]
+            t.shopsSpare = (t.shopsSpare + ledger.get(sq, n, Flow.SHOPPING) - shopOut).coerceAtLeast(0)
+            t.shopsShort = (t.shopsShort + ledger.get(n, sq, Flow.SHOPPING) - shopIn).coerceAtLeast(0)
+            ledger.set(sq, n, Flow.SHOPPING, shopOut)
+            ledger.set(n, sq, Flow.SHOPPING, shopIn)
+            for (g in 0 until Good.COUNT) {
+                val gOut = city.edgeGoodsOut[edge][g]
+                val gIn = city.edgeGoodsIn[edge][g]
+                t.goodsShort[g] = (t.goodsShort[g] + ledger.get(sq, n, Flow.goods(g)) - gOut).coerceAtLeast(0)
+                t.goodsSpare[g] = (t.goodsSpare[g] + ledger.get(n, sq, Flow.goods(g)) - gIn).coerceAtLeast(0)
+                ledger.set(sq, n, Flow.goods(g), gOut)
+                ledger.set(n, sq, Flow.goods(g), gIn)
+            }
+        }
         towns[city.square] = RegionTown(
             city.name, file, city.year, city.month, city.stats.population,
             Array(4) { Border.of(city.map, it) }, look(city.map), city.stats.idle, city.stats.vacant,
+            city.stats.shopsShort, city.stats.shopsSpare,
+            IntArray(Good.COUNT) { (city.stats.goodsExported[it] - city.stats.toNeighbours[it]).coerceAtLeast(0) },
+            IntArray(Good.COUNT) { (city.stats.goodsImported[it] - city.stats.fromNeighbours[it]).coerceAtLeast(0) },
         )
     }
 
@@ -162,9 +293,14 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
             w.string(t.name); w.string(t.file); w.int(t.year); w.int(t.month); w.int(t.population)
             for (b in t.borders) b.writeTo(w)
             w.layer(t.picture)
-            // Since version 4: its workers and jobs to spare.
+            // Since version 4: its workers and jobs to spare; since 6, shops and goods.
             w.int(t.idle); w.int(t.vacant)
+            w.int(t.shopsShort); w.int(t.shopsSpare)
+            w.count(Good.COUNT)
+            for (g in 0 until Good.COUNT) { w.int(t.goodsSpare[g]); w.int(t.goodsShort[g]) }
         }
+        // Since version 5: the ledger.
+        ledger.writeTo(w)
         return w.bytes()
     }
 
@@ -174,7 +310,7 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
         val SIDES = listOf(64, 96, 128, 192, 256)
 
         private const val MAGIC = 0x494E5247 // "INRG"
-        private const val VERSION = 4
+        private const val VERSION = 6
 
         fun read(bytes: ByteArray): Region {
             val r = SaveReader(bytes)
@@ -197,8 +333,18 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
                     val picture = ByteArray(side * side).also { r.layer(it) }
                     val idle = if (version >= 4) r.int() else 0
                     val vacant = if (version >= 4) r.int() else 0
-                    region.towns[k] = RegionTown(townName, file, year, month, people, borders, picture, idle, vacant)
+                    val t = RegionTown(townName, file, year, month, people, borders, picture, idle, vacant)
+                    if (version >= 6) {
+                        t.shopsShort = r.int(); t.shopsSpare = r.int()
+                        repeat(r.count()) { g ->
+                            val spare = r.int()
+                            val short = r.int()
+                            if (g < Good.COUNT) { t.goodsSpare[g] = spare; t.goodsShort[g] = short }
+                        }
+                    }
+                    region.towns[k] = t
                 }
+                if (version >= 5) region.ledger.readFrom(r)
                 return region
             } catch (e: IndexOutOfBoundsException) {
                 throw SaveError("the file is cut short")

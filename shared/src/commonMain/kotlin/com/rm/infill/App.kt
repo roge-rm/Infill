@@ -319,6 +319,8 @@ private fun Screens(settings: Settings) {
                 regionFile = file
                 city.neighbourSpare = r.neighboursOf(city)
                 city.neighbours = city.neighbourSpare.map { it?.border }.toTypedArray()
+                // What its neighbours have agreed since it was last played counts from now.
+                city.meetNeighbours()
             }
         }
         game = GameState(city)
