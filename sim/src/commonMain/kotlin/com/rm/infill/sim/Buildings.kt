@@ -1,11 +1,35 @@
 package com.rm.infill.sim
 
-/** How dense a zone may build: each zoned tile has one, and it caps how far up the ladder its buildings go. */
+/**
+ * How dense a zone may build: each zoned tile has one, and it caps how far up
+ * the ladder its buildings go. Rural lots are big and grow only rural
+ * buildings; towers go above high. Compare them by [rank], since they're
+ * numbered in the order they came in.
+ */
 object Density {
     const val NONE: Byte = 0
     const val LOW: Byte = 1
     const val MEDIUM: Byte = 2
     const val HIGH: Byte = 3
+    const val TOWER: Byte = 4
+    const val RURAL: Byte = 5
+
+    /** Where [d] stands, least dense first: rural 0 to tower 4, and nothing below all of them. */
+    fun rank(d: Byte): Int = when (d) {
+        RURAL -> 0
+        LOW -> 1
+        MEDIUM -> 2
+        HIGH -> 3
+        TOWER -> 4
+        else -> -1
+    }
+
+    /** Whether zone [zone] can be zoned at [density]: rural for homes and shops, towers for homes, shops and offices. */
+    fun fits(zone: Byte, density: Byte): Boolean = when (density) {
+        RURAL -> zone == Zone.RESIDENTIAL || zone == Zone.COMMERCIAL
+        TOWER -> zone == Zone.RESIDENTIAL || zone == Zone.COMMERCIAL || zone == Zone.OFFICE
+        else -> true
+    }
 }
 
 /**
@@ -41,6 +65,13 @@ enum class BuildingType(
     TENEMENT(Zone.RESIDENTIAL, 5, 32, density = Density.MEDIUM, needs = 3, appeal = 70, value = 75, buildDays = 75),
     APARTMENTS(Zone.RESIDENTIAL, 6, 60, density = Density.HIGH, needs = 3, year = 1905, appeal = 72, value = 100, buildDays = 120),
     APARTMENT_COURT(Zone.RESIDENTIAL, 7, 260, width = 2, height = 2, density = Density.HIGH, needs = 3, year = 1915, appeal = 74, value = 120, buildDays = 200),
+    /** Towers: a block of flats from the 1930s, then a slender glass one from 2000. */
+    TOWER_BLOCK(Zone.RESIDENTIAL, 7, 600, width = 2, height = 2, density = Density.TOWER, needs = 3, year = 1930, appeal = 76, value = 150, buildDays = 300),
+    SLENDER_TOWER(Zone.RESIDENTIAL, 8, 900, width = 2, height = 2, density = Density.TOWER, needs = 3, year = 2000, appeal = 80, value = 170, buildDays = 360),
+    /** Rural: a farmstead, a country house from 1920, and a house on acreage from 1950, each on a big lot. */
+    FARMSTEAD(Zone.RESIDENTIAL, 1, 5, width = 2, height = 2, density = Density.RURAL, buildDays = 40),
+    COUNTRY_HOUSE(Zone.RESIDENTIAL, 2, 8, width = 2, height = 2, density = Density.RURAL, needs = 1, year = 1920, appeal = 45, buildDays = 60),
+    ACREAGE_HOME(Zone.RESIDENTIAL, 3, 10, width = 2, height = 2, density = Density.RURAL, needs = 1, year = 1950, appeal = 50, buildDays = 70),
 
     GENERAL_STORE(Zone.COMMERCIAL, 1, 3, density = Density.LOW, buildDays = 20),
     SHOP(Zone.COMMERCIAL, 2, 6, density = Density.LOW, needs = 1, appeal = 50, buildDays = 30),
@@ -49,6 +80,10 @@ enum class BuildingType(
     HOTEL(Zone.COMMERCIAL, 4, 16, density = Density.MEDIUM, needs = 3, appeal = 68, value = 80, buildDays = 90),
     OFFICE_BLOCK(Zone.COMMERCIAL, 5, 50, density = Density.HIGH, needs = 3, year = 1910, appeal = 70, value = 110, buildDays = 150),
     DEPARTMENT_STORE(Zone.COMMERCIAL, 6, 160, width = 2, height = 2, density = Density.HIGH, needs = 3, year = 1910, appeal = 72, value = 120, buildDays = 220),
+    HOTEL_TOWER(Zone.COMMERCIAL, 6, 300, width = 2, height = 2, density = Density.TOWER, needs = 3, year = 1960, appeal = 76, value = 150, buildDays = 300),
+    /** Rural shops: a crossroads store, and a roadhouse from 1930. */
+    CROSSROADS_STORE(Zone.COMMERCIAL, 1, 4, density = Density.RURAL, buildDays = 20),
+    ROADHOUSE(Zone.COMMERCIAL, 2, 10, width = 2, height = 1, density = Density.RURAL, needs = 1, year = 1930, appeal = 40, buildDays = 40),
 
     WORKSHOP(Zone.INDUSTRIAL, 1, 6, pollution = 4, density = Density.LOW, buildDays = 20),
     MILL(Zone.INDUSTRIAL, 2, 12, pollution = 10, density = Density.LOW, needs = 1, appeal = 55, buildDays = 40),
@@ -61,6 +96,9 @@ enum class BuildingType(
     OFFICE_BUILDING(Zone.OFFICE, 2, 30, density = Density.MEDIUM, needs = 2, year = 1905, appeal = 62, value = 80, buildDays = 80),
     OFFICE_TOWER(Zone.OFFICE, 3, 200, width = 2, height = 2, density = Density.HIGH, needs = 3, year = 1920, appeal = 70, value = 115, buildDays = 240),
     GLASS_TOWER(Zone.OFFICE, 4, 480, width = 2, height = 2, density = Density.HIGH, needs = 3, year = 1960, appeal = 74, value = 135, buildDays = 300),
+    /** Above high: a skyscraper with setbacks from the 1930s, and a supertall from 2000. */
+    SKYSCRAPER(Zone.OFFICE, 4, 800, width = 2, height = 2, density = Density.TOWER, needs = 3, year = 1930, appeal = 76, value = 150, buildDays = 360),
+    SUPERTALL(Zone.OFFICE, 5, 1400, width = 3, height = 3, density = Density.TOWER, needs = 3, year = 2000, appeal = 80, value = 180, buildDays = 480),
 
     /** On farmland, by what's under the lot: a mine on ore, a colliery on coal, a well on oil, a woodlot in the woods, otherwise a farm. */
     MINE(Zone.FARMLAND, 1, 20, width = 2, height = 2, pollution = 8, density = Density.LOW, buildDays = 90),
@@ -253,7 +291,7 @@ enum class BuildingType(
     val next: List<BuildingType> get() = rung(zone, stage + 1)
 
     /** The rung below, the first choice there, or null if this is the first. */
-    val previous: BuildingType? get() = rung(zone, stage - 1).firstOrNull()
+    val previous: BuildingType? get() = rung(zone, stage - 1).let { r -> r.firstOrNull { (it.density == Density.RURAL) == (density == Density.RURAL) } ?: r.firstOrNull() }
 
     /** Takes more than one lot. */
     val large get() = width > 1 || height > 1

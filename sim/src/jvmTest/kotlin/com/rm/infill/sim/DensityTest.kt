@@ -145,9 +145,9 @@ class DensityTest {
         val m = c.map
         c.apply(Action.PlaceZone(11, 11, 19, 17, Zone.COMMERCIAL, Density.HIGH))
         c.months(3)
-        val assemble = City::class.java.getDeclaredMethod("assemble", BuildingType::class.java, Int::class.java).apply { isAccessible = true }
+        val assemble = City::class.java.getDeclaredMethod("assemble", BuildingType::class.java, Int::class.java, Building::class.java).apply { isAccessible = true }
         val before = c.all().count { it.type.zone == Zone.COMMERCIAL && it.x in 11..12 && it.y in 11..12 }
-        assemble.invoke(c, BuildingType.DEPARTMENT_STORE, m.index(11, 11))
+        assemble.invoke(c, BuildingType.DEPARTMENT_STORE, m.index(11, 11), null)
         val store = c.buildingAt(11, 11)!!
         assertEquals(BuildingType.DEPARTMENT_STORE, store.type)
         for (y in 11..12) for (x in 11..12) assertEquals(store.id, m.building[m.index(x, y)], "lot $x, $y")

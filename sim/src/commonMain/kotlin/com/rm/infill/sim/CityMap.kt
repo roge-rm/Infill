@@ -98,6 +98,9 @@ class CityMap(val width: Int, val height: Int) {
     /** Where the town's carbon comes from, 0 to 255, worked out each month. */
     val carbon = ByteArray(size)
 
+    /** How upset the neighbours are by homes and businesses cleared nearby, 0 to 250, fading month by month. */
+    val upset = ByteArray(size)
+
     /** The planes' noise around each airport, 0 to 255, worked out each month. */
     val noise = ByteArray(size)
 
@@ -199,7 +202,8 @@ class CityMap(val width: Int, val height: Int) {
      * leaving the tile north 1, east 2, south 4 or west 8; back lanes along
      * its edges, the same four shifted up 4, since a tile where a lane along a
      * row meets one down a column has two; and what it's made of (bits 8 and
-     * 9: dirt, gravel or paved). Worked out each month.
+     * 9: dirt, gravel or paved). Bit 10: the way's as wide as a lane, for the
+     * deliveries to shops and works. Worked out each month.
      */
     val pathway = ShortArray(size)
 
@@ -214,7 +218,7 @@ class CityMap(val width: Int, val height: Int) {
     fun duct(i: Int): Boolean = phone[i].toInt() != 0 && (buried[i].toInt() and BURIED_PHONE) != 0
 
     /** The phone line on a tile, and when it went up, packed for undo. */
-    fun tileUtil(i: Int): Long = ((lowLaid[i].toLong() and 0xfff) shl 33) or ((portal[i].toLong() and 0x7) shl 30) or
+    fun tileUtil(i: Int): Long = (((density[i].toLong() shr 2) and 0x1) shl 45) or ((lowLaid[i].toLong() and 0xfff) shl 33) or ((portal[i].toLong() and 0x7) shl 30) or
         ((lowRail[i].toLong() and 0x1) shl 29) or ((lowHeading[i].toLong() and 0x7) shl 26) or ((lowRoad[i].toLong() and 0xf) shl 22) or
         ((bridge[i].toLong() and 0xff) shl 14) or ((phone[i].toLong() and 0x3) shl 12) or (phoneLaid[i].toLong() and 0xfff)
 
@@ -227,6 +231,8 @@ class CityMap(val width: Int, val height: Int) {
         lowRail[i] = ((v shr 29) and 0x1).toByte()
         portal[i] = ((v shr 30) and 0x7).toByte()
         lowLaid[i] = ((v shr 33) and 0xfff).toShort()
+        // Density's third bit, for tower and rural, which [tileState] has no room for.
+        density[i] = ((density[i].toInt() and 0x3) or (((v shr 45) and 0x1).toInt() shl 2)).toByte()
     }
 
     /** Which lines on a tile run underground: [BURIED_POWER], [BURIED_PHONE]. */

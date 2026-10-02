@@ -254,7 +254,7 @@ private fun DrawScope.zone(u: Float, c: Color) {
 /** Small drawings for the choices that have no sprite of their own, and for the map views. */
 enum class Glyph {
     Inspect, Bulldoze, Road, Rail, Drop, Zone, Bolt, Civic, Tram, Lights, District, Utilities,
-    Plus, Erase, List, Remove, Renew, Pipe, Bank, Tunnel, Route, Auto, Scrubber, Low, Medium, High,
+    Plus, Erase, List, Remove, Renew, Pipe, Bank, Tunnel, Route, Auto, Scrubber, Low, Medium, High, Rural, Tower,
     Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
     Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance, Sack, Glass, Hat,
     Person, Briefcase, Wrench, Calendar, Snow, Gavel, Tag, Check, Warn, Building, Cable, Phone, Mast,
@@ -369,6 +369,22 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
         Glyph.Low, Glyph.Medium, Glyph.High -> {
             val n = g.ordinal - Glyph.Low.ordinal + 1
             for (k in 0 until n) drawRect(c, Offset((4 + k * 6) * u, (20 - 5 - k * 5) * u), Size(4.5f * u, (5 + k * 5) * u))
+            line(2f, 20.5f, 22f, 20.5f, 1.4f * u)
+        }
+        Glyph.Rural -> {
+            // A low house with a roof, and a tree well off from it.
+            drawRect(c, Offset(3 * u, 14 * u), Size(7 * u, 6 * u))
+            val roof = Path().apply { moveTo(2 * u, 14.5f * u); lineTo(6.5f * u, 10 * u); lineTo(11 * u, 14.5f * u); close() }
+            drawPath(roof, c)
+            drawCircle(c, 3.5f * u, Offset(18 * u, 12 * u))
+            line(18f, 15f, 18f, 20f, 1.6f * u)
+            line(2f, 20.5f, 22f, 20.5f, 1.4f * u)
+        }
+        Glyph.Tower -> {
+            // The three blocks of high density beside a tower with a mast.
+            for (k in 0 until 3) drawRect(c, Offset((2 + k * 4.5f) * u, (17 - k * 4) * u), Size(3.5f * u, (3 + k * 4) * u))
+            drawRect(c, Offset(15.5f * u, 4 * u), Size(6 * u, 16 * u))
+            line(18.5f, 1f, 18.5f, 4f, 1.2f * u)
             line(2f, 20.5f, 22f, 20.5f, 1.4f * u)
         }
         Glyph.Smoke -> { cloud(12f, 10f); drawCircle(c, 2.4f * u, Offset(7 * u, 19 * u)); drawCircle(c, 1.6f * u, Offset(4 * u, 22 * u)) }

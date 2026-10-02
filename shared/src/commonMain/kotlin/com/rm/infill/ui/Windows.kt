@@ -926,7 +926,7 @@ fun DistrictsWindow(game: GameState, onClose: () -> Unit) {
                     }
                 }
                 Section(stringResource(Res.string.height_limit), Glyph.High) {
-                    Chips(listOf(Density.NONE, Density.LOW, Density.MEDIUM), d.height, {
+                    Chips(listOf(Density.NONE, Density.LOW, Density.MEDIUM, Density.HIGH), d.height, {
                         stringResource(if (it == Density.NONE) Res.string.height_none else densityName(it)!!)
                     }) { h -> set { it.height = h } }
                 }

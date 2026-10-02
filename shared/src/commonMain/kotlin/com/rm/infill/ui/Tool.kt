@@ -150,6 +150,8 @@ import com.rm.infill.sim.Density
 import com.rm.infill.res.density_low
 import com.rm.infill.res.density_medium
 import com.rm.infill.res.density_high
+import com.rm.infill.res.density_rural
+import com.rm.infill.res.density_tower
 import com.rm.infill.sim.Pipe
 import com.rm.infill.sim.Plan
 import com.rm.infill.sim.Port
@@ -481,9 +483,22 @@ fun roadsIn(city: City): List<RoadType> = RoadType.entries.filter { !it.ramp && 
 
 /** How dense a zone may build, in the order the picker shows them. */
 enum class DensityKind(val density: Byte, val title: StringResource) {
+    Rural(Density.RURAL, Res.string.density_rural),
     Low(Density.LOW, Res.string.density_low),
     Medium(Density.MEDIUM, Res.string.density_medium),
     High(Density.HIGH, Res.string.density_high),
+    Tower(Density.TOWER, Res.string.density_tower),
+}
+
+/** The densities [zone] may be given in [city]'s era; farms, woodlots and mines come in one size. */
+fun densitiesFor(zone: ZoneKind, city: City): List<DensityKind> =
+    if (zone == ZoneKind.Farmland) emptyList() else DensityKind.entries.filter { Density.fits(zone.zone, it.density) && city.allowsDensity(it.density) }
+
+/** This density, or the nearest one [zone] may be given in [city]'s era. */
+fun DensityKind.within(zone: ZoneKind, city: City): DensityKind = when {
+    this in densitiesFor(zone, city) -> this
+    this == DensityKind.Tower -> DensityKind.High
+    else -> DensityKind.Low
 }
 
 /** The kinds of zone, in the order the picker shows them. */

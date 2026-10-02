@@ -558,15 +558,18 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         // bottom edge. South and west are drawn by the tile beyond, unless that's the road the path meets.
         if (p != 0) {
             val colour = pathColour(p)
-            if (p and 1 != 0 || (p and 4 != 0 && roadAt(tx, ty + 1))) surface.fill(dx, dy, w, s, colour, PATH_ALPHA)
-            if (p and 2 != 0 || (p and 8 != 0 && roadAt(tx - 1, ty))) surface.fill(dx, dy + s - w, s, w, colour, PATH_ALPHA)
+            // A shop's or works' way is as wide as a lane, for the deliveries.
+            val pw = if (p and WIDE_WAY != 0) lane else w
+            val alpha = if (p and WIDE_WAY != 0) BACK_LANE_ALPHA else PATH_ALPHA
+            if (p and 1 != 0 || (p and 4 != 0 && roadAt(tx, ty + 1))) surface.fill(dx, dy, pw, s, colour, alpha)
+            if (p and 2 != 0 || (p and 8 != 0 && roadAt(tx - 1, ty))) surface.fill(dx, dy + s - pw, s, pw, colour, alpha)
             if (p and LANE_S != 0) surface.fill(dx, dy + s - lane, s, lane, colour, BACK_LANE_ALPHA)
             if (p and LANE_W != 0) surface.fill(dx, dy, lane, s, colour, BACK_LANE_ALPHA)
             // A path that comes onto a lane running along this tile's top or right side meets it at the bottom
             // left corner like any other, so it carries on up the left edge or along the bottom to reach it.
             if (p and 15 != 0) {
-                if (p and LANE_N != 0) surface.fill(dx, dy, w, s, colour, PATH_ALPHA)
-                if (p and LANE_E != 0) surface.fill(dx, dy + s - w, s, w, colour, PATH_ALPHA)
+                if (p and LANE_N != 0) surface.fill(dx, dy, pw, s, colour, alpha)
+                if (p and LANE_E != 0) surface.fill(dx, dy + s - pw, s, pw, colour, alpha)
             }
         }
         if (below and LANE_N != 0) surface.fill(dx, dy + s - lane, s, lane, pathColour(below), BACK_LANE_ALPHA)
@@ -581,7 +584,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         if (level >= 2) return
         fun at(x: Int, y: Int) = if (map.inside(x, y) && map.road[map.index(x, y)] == Road.NONE) map.pathway[map.index(x, y)].toInt() else 0
         fun colour(p: Int) = pathColour(p)
-        val verge = max(1, s * VERGE / 32)
+        val reach = vergeOf(map.road[map.index(tx, ty)])
+        if (reach == 0) return
+        val verge = max(1, s * reach / 32)
         val w = max(1, s * 4 / 32)
         val lane = max(2, s * 5 / 32)
         val n = at(tx, ty - 1)
@@ -589,10 +594,12 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         val we = at(tx - 1, ty)
         val ea = at(tx + 1, ty)
         // Paths: down the left edge from above or below, along the bottom from either side.
-        if (n and 4 != 0) surface.fill(dx, dy, w, verge, colour(n), PATH_ALPHA)
-        if (so and 1 != 0) surface.fill(dx, dy + s - verge, w, verge, colour(so), PATH_ALPHA)
-        if (we and 2 != 0) surface.fill(dx, dy + s - w, verge, w, colour(we), PATH_ALPHA)
-        if (ea and 8 != 0) surface.fill(dx + s - verge, dy + s - w, verge, w, colour(ea), PATH_ALPHA)
+        fun width(p: Int) = if (p and WIDE_WAY != 0) lane else w
+        fun alpha(p: Int) = if (p and WIDE_WAY != 0) BACK_LANE_ALPHA else PATH_ALPHA
+        if (n and 4 != 0) surface.fill(dx, dy, width(n), verge, colour(n), alpha(n))
+        if (so and 1 != 0) surface.fill(dx, dy + s - verge, width(so), verge, colour(so), alpha(so))
+        if (we and 2 != 0) surface.fill(dx, dy + s - width(we), verge, width(we), colour(we), alpha(we))
+        if (ea and 8 != 0) surface.fill(dx + s - verge, dy + s - width(ea), verge, width(ea), colour(ea), alpha(ea))
         // Lanes along a row reach in from the side; lanes down a column from above or below.
         fun rowLane(x: Int, y: Int): Int {
             val own = at(x, y)
@@ -610,6 +617,18 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         rowLane(tx + 1, ty).let { if (it != 0) surface.fill(dx + s - verge, dy + s - lane, verge, lane, colour(it), BACK_LANE_ALPHA) }
         columnLane(tx, ty - 1).let { if (it != 0) surface.fill(dx, dy, lane, verge, colour(it), BACK_LANE_ALPHA) }
         columnLane(tx, ty + 1).let { if (it != 0) surface.fill(dx, dy + s - verge, lane, verge, colour(it), BACK_LANE_ALPHA) }
+    }
+
+    /**
+     * How far in from a road tile's edge a path or lane may run, in 32nds: to
+     * where the sidewalk starts on a street, to the gravel or dirt on a
+     * country road, and not at all where the pavement meets the lot.
+     */
+    private fun vergeOf(road: Byte): Int = when (RoadType.of(road)) {
+        RoadType.DIRT, RoadType.GRAVEL -> ROAD_EDGE
+        RoadType.LANE -> LANE_EDGE
+        RoadType.STREET, RoadType.ONE_WAY_STREET -> STREET_EDGE
+        else -> 0
     }
 
     /** What a path or lane's made of, by [CityMap.pathway]: where two meet on a tile their marks add up, so the better wins. */
@@ -797,13 +816,17 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     /**
      * A zone is a wash of its colour dotted with it, so it reads as zoned on any
      * ground, with a line along the sides where the zone ends. Low density has
-     * sparse dots, high density big ones.
+     * sparse dots and rural sparser still, high density big ones and towers bigger still.
      */
     private fun zoneTint(surface: BakeSurface, zone: Byte, density: Byte, tx: Int, ty: Int, dx: Int, dy: Int, s: Int, level: Int) {
         val colour = ZONE_COLOURS[zone.toInt()]
         surface.fill(dx, dy, s, s, ZONE_WASHES[zone.toInt()], ZONE_WASH)
-        val spacing = (if (density == Density.LOW) ZONE_DOTS * 2 else ZONE_DOTS) shr level
-        val dot = max(1, (if (density == Density.HIGH) 4 else 2) shr level)
+        val spacing = when (density) {
+            Density.RURAL -> ZONE_DOTS * 3
+            Density.LOW -> ZONE_DOTS * 2
+            else -> ZONE_DOTS
+        } shr level
+        val dot = max(1, (if (density == Density.TOWER) 6 else if (density == Density.HIGH) 4 else 2) shr level)
         if (spacing >= 4) {
             for (row in 0 until s / spacing) for (col in 0 until s / spacing) {
                 val shift = if (row % 2 == 0) 0 else spacing / 2
@@ -960,6 +983,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         private const val LANE_S = 0x40
         private const val LANE_W = 0x80
 
+        /** A shop's or works' way to the road, as wide as a lane. */
+        private const val WIDE_WAY = 0x400
+
         /** The widest building, in tiles. */
         private val WIDEST = com.rm.infill.sim.BuildingType.entries.maxOf { it.width }
 
@@ -984,8 +1010,10 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         private const val RAMP_JOIN = 0x67645F
         private const val RAMP_JOIN_SNOW = 0xB4B6B8
 
-        /** How far in from a road tile's edge its pavement starts, in 32nds. */
-        private const val VERGE = 6
+        /** How far in from a road tile's edge each kind of road starts, in 32nds, as tools/gen_tiles.py draws them: a street's sidewalk, a country road, a lane. */
+        private const val STREET_EDGE = 4
+        private const val ROAD_EDGE = 7
+        private const val LANE_EDGE = 9
 
         private val PATH_COLOURS = intArrayOf(0xC4A672, 0xD2C8AE, 0xDAD6CC)
         private const val PATH_ALPHA = 230

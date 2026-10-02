@@ -361,11 +361,13 @@ private fun DrawScope.drawChoice(atlas: TileAtlas?, icon: ChoiceIcon, textColour
     }
 }
 
-/** One, two or three blocks for how dense a zone may build. */
+/** A house and a tree, one, two or three blocks, or a tower, for how dense a zone may build. */
 fun densityGlyph(d: DensityKind): Glyph = when (d) {
+    DensityKind.Rural -> Glyph.Rural
     DensityKind.Low -> Glyph.Low
     DensityKind.Medium -> Glyph.Medium
     DensityKind.High -> Glyph.High
+    DensityKind.Tower -> Glyph.Tower
 }
 
 // What each tool offers, as tiles.
@@ -586,8 +588,9 @@ fun bulldozeChoices(): List<Choice<BulldozeKind>> = BulldozeKind.entries.map { k
     Choice(k, stringResource(k.title), ChoiceIcon(glyph = when (k) { BulldozeKind.Renew -> Glyph.Renew; BulldozeKind.Tunnel -> Glyph.Tunnel; else -> Glyph.Bulldoze }))
 }
 
+/** The kinds of zone, each priced at [density] or the nearest it may be given; rural land is cheaper to zone. */
 @Composable
-fun zoneChoices(): List<Choice<ZoneKind>> = ZoneKind.entries.map { k ->
+fun zoneChoices(city: City, density: DensityKind): List<Choice<ZoneKind>> = ZoneKind.entries.map { k ->
     val sample = when (k) {
         ZoneKind.Residential -> BuildingType.HOUSE
         ZoneKind.Commercial -> BuildingType.SHOP
@@ -595,7 +598,8 @@ fun zoneChoices(): List<Choice<ZoneKind>> = ZoneKind.entries.map { k ->
         ZoneKind.Office -> BuildingType.OFFICES
         ZoneKind.Farmland -> BuildingType.FARM
     }
-    Choice(k, stringResource(k.title), ChoiceIcon(intArrayOf(BuildingSprites.sprite(sample.ordinal, 0)), back = zoneColour(k.zone)), perTile(Prices.ZONE))
+    Choice(k, stringResource(k.title), ChoiceIcon(intArrayOf(BuildingSprites.sprite(sample.ordinal, 0)), back = zoneColour(k.zone)),
+        perTile(if (density.within(k, city) == DensityKind.Rural) Prices.ZONE_RURAL else Prices.ZONE))
 }
 
 /** The map views by what they're about, each a tab. */

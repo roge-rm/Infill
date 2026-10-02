@@ -24,7 +24,11 @@ class GameState(val city: City) {
 
     fun apply(action: Action): Plan {
         val plan = city.apply(action)
-        if (plan.ok) changedBy(plan)
+        if (plan.ok) {
+            // Tiles it changed beyond its own, such as the paths to what it cleared.
+            city.takeTownChanges { changed += it }
+            changedBy(plan)
+        }
         return plan
     }
 
@@ -39,6 +43,9 @@ class GameState(val city: City) {
         for (i in plan.changes) changed += i
         revision++
     }
+
+    /** Events an action raised, such as people forced out by a clearing, told at once rather than with the next day's. */
+    fun takeEvents(onEvent: (CityEvent) -> Unit) = city.takeEvents(onEvent)
 
     /** Moves the town on [days] days, then lets the screen know once. Events it raises go to [onEvent]. */
     fun tick(days: Int, onEvent: (CityEvent) -> Unit = {}) {

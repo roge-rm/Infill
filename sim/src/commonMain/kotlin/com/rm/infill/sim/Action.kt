@@ -202,6 +202,7 @@ object Prices {
     const val TOLL_BOOTH = 300L
     const val CLEAR_TREES = 5L
     const val ZONE = 5L
+    const val ZONE_RURAL = 2L
     const val REMOVE_ROAD = 2L
     const val POWER_LINE = 5L
     const val REMOVE_LINE = 1L

@@ -87,6 +87,16 @@
     <string name="blocked">There’s something in the way</string>
 
     <string name="building_cottage">Cottage</string>
+    <string name="building_tower_block">Tower block</string>
+    <string name="building_slender_tower">Slender tower</string>
+    <string name="building_farmstead">Farmstead</string>
+    <string name="building_country_house">Country house</string>
+    <string name="building_acreage_home">Acreage home</string>
+    <string name="building_hotel_tower">Hotel tower</string>
+    <string name="building_crossroads_store">Crossroads store</string>
+    <string name="building_roadhouse">Roadhouse</string>
+    <string name="building_skyscraper">Skyscraper</string>
+    <string name="building_supertall">Supertall</string>
     <string name="building_house">House</string>
     <string name="building_large_house">Large house</string>
     <string name="building_tenement">Tenement</string>
@@ -171,6 +181,8 @@
     <string name="density_low">Low density</string>
     <string name="density_medium">Medium density</string>
     <string name="density_high">High density</string>
+    <string name="density_rural">Rural</string>
+    <string name="density_tower">Towers</string>
     <string name="building_row_houses">Row houses</string>
     <string name="building_apartments">Apartments</string>
     <string name="building_apartment_court">Apartment court</string>
@@ -382,6 +394,10 @@
     <string name="event_lost">Burned down: %1$s</string>
     <string name="event_saved">Fire put out: %1$s</string>
     <string name="event_fire_damage">Fire damage: %1$s</string>
+    <string name="event_forced_out">%1$s people had nowhere to go and left town</string>
+    <string name="event_jobs_lost">%1$s jobs lost</string>
+    <string name="pill_nonconforming">Doesn't fit the zoning</string>
+    <string name="pill_upset">Neighbours upset by clearing</string>
 
     <string name="level_none">none</string>
     <string name="level_low">low</string>

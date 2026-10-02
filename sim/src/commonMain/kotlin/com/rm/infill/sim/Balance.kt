@@ -497,6 +497,41 @@ object Balance {
     /** In a district with cool or green roofs, homes need this much less air conditioning. */
     const val COOL_ROOF_POWER = 15
 
+    /** Towers need a ladder company this close, in the ladder cover's terms. */
+    const val TOWER_LADDER = 60
+
+    /**
+     * A building the zoning no longer allows stays until it's this many years
+     * old, then comes down at one chance in [NONCONFORMING_ODDS] a month.
+     */
+    const val NONCONFORMING_YEARS = 30
+    const val NONCONFORMING_ODDS = 120
+
+    /** What clearing a building pays its owners for each place in it, at middling land value: homes, shops and offices, works and farms. */
+    const val WORTH_HOME = 60
+    const val WORTH_SHOP = 80
+    const val WORTH_WORKS = 50
+
+    /** An empty home is worth this share, in percent; a heritage building twice as much. */
+    const val WORTH_EMPTY = 25
+    const val HERITAGE_WORTH = 2
+
+    /**
+     * Neighbours upset by a clearing: as far as [UPSET_REACH], or
+     * [HERITAGE_UPSET_REACH] for heritage outside a district. [UPSET] at once,
+     * [UPSET_MORE] for each clearing after, fading [UPSET_FADE] a month; a
+     * home loses a point of appeal for each [UPSET_APPEAL].
+     */
+    const val UPSET_REACH = 4
+    const val HERITAGE_UPSET_REACH = 12
+    const val UPSET = 100
+    const val UPSET_MORE = 20
+    const val UPSET_FADE = 5
+    const val UPSET_APPEAL = 8
+
+    /** People forced out of town put off settlers, by up to this share in percent, fading a twelfth a month. */
+    const val DISPLACED_MOST = 50
+
     /** Jets from this year at the big airports. */
     const val JET_YEAR = 1960
 

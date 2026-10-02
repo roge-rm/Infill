@@ -93,6 +93,8 @@ import com.rm.infill.res.new_district
 import com.rm.infill.res.erase_district
 import com.rm.infill.res.districts
 import com.rm.infill.res.event_fire_damage
+import com.rm.infill.res.event_forced_out
+import com.rm.infill.res.event_jobs_lost
 import com.rm.infill.res.event_smog
 import com.rm.infill.res.event_dump_full
 import com.rm.infill.res.event_gale
@@ -170,6 +172,7 @@ import com.rm.infill.map.Sky
 import com.rm.infill.map.rememberTileAtlas
 import kotlinx.coroutines.delay
 import com.rm.infill.sim.City
+import com.rm.infill.sim.CityEvent
 import com.rm.infill.ui.CityPanel
 import com.rm.infill.ui.KeyAction
 import com.rm.infill.ui.KeyInput
@@ -186,6 +189,8 @@ import com.rm.infill.ui.Glyph
 import com.rm.infill.ui.Legend
 import com.rm.infill.ui.TrayToggle
 import com.rm.infill.ui.densityGlyph
+import com.rm.infill.ui.densitiesFor
+import com.rm.infill.ui.within
 import com.rm.infill.ui.zoneChoices
 import com.rm.infill.ui.roadChoices
 import com.rm.infill.ui.railChoices
@@ -449,6 +454,47 @@ private fun GameScreen(
         val skyTint = remember(lightStep, month) { Sky.tint(lightStep / LIGHT_STEPS_PER_HOUR, month) }
         val tint = remember(skyTint, weather) { weatherTint(skyTint, weather) }
 
+        /** Tells of what's happened: a message, or a new era, which stops the clock. */
+        fun showEvent(e: CityEvent) {
+            if (e.kind == EventKind.EraArrived) {
+                // A new era stops the clock and says what it brings.
+                eraShown = e.era
+                paused = true
+                return
+            }
+            message = when (e.kind) {
+                EventKind.FireStarted -> Message(Res.string.event_fire, e.type?.let { buildingName(it) }, e.x, e.y)
+                EventKind.BuildingLost -> Message(Res.string.event_lost, e.type?.let { buildingName(it) }, e.x, e.y)
+                EventKind.FireSaved -> Message(Res.string.event_saved, e.type?.let { buildingName(it) }, e.x, e.y)
+                EventKind.FireDamaged -> Message(Res.string.event_fire_damage, e.type?.let { buildingName(it) }, e.x, e.y)
+                EventKind.ForcedOut -> Message(Res.string.event_forced_out, x = e.x, y = e.y, name = e.count.toString())
+                EventKind.JobsLost -> Message(Res.string.event_jobs_lost, x = e.x, y = e.y, name = e.count.toString())
+                EventKind.Flooding -> Message(Res.string.event_flooding, x = e.x, y = e.y)
+                EventKind.RiverFlood -> Message(Res.string.event_river_flood, x = e.x, y = e.y)
+                EventKind.Sickness -> Message(Res.string.event_sickness, x = e.x, y = e.y)
+                EventKind.MainBurst -> Message(Res.string.event_main_burst, x = e.x, y = e.y)
+                EventKind.SewerCollapsed -> Message(Res.string.event_sewer_collapsed, x = e.x, y = e.y)
+                EventKind.TrackBroken -> Message(Res.string.event_track_broken, x = e.x, y = e.y)
+                EventKind.BrokeDown -> Message(Res.string.event_broke_down, e.type?.let { buildingName(it) }, e.x, e.y)
+                EventKind.TramTrackBroken -> Message(Res.string.event_tram_track_broken, x = e.x, y = e.y)
+                EventKind.WireDown -> Message(Res.string.event_wire_down, x = e.x, y = e.y)
+                EventKind.TunnelShut -> Message(Res.string.event_tunnel_shut, x = e.x, y = e.y)
+                EventKind.TunnelFlooded -> Message(Res.string.event_tunnel_flooded, x = e.x, y = e.y)
+                EventKind.BridgeShut -> Message(Res.string.event_bridge_shut, x = e.x, y = e.y)
+                EventKind.Smog -> Message(Res.string.event_smog)
+                EventKind.DumpFull -> Message(Res.string.event_dump_full, x = e.x, y = e.y)
+                EventKind.Gale -> Message(Res.string.event_gale, x = e.x, y = e.y)
+                EventKind.Blizzard -> Message(Res.string.event_blizzard)
+                EventKind.HeatWave -> Message(Res.string.event_heat_wave)
+                EventKind.IndustrialAccident -> Message(Res.string.event_industrial_accident, e.type?.let { buildingName(it) }, e.x, e.y)
+                EventKind.NuclearAccident -> Message(Res.string.event_nuclear_accident, x = e.x, y = e.y)
+                EventKind.Earthquake -> Message(Res.string.event_earthquake, x = e.x, y = e.y)
+                EventKind.Epidemic -> Message(Res.string.event_epidemic)
+                EventKind.EpidemicOver -> Message(Res.string.event_epidemic_over)
+                EventKind.EraArrived -> null
+            }
+        }
+
         // Time runs at the chosen speed while the game isn't paused, a few days a frame at most.
         LaunchedEffect(paused, speed) {
             if (paused) return@LaunchedEffect
@@ -462,43 +508,7 @@ private fun GameScreen(
                 progress = if (progress.toInt() > MAX_DAYS_PER_FRAME) 0f else progress - days
                 dayProgress = progress
                 val monthBefore = city.month
-                game.tick(days) { e ->
-                    if (e.kind == EventKind.EraArrived) {
-                        // A new era stops the clock and says what it brings.
-                        eraShown = e.era
-                        paused = true
-                        return@tick
-                    }
-                    message = when (e.kind) {
-                        EventKind.FireStarted -> Message(Res.string.event_fire, e.type?.let { buildingName(it) }, e.x, e.y)
-                        EventKind.BuildingLost -> Message(Res.string.event_lost, e.type?.let { buildingName(it) }, e.x, e.y)
-                        EventKind.FireSaved -> Message(Res.string.event_saved, e.type?.let { buildingName(it) }, e.x, e.y)
-                        EventKind.FireDamaged -> Message(Res.string.event_fire_damage, e.type?.let { buildingName(it) }, e.x, e.y)
-                        EventKind.Flooding -> Message(Res.string.event_flooding, x = e.x, y = e.y)
-                        EventKind.RiverFlood -> Message(Res.string.event_river_flood, x = e.x, y = e.y)
-                        EventKind.Sickness -> Message(Res.string.event_sickness, x = e.x, y = e.y)
-                        EventKind.MainBurst -> Message(Res.string.event_main_burst, x = e.x, y = e.y)
-                        EventKind.SewerCollapsed -> Message(Res.string.event_sewer_collapsed, x = e.x, y = e.y)
-                        EventKind.TrackBroken -> Message(Res.string.event_track_broken, x = e.x, y = e.y)
-                        EventKind.BrokeDown -> Message(Res.string.event_broke_down, e.type?.let { buildingName(it) }, e.x, e.y)
-                        EventKind.TramTrackBroken -> Message(Res.string.event_tram_track_broken, x = e.x, y = e.y)
-                        EventKind.WireDown -> Message(Res.string.event_wire_down, x = e.x, y = e.y)
-                        EventKind.TunnelShut -> Message(Res.string.event_tunnel_shut, x = e.x, y = e.y)
-                        EventKind.TunnelFlooded -> Message(Res.string.event_tunnel_flooded, x = e.x, y = e.y)
-                        EventKind.BridgeShut -> Message(Res.string.event_bridge_shut, x = e.x, y = e.y)
-                        EventKind.Smog -> Message(Res.string.event_smog)
-                        EventKind.DumpFull -> Message(Res.string.event_dump_full, x = e.x, y = e.y)
-                        EventKind.Gale -> Message(Res.string.event_gale, x = e.x, y = e.y)
-                        EventKind.Blizzard -> Message(Res.string.event_blizzard)
-                        EventKind.HeatWave -> Message(Res.string.event_heat_wave)
-                        EventKind.IndustrialAccident -> Message(Res.string.event_industrial_accident, e.type?.let { buildingName(it) }, e.x, e.y)
-                        EventKind.NuclearAccident -> Message(Res.string.event_nuclear_accident, x = e.x, y = e.y)
-                        EventKind.Earthquake -> Message(Res.string.event_earthquake, x = e.x, y = e.y)
-                        EventKind.Epidemic -> Message(Res.string.event_epidemic)
-                        EventKind.EpidemicOver -> Message(Res.string.event_epidemic_over)
-                        EventKind.EraArrived -> null
-                    }
-                }
+                game.tick(days, ::showEvent)
                 if (city.month != monthBefore) onNewMonth()
             }
         }
@@ -513,7 +523,7 @@ private fun GameScreen(
         // What the drag would do, worked out again as it moves.
         val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, phoneKind, portKind, bridgeKind, tunnelling, airKind, game.revision) {
             drag?.let { d ->
-                d.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
+                d.action(tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
             }
         }
         val costText = preview?.let {
@@ -635,11 +645,13 @@ private fun GameScreen(
                     val kind = if (transitKind.line == 2) Stop.TRAM else Stop.BUS
                     if (city.map.stop[i].toInt() and kind != 0 && lineDraft.lastOrNull() != i) lineDraft = lineDraft + i
                 }
-                val action = d?.action(tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind)
+                val action = d?.action(tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind)
                 if (action != null) {
                     val made = action is Action.PaintDistrict && action.id == NEW_DISTRICT
                     val plan = game.apply(action)
                     tell(plan.problem)
+                    // What it did, such as people forced out by a clearing, is told at once.
+                    game.takeEvents(::showEvent)
                     // Out of the way once something's built, to see it.
                     if (plan.ok) trayFolded = true
                     // Once made, go on painting into the new district.
@@ -770,8 +782,9 @@ private fun GameScreen(
                     if (m.x >= 0) ({ camera.centreOn(m.x, m.y) }) else null,
                     Modifier
                         .align(Alignment.TopCenter)
-                        .windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-                        .padding(top = gap + MESSAGE_DROP.dp),
+                        // Just under the strip, however many lines it takes.
+                        .padding(top = with(LocalDensity.current) { stripSize.height.toDp() })
+                        .windowInsetsPadding(safe.only(WindowInsetsSides.Horizontal)),
                 )
             }
             if (sideTools) {
@@ -796,7 +809,10 @@ private fun GameScreen(
                 inspected?.let { (x, y) ->
                     InspectPanel(
                         game, x, y, onClose = { inspected = null },
-                        onAction = { action -> tell(game.apply(action).problem) },
+                        onAction = { action ->
+                            tell(game.apply(action).problem)
+                            game.takeEvents(::showEvent)
+                        },
                         onLines = { linesOpen = true },
                         maxHeight = screenHeight * INSPECT_SHARE,
                         modifier = Modifier.widthIn(max = TRAY_WIDTH.dp).fillMaxWidth(),
@@ -846,10 +862,10 @@ private fun GameScreen(
                     }
                     when (tool) {
                         Tool.Inspect -> {}
-                        Tool.Zone -> ChoiceTray(atlas, zoneChoices(), zoneKind, { zoneKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab) {
-                            // Farms, woodlots and mines come in one size.
-                            if (zoneKind != ZoneKind.Farmland) for (d in DensityKind.entries) {
-                                TrayToggle(densityGlyph(d), stringResource(d.title), d == densityKind) { densityKind = d }
+                        Tool.Zone -> ChoiceTray(atlas, zoneChoices(city, densityKind), zoneKind, { zoneKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab) {
+                            val chosen = densityKind.within(zoneKind, city)
+                            for (d in densitiesFor(zoneKind, city)) {
+                                TrayToggle(densityGlyph(d), stringResource(d.title), d == chosen) { densityKind = d }
                             }
                         }
                         Tool.Districts -> {
@@ -988,9 +1004,8 @@ private const val SECONDS_PER_MONTH = 600.0
 private val SPEEDS = doubleArrayOf(0.5, 1.0, 4.0)
 private const val MAX_DAYS_PER_FRAME = 4
 
-/** How long a message stays, and how far below the top bar it sits. */
+/** How long a message stays. */
 private const val MESSAGE_MS = 2500L
-private const val MESSAGE_DROP = 56
 
 /** How often the light changes: this many times an hour of the game's day. */
 private const val LIGHT_STEPS_PER_HOUR = 8f

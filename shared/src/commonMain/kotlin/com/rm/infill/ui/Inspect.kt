@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.rm.infill.res.pill_nonconforming
+import com.rm.infill.res.pill_upset
 import com.rm.infill.res.need_internet
 import com.rm.infill.res.need_phone
 import com.rm.infill.res.need_water
@@ -222,6 +224,9 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     }
     if (b.scrubbed) pills += PillItem(Glyph.Scrubber, stringResource(Res.string.inspect_scrubbed), Tone.Good)
     if (city.isHeritage(b)) pills += PillItem(Glyph.Star, stringResource(Res.string.heritage), Tone.Good)
+    // Rezoned under it: it comes down once it's old.
+    if (t.zone != Zone.NONE && !city.conforms(b)) pills += PillItem(Glyph.Zone, stringResource(Res.string.pill_nonconforming), Tone.Warn)
+    if (h != null && (map.upset[i].toInt() and 0xff) >= UPSET_SHOWN) pills += PillItem(Glyph.Person, stringResource(Res.string.pill_upset), Tone.Warn)
 
     // Who lives there.
     if (h != null && !h.empty) {
@@ -645,3 +650,6 @@ internal fun yearOf(month: Int): Int = 1900 + month / 12
 
 /** How much a tile has to remember of a flood for inspect to mention it. */
 internal const val FLOODED_BEFORE = 32
+
+/** Neighbours this upset by clearing nearby are told of in inspect. */
+private const val UPSET_SHOWN = 20

@@ -108,6 +108,16 @@ import com.rm.infill.res.inspect_coal_seam
 import com.rm.infill.res.Res
 import com.rm.infill.res.building_bank
 import com.rm.infill.res.building_cottage
+import com.rm.infill.res.building_tower_block
+import com.rm.infill.res.building_slender_tower
+import com.rm.infill.res.building_farmstead
+import com.rm.infill.res.building_country_house
+import com.rm.infill.res.building_acreage_home
+import com.rm.infill.res.building_hotel_tower
+import com.rm.infill.res.building_crossroads_store
+import com.rm.infill.res.building_roadhouse
+import com.rm.infill.res.building_skyscraper
+import com.rm.infill.res.building_supertall
 import com.rm.infill.res.building_factory
 import com.rm.infill.res.building_general_store
 import com.rm.infill.res.building_hotel
@@ -220,6 +230,8 @@ import com.rm.infill.sim.Density
 import com.rm.infill.res.density_low
 import com.rm.infill.res.density_medium
 import com.rm.infill.res.density_high
+import com.rm.infill.res.density_rural
+import com.rm.infill.res.density_tower
 import com.rm.infill.res.going_up
 import com.rm.infill.res.building_row_houses
 import com.rm.infill.res.building_apartments
@@ -284,6 +296,16 @@ import org.jetbrains.compose.resources.stringResource
 
 fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.COTTAGE -> Res.string.building_cottage
+    BuildingType.TOWER_BLOCK -> Res.string.building_tower_block
+    BuildingType.SLENDER_TOWER -> Res.string.building_slender_tower
+    BuildingType.FARMSTEAD -> Res.string.building_farmstead
+    BuildingType.COUNTRY_HOUSE -> Res.string.building_country_house
+    BuildingType.ACREAGE_HOME -> Res.string.building_acreage_home
+    BuildingType.HOTEL_TOWER -> Res.string.building_hotel_tower
+    BuildingType.CROSSROADS_STORE -> Res.string.building_crossroads_store
+    BuildingType.ROADHOUSE -> Res.string.building_roadhouse
+    BuildingType.SKYSCRAPER -> Res.string.building_skyscraper
+    BuildingType.SUPERTALL -> Res.string.building_supertall
     BuildingType.HOUSE -> Res.string.building_house
     BuildingType.LARGE_HOUSE -> Res.string.building_large_house
     BuildingType.TENEMENT -> Res.string.building_tenement
@@ -383,6 +405,8 @@ fun densityName(density: Byte): StringResource? = when (density) {
     Density.LOW -> Res.string.density_low
     Density.MEDIUM -> Res.string.density_medium
     Density.HIGH -> Res.string.density_high
+    Density.TOWER -> Res.string.density_tower
+    Density.RURAL -> Res.string.density_rural
     else -> null
 }
 
