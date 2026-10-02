@@ -14,14 +14,22 @@ class Border(val length: Int) {
     val sewer = ByteArray(length)
     val phone = ByteArray(length)
 
+    /** What drifts over: the pollution and noise along the edge, and how foul the water there is. */
+    val pollution = ByteArray(length)
+    val noise = ByteArray(length)
+    val foul = ByteArray(length)
+
     private val layers get() = arrayOf(terrain, road, rail, power, water, sewer, phone)
 
     internal fun writeTo(w: SaveWriter) {
         for (l in layers) w.layer(l)
+        for (l in arrayOf(pollution, noise, foul)) w.layer(l)
     }
 
-    internal fun readFrom(r: SaveReader) {
+    /** Read from a region file of [version]: what drifts over since version 7. */
+    internal fun readFrom(r: SaveReader, version: Int) {
         for (l in layers) r.layer(l)
+        if (version >= 7) for (l in arrayOf(pollution, noise, foul)) r.layer(l)
     }
 
     companion object {
@@ -55,6 +63,9 @@ class Border(val length: Int) {
                 b.water[k] = map.waterPipe[i]
                 b.sewer[k] = map.sewerPipe[i]
                 b.phone[k] = map.phone[i]
+                b.pollution[k] = map.pollution[i]
+                b.noise[k] = map.noise[i]
+                b.foul[k] = map.foul[i]
             }
             return b
         }
@@ -85,6 +96,18 @@ class RegionTown(
     var shopsSpare: Int = 0,
     val goodsSpare: IntArray = IntArray(Good.COUNT),
     val goodsShort: IntArray = IntArray(Good.COUNT),
+    /**
+     * Power in kilowatts and water in people's worth it has spare or is short
+     * of, the room in its dumps and the garbage it can't take away, in tonnes,
+     * and its smog.
+     */
+    var powerSpare: Int = 0,
+    var powerShort: Int = 0,
+    var waterSpare: Int = 0,
+    var waterShort: Int = 0,
+    var dumpRoom: Int = 0,
+    var garbageShort: Int = 0,
+    var smog: Int = 0,
 )
 
 /**
@@ -100,6 +123,13 @@ class Neighbour(
     val shopsSpare: Int = 0,
     val goodsSpare: IntArray = IntArray(Good.COUNT),
     val goodsShort: IntArray = IntArray(Good.COUNT),
+    val powerSpare: Int = 0,
+    val powerShort: Int = 0,
+    val waterSpare: Int = 0,
+    val waterShort: Int = 0,
+    val dumpRoom: Int = 0,
+    val garbageShort: Int = 0,
+    val smog: Int = 0,
 )
 
 /** What crosses between two towns in a region, kept in its [Ledger]. */
@@ -109,6 +139,11 @@ enum class Flow {
 
     /** Shop jobs' worth of the first town's spending in the second's shops. */
     SHOPPING,
+
+    /** Kilowatts at the peak from the first town's stations to the second, water for so many people, and tonnes of garbage. */
+    POWER,
+    WATER,
+    GARBAGE,
     ;
 
     companion object {
@@ -155,12 +190,15 @@ class Ledger {
     internal fun readFrom(r: SaveReader) {
         val entries = r.count()
         val n = r.count()
+        // An older ledger had fewer flows before its goods: commuters alone, then commuters and shopping.
+        val flows = if (n <= 1) n else n - Good.COUNT
         repeat(entries) {
             val k = r.int()
             val a = IntArray(Flow.KINDS)
             for (f in 0 until n) {
                 val v = r.int()
-                if (f < a.size) a[f] = v
+                val kind = if (f < flows) f else Flow.goods(f - flows)
+                if (kind < a.size) a[kind] = v
             }
             amounts[k] = a
         }
@@ -226,6 +264,13 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
             t.shopsSpare + ledger.get(sq, n, Flow.SHOPPING),
             IntArray(Good.COUNT) { g -> t.goodsSpare[g] + ledger.get(n, sq, Flow.goods(g)) },
             IntArray(Good.COUNT) { g -> t.goodsShort[g] + ledger.get(sq, n, Flow.goods(g)) },
+            t.powerSpare + ledger.get(n, sq, Flow.POWER),
+            t.powerShort + ledger.get(sq, n, Flow.POWER),
+            t.waterSpare + ledger.get(n, sq, Flow.WATER),
+            t.waterShort + ledger.get(sq, n, Flow.WATER),
+            t.dumpRoom + ledger.get(sq, n, Flow.GARBAGE),
+            t.garbageShort + ledger.get(n, sq, Flow.GARBAGE),
+            t.smog,
         )
     }
 
@@ -267,6 +312,25 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
                 ledger.set(sq, n, Flow.goods(g), gOut)
                 ledger.set(n, sq, Flow.goods(g), gIn)
             }
+            // Power and water sold one way or the other, and garbage sent to the other's dumps.
+            val pOut = city.edgePowerOut[edge]
+            val pIn = city.edgePowerIn[edge]
+            t.powerShort = (t.powerShort + ledger.get(sq, n, Flow.POWER) - pOut).coerceAtLeast(0)
+            t.powerSpare = (t.powerSpare + ledger.get(n, sq, Flow.POWER) - pIn).coerceAtLeast(0)
+            ledger.set(sq, n, Flow.POWER, pOut)
+            ledger.set(n, sq, Flow.POWER, pIn)
+            val wOut = city.edgeWaterOut[edge]
+            val wIn = city.edgeWaterIn[edge]
+            t.waterShort = (t.waterShort + ledger.get(sq, n, Flow.WATER) - wOut).coerceAtLeast(0)
+            t.waterSpare = (t.waterSpare + ledger.get(n, sq, Flow.WATER) - wIn).coerceAtLeast(0)
+            ledger.set(sq, n, Flow.WATER, wOut)
+            ledger.set(n, sq, Flow.WATER, wIn)
+            val gaOut = city.edgeGarbageOut[edge]
+            val gaIn = city.edgeGarbageIn[edge]
+            t.dumpRoom = (t.dumpRoom + ledger.get(sq, n, Flow.GARBAGE) - gaOut).coerceAtLeast(0)
+            t.garbageShort = (t.garbageShort + ledger.get(n, sq, Flow.GARBAGE) - gaIn).coerceAtLeast(0)
+            ledger.set(sq, n, Flow.GARBAGE, gaOut)
+            ledger.set(n, sq, Flow.GARBAGE, gaIn)
         }
         towns[city.square] = RegionTown(
             city.name, file, city.year, city.month, city.stats.population,
@@ -274,6 +338,7 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
             city.stats.shopsShort, city.stats.shopsSpare,
             IntArray(Good.COUNT) { (city.stats.goodsExported[it] - city.stats.toNeighbours[it]).coerceAtLeast(0) },
             IntArray(Good.COUNT) { (city.stats.goodsImported[it] - city.stats.fromNeighbours[it]).coerceAtLeast(0) },
+            city.spare.power, city.short.power, city.spare.water, city.short.water, city.spare.garbage, city.short.garbage, city.stats.smog,
         )
     }
 
@@ -298,6 +363,8 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
             w.int(t.shopsShort); w.int(t.shopsSpare)
             w.count(Good.COUNT)
             for (g in 0 until Good.COUNT) { w.int(t.goodsSpare[g]); w.int(t.goodsShort[g]) }
+            // Since version 7: power, water, dumps and smog.
+            for (v in intArrayOf(t.powerSpare, t.powerShort, t.waterSpare, t.waterShort, t.dumpRoom, t.garbageShort, t.smog)) w.int(v)
         }
         // Since version 5: the ledger.
         ledger.writeTo(w)
@@ -310,7 +377,7 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
         val SIDES = listOf(64, 96, 128, 192, 256)
 
         private const val MAGIC = 0x494E5247 // "INRG"
-        private const val VERSION = 6
+        private const val VERSION = 7
 
         fun read(bytes: ByteArray): Region {
             val r = SaveReader(bytes)
@@ -329,7 +396,7 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
                 for (k in region.towns.indices) {
                     if (!r.bool()) continue
                     val townName = r.string(); val file = r.string(); val year = r.int(); val month = r.int(); val people = r.int()
-                    val borders = Array(4) { Border(side).also { b -> b.readFrom(r) } }
+                    val borders = Array(4) { Border(side).also { b -> b.readFrom(r, version) } }
                     val picture = ByteArray(side * side).also { r.layer(it) }
                     val idle = if (version >= 4) r.int() else 0
                     val vacant = if (version >= 4) r.int() else 0
@@ -341,6 +408,10 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
                             val short = r.int()
                             if (g < Good.COUNT) { t.goodsSpare[g] = spare; t.goodsShort[g] = short }
                         }
+                    }
+                    if (version >= 7) {
+                        t.powerSpare = r.int(); t.powerShort = r.int(); t.waterSpare = r.int(); t.waterShort = r.int()
+                        t.dumpRoom = r.int(); t.garbageShort = r.int(); t.smog = r.int()
                     }
                     region.towns[k] = t
                 }

@@ -312,6 +312,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
                 if (s.officeIncome > 0) Triple(Glyph.Briefcase, Res.string.income_offices, s.officeIncome) else null,
                 if (s.fareIncome > 0) Triple(Glyph.Bus, Res.string.income_fares, s.fareIncome) else null,
                 if (s.duesIncome + s.tollIncome > 0) Triple(Glyph.Anchor, Res.string.income_dues, s.duesIncome + s.tollIncome) else null,
+                if (s.neighbourIncome > 0) Triple(Glyph.Arrows, Res.string.income_next_door, s.neighbourIncome) else null,
             )
             val upkeep = listOfNotNull(
                 Triple(Glyph.Road, Res.string.upkeep_roads, s.roadUpkeep),
@@ -330,6 +331,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
                 if (s.disasterCost > 0) Triple(Glyph.Warn, Res.string.upkeep_disasters, s.disasterCost) else null,
                 if (s.phoneUpkeep > 0) Triple(Glyph.Phone, Res.string.upkeep_phone, s.phoneUpkeep) else null,
                 if (s.portUpkeep > 0) Triple(Glyph.Anchor, Res.string.upkeep_ports, s.portUpkeep) else null,
+                if (s.neighbourCost > 0) Triple(Glyph.Arrows, Res.string.upkeep_next_door, s.neighbourCost) else null,
             )
             // Every bar against the biggest, in or out.
             val most = maxOf(1L, (income + upkeep).maxOf { it.third })
@@ -362,6 +364,28 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
                     if (s.smog > 0) StatItem(Glyph.Smoke, stringResource(Res.string.smog), stringResource(Res.string.percent, s.smog * 100 / 255), s.smog / 255f, if (s.smog >= 128) Tone.Bad else Tone.Warn) else null,
                 ),
             )
+        }
+        // Power, water and garbage over the border, by the deals with the neighbours.
+        if (s.powerIn + s.powerOut + s.waterIn + s.waterOut + s.garbageIn + s.garbageOut > 0) {
+            Section(stringResource(Res.string.next_door), Glyph.Arrows) {
+                // A small town's deal can be well under a megawatt.
+                @Composable
+                fun power(kw: Int) = if (kw < 1000) stringResource(Res.string.kilowatts, groupThousands(kw.toLong())) else mw(kw.toLong())
+                @Composable
+                fun people(n: Int) = stringResource(Res.string.water_for, groupThousands(n.toLong()))
+                @Composable
+                fun tonnes(n: Int) = stringResource(Res.string.tonnes, groupThousands(n.toLong()))
+                StatGrid(
+                    listOfNotNull(
+                        if (s.powerIn > 0) StatItem(Glyph.Bolt, stringResource(Res.string.power_bought), power(s.powerIn)) else null,
+                        if (s.powerOut > 0) StatItem(Glyph.Bolt, stringResource(Res.string.power_sold), power(s.powerOut)) else null,
+                        if (s.waterIn > 0) StatItem(Glyph.Drop, stringResource(Res.string.water_bought), people(s.waterIn)) else null,
+                        if (s.waterOut > 0) StatItem(Glyph.Drop, stringResource(Res.string.water_sold), people(s.waterOut)) else null,
+                        if (s.garbageOut > 0) StatItem(Glyph.Bin, stringResource(Res.string.garbage_sent), tonnes(s.garbageOut)) else null,
+                        if (s.garbageIn > 0) StatItem(Glyph.Bin, stringResource(Res.string.garbage_taken_in), tonnes(s.garbageIn)) else null,
+                    ),
+                )
+            }
         }
         // What the town's businesses trade. The town's own money is above.
         if (s.exportValue > 0 || s.importValue > 0) {

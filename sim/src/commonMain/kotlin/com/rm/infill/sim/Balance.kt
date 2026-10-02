@@ -550,6 +550,34 @@ object Balance {
     const val LOADS_PER_CAPACITY = 10
     const val RAIL_LINK_LOADS = 600
 
+    /**
+     * What a link carries for the neighbours: a high-voltage line, in
+     * kilowatts (an ordinary line carries its rating), a main, water for so
+     * many people, and a road, tonnes of garbage a month.
+     */
+    const val HIGH_LINK_KW = 50_000
+    const val MAIN_LINK_WATER = 3_000
+    const val GARBAGE_LINK_TONNES = 300
+
+    /**
+     * Prices between towns: a megawatt at the peak for a month, water for a
+     * hundred people, a tonne of garbage tipped. About twice what each costs
+     * the town selling it, so a deal pays both sides.
+     */
+    const val POWER_PRICE = 8.0
+    const val WATER_PRICE = 2.0
+    const val DUMP_FEE = 0.5
+
+    /**
+     * What drifts over a border: a share of the neighbours' smog, and of the
+     * pollution and noise along their edge, carried this many tiles in, and
+     * of the foulness of a river coming down from them.
+     */
+    const val SMOG_DRIFT = 30
+    const val NUISANCE_DRIFT = 70
+    const val NUISANCE_REACH = 6
+    const val FOUL_DRIFT = 60
+
     /** Water meeting the map's edge along this many tiles is open sea, which rivers run down to. */
     const val SEA_EDGE = 24
 

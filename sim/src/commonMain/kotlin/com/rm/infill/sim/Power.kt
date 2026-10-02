@@ -154,6 +154,16 @@ internal class PowerGrid(private val map: CityMap) {
     var short = 0L
         private set
 
+    /** What came in from the neighbours, and what went out to them, last worked out, in watts. */
+    var imported = 0L
+        private set
+    var exported = 0L
+        private set
+
+    /** What's wanted on lines with no power at all, in watts: more than [short], which counts only those with some. */
+    var unlit = 0L
+        private set
+
     private fun conducts(i: Int): Boolean =
         (map.power[i] == Power.LINE && !map.out(i, Broken.POWER)) || map.building[i] != 0 || map.zone[i] != Zone.NONE
 
@@ -164,7 +174,16 @@ internal class PowerGrid(private val map: CityMap) {
      * average ([draw], in watts) and what each station can make now
      * ([available]); [peak] in percent of the average. Sets [CityMap.powered].
      */
-    fun update(buildings: Collection<Building>, draw: (Building) -> Int, available: (Building) -> Int, peak: Int) {
+    fun update(
+        buildings: Collection<Building>,
+        draw: (Building) -> Int,
+        available: (Building) -> Int,
+        peak: Int,
+        /** Power bought from a neighbour, by the line tile at the border it comes in at, in watts: used after the town's own. */
+        imports: Map<Int, Long> = emptyMap(),
+        /** Power sold to a neighbour, by the line tile it goes out at, in watts: only what's left once the town's served. */
+        exports: Map<Int, Long> = emptyMap(),
+    ) {
         val m = map
         val n = m.size
         network.fill(-1)
@@ -341,17 +360,50 @@ internal class PowerGrid(private val map: CityMap) {
             }
             output[b.id] = made.toInt()
         }
+        // Then what's bought from the neighbours, where it comes in.
+        var boughtIn = 0L
+        for ((i, w) in imports) {
+            val c = network[i]
+            if (c < 0 || w <= 0) continue
+            val take = minOf(w, left[c])
+            left[c] -= take
+            got[c] += take
+            boughtIn += take
+        }
+        // Sold: what the stations on the seller's network still have to give.
+        var soldOut = 0L
+        if (exports.isNotEmpty()) {
+            val room = LongArray(count)
+            for (b in stations) {
+                val c = network[m.index(b.x, b.y)]
+                room[c] += maxOf(0L, available(b).toLong() - (output[b.id] ?: 0))
+            }
+            for ((i, w) in exports) {
+                val c = network[i]
+                if (c < 0 || w <= 0) continue
+                val take = minOf(w, room[c])
+                room[c] -= take
+                soldOut += take
+            }
+        }
+        imported = boughtIn
+        exported = soldOut
 
         // Each network powers what it was sent, nearest the power first.
         m.powered.fill(false)
         val lit = BooleanArray(count)
         var totalNeed = 0L
         var totalShort = 0L
+        var dark = 0L
         for (c in 0 until count) {
             totalNeed += need[c]
             // A network with power to hand is live, whether or not anything on it needs it yet.
-            lit[c] = supply[c] > 0 || got[c] > 0 || link[c] > 0 && members.getValue(root(c)).any { supply[it] > 0 }
-            if (!lit[c]) continue
+            lit[c] = supply[c] > 0 || got[c] > 0 || link[c] > 0 && members.getValue(root(c)).any { supply[it] > 0 } ||
+                imports.any { (i, w) -> w > 0 && network[i] == c }
+            if (!lit[c]) {
+                dark += need[c]
+                continue
+            }
             var have = need[c] - left[c]
             users[c].sortWith(compareBy<Pair<Building, Long>>({ steps[m.index(it.first.x, it.first.y)] }, { it.first.id }))
             for ((b, w) in users[c]) {
@@ -377,6 +429,7 @@ internal class PowerGrid(private val map: CityMap) {
         capacity = totalCapacity
         demand = totalNeed
         short = totalShort
+        unlit = dark
     }
 
     private companion object {

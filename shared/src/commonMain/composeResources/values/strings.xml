@@ -558,6 +558,7 @@
     <string name="station_output">Making %1$s of %2$s</string>
     <string name="station_drawing">Using %1$s</string>
     <string name="megawatts">%1$s MW</string>
+    <string name="kilowatts">%1$s kW</string>
     <string name="inspect_garbage">Garbage piling up</string>
     <string name="dump_fill">%1$d% full</string>
     <string name="emergency_repairs">Emergency repairs</string>
@@ -823,6 +824,16 @@
     <string name="cuts_off_port">That would cut a port off from the sea</string>
     <string name="income_dues">Dues and tolls</string>
     <string name="upkeep_ports">Ports</string>
+    <string name="income_next_door">Sold next door</string>
+    <string name="upkeep_next_door">Bought next door</string>
+    <string name="next_door">Next door</string>
+    <string name="power_bought">Power bought</string>
+    <string name="power_sold">Power sold</string>
+    <string name="water_bought">Water bought</string>
+    <string name="water_sold">Water sold</string>
+    <string name="water_for">For %1$s people</string>
+    <string name="garbage_sent">Garbage sent</string>
+    <string name="garbage_taken_in">Garbage taken in</string>
     <string name="visitors">Visitors</string>
     <string name="by_road">By road</string>
     <string name="by_rail">By rail</string>

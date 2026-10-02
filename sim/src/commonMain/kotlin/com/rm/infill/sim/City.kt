@@ -46,10 +46,28 @@ class City(
     val edgeGoodsOut = Array(4) { IntArray(Good.COUNT) }
     val edgeGoodsIn = Array(4) { IntArray(Good.COUNT) }
 
+    /** Power in kilowatts, water in people's worth and garbage in tonnes across each edge: sold or sent, and bought or taken in. */
+    val edgePowerOut = IntArray(4)
+    val edgePowerIn = IntArray(4)
+    val edgeWaterOut = IntArray(4)
+    val edgeWaterIn = IntArray(4)
+    val edgeGarbageOut = IntArray(4)
+    val edgeGarbageIn = IntArray(4)
+
+    /** Power, water and dump room a town has, or is short of, once its deals with its neighbours are done. */
+    class Utilities(var power: Int = 0, var water: Int = 0, var garbage: Int = 0)
+    val spare = Utilities()
+    val short = Utilities()
+
     /** Works out what crosses the borders now, for a town just loaded into its region, rather than waiting for the month. */
     fun meetNeighbours() {
+        // A town just loaded hasn't worked out its mains and lines yet, and the deals go by them.
+        updateNetworks()
         commute()
         trade()
+        // The lines and mains to them, with last month's deals.
+        updateWater()
+        updatePower()
     }
 
     /** For land put in place after the city was made: the river's flow is worked out again. */
@@ -1850,6 +1868,7 @@ class City(
         census()
         commute()
         updateAirports()
+        borderNuisance()
         tourism()
         startTraffic()
         trade()
@@ -2377,6 +2396,9 @@ class City(
         var smog = if (built == 0) 0L else pollution / maxOf(built, Balance.SMOG_TOWN) * (100 - w.windSpeed) / 100
         if (w.temperature <= 5) smog = smog * Balance.SMOG_COLD / 100
         if (w.fog) smog = smog * Balance.SMOG_FOG / 100
+        // Smog drifts over from the neighbours.
+        val drift = neighbourSpare.maxOfOrNull { it?.smog ?: 0 } ?: 0
+        smog += drift * Balance.SMOG_DRIFT / 100
         val before = s.smog
         s.smog = smog.coerceIn(0, 255).toInt()
         if (before < Balance.SMOG_WARNING && s.smog >= Balance.SMOG_WARNING) events += CityEvent(EventKind.Smog, -1, -1, null)
@@ -2391,6 +2413,9 @@ class City(
         val per = wastePerPerson()
         var made = 0L
         var taken = 0L
+        // What can go next door, by the deal made last month.
+        var send = edgeGarbageOut.sum() * 1000L
+        var sent = 0L
         fun near(f: Building, b: Building) = kotlin.math.abs(f.x - b.x) + kotlin.math.abs(f.y - b.y) <= Balance.GARBAGE_REACH
         for (b in buildings.values.sortedBy { it.id }) {
             // Farms and mines see to their own, out where they are.
@@ -2410,11 +2435,13 @@ class City(
             }
             val burner = burners.firstOrNull { near(it, b) && (burnt[it.id] ?: 0) + waste <= Balance.INCINERATOR_TAKES }
             val dump = if (burner == null) dumps.firstOrNull { near(it, b) && it.fill + waste <= Balance.DUMP_ROOM } else null
+            val away = burner == null && dump == null && waste <= send
             when {
                 burner != null -> burnt[burner.id] = (burnt[burner.id] ?: 0) + waste
                 dump != null -> dump.fill += waste
+                away -> { send -= waste; sent += waste }
             }
-            b.uncollected = burner == null && dump == null && s.population >= garbageTown
+            b.uncollected = burner == null && dump == null && !away && s.population >= garbageTown
             if (b.uncollected) {
                 // It piles up in the yard.
                 forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { j ->
@@ -2423,6 +2450,16 @@ class City(
             } else {
                 taken += waste
             }
+        }
+        // The neighbours' garbage into the dumps here.
+        s.garbageOut = ((sent + 999) / 1000).toInt()
+        var take = edgeGarbageIn.sum() * 1000L
+        s.garbageIn = edgeGarbageIn.sum()
+        for (d in dumps) {
+            if (take <= 0) break
+            val put = minOf(take, (Balance.DUMP_ROOM - d.fill).toLong()).coerceAtLeast(0L)
+            d.fill += put.toInt()
+            take -= put
         }
         incinerated.clear()
         incinerated.putAll(burnt)
@@ -4449,10 +4486,15 @@ class City(
         // A heat wave in the air-conditioned years pushes the peak up.
         val peak = Electricity.peak(year, month, climate, warming) + if (heatWaveDays > 0 && year >= 1960) Balance.HEAT_WAVE_PEAK else 0
         batteryCharge = charge(perPerson, tractionEach)
-        grid.update(buildings.values, { b -> draw(b, perPerson, tractionEach) }, { b -> available(b) }, peak)
+        grid.update(
+            buildings.values, { b -> draw(b, perPerson, tractionEach) }, { b -> available(b) }, peak,
+            atLinks(edgePowerIn, { it.power }, 1000), atLinks(edgePowerOut, { it.power }, 1000),
+        )
         stats.powerCapacity = grid.capacity / 1000
         stats.powerDemand = grid.demand / 1000
         stats.powerShort = grid.short / 1000
+        stats.powerIn = (grid.imported / 1000).toInt()
+        stats.powerOut = (grid.exported / 1000).toInt()
     }
 
     /** How full the batteries go into the evening, in percent. */
@@ -4677,6 +4719,9 @@ class City(
     /** Whether there are any water mains or sewers, worked out after the player's changes. */
     private var anyPipes = false
 
+    /** People's worth of buildings on mains with no pressure at all: wanting water, though not counted short. */
+    private var waterDry = 0
+
     /** Last month's sewage at each outfall, by its tile, for fouling the water. */
     private val sewage = HashMap<Int, Int>()
 
@@ -4697,6 +4742,9 @@ class City(
             stats.waterSupply = 0
             stats.waterUsed = 0
             stats.waterShort = 0
+            stats.waterIn = 0
+            stats.waterOut = 0
+            waterDry = 0
             sewage.clear()
             return
         }
@@ -4717,6 +4765,12 @@ class City(
                     queue.addLast(i)
                 }
             }
+        }
+        // Water bought from a neighbour comes in with the pressure it has at the border.
+        val bought = atLinks(edgeWaterIn, { it.water }, 1)
+        for ((i, w) in bought) if (w > 0 && waterPipes[i].toInt() != 0 && steps[i] != 0) {
+            steps[i] = 0
+            queue.addLast(i)
         }
         while (queue.isNotEmpty()) {
             val i = queue.removeFirst()
@@ -4748,17 +4802,25 @@ class City(
             supply[n] = (supply[n] ?: 0) + s
             total += s
         }
+        for ((i, w) in bought) if (waterPipes[i].toInt() != 0) supply[net[i]] = (supply[net[i]] ?: 0) + w.toInt()
 
         // Each building's nearest main with pressure, then the nearest served first.
         class Tap(val b: Building, val net: Int, val steps: Int)
         val taps = ArrayList<Tap>()
+        var dry = 0
         for (b in all) {
             if (b.type.capacity == 0 && !b.type.waterSource) continue
             var best = -1
             var bestSteps = Int.MAX_VALUE
             forPipesNear(b, waterPipes) { i -> if (steps[i] in 0 until bestSteps) { bestSteps = steps[i]; best = i } }
             if (best >= 0) taps += Tap(b, net[best], bestSteps)
+            else if (b.type.capacity > 0) {
+                var near = false
+                forPipesNear(b, waterPipes) { near = true }
+                if (near) dry += b.type.capacity
+            }
         }
+        waterDry = dry
         taps.sortWith(compareBy<Tap>({ it.steps }, { it.b.id }))
         var used = 0
         var short = 0
@@ -4773,9 +4835,20 @@ class City(
                 short += need
             }
         }
+        // Sold: what's left on the network at the border, after the town's own.
+        var sold = 0
+        for ((i, w) in atLinks(edgeWaterOut, { it.water }, 1)) {
+            if (waterPipes[i].toInt() == 0) continue
+            val left = supply[net[i]] ?: 0
+            val take = minOf(w.toInt(), left)
+            supply[net[i]] = left - take
+            sold += take
+        }
         stats.waterSupply = total
         stats.waterUsed = used
         stats.waterShort = short
+        stats.waterIn = bought.values.sum().toInt()
+        stats.waterOut = sold
 
         // Sewers: a network with an outfall takes the sewage of every building on it.
         val sewers = components(sewerPipes)
@@ -4871,6 +4944,24 @@ class City(
             var water = -1
             forRect(b.x - 2, b.y - 2, b.x + b.type.width + 1, b.y + b.type.height + 1) { j -> if (water < 0 && map.terrain[j] == Terrain.WATER) water = j }
             if (water >= 0) spreadFoul(water, b.type.capacity * Balance.WORKS_FOUL, target)
+        }
+        // Foul water coming over from a neighbour: for each stretch of water across the border, from its foulest spot.
+        for (edge in 0 until 4) {
+            val b = neighbours[edge] ?: continue
+            val length = minOf(if (edge == Border.NORTH || edge == Border.SOUTH) m.width else m.height, b.length)
+            var worst = 0
+            var at = -1
+            for (k in 0..length) {
+                val i = if (k < length) Border.tile(m, edge, k) else -1
+                if (i >= 0 && m.terrain[i] == Terrain.WATER) {
+                    val from = b.foul[k].toInt() and 0xff
+                    if (from > worst) { worst = from; at = i }
+                } else {
+                    if (at >= 0) spreadFoul(at, worst * Balance.FOUL_DRIFT / 100, target)
+                    worst = 0
+                    at = -1
+                }
+            }
         }
         for (i in 0 until m.size) {
             val f = m.foul[i].toInt() and 0xff
@@ -6312,6 +6403,129 @@ class City(
         }
         s.shopsShort = short
         s.shopsSpare = spare
+        deals()
+    }
+
+    /**
+     * Power and water sold or bought over linked lines and mains, and
+     * garbage sent to a neighbour's dumps over the roads, from what each side
+     * had spare or was short of this month. They're done next month.
+     */
+    private fun deals() {
+        val s = stats
+        val before = (edgePowerOut + edgePowerIn + edgeWaterOut + edgeWaterIn).toList()
+        for (e in 0 until 4) {
+            edgePowerOut[e] = 0; edgePowerIn[e] = 0
+            edgeWaterOut[e] = 0; edgeWaterIn[e] = 0
+            edgeGarbageOut[e] = 0; edgeGarbageIn[e] = 0
+        }
+        // What the town has spare or wants of its own, before this month's deals.
+        var powerSpare = maxOf(0L, s.powerCapacity - s.powerDemand).toInt()
+        var powerShort = (s.powerShort + grid.unlit / 1000 + s.powerIn).toInt()
+        var waterSpare = maxOf(0, s.waterSupply - s.waterUsed)
+        var waterShort = s.waterShort + waterDry + s.waterIn
+        var room = s.dumpRoom
+        val per = wastePerPerson()
+        var piling = ((buildings.values.sumOf { b -> if (b.uncollected) (b.people?.size ?: (b.type.capacity / 2)).toLong() * per else 0L } + 999) / 1000).toInt() + s.garbageOut
+        val all = utilityLinks()
+        for (edge in 0 until 4) {
+            val n = neighbourSpare[edge] ?: continue
+            val here = all.filter { it.edge == edge }
+            val powerCap = here.sumOf { it.power }
+            val waterCap = here.sumOf { it.water }
+            val garbageCap = here.sumOf { it.garbage }
+            val pOut = minOf(powerSpare, n.powerShort, powerCap)
+            val pIn = minOf(powerShort, n.powerSpare, powerCap - pOut)
+            powerSpare -= pOut
+            powerShort -= pIn
+            val wOut = minOf(waterSpare, n.waterShort, waterCap)
+            val wIn = minOf(waterShort, n.waterSpare, waterCap - wOut)
+            waterSpare -= wOut
+            waterShort -= wIn
+            // Garbage this town can't take away goes to the neighbour's dumps; the neighbour's comes to this town's.
+            val gOut = minOf(piling, n.dumpRoom, garbageCap)
+            val gIn = minOf(room, n.garbageShort, garbageCap - gOut)
+            piling -= gOut
+            room -= gIn
+            edgePowerOut[edge] = pOut; edgePowerIn[edge] = pIn
+            edgeWaterOut[edge] = wOut; edgeWaterIn[edge] = wIn
+            edgeGarbageOut[edge] = gOut; edgeGarbageIn[edge] = gIn
+        }
+        spare.power = powerSpare; short.power = powerShort
+        spare.water = waterSpare; short.water = waterShort
+        spare.garbage = room; short.garbage = piling
+        // The mains and lines only change when the player changes them, so a new deal has them worked out again.
+        if ((edgePowerOut + edgePowerIn + edgeWaterOut + edgeWaterIn).toList() != before) {
+            updateWater()
+            updatePower()
+        }
+    }
+
+    /** A link for power, water or garbage at an edge tile, with what it carries a month of each. */
+    class UtilityLink(val tile: Int, val edge: Int, val power: Int, val water: Int, val garbage: Int)
+
+    /** The edge tiles where a line, main or road meets the neighbour's, and what each carries. */
+    private fun utilityLinks(): List<UtilityLink> {
+        val out = ArrayList<UtilityLink>()
+        for (edge in 0 until 4) {
+            val b = neighbours[edge] ?: continue
+            val length = if (edge == Border.NORTH || edge == Border.SOUTH) map.width else map.height
+            for (k in 0 until minOf(length, b.length)) {
+                val i = Border.tile(map, edge, k)
+                val power = when {
+                    map.power[i] == Power.NONE || b.power[k] == Power.NONE -> 0
+                    map.power[i] == Power.HIGH && b.power[k] == Power.HIGH -> Balance.HIGH_LINK_KW
+                    else -> Balance.LINE_RATING
+                }
+                val water = if (map.waterPipe[i].toInt() != 0 && b.water[k].toInt() != 0) Balance.MAIN_LINK_WATER else 0
+                val garbage = if (map.road[i] != Road.NONE && b.road[k] != Road.NONE) Balance.GARBAGE_LINK_TONNES else 0
+                if (power + water + garbage > 0) out += UtilityLink(i, edge, power, water, garbage)
+            }
+        }
+        return out
+    }
+
+    /** Power or water across the links, by tile: each edge's amount shared over its links of that kind, as a share of what each carries. */
+    private fun atLinks(amounts: IntArray, carries: (UtilityLink) -> Int, scale: Long): Map<Int, Long> {
+        if (amounts.all { it == 0 }) return emptyMap()
+        val out = HashMap<Int, Long>()
+        val links = utilityLinks()
+        for (edge in 0 until 4) {
+            if (amounts[edge] == 0) continue
+            val here = links.filter { it.edge == edge && carries(it) > 0 }
+            val total = here.sumOf { carries(it) }
+            if (total == 0) continue
+            for (l in here) out[l.tile] = amounts[edge].toLong() * scale * carries(l) / total
+        }
+        return out
+    }
+
+    /** The neighbours' pollution and noise along the border, carried a few tiles in, fading. */
+    private fun borderNuisance() {
+        val m = map
+        val reach = Balance.NUISANCE_REACH
+        for (edge in 0 until 4) {
+            val b = neighbours[edge] ?: continue
+            val length = if (edge == Border.NORTH || edge == Border.SOUTH) m.width else m.height
+            for (k in 0 until minOf(length, b.length)) {
+                val pollution = (b.pollution[k].toInt() and 0xff) * Balance.NUISANCE_DRIFT / 100
+                val noise = (b.noise[k].toInt() and 0xff) * Balance.NUISANCE_DRIFT / 100
+                if (pollution == 0 && noise == 0) continue
+                for (d in 0 until reach) {
+                    val (x, y) = when (edge) {
+                        Border.NORTH -> k to d
+                        Border.EAST -> m.width - 1 - d to k
+                        Border.SOUTH -> k to m.height - 1 - d
+                        else -> d to k
+                    }
+                    if (!m.inside(x, y)) continue
+                    val i = m.index(x, y)
+                    val fade = reach - d
+                    m.pollution[i] = maxOf(m.pollution[i].toInt() and 0xff, pollution * fade / reach).toByte()
+                    m.noise[i] = maxOf(m.noise[i].toInt() and 0xff, noise * fade / reach).toByte()
+                }
+            }
+        }
     }
 
     /** Which edge tile [i] is on: north, east, south or west, or -1 inside the map. */
@@ -6760,7 +6974,10 @@ class City(
         s.tollIncome = s.tolls.toLong() * tollRate / 100
         s.portUpkeep = (ports.sumOf { Balance.PORT_UPKEEP[it.type.portTier] } +
             buildings.values.filter { it.type.airport }.sumOf { Balance.AIR_UPKEEP[it.type.airTier] }).roundToLong()
-        s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.officeIncome + s.fareIncome + s.duesIncome + s.tollIncome
+        // Power, water and dump room sold to the neighbours, and bought from them.
+        s.neighbourIncome = (s.powerOut / 1000.0 * Balance.POWER_PRICE + s.waterOut / 100.0 * Balance.WATER_PRICE + s.garbageIn * Balance.DUMP_FEE).roundToLong()
+        s.neighbourCost = (s.powerIn / 1000.0 * Balance.POWER_PRICE + s.waterIn / 100.0 * Balance.WATER_PRICE + s.garbageOut * Balance.DUMP_FEE).roundToLong()
+        s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.officeIncome + s.fareIncome + s.duesIncome + s.tollIncome + s.neighbourIncome
         var tramTiles = 0
         var wires = 0
         var tunnels = 0
@@ -6809,7 +7026,7 @@ class City(
         disasterBill = 0
         s.schoolUpkeep = (schools * schoolFunding / 100).roundToLong()
         s.healthUpkeep = (care * healthFunding / 100).roundToLong()
-        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost + s.phoneUpkeep + s.portUpkeep
+        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost + s.phoneUpkeep + s.portUpkeep + s.neighbourCost
         funds += s.income - s.upkeep
     }
 
@@ -7064,6 +7281,11 @@ class City(
             w.int(s.fromNeighbours[g]); w.int(s.toNeighbours[g])
             for (e in 0 until 4) { w.int(edgeGoodsOut[e][g]); w.int(edgeGoodsIn[e][g]) }
         }
+        // Since version 35: power, water and garbage with the neighbours.
+        for (v in intArrayOf(s.powerOut, s.powerIn, s.waterOut, s.waterIn, s.garbageOut, s.garbageIn)) w.int(v)
+        w.long(s.neighbourIncome); w.long(s.neighbourCost)
+        for (a in arrayOf(edgePowerOut, edgePowerIn, edgeWaterOut, edgeWaterIn, edgeGarbageOut, edgeGarbageIn)) for (v in a) w.int(v)
+        for (v in intArrayOf(spare.power, short.power, spare.water, short.water, spare.garbage, short.garbage)) w.int(v)
     }
 
     companion object {
@@ -7370,6 +7592,13 @@ class City(
                         }
                     }
                 }
+                if (version >= 35) {
+                    val s = c.stats
+                    s.powerOut = r.int(); s.powerIn = r.int(); s.waterOut = r.int(); s.waterIn = r.int(); s.garbageOut = r.int(); s.garbageIn = r.int()
+                    s.neighbourIncome = r.long(); s.neighbourCost = r.long()
+                    for (a in arrayOf(c.edgePowerOut, c.edgePowerIn, c.edgeWaterOut, c.edgeWaterIn, c.edgeGarbageOut, c.edgeGarbageIn)) for (k in 0 until 4) a[k] = r.int()
+                    c.spare.power = r.int(); c.short.power = r.int(); c.spare.water = r.int(); c.short.water = r.int(); c.spare.garbage = r.int(); c.short.garbage = r.int()
+                }
                 c.updateNetworks()
                 c.markContainerTrains()
                 c.updateAirports()
@@ -7538,6 +7767,16 @@ class Stats {
     /** Loads of each good from the neighbours and to them, last month. */
     val fromNeighbours = IntArray(Good.COUNT)
     val toNeighbours = IntArray(Good.COUNT)
+
+    /** Power in kilowatts, water in people's worth and garbage in tonnes sold or sent to the neighbours, and bought or taken from them; what that came to. */
+    var powerOut = 0
+    var powerIn = 0
+    var waterOut = 0
+    var waterIn = 0
+    var garbageOut = 0
+    var garbageIn = 0
+    var neighbourIncome = 0L
+    var neighbourCost = 0L
 
     /** The average commute in minutes. */
     var commute = 0
