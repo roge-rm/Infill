@@ -1,5 +1,6 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.cooling_centre
 import com.rm.infill.res.tool_air
 import com.rm.infill.res.international_airport
 import com.rm.infill.res.airport
@@ -296,6 +297,7 @@ enum class ServiceKind(val title: StringResource, val type: BuildingType?, val g
     Hospital(Res.string.hospital, BuildingType.HOSPITAL, ServiceGroup.Health),
     Ambulance(Res.string.ambulance_station, BuildingType.AMBULANCE_STATION, ServiceGroup.Health),
     Nursing(Res.string.nursing_home, BuildingType.NURSING_HOME, ServiceGroup.Health),
+    Cooling(Res.string.cooling_centre, BuildingType.COOLING_CENTRE, ServiceGroup.Health),
     Dump(Res.string.dump, BuildingType.DUMP, ServiceGroup.Waste),
     Incinerator(Res.string.incinerator, BuildingType.INCINERATOR, ServiceGroup.Waste),
     Recycling(Res.string.recycling, BuildingType.RECYCLING, ServiceGroup.Waste),

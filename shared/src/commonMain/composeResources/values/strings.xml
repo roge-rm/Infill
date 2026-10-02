@@ -837,4 +837,7 @@
     <string name="carbon_works">Works</string>
     <string name="carbon_heating">Heating</string>
     <string name="overlay_carbon">Carbon</string>
+    <string name="cooling_centre">Cooling centre</string>
+    <string name="cool_roofs">Cool roofs and paving</string>
+    <string name="green_roofs">Green roofs</string>
 </resources>

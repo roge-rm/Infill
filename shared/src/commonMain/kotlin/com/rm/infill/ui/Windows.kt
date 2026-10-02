@@ -1,5 +1,7 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.green_roofs
+import com.rm.infill.res.cool_roofs
 import com.rm.infill.res.carbon_heating
 import com.rm.infill.res.carbon_works
 import com.rm.infill.res.carbon_traffic
@@ -937,6 +939,13 @@ fun DistrictsWindow(game: GameState, onClose: () -> Unit) {
                         Triple(Glyph.Crate, Res.string.no_trucks, d.noTrucks) to { v: Boolean -> set { it.noTrucks = v } },
                         Triple(Glyph.Bus, Res.string.free_fares, d.freeFares) to { v: Boolean -> set { it.freeFares = v } },
                         Triple(Glyph.Tag, Res.string.rent_control, d.rentControl) to { v: Boolean -> set { it.rentControl = v } },
+                    ) + listOfNotNull(
+                        if (game.city.everything || game.city.year >= Balance.COOL_ROOF_YEAR) {
+                            Triple(Glyph.Heat, Res.string.cool_roofs, d.coolRoofs) to { v: Boolean -> set { it.coolRoofs = v } }
+                        } else null,
+                        if (game.city.everything || game.city.year >= Balance.GREEN_ROOF_YEAR) {
+                            Triple(Glyph.Tree, Res.string.green_roofs, d.greenRoofs) to { v: Boolean -> set { it.greenRoofs = v } }
+                        } else null,
                     )
                     for (row in policies.chunked(2)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

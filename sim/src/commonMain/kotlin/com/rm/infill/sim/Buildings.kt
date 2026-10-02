@@ -114,6 +114,9 @@ enum class BuildingType(
     AMBULANCE_STATION(Zone.NONE, 0, 10, width = 2, height = 1, year = 1910, life = 40),
     NURSING_HOME(Zone.NONE, 0, 20, width = 2, height = 2, life = 50),
 
+    /** A cooling centre (from 1960): somewhere cool for the old and frail to go in a heat wave. */
+    COOLING_CENTRE(Zone.NONE, 0, 6, year = 1960, life = 40),
+
     /** Learning: a library, and a college. */
     LIBRARY(Zone.NONE, 0, 4, life = 60),
     COLLEGE(Zone.NONE, 0, 50, width = 3, height = 3, life = 70),
@@ -187,7 +190,7 @@ enum class BuildingType(
     val school get() = this == SCHOOL || this == HIGH_SCHOOL || this == COLLEGE
 
     /** Looks after people's health. */
-    val health get() = this == CLINIC || this == HOSPITAL || this == NURSING_HOME || this == AMBULANCE_STATION
+    val health get() = this == CLINIC || this == HOSPITAL || this == NURSING_HOME || this == AMBULANCE_STATION || this == COOLING_CENTRE
 
     /** Passengers board here. */
     val station get() = this == STATION || this == STATION_NS

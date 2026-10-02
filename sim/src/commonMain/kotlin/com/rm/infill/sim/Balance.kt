@@ -475,6 +475,28 @@ object Balance {
     const val CARBON_MAP_SCALE = 12.0
     const val ROAD_CARBON_SHOW = 20L
 
+    // Cooling the town: cool roofs and paving from this year cut what roofs and paving give off to this share; green
+    // roofs from this year count as this share of green, and hold this share of the rain off a roof; what each costs
+    // a building a month; what green roofs add to homes' appeal; and how much more a park cools from this year (splash
+    // pads and shade).
+    const val COOL_ROOF_YEAR = 1990
+    const val COOL_ROOF_HEAT = 60
+    const val GREEN_ROOF_YEAR = 2000
+    const val GREEN_ROOF_GREEN = 50
+    const val GREEN_ROOF_RAIN = 30
+    const val COOL_ROOF_UPKEEP = 0.1
+    const val GREEN_ROOF_UPKEEP = 0.3
+    const val GREEN_ROOF_APPEAL = 3
+    const val PARK_COOLS_YEAR = 1970
+    const val PARK_COOLS_MORE = 50
+    // Cooling centres: people they take in a heat wave, how far, and the share of heat deaths they save; their upkeep.
+    const val COOLING_PLACES = 2_500
+    const val COOLING_REACH = 10
+    const val COOLING_SAVES = 75
+    const val COOLING_UPKEEP = 10.0
+    /** In a district with cool or green roofs, homes need this much less air conditioning. */
+    const val COOL_ROOF_POWER = 15
+
     /** Jets from this year at the big airports. */
     const val JET_YEAR = 1960
 

@@ -2064,18 +2064,26 @@ class City(
         val m = map
         val s = stats
         // Heat: paving and roofs round a tile warm it; trees, parks, street trees and water cool it.
+        // Green counted in hundredths: a park cools more once it has splash pads and shade, a green roof half as much.
+        val park = if (year >= Balance.PARK_COOLS_YEAR) 100 + Balance.PARK_COOLS_MORE else 100
         val green = SummedArea(m.width, m.height) {
-            if (m.terrain[it] == Terrain.TREES || m.terrain[it] == Terrain.WATER || m.streetTrees[it].toInt() != 0 ||
-                m.buildingType[it].toInt() - 1 == BuildingType.PARK.ordinal
-            ) 1 else 0
+            when {
+                m.buildingType[it].toInt() - 1 == BuildingType.PARK.ordinal -> park
+                m.terrain[it] == Terrain.TREES || m.terrain[it] == Terrain.WATER || m.streetTrees[it].toInt() != 0 -> 100
+                m.building[it] != 0 && greenRoof(it) -> Balance.GREEN_ROOF_GREEN
+                else -> 0
+            }
         }
-        val hard = SummedArea(m.width, m.height) { if (m.terrain[it] == Terrain.WATER) 0 else Stormwater.hardness(m, it) }
+        val hard = SummedArea(m.width, m.height) {
+            if (m.terrain[it] == Terrain.WATER) 0
+            else Stormwater.hardness(m, it) * (if (coolRoof(it)) Balance.COOL_ROOF_HEAT else 100) / 100
+        }
         val r = Balance.HEAT_REACH
         val area = (2 * r + 1) * (2 * r + 1)
         for (i in 0 until m.size) {
             val x = i % m.width
             val y = i / m.width
-            val h = hard.around(x, y, r) * 2 / area - green.around(x, y, r) * Balance.GREEN_COOLS
+            val h = hard.around(x, y, r) * 2 / area - green.around(x, y, r) * Balance.GREEN_COOLS / 100
             m.heat[i] = h.coerceIn(0, 255).toByte()
         }
 
@@ -3854,6 +3862,12 @@ class City(
 
     // ---- climate -----------------------------------------------------------------
 
+    /** Whether tile [i] is in a district with cool roofs and paving, once they've come in. */
+    private fun coolRoof(i: Int): Boolean = (everything || year >= Balance.COOL_ROOF_YEAR) && districtAt(i)?.coolRoofs == true
+
+    /** Whether tile [i] is in a district with green roofs, once they've come in. */
+    private fun greenRoof(i: Int): Boolean = (everything || year >= Balance.GREEN_ROOF_YEAR) && districtAt(i)?.greenRoofs == true
+
     /** All the carbon the town's put out, in tonnes. */
     var carbonTotal = 0L
         private set
@@ -4166,7 +4180,7 @@ class City(
         if (b.underway > 0 || Generation.station(b.type) || b.type == BuildingType.SUBSTATION) return 0
         val t = b.type
         return when (t.zone) {
-            Zone.RESIDENTIAL -> (b.people?.size ?: 0) * perPerson
+            Zone.RESIDENTIAL -> (b.people?.size ?: 0) * perPerson * (if (coolRoof(map.index(b.x, b.y)) || greenRoof(map.index(b.x, b.y))) 100 - Balance.COOL_ROOF_POWER else 100) / 100
             Zone.COMMERCIAL -> t.capacity * perPerson * 2
             Zone.INDUSTRIAL -> t.capacity * perPerson * 4
             else -> t.capacity * perPerson * 2 +
@@ -4617,7 +4631,11 @@ class City(
     internal fun rainfall(amount: Int, frozen: Boolean = weather.temperature <= 0) {
         val m = map
         floodTunnels(underWaterOnly = false)
-        val hard = IntArray(m.size) { if (m.terrain[it] == Terrain.WATER) 0 else Stormwater.hardness(m, it) }
+        // A green roof holds some of the rain.
+        val hard = IntArray(m.size) {
+            if (m.terrain[it] == Terrain.WATER) 0
+            else Stormwater.hardness(m, it) * (if (m.building[it] != 0 && greenRoof(it)) 100 - Balance.GREEN_ROOF_RAIN else 100) / 100
+        }
         val runoff = IntArray(m.size) { if (m.terrain[it] == Terrain.WATER) 0 else amount * hard[it] / 100 }
         val all = buildings.values.toList()
         val stormPipes = working(m.stormPipe, Broken.STORM)
@@ -5143,6 +5161,7 @@ class City(
         val clinic = allot(BuildingType.CLINIC, Balance.CLINIC_CARES, Balance.CLINIC_REACH, healthFunding, homes) { it.people!!.size }
         val hospital = allot(BuildingType.HOSPITAL, Balance.HOSPITAL_CARES, Balance.HOSPITAL_REACH, healthFunding, homes) { it.people!!.size - (clinic[it.id] ?: 0) }
         val nursing = allot(BuildingType.NURSING_HOME, Balance.NURSING_PLACES, Balance.NURSING_REACH, healthFunding, homes) { it.people!!.elderly }
+        val cooling = allot(BuildingType.COOLING_CENTRE, Balance.COOLING_PLACES, Balance.COOLING_REACH, healthFunding, homes) { it.people!!.elderly }
         val college = allot(BuildingType.COLLEGE, Balance.COLLEGE_PLACES, Balance.COLLEGE_REACH, schoolFunding, homes) { it.people!!.children / Balance.TEENS }
         val libraries = SummedArea(m.width, m.height) { j ->
             val b = buildings[m.building[j]]
@@ -5202,7 +5221,9 @@ class City(
             if (heatWaveDays > 0) {
                 val heat = m.heat[i].toInt() and 0xff
                 val careless = 100 - careShare
-                elderDied = min(h.elderly, elderDied + flow(h.elderly, heat / 10 * Balance.HEAT_DEATHS * careless / 100))
+                // A cooling centre nearby takes in the old and frail.
+                val cooled = if (h.elderly == 0) 0 else min(100, (cooling[b.id] ?: 0) * 100 / h.elderly) * Balance.COOLING_SAVES / 100
+                elderDied = min(h.elderly, elderDied + flow(h.elderly, heat / 10 * Balance.HEAT_DEATHS * careless / 100 * (100 - cooled) / 100))
                 if (heat >= Balance.HOT_HOME) h.health = max(5, h.health - Balance.HEAT_HEALTH)
             }
             // An epidemic strikes a home by how crowded and poorly served it is.
@@ -5569,6 +5590,7 @@ class City(
                 var industry = false
                 around(x, y, 2) { j, _ -> if (buildings[m.building[j]]?.type?.zone == Zone.INDUSTRIAL) industry = true }
                 score += 35 + value / 3 - crime / 5 - pollution / 3 - (if (industry) 10 else 0) - (m.noise[i].toInt() and 0xff) / 2
+                if (greenRoof(i)) score += Balance.GREEN_ROOF_APPEAL
                 score -= commutePenalty(m.commute[i].toInt() and 0xff)
                 // Mains water and the sewer are a draw at first and expected later; a well in grimy ground is never wanted.
                 score += amenity(m.watered[i], Balance.MAINS_APPEAL, Balance.MAINS_FADES, Balance.MAINS_EXPECTED_BY, Balance.MAINS_EXPECTED)
@@ -5984,6 +6006,7 @@ class City(
                 BuildingType.SCHOOL -> schools += Balance.SCHOOL_UPKEEP
                 BuildingType.HIGH_SCHOOL -> schools += Balance.HIGH_SCHOOL_UPKEEP
                 BuildingType.CLINIC -> care += Balance.CLINIC_UPKEEP
+                BuildingType.COOLING_CENTRE -> care += Balance.COOLING_UPKEEP
                 BuildingType.HOSPITAL -> care += Balance.HOSPITAL_UPKEEP
                 BuildingType.NURSING_HOME -> care += Balance.NURSING_UPKEEP
                 BuildingType.AMBULANCE_STATION -> care += Balance.AMBULANCE_UPKEEP
@@ -6114,6 +6137,13 @@ class City(
             BuildingType.INCINERATOR -> Balance.INCINERATOR_UPKEEP
             BuildingType.RECYCLING -> Balance.RECYCLING_UPKEEP
             else -> 0.0
+        }
+        // Cool and green roofs, kept up on every building in their districts.
+        for (b in buildings.values) {
+            if (b.underway > 0) continue
+            val i = map.index(b.x, b.y)
+            if (greenRoof(i)) garbage += Balance.GREEN_ROOF_UPKEEP * b.type.width * b.type.height
+            else if (coolRoof(i)) garbage += Balance.COOL_ROOF_UPKEEP * b.type.width * b.type.height
         }
         s.environmentUpkeep = garbage.roundToLong()
         var transitWorks = 0.0

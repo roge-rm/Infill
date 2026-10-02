@@ -34,6 +34,12 @@ class District(val id: Int, var name: String) {
     /** Rent control: homes here stay within reach of poorer households. */
     var rentControl = false
 
+    /** Cool roofs and paving (from 1990): pale, so roofs and streets here give off less heat. */
+    var coolRoofs = false
+
+    /** Green roofs (from 2000): planted, so roofs here cool like greenery and hold some of the rain. */
+    var greenRoofs = false
+
     fun copy() = District(id, name).also { d ->
         tax.copyInto(d.tax)
         d.height = height
@@ -44,6 +50,8 @@ class District(val id: Int, var name: String) {
         d.noTrucks = noTrucks
         d.cleanWorks = cleanWorks
         d.rentControl = rentControl
+        d.coolRoofs = coolRoofs
+        d.greenRoofs = greenRoofs
     }
 
     internal fun writeTo(w: SaveWriter) {
@@ -52,6 +60,8 @@ class District(val id: Int, var name: String) {
         w.int(height.toInt()); w.bool(heritage); w.bool(parking); w.bool(lightIndustry)
         // Since version 16.
         w.bool(freeFares); w.bool(noTrucks); w.bool(cleanWorks); w.bool(rentControl)
+        // Since version 28.
+        w.bool(coolRoofs); w.bool(greenRoofs)
     }
 
     companion object {
@@ -61,6 +71,9 @@ class District(val id: Int, var name: String) {
             d.height = r.int().toByte(); d.heritage = r.bool(); d.parking = r.bool(); d.lightIndustry = r.bool()
             if (version >= 16) {
                 d.freeFares = r.bool(); d.noTrucks = r.bool(); d.cleanWorks = r.bool(); d.rentControl = r.bool()
+            }
+            if (version >= 28) {
+                d.coolRoofs = r.bool(); d.greenRoofs = r.bool()
             }
             return d
         }

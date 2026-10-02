@@ -89,6 +89,7 @@ internal object BuildingSprites {
                 BuildingType.LADDER_COMPANY -> Atlas.LADDER_COMPANY to Atlas.LADDER_COMPANY_COUNT
                 BuildingType.AMBULANCE_STATION -> Atlas.AMBULANCE_STATION to Atlas.AMBULANCE_STATION_COUNT
                 BuildingType.NURSING_HOME -> Atlas.NURSING_HOME to Atlas.NURSING_HOME_COUNT
+                BuildingType.COOLING_CENTRE -> Atlas.COOLING_CENTRE to Atlas.COOLING_CENTRE_COUNT
                 BuildingType.LIBRARY -> Atlas.LIBRARY to Atlas.LIBRARY_COUNT
                 BuildingType.COLLEGE -> Atlas.COLLEGE to Atlas.COLLEGE_COUNT
                 BuildingType.POLICE_HQ -> Atlas.POLICE_HQ to Atlas.POLICE_HQ_COUNT

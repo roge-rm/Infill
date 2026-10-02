@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rm.infill.res.cooling_centre
 import com.rm.infill.res.international_airport
 import com.rm.infill.res.airport
 import com.rm.infill.res.airfield
@@ -326,6 +327,7 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.LADDER_COMPANY -> Res.string.ladder_company
     BuildingType.AMBULANCE_STATION -> Res.string.ambulance_station
     BuildingType.NURSING_HOME -> Res.string.nursing_home
+    BuildingType.COOLING_CENTRE -> Res.string.cooling_centre
     BuildingType.LIBRARY -> Res.string.library
     BuildingType.COLLEGE -> Res.string.college
     BuildingType.POLICE_HQ -> Res.string.police_hq

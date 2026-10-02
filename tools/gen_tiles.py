@@ -2599,6 +2599,29 @@ def clinic(look, v):
     return b
 
 
+def cooling_centre(look, v):
+    """A cooling centre on one tile: a low pale building with an awning over the door for shade, a sign with a snowflake,
+    and the air conditioning on the roof."""
+    b = Building(height=STOREY + 8)
+    d = b.d
+    roof, wall = b.box(4, 9, 27, 25, STOREY + 2)
+    siding(d, wall, c("#e6ebef") if v == 0 else c("#dfe8e0"))
+    windows(d, wall, 1, sill=TRIM, every=5, skip_door=True)
+    door(d, wall, c("#3a5a7a"))
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    # The awning, striped, out over the door.
+    for k, xx in enumerate(range(cx - 7, cx + 8)):
+        d.line([xx, y0 - 1, xx, y0 + 2], c("#3f8fc0") if (k // 2) % 2 == 0 else c("#f2f2f2"))
+    # A snowflake on a blue sign.
+    d.rectangle([x1 - 7, y0 + 2, x1 - 2, y0 + 7], c("#3f8fc0"))
+    for (dx, dy) in ((0, -2), (0, 2), (-2, 0), (2, 0), (-1, -1), (1, 1), (-1, 1), (1, -1)):
+        d.point((x1 - 5 + dx // 2, y0 + 4 + dy // 2), c("#ffffff"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(8250 + v), [("vent", 4, 3), ("vent", 12, 3), ("vent", 4, 8)], parapet=STONE)
+    return b
+
+
 def hospital(look, v):
     """A hospital on 3 by 3 tiles: a tall middle block and two wings, pale stone, a covered entrance and lawns."""
     b = Building(3, 3, height=4 * STOREY + 6)
@@ -4082,7 +4105,7 @@ BUILDINGS = [
     ("farm", farm, 2), ("woodlot", woodlot, 3), ("mine", mine, 1), ("colliery", colliery, 1), ("oil_well", oil_well, 1),
     ("offices", offices, 3), ("office_building", office_building, 2), ("office_tower", office_tower, 2), ("glass_tower", glass_tower, 2),
     ("volunteer_hall", volunteer_hall, 2), ("ladder_company", ladder_company, 1), ("ambulance_station", ambulance_station, 1),
-    ("nursing_home", nursing_home, 2), ("library", library, 2), ("college", college, 2),
+    ("nursing_home", nursing_home, 2), ("cooling_centre", cooling_centre, 2), ("library", library, 2), ("college", college, 2),
     ("police_hq", police_hq, 1), ("courthouse", courthouse, 2), ("jail", jail, 1),
 ]
 

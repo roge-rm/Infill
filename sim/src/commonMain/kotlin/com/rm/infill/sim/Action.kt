@@ -313,6 +313,7 @@ object Prices {
         BuildingType.LADDER_COMPANY -> 2_500L
         BuildingType.AMBULANCE_STATION -> 2_000L
         BuildingType.NURSING_HOME -> 4_000L
+        BuildingType.COOLING_CENTRE -> 1_500L
         BuildingType.LIBRARY -> 1_500L
         BuildingType.COLLEGE -> 25_000L
         else -> 0L
