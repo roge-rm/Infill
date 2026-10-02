@@ -395,7 +395,9 @@ class City(
                 val t = action.type
                 var ok = action.x >= 0 && action.y >= 0 && action.x + t.width <= m.width && action.y + t.height <= m.height
                 if (ok) forRect(action.x, action.y, action.x + t.width - 1, action.y + t.height - 1) { i ->
-                    if (!allows(t) || m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
+                    // Turbines out on the water stand on nothing else.
+                    val water = m.terrain[i] == Terrain.WATER
+                    if (!allows(t) || water != t.inWater || !inWaterFits(t, i) || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
                         m.zone[i] != Zone.NONE || m.building[i] != 0 || m.rail[i] != Rail.NONE || m.bank[i].toInt() != 0
                     ) {
                         blocked += i
@@ -518,6 +520,21 @@ class City(
         for (ty in y until y + type.height) for (tx in listOf(x - 1, x + type.width)) if (map.inside(tx, ty) && map.tram[map.index(tx, ty)].toInt() != 0) out += map.index(tx, ty)
         for (tx in x until x + type.width) for (ty in listOf(y - 1, y + type.height)) if (map.inside(tx, ty) && map.tram[map.index(tx, ty)].toInt() != 0) out += map.index(tx, ty)
         return out
+    }
+
+    /**
+     * Whether tile [i] is the right water for [t]: a river's current for a
+     * river turbine, tidal water near the map's edge for a tidal one, any
+     * open water for wind; and anything for a building on land.
+     */
+    private fun inWaterFits(t: BuildingType, i: Int): Boolean = when (t) {
+        BuildingType.RIVER_TURBINE -> flow()[i] >= 0
+        BuildingType.TIDAL_TURBINE -> {
+            val x = i % map.width
+            val y = i / map.width
+            minOf(x, y, map.width - 1 - x, map.height - 1 - y) < Balance.TIDE_REACH
+        }
+        else -> true
     }
 
     /** Whether a building of [type] at [x], [y] would have water next to it, on any side or corner. */
@@ -3126,10 +3143,41 @@ class City(
         val tractionEach = if (traction == 0) 0 else traffic.electricRiders() * Balance.TRACTION_W / traction
         // A heat wave in the air-conditioned years pushes the peak up.
         val peak = Electricity.peak(year, month) + if (heatWaveDays > 0 && year >= 1960) Balance.HEAT_WAVE_PEAK else 0
+        batteryCharge = charge(perPerson, tractionEach)
         grid.update(buildings.values, { b -> draw(b, perPerson, tractionEach) }, { b -> available(b) }, peak)
         stats.powerCapacity = grid.capacity / 1000
         stats.powerDemand = grid.demand / 1000
         stats.powerShort = grid.short / 1000
+    }
+
+    /** How full the batteries go into the evening, in percent. */
+    private var batteryCharge = 0
+
+    /**
+     * What the day's wind and sun leave over the town's average use, kept in
+     * the batteries for the evening, in percent of what they hold.
+     */
+    private fun charge(perPerson: Int, tractionEach: Int): Int {
+        val batteries = buildings.values.filter { it.type == BuildingType.BATTERY && it.underway == 0 && it.outage == 0 }
+        if (batteries.isEmpty()) return 0
+        val w = weather
+        var made = 0L
+        for (b in buildings.values) {
+            if (b.underway > 0 || b.outage > 0) continue
+            val full = Generation.capacity(b.type).toLong()
+            made += when (b.type) {
+                BuildingType.WIND_FARM -> full * Generation.windShare(w.windSpeed) / 100
+                BuildingType.SOLAR_FARM -> full * Generation.solarDay(month, w.cloud) / 100
+                BuildingType.OFFSHORE_WIND -> full * Generation.offshoreShare(w.windSpeed) / 100
+                // The tide runs half the day on average; the river all of it.
+                BuildingType.TIDAL_TURBINE -> full / 2
+                BuildingType.RIVER_TURBINE -> full * (50 + river / 2) / 100
+                else -> 0L
+            }
+        }
+        val use = buildings.values.sumOf { draw(it, perPerson, tractionEach).toLong() }
+        val room = batteries.sumOf { Generation.capacity(it.type).toLong() }
+        return ((made - use).coerceAtLeast(0) * 100 / room).coerceIn(0, 100).toInt()
     }
 
     /** What [b] draws at the month's average, in watts. */
@@ -3149,7 +3197,19 @@ class City(
     private fun available(b: Building): Int {
         if (!Generation.station(b.type) || b.underway > 0 || b.outage > 0 || flooded(b)) return 0
         val full = Generation.capacity(b.type)
-        return if (b.type == BuildingType.HYDRO_PLANT) (full.toLong() * (50 + river / 2) / 100).toInt() else full
+        val w = weather
+        return when (b.type) {
+            BuildingType.HYDRO_PLANT -> (full.toLong() * (50 + river / 2) / 100).toInt()
+            // The weather's: the wind, and the evening sun through the cloud.
+            BuildingType.WIND_FARM -> (full.toLong() * Generation.windShare(w.windSpeed) / 100).toInt()
+            BuildingType.SOLAR_FARM -> (full.toLong() * Generation.solarPeak(month, w.cloud) / 100).toInt()
+            BuildingType.RIVER_TURBINE -> (full.toLong() * (50 + river / 2) / 100).toInt()
+            BuildingType.TIDAL_TURBINE -> (full.toLong() * Generation.tideAtPeak(day) / 100).toInt()
+            BuildingType.OFFSHORE_WIND -> (full.toLong() * Generation.offshoreShare(w.windSpeed) / 100).toInt()
+            // What the day left spare to keep.
+            BuildingType.BATTERY -> (full.toLong() * batteryCharge / 100).toInt()
+            else -> full
+        }
     }
 
     /** What a station's making, in watts, as of the last time the grid was worked out. */
@@ -4983,6 +5043,12 @@ class City(
                     BuildingType.OIL_PLANT -> Balance.OIL_PLANT_UPKEEP
                     BuildingType.GAS_PLANT -> Balance.GAS_PLANT_UPKEEP
                     BuildingType.HYDRO_PLANT -> Balance.HYDRO_PLANT_UPKEEP
+                    BuildingType.WIND_FARM -> Balance.WIND_UPKEEP
+                    BuildingType.SOLAR_FARM -> Balance.SOLAR_UPKEEP
+                    BuildingType.BATTERY -> Balance.BATTERY_UPKEEP
+                    BuildingType.RIVER_TURBINE -> Balance.RIVER_TURBINE_UPKEEP
+                    BuildingType.TIDAL_TURBINE -> Balance.TIDAL_UPKEEP
+                    BuildingType.OFFSHORE_WIND -> Balance.OFFSHORE_UPKEEP
                     BuildingType.NUCLEAR_PLANT -> Balance.NUCLEAR_PLANT_UPKEEP
                     BuildingType.SUBSTATION -> Balance.SUBSTATION_UPKEEP
                     else -> Balance.PLANT_UPKEEP

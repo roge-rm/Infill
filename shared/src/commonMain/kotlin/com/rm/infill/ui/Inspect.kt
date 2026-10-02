@@ -217,6 +217,20 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     }
 
     // What it makes, and from where.
+    // Why a station on the weather is making little.
+    if (built && city.stationAvailable(b) == 0) {
+        when (t) {
+            BuildingType.WIND_FARM -> pills += PillItem(
+                Glyph.Warn, stringResource(if (city.weather.windSpeed >= com.rm.infill.sim.Weather.GALE) Res.string.pill_gale else Res.string.pill_calm), Tone.Warn,
+            )
+            BuildingType.SOLAR_FARM -> pills += PillItem(Glyph.Warn, stringResource(Res.string.pill_dark), Tone.Plain)
+            BuildingType.BATTERY -> pills += PillItem(Glyph.Warn, stringResource(Res.string.pill_flat), Tone.Warn)
+            BuildingType.OFFSHORE_WIND -> pills += PillItem(
+                Glyph.Warn, stringResource(if (city.weather.windSpeed >= com.rm.infill.sim.Weather.GALE) Res.string.pill_gale else Res.string.pill_calm), Tone.Warn,
+            )
+            else -> {}
+        }
+    }
     if (Generation.station(t)) {
         val made = city.stationOutput(b)
         val could = city.stationAvailable(b)

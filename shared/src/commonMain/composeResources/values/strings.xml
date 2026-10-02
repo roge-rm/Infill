@@ -731,4 +731,14 @@
     <string name="label_with_phone">Have a phone</string>
     <string name="label_with_broadband">Have broadband</string>
     <string name="label_wfh">Working from home</string>
+    <string name="wind_farm">Wind farm</string>
+    <string name="solar_farm">Solar farm</string>
+    <string name="battery">Batteries</string>
+    <string name="pill_calm">Too calm to turn</string>
+    <string name="pill_gale">Stopped for the gale</string>
+    <string name="pill_dark">No sun at the evening peak</string>
+    <string name="pill_flat">Nothing spare to keep</string>
+    <string name="river_turbine">River turbine</string>
+    <string name="tidal_turbine">Tidal turbines</string>
+    <string name="offshore_wind">Offshore wind</string>
 </resources>

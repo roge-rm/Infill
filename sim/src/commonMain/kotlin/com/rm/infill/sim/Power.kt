@@ -15,8 +15,49 @@ object Generation {
         BuildingType.GAS_PLANT -> 50_000_000
         BuildingType.HYDRO_PLANT -> 12_000_000
         BuildingType.NUCLEAR_PLANT -> 300_000_000
+        BuildingType.WIND_FARM -> 12_000_000
+        BuildingType.SOLAR_FARM -> 15_000_000
+        BuildingType.BATTERY -> 25_000_000
+        BuildingType.RIVER_TURBINE -> 3_000_000
+        BuildingType.TIDAL_TURBINE -> 10_000_000
+        BuildingType.OFFSHORE_WIND -> 20_000_000
         else -> 0
     }
+
+    /** Makes its power from the weather, and costs nothing to run. */
+    fun renewable(t: BuildingType): Boolean =
+        t == BuildingType.WIND_FARM || t == BuildingType.SOLAR_FARM || t == BuildingType.RIVER_TURBINE || t == BuildingType.TIDAL_TURBINE || t == BuildingType.OFFSHORE_WIND
+
+    /** The wind out on open water: steadier and stronger than on land. */
+    fun offshoreShare(speed: Int): Int = if (speed >= Weather.GALE) 0 else windShare(speed + Balance.OFFSHORE_WIND_GAIN)
+
+    /**
+     * How strongly the tide's running at the evening peak, in percent, on
+     * [day] of the month: the tide comes round about 50 minutes later each
+     * day, so twice a month it's running hard at the peak and twice slack.
+     */
+    fun tideAtPeak(day: Int): Int {
+        val phase = 2 * kotlin.math.PI * day / Balance.TIDE_DAYS
+        return (50 + 50 * kotlin.math.cos(phase)).toInt().coerceIn(Balance.TIDE_LEAST, 100)
+    }
+
+    /**
+     * What a wind farm makes, in percent of its most, at a wind speed: none
+     * in a calm, rising to full in a strong breeze, and none in a gale, when
+     * the turbines are stopped to save them.
+     */
+    fun windShare(speed: Int): Int = if (speed >= Weather.GALE) 0 else ((speed - Balance.WIND_START) * 100 / (Balance.WIND_FULL - Balance.WIND_START)).coerceIn(0, 100)
+
+    /**
+     * What solar panels make, in percent of their most, over the day and at
+     * the evening peak, in [month] under [cloud] percent cloud. The peak comes
+     * after sunset in winter and in the low sun of summer evenings.
+     */
+    fun solarDay(month: Int, cloud: Int): Int = SOLAR_DAY[month] * (100 - cloud * Balance.CLOUD_SHADE / 100) / 100
+    fun solarPeak(month: Int, cloud: Int): Int = SOLAR_PEAK[month] * (100 - cloud * Balance.CLOUD_SHADE / 100) / 100
+
+    private val SOLAR_DAY = intArrayOf(10, 15, 22, 28, 33, 36, 35, 31, 25, 18, 12, 9)
+    private val SOLAR_PEAK = intArrayOf(0, 0, 2, 8, 15, 20, 18, 12, 5, 0, 0, 0)
 
     fun fumes(t: BuildingType): Int = when (t) {
         BuildingType.COAL_PLANT -> 40

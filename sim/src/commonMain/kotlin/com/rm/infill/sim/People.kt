@@ -141,6 +141,8 @@ object Demography {
         BuildingType.WAREHOUSE -> intArrayOf(85, 15, 0)
         BuildingType.FACTORY -> intArrayOf(60, 33, 7)
         BuildingType.COAL_PLANT -> intArrayOf(60, 35, 5)
+        BuildingType.WIND_FARM, BuildingType.SOLAR_FARM, BuildingType.BATTERY,
+        BuildingType.RIVER_TURBINE, BuildingType.TIDAL_TURBINE, BuildingType.OFFSHORE_WIND -> intArrayOf(0, 60, 40)
         BuildingType.POLICE_STATION -> intArrayOf(20, 80, 0)
         BuildingType.FIRE_STATION -> intArrayOf(30, 70, 0)
         BuildingType.SCHOOL -> intArrayOf(0, 25, 75)

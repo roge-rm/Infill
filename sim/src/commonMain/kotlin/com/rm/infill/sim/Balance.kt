@@ -90,6 +90,28 @@ object Balance {
     const val GAS_PLANT_UPKEEP = 40.0
     const val HYDRO_PLANT_UPKEEP = 60.0
     const val NUCLEAR_PLANT_UPKEEP = 500.0
+
+    // Wind, solar and batteries: upkeep a month; the wind speeds a wind farm starts making power at and
+    // makes its most at; how much of the sun a fully overcast sky keeps off; how much a wind farm's
+    // noise takes off the land within a couple of tiles.
+    const val WIND_UPKEEP = 40.0
+    const val SOLAR_UPKEEP = 30.0
+    const val BATTERY_UPKEEP = 50.0
+    const val WIND_START = 15
+    const val WIND_FULL = 60
+    const val CLOUD_SHADE = 75
+    const val WIND_VALUE = 6
+
+    // On the water: upkeep a month; how much more wind there is offshore, in wind speed; how many days the
+    // tide takes to come round to the same hour, the least it's running at, and how far from the map's edge
+    // tidal water reaches up an estuary.
+    const val RIVER_TURBINE_UPKEEP = 8.0
+    const val TIDAL_UPKEEP = 60.0
+    const val OFFSHORE_UPKEEP = 90.0
+    const val OFFSHORE_WIND_GAIN = 15
+    const val TIDE_DAYS = 15
+    const val TIDE_LEAST = 15
+    const val TIDE_REACH = 10
     // Fuel a month for each megawatt made, which sets the order the grid runs them in.
     const val COAL_FUEL = 3.5
     const val GAS_FUEL = 4.0

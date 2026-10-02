@@ -76,6 +76,16 @@ enum class BuildingType(
     HYDRO_PLANT(Zone.NONE, 0, 6, width = 2, height = 2, life = 70),
     NUCLEAR_PLANT(Zone.NONE, 0, 40, width = 3, height = 3, year = 1970, life = 50),
 
+    /** Power from the weather: wind turbines, solar panels, and batteries to keep it for the evening. */
+    WIND_FARM(Zone.NONE, 0, 4, width = 2, height = 2, year = 2000, life = 25),
+    SOLAR_FARM(Zone.NONE, 0, 3, width = 3, height = 3, year = 2005, life = 25),
+    BATTERY(Zone.NONE, 0, 2, width = 2, height = 1, year = 2030, life = 15),
+
+    /** Out on the water: a turbine in a river's current, turbines in the tide, and wind farms offshore. */
+    RIVER_TURBINE(Zone.NONE, 0, 1, year = 1985, life = 30),
+    TIDAL_TURBINE(Zone.NONE, 0, 3, width = 2, height = 1, year = 2010, life = 25),
+    OFFSHORE_WIND(Zone.NONE, 0, 6, width = 2, height = 2, year = 2010, life = 25),
+
     /** Where a high-voltage line steps down to the streets' lines. */
     SUBSTATION(Zone.NONE, 0, 0, year = 1920, life = 50),
 
@@ -173,6 +183,9 @@ enum class BuildingType(
     val needsSewer get() = needs >= 3
 
     /** Has to be beside water. */
+    /** Stands out in the water, every tile of it. */
+    val inWater get() = this == RIVER_TURBINE || this == TIDAL_TURBINE || this == OFFSHORE_WIND
+
     val onWater get() = this == PUMPING_STATION || outfall || this == STORM_OUTFALL || this == HYDRO_PLANT
 
     /** Where the sewers come out. */

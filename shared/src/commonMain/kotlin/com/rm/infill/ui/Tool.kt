@@ -78,6 +78,12 @@ import com.rm.infill.res.substation
 import com.rm.infill.res.high_line
 import com.rm.infill.res.tool_phone
 import com.rm.infill.res.exchange
+import com.rm.infill.res.wind_farm
+import com.rm.infill.res.solar_farm
+import com.rm.infill.res.battery
+import com.rm.infill.res.river_turbine
+import com.rm.infill.res.tidal_turbine
+import com.rm.infill.res.offshore_wind
 import com.rm.infill.res.cell_tower
 import com.rm.infill.res.copper_line
 import com.rm.infill.res.copper_duct
@@ -386,6 +392,12 @@ enum class PowerKind(
     Gas(Res.string.gas_plant, BuildingType.GAS_PLANT),
     Hydro(Res.string.hydro_plant, BuildingType.HYDRO_PLANT),
     Nuclear(Res.string.nuclear_plant, BuildingType.NUCLEAR_PLANT),
+    Wind(Res.string.wind_farm, BuildingType.WIND_FARM),
+    Solar(Res.string.solar_farm, BuildingType.SOLAR_FARM),
+    Battery(Res.string.battery, BuildingType.BATTERY),
+    RiverTurbine(Res.string.river_turbine, BuildingType.RIVER_TURBINE),
+    Tidal(Res.string.tidal_turbine, BuildingType.TIDAL_TURBINE),
+    Offshore(Res.string.offshore_wind, BuildingType.OFFSHORE_WIND),
     /** Fitted to the coal or oil station tapped. */
     Scrubbers(Res.string.scrubbers, scrubbers = true),
 }

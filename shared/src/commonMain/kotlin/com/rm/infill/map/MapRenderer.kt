@@ -297,7 +297,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
 
         // Sprites, back rows first, each building from its bottom row so what's in
         // front of it covers it. The rows below this chunk reach up into it.
-        for (ty in y0 until min(y1 + SPRITE_ROWS, map.height)) for (tx in max(0, x0 - 1) until x1) {
+        // Buildings up to three tiles wide reach in from the two columns to the left.
+        for (ty in y0 until min(y1 + SPRITE_ROWS, map.height)) for (tx in max(0, x0 - WIDEST + 1) until x1) {
             val i = map.index(tx, ty)
             val type = map.buildingType[i].toInt()
             if (type != 0) {
@@ -853,6 +854,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         private const val SOOT = 0x3F3830
 
         /** Paths and back lanes: worn dirt, gravel, then paving; a path's a little fainter than a lane. */
+        /** The widest building, in tiles. */
+        private val WIDEST = com.rm.infill.sim.BuildingType.entries.maxOf { it.width }
+
         /** How far in from a road tile's edge its pavement starts, in 32nds. */
         private const val VERGE = 6
 

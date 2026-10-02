@@ -37,6 +37,10 @@ object Stormwater {
         BuildingType.FACTORY, BuildingType.WORKS -> 95
         BuildingType.COAL_PLANT, BuildingType.OIL_PLANT, BuildingType.GAS_PLANT -> 85
         BuildingType.HYDRO_PLANT -> 70
+        BuildingType.WIND_FARM -> 10
+        BuildingType.SOLAR_FARM -> 40
+        BuildingType.BATTERY -> 80
+        BuildingType.RIVER_TURBINE, BuildingType.TIDAL_TURBINE, BuildingType.OFFSHORE_WIND -> 0
         BuildingType.FARM -> 10
         BuildingType.VOLUNTEER_HALL, BuildingType.LIBRARY, BuildingType.JAIL -> 70
         BuildingType.POLICE_HQ, BuildingType.EXCHANGE -> 85

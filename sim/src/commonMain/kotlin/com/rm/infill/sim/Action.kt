@@ -240,6 +240,12 @@ object Prices {
         BuildingType.OIL_PLANT -> OIL_PLANT
         BuildingType.GAS_PLANT -> GAS_PLANT
         BuildingType.HYDRO_PLANT -> HYDRO_PLANT
+        BuildingType.WIND_FARM -> 8_000L
+        BuildingType.SOLAR_FARM -> 10_000L
+        BuildingType.BATTERY -> 6_000L
+        BuildingType.RIVER_TURBINE -> 1_500L
+        BuildingType.TIDAL_TURBINE -> 12_000L
+        BuildingType.OFFSHORE_WIND -> 20_000L
         BuildingType.NUCLEAR_PLANT -> NUCLEAR_PLANT
         BuildingType.SUBSTATION -> SUBSTATION
         BuildingType.DUMP -> DUMP

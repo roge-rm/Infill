@@ -78,6 +78,12 @@ internal object BuildingSprites {
                 BuildingType.COLLEGE -> Atlas.COLLEGE to Atlas.COLLEGE_COUNT
                 BuildingType.POLICE_HQ -> Atlas.POLICE_HQ to Atlas.POLICE_HQ_COUNT
                 BuildingType.EXCHANGE -> Atlas.EXCHANGE to Atlas.EXCHANGE_COUNT
+                BuildingType.WIND_FARM -> Atlas.WIND_FARM to Atlas.WIND_FARM_COUNT
+                BuildingType.SOLAR_FARM -> Atlas.SOLAR_FARM to Atlas.SOLAR_FARM_COUNT
+                BuildingType.BATTERY -> Atlas.BATTERY to Atlas.BATTERY_COUNT
+                BuildingType.RIVER_TURBINE -> Atlas.RIVER_TURBINE to Atlas.RIVER_TURBINE_COUNT
+                BuildingType.TIDAL_TURBINE -> Atlas.TIDAL_TURBINE to Atlas.TIDAL_TURBINE_COUNT
+                BuildingType.OFFSHORE_WIND -> Atlas.OFFSHORE_WIND to Atlas.OFFSHORE_WIND_COUNT
                 BuildingType.CELL_TOWER -> Atlas.CELL_TOWER to Atlas.CELL_TOWER_COUNT
                 BuildingType.COURTHOUSE -> Atlas.COURTHOUSE to Atlas.COURTHOUSE_COUNT
                 BuildingType.JAIL -> Atlas.JAIL to Atlas.JAIL_COUNT

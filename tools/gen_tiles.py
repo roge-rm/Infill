@@ -3677,6 +3677,155 @@ def cell_tower(look, v):
 BUILDINGS += [("exchange", exchange, 2), ("cell_tower", cell_tower, 1)]
 
 
+# Power from the weather: a wind farm, a solar farm and a battery yard.
+
+
+def wind_farm(look, v):
+    """Two wind turbines on 2 by 2 tiles of grass: white towers, a hub and three long blades each."""
+    b = Building(2, 2, height=46)
+    d = b.d
+    white = c("#eef0f2")
+    # Two turbines on the diagonal, so neither tower stands in front of the other's blades.
+    for k, (tx, ty) in enumerate(((18, 22), (46, 54))):
+        fx, fy = b.ground(tx, ty)
+        top = fy - 34
+        # The tower, narrowing up.
+        d.polygon([(fx - 1, fy), (fx + 1, fy), (fx, top)], white, None)
+        d.line([fx + 1, fy, fx, top], c("#b8bec4"))
+        # The nacelle and hub.
+        d.rectangle([fx - 2, top - 1, fx + 2, top + 1], white, OUTLINE)
+        # Three blades, each turbine turned a little differently.
+        a0 = (k * 37 + v * 20) * math.pi / 180
+        for j in range(3):
+            a = a0 + j * 2 * math.pi / 3
+            ex = fx + round(11 * math.cos(a))
+            ey = top + round(11 * math.sin(a))
+            d.line([fx, top, ex, ey], white, width=2)
+            d.line([fx, top, ex, ey], c("#c8ced4"))
+        d.point((fx, top), c("#9aa0a6"))
+        b.casters.append((1, tx - 1, ty - 1, tx + 2, ty + 2, 34))
+    return b
+
+
+def solar_farm(look, v):
+    """A solar farm on 3 by 3 tiles: rows of dark blue panels tilted to the sun, with paths between and a small shed."""
+    b = Building(3, 3, height=6)
+    d = b.d
+    gx0, gy0 = b.ground(2, 2)
+    gx1, gy1 = b.ground(93, 93)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else c("#9ab07a"))
+    panel = c("#26406a")
+    glint = c("#4a6aa0")
+    for row in range(8):
+        y = 6 + row * 11
+        px0, py0 = b.ground(6, y)
+        px1, py1 = b.ground(80, y + 6)
+        d.rectangle([px0, py0, px1, py1], SNOW_ROOF[0] if look == "snow" and row % 2 == 0 else panel)
+        for xx in range(px0 + 4, px1, 6):
+            d.line([xx, py0, xx, py1], c("#1a2c4c"))
+        d.line([px0, py0, px1, py0], glint)
+        d.line([px0, py1 + 1, px1, py1 + 1], c("#3a3a40"))
+    # The inverter shed.
+    roof, wall = b.box(83, 74, 92, 86, 6)
+    d.rectangle(wall, c("#d0d0cc"))
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#8a9096"), OUTLINE)
+    return b
+
+
+def battery(look, v):
+    """A battery yard on 2 by 1 tiles: a row of white containers with vents, behind a fence."""
+    b = Building(2, 1, height=10)
+    d = b.d
+    gx0, gy0 = b.ground(2, 4)
+    gx1, gy1 = b.ground(61, 29)
+    d.rectangle([gx0, gy0, gx1, gy1], c("#b8b2a6") if look != "snow" else c("#dfe5ea"))
+    for xx in range(gx0, gx1 + 1, 2):
+        d.point((xx, gy0), c("#6a6a70"))
+        d.point((xx, gy1), c("#6a6a70"))
+    for k in range(5):
+        x0 = 5 + k * 11
+        roof, wall = b.box(x0, 8, x0 + 9, 22, 8)
+        d.rectangle(wall, c("#e6e8ea"))
+        for yy in range(wall[1] + 2, wall[3], 2):
+            d.line([wall[0] + 2, yy, wall[2] - 2, yy], c("#b8bec4"))
+        d.point((wall[2] - 2, wall[1] + 1), c("#4cb86a"))
+        d.rectangle(wall, outline=OUTLINE)
+        d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#cfd3d6"), OUTLINE)
+    return b
+
+
+BUILDINGS += [("wind_farm", wind_farm, 2), ("solar_farm", solar_farm, 1), ("battery", battery, 1)]
+
+
+def river_turbine(look, v):
+    """A turbine in a river's current: a small concrete platform with its housing, rails, and the water churned behind it."""
+    b = Building(height=10)
+    d = b.d
+    gx0, gy0 = b.ground(8, 10)
+    gx1, gy1 = b.ground(24, 22)
+    # White water downstream of it.
+    for k in range(6):
+        x, y = b.ground(10 + k * 2, 24 + (k % 2))
+        d.point((x, y), c("#e6f0f6"))
+    d.rectangle([gx0, gy0, gx1, gy1], c("#b8b4aa"), OUTLINE)
+    roof, wall = b.box(11, 12, 21, 19, 6)
+    d.rectangle(wall, c("#d8d4ca"))
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#5a7a8a"), OUTLINE)
+    d.point((gx1 - 1, gy0 + 1), c("#e8a33a"))
+    return b
+
+
+def tidal_turbine(look, v):
+    """Tidal turbines on 2 by 1 tiles of water: a steel platform with its mast and lights, two rotors dark under the water, and buoys."""
+    b = Building(2, 1, height=14)
+    d = b.d
+    for cx in (16, 48):
+        x, y = b.ground(cx, 16)
+        d.ellipse([x - 8, y - 3, x + 8, y + 3], (20, 40, 60, 140))
+        d.line([x - 8, y, x + 8, y], (10, 25, 40, 160))
+    roof, wall = b.box(26, 10, 38, 22, 5)
+    d.rectangle(wall, c("#d8b030"))
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, c("#7a8088"), OUTLINE)
+    mx, my = b.ground(32, 14)
+    d.line([mx, my - 5, mx, my - 13], c("#c8ccd0"))
+    d.point((mx, my - 14), c("#e05040"))
+    for bx in (4, 60):
+        x, y = b.ground(bx, 6 if bx < 30 else 26)
+        d.ellipse([x - 1, y - 2, x + 1, y], c("#e8a33a"), OUTLINE)
+    return b
+
+
+def offshore_wind(look, v):
+    """Two wind turbines on 2 by 2 tiles of open water, each on a yellow foundation with a ring of white water."""
+    b = Building(2, 2, height=50)
+    d = b.d
+    white = c("#eef0f2")
+    for k, (tx, ty) in enumerate(((18, 22), (46, 54))):
+        fx, fy = b.ground(tx, ty)
+        d.ellipse([fx - 5, fy - 2, fx + 5, fy + 3], c("#e6f0f6"))
+        d.rectangle([fx - 2, fy - 3, fx + 2, fy], c("#e0b020"), OUTLINE)
+        top = fy - 38
+        d.polygon([(fx - 1, fy - 3), (fx + 1, fy - 3), (fx, top)], white, None)
+        d.line([fx + 1, fy - 3, fx, top], c("#b8bec4"))
+        d.rectangle([fx - 2, top - 1, fx + 2, top + 1], white, OUTLINE)
+        a0 = (k * 53 + v * 25) * math.pi / 180
+        for j in range(3):
+            a = a0 + j * 2 * math.pi / 3
+            ex = fx + round(13 * math.cos(a))
+            ey = top + round(13 * math.sin(a))
+            d.line([fx, top, ex, ey], white, width=2)
+            d.line([fx, top, ex, ey], c("#c8ced4"))
+        d.point((fx, top), c("#9aa0a6"))
+        b.casters.append((1, tx - 1, ty - 1, tx + 2, ty + 2, 38))
+    return b
+
+
+BUILDINGS += [("river_turbine", river_turbine, 1), ("tidal_turbine", tidal_turbine, 1), ("offshore_wind", offshore_wind, 2)]
+
+
 # High-voltage lines: a steel lattice pylon, taller, with three wires a side.
 PYLON = c("#7d848a")
 HV_WIRE = (40, 42, 46, 160)

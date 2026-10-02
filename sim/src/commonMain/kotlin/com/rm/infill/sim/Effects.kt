@@ -82,6 +82,7 @@ internal object Effects {
         val avenues = if (map.streetTrees.any { it.toInt() != 0 }) SummedArea(w, h) { map.streetTrees[it].toInt() } else null
         val dumps = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.DUMP) 1 else 0 }
         val jails = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.JAIL) 1 else 0 }
+        val turbines = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.WIND_FARM) 1 else 0 }
         val overhead = map.power.any { it != Power.NONE }
         val poles = if (overhead) SummedArea(w, h) { if (map.power[it] == Power.LINE && !map.cable(it)) 1 else 0 } else null
         val pylons = if (overhead) SummedArea(w, h) { if (map.power[it] == Power.HIGH && !map.cable(it)) 1 else 0 } else null
@@ -120,6 +121,8 @@ internal object Effects {
             // Poles and wires next door, and pylons a little further.
             if (poles != null && poles.around(x, y, 1) > 0) v -= Balance.POLE_VALUE
             if (pylons != null && pylons.around(x, y, 2) > 0) v -= Balance.PYLON_VALUE
+            // The hum of turbines.
+            if (turbines.around(x, y, 2) > 0 && buildingTypes(i) != BuildingType.WIND_FARM) v -= Balance.WIND_VALUE
             // Nor next to a jail.
             if (jails.around(x, y, Balance.JAIL_REACH) > 0 && buildingTypes(i) != BuildingType.JAIL) v -= Balance.JAIL_VALUE
             // A tram or bus stop round the corner, and a subway station a walk away.
