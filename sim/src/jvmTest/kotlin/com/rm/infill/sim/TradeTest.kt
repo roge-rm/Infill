@@ -40,8 +40,10 @@ class TradeTest {
         val apart = town(false)
         assertTrue(linked.stats.shoppingOut > 0, "shopping out ${linked.stats.shoppingOut}")
         assertEquals(0, apart.stats.shoppingOut)
-        // Shops next door: fewer wanted here.
-        assertTrue(linked.stats.commercialDemand < apart.stats.commercialDemand, "linked ${linked.stats.commercialDemand}, apart ${apart.stats.commercialDemand}")
+        // Shops next door: fewer wanted here, by what's spent there.
+        val out = linked.demandParts().first { it.zone == Zone.COMMERCIAL }.parts.firstOrNull { it.source == DemandSource.SHOPPERS_OUT }
+        assertTrue(out != null && out.amount < 0, "shopping next door takes from the shops wanted: ${out?.amount}")
+        assertTrue(apart.demandParts().first { it.zone == Zone.COMMERCIAL }.parts.none { it.source == DemandSource.SHOPPERS_OUT })
     }
 
     @Test

@@ -72,15 +72,16 @@ class CoolingTest {
 
     @Test
     fun aCoolingCentreSavesLivesInAHeatWave() {
+        // One town, copied, so the people and their luck are the same with the centres and without.
+        val grown = SaveGame.write(town(1980, seed = 23))
         fun deaths(centre: Boolean): Int {
-            val c = town(1980, seed = 23)
-            if (centre) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.COOLING_CENTRE, 5, 21)).ok)
-            repeat(2) { repeat(31) { c.tick() } }
-            City::class.java.getDeclaredField("heatWaveDays").apply { isAccessible = true }.setInt(c, 10)
+            val c = SaveGame.read(grown).also { it.everything = true }
+            // Along the south side, close enough to reach most of the homes.
+            if (centre) for (x in listOf(15, 30, 45)) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.COOLING_CENTRE, x, 41)).ok, "centre at $x")
             // Heat deaths are a disaster, so they need disasters on.
             c.disasterLevel = 2
             var died = 0
-            repeat(6) {
+            repeat(12) {
                 City::class.java.getDeclaredField("heatWaveDays").apply { isAccessible = true }.setInt(c, 10)
                 City::class.java.getDeclaredMethod("updatePeople").apply { isAccessible = true }.invoke(c)
                 died += c.stats.deaths

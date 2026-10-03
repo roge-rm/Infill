@@ -1798,7 +1798,7 @@ class City(
 
     // ---- time ----------------------------------------------------------------
 
-    /** Moves on a day: growth every day, and the census, demand, money and grime on the first of each month. */
+    /** Moves on a day: growth every day, the census and demand each week, and money and grime on the first of each month. */
     fun tick() {
         if (networksDirty) updateNetworks()
         for (b in buildings.values) b.age++
@@ -1840,6 +1840,9 @@ class City(
                 floodsThisYear = 0
             }
             newMonth()
+        } else if (day % Balance.DEMAND_DAYS == 1 || stats.population == 0 && stats.sites == 0) {
+            // Demand's looked at again each week, and each day while a new town waits for its first building.
+            newWeek()
         }
     }
 
@@ -1890,6 +1893,23 @@ class City(
         carbon()
         record()
         newEra()
+        updateAdvice()
+    }
+
+    /**
+     * The town counted again and demand worked out from it, with the advice,
+     * between the turns of the month, so what's built shows in what's wanted
+     * within the week. The month's own figures (births, moves, money, the
+     * people crossing the border) are left as the month's turn had them.
+     */
+    private fun newWeek() {
+        val s = stats
+        val commutersIn = s.commutersIn
+        val commutersOut = s.commutersOut
+        census(full = false)
+        s.commutersIn = commutersIn
+        s.commutersOut = commutersOut
+        demand()
         updateAdvice()
     }
 
@@ -3761,8 +3781,13 @@ class City(
         return funded * staffed(type) / 100
     }
 
-    /** The share of [type]'s staff the town has, in percent, by the schooling its work needs. */
+    /**
+     * The share of [type]'s staff the town has, in percent, by the schooling
+     * its work needs. Before anyone lives here, the first few are run by
+     * people from outside, and fully staffed.
+     */
     fun staffed(type: BuildingType): Int {
+        if (stats.population == 0) return 100
         val skills = Demography.jobSkills(type)
         var share = 0
         for (k in 0 until Education.LEVELS) share += skills[k] * (100 - skillShortage[k])
@@ -6582,7 +6607,12 @@ class City(
         }
     }
 
-    private fun census() {
+    /**
+     * Counts the town: its people and their homes, the jobs and what's going
+     * up, and how work is filled. A [full] count, at the month's turn, also
+     * takes who's on the mains, sewer and power, the downtown and the land built on.
+     */
+    private fun census(full: Boolean = true) {
         val s = stats
         var residents = 0
         var shopJobs = 0
@@ -6648,36 +6678,39 @@ class City(
             }
         }
         s.population = residents
-        var onMains = 0
-        var onSewer = 0
-        var powered = 0
-        var buildingsCount = 0
-        s.downtown = 0
-        s.highSchools = 0
-        for (b in buildings.values) {
-            val i = map.index(b.x, b.y)
-            val people = b.people?.size ?: 0
-            if (map.watered[i]) onMains += people
-            if (map.sewered[i]) onSewer += people
-            if (b.type != BuildingType.PARK) {
-                buildingsCount++
-                if (map.powered[i]) powered++
+        // What only the month's turn needs: who's on the mains, sewer and power, the downtown, and the land built on.
+        if (full) {
+            var onMains = 0
+            var onSewer = 0
+            var powered = 0
+            var buildingsCount = 0
+            s.downtown = 0
+            s.highSchools = 0
+            for (b in buildings.values) {
+                val i = map.index(b.x, b.y)
+                val people = b.people?.size ?: 0
+                if (map.watered[i]) onMains += people
+                if (map.sewered[i]) onSewer += people
+                if (b.type != BuildingType.PARK) {
+                    buildingsCount++
+                    if (map.powered[i]) powered++
+                }
+                if ((b.type.zone == Zone.COMMERCIAL || b.type.zone == Zone.OFFICE) && Density.rank(b.type.density) >= Density.rank(Density.HIGH) && b.underway == 0) s.downtown++
+                if (b.type == BuildingType.HIGH_SCHOOL) s.highSchools++
             }
-            if ((b.type.zone == Zone.COMMERCIAL || b.type.zone == Zone.OFFICE) && Density.rank(b.type.density) >= Density.rank(Density.HIGH) && b.underway == 0) s.downtown++
-            if (b.type == BuildingType.HIGH_SCHOOL) s.highSchools++
+            s.onMains = if (residents == 0) 0 else onMains * 100 / residents
+            s.onSewer = if (residents == 0) 0 else onSewer * 100 / residents
+            s.powered = if (buildingsCount == 0) 0 else powered * 100 / buildingsCount
+            var land = 0
+            var built = 0
+            for (i in 0 until map.size) {
+                if (!nearRoad[i] || map.terrain[i] == Terrain.WATER || map.road[i] != Road.NONE || map.rail[i] != Rail.NONE) continue
+                land++
+                if (map.building[i] != 0) built++
+            }
+            s.landBuilt = if (land == 0) 0 else built * 100 / land
+            s.keptUp = keptUp()
         }
-        s.onMains = if (residents == 0) 0 else onMains * 100 / residents
-        s.onSewer = if (residents == 0) 0 else onSewer * 100 / residents
-        s.powered = if (buildingsCount == 0) 0 else powered * 100 / buildingsCount
-        var land = 0
-        var built = 0
-        for (i in 0 until map.size) {
-            if (!nearRoad[i] || map.terrain[i] == Terrain.WATER || map.road[i] != Road.NONE || map.rail[i] != Rail.NONE) continue
-            land++
-            if (map.building[i] != 0) built++
-        }
-        s.landBuilt = if (land == 0) 0 else built * 100 / land
-        s.keptUp = keptUp()
         s.shopJobs = shopJobs
         s.industryJobs = industryJobs
         s.farmJobs = farmJobs
@@ -6768,7 +6801,7 @@ class City(
      * What makes up each zone's demand now, for the Demand window: what calls
      * for more, what's here already and what's coming, and what the tax
      * rate does to it. People for homes, jobs for the rest. Worked out from the
-     * month's figures and today's tax rates, so a tax change shows at once.
+     * week's figures and today's tax rates, so a tax change shows at once.
      */
     fun demandParts(): List<ZoneDemand> {
         val s = stats
@@ -6852,7 +6885,7 @@ class City(
         }
     }
 
-    /** What's holding the town back, worst first, worked out each month. */
+    /** What's holding the town back, worst first, worked out each week. */
     var advice: List<Advice> = emptyList()
         private set
 

@@ -31,3 +31,20 @@ class DemandPartsTest {
         assertTrue(DemandSource.WORKERS_NEEDED in homes && DemandSource.LIVING_HERE in homes)
     }
 }
+
+class WeeklyDemandTest {
+    @Test
+    fun aNewTownWantsHomesStraightAwayAndBuildsInItsFirstMonth() {
+        val c = City(5, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.disasterLevel = 0 }
+        val m = c.map
+        c.apply(Action.BuildRoad(Action.roadPath(m, 0, 30, 60, 30, true)))
+        c.apply(Action.PlaceZone(2, 27, 58, 29, Zone.RESIDENTIAL))
+        c.apply(Action.PlaceZone(2, 31, 30, 33, Zone.COMMERCIAL))
+        // A day in, the homes the settlers want show.
+        c.tick()
+        assertTrue(c.stats.residentialDemand > 0, "homes wanted on day 2: ${c.stats.residentialDemand}")
+        // And within the month, before its turn, something's going up.
+        repeat(20) { c.tick() }
+        assertTrue(c.stats.sites > 0 || c.stats.population > 0, "nothing building three weeks in")
+    }
+}

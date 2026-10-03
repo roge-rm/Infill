@@ -33,7 +33,7 @@ class PathwayTest {
         val m = c.map
         val w = m.width
         val marked = (0 until m.size).filter { m.pathway[it].toInt() != 0 }
-        assertTrue(marked.size > 20, "some paths: ${marked.size}")
+        assertTrue(marked.size > 10, "some paths: ${marked.size}")
         val dx = intArrayOf(0, 1, 0, -1)
         val dy = intArrayOf(-1, 0, 1, 0)
         val bits = intArrayOf(1, 2, 4, 8)

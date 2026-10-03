@@ -54,7 +54,7 @@ class MixedUseTest {
         val b = add.invoke(c, BuildingType.MIXED_BLOCK, 12, 11, 0, 0) as Building
         assertEquals(BuildingType.MIXED_BLOCK.capacity, b.people!!.size)
         val people = c.stats.population
-        City::class.java.getDeclaredMethod("census").apply { isAccessible = true }.invoke(c)
+        City::class.java.getDeclaredMethod("census", Boolean::class.java).apply { isAccessible = true }.invoke(c, true)
         assertEquals(BuildingType.MIXED_BLOCK.jobs, c.stats.shopJobs - before)
         assertTrue(c.stats.population >= people)
         assertTrue(b in c.homes)

@@ -8,6 +8,9 @@ object Balance {
     /** Residents per shop job the town wants. */
     const val RESIDENTS_PER_SHOP_JOB = 7.0
 
+    /** Demand is worked out again this often, in days, between the turns of the month. */
+    const val DEMAND_DAYS = 7
+
     /** Settlers who'd come anyway, before there are jobs to draw them, and more as the town gets known. */
     const val SETTLERS = 30
     const val SETTLERS_PER_RESIDENT = 0.02

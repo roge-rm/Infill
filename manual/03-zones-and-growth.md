@@ -55,7 +55,7 @@ Crime and rackets put everyone off.
 
 ## Demand
 
-The demand bars in the strip show what the town wants. Tap them for the Demand window: for each zone, how much is wanted or how much too much, the sum it comes from, the zone's tax, and what's stopping it growing. Under them, how many are out of work, the jobs nobody's doing, the homes for sale and whether newcomers have a way in.
+The demand bars in the strip show what the town wants, worked out again each week. Tap them for the Demand window: for each zone, how much is wanted or how much too much, the sum it comes from, the zone's tax, and what's stopping it growing. Under them, how many are out of work, the jobs nobody's doing, the homes for sale and whether newcomers have a way in.
 
 - Homes are wanted when there are more jobs than people to fill them, plus newcomers. Nobody moves in without a way in. A railway station on a line to the edge brings more, and so does an airport. People forced out of town put newcomers off for a while.
 - Shops are wanted for what the town's people spend. Better-off people spend more.

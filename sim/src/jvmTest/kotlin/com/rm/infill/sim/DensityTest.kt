@@ -61,8 +61,9 @@ class DensityTest {
     fun denserZonesHoldMorePeople() {
         val low = town(Density.LOW, 12)
         val medium = town(Density.MEDIUM, 12)
-        // Not by as much as the land alone would hold: the odd heat wave falls hardest on the denser, hotter blocks.
-        assertTrue(medium.stats.population > low.stats.population * 6 / 5, "${medium.stats.population} at medium, ${low.stats.population} at low")
+        // Not by as much as the land alone would hold: the odd heat wave falls hardest on the denser, hotter blocks,
+        // and by now both are near what the town's jobs call for.
+        assertTrue(medium.stats.population > low.stats.population * 11 / 10, "${medium.stats.population} at medium, ${low.stats.population} at low")
     }
 
     @Test

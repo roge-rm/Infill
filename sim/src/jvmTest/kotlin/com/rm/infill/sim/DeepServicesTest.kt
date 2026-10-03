@@ -130,9 +130,19 @@ class DeepServicesTest {
 
     @Test
     fun ambulancesAndNursingHomesKeepPeopleAlive() {
-        val plain = town().also { it.run(15) }
-        val cared = town(ambulance = true, nursing = true).also { it.run(15) }
-        assertTrue(cared.stats.health > plain.stats.health, "cared ${cared.stats.health}, none ${plain.stats.health}")
+        // Health goes up and down a few points year to year, so it's taken on average over ten years.
+        fun health(c: City): Int {
+            c.run(5)
+            var sum = 0
+            repeat(120) {
+                repeat(30) { c.tick() }
+                sum += c.stats.health
+            }
+            return sum / 120
+        }
+        val plain = health(town())
+        val cared = health(town(ambulance = true, nursing = true))
+        assertTrue(cared > plain, "cared $cared, none $plain")
     }
 
     @Test
