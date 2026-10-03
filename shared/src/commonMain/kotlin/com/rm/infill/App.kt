@@ -230,6 +230,7 @@ import kotlin.math.max
 import com.rm.infill.ui.screenLayout
 import com.rm.infill.ui.theme.InfillTheme
 import com.rm.infill.audio.AudioEngine
+import com.rm.infill.audio.Sounds
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 
@@ -582,6 +583,7 @@ private fun GameScreen(
 
         /** Tells of what's happened: a message, or a new era, which stops the clock. */
         fun showEvent(e: CityEvent) {
+            Sounds.event(e.kind)
             if (e.kind == EventKind.EraArrived) {
                 // A new era stops the clock and says what it brings.
                 eraShown = e.era
@@ -776,6 +778,10 @@ private fun GameScreen(
                     val made = action is Action.PaintDistrict && action.id == NEW_DISTRICT
                     val plan = game.apply(action)
                     tell(plan.problem)
+                    // Heard where it is on screen, more or less.
+                    val x = if (plan.changes.isEmpty()) camera.centreX else plan.changes.sumOf { it % city.map.width }.toFloat() / plan.changes.size
+                    val across = viewSize.width / camera.tilePx / 2f
+                    Sounds.action(action, plan, city, if (across > 0f) (x - camera.centreX) / across else 0f)
                     // What it did, such as people forced out by a clearing, is told at once.
                     game.takeEvents(::showEvent)
                     // Out of the way once something's built, to see it.
@@ -977,7 +983,9 @@ private fun GameScreen(
                     InspectPanel(
                         game, x, y, onClose = { inspected = null },
                         onAction = { action ->
-                            tell(game.apply(action).problem)
+                            val plan = game.apply(action)
+                            tell(plan.problem)
+                            Sounds.action(action, plan, city)
                             game.takeEvents(::showEvent)
                         },
                         onLines = { linesOpen = true },

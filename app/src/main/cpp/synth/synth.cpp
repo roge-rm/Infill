@@ -28,6 +28,7 @@ float lifetime(int r, const float* p) {
         case recipe::HORN: return 0.35f + 0.9f * p[1];
         case recipe::BELL: return 1.6f;
         case recipe::WHISTLE: return (p[0] > 1.5f ? 2.6f : 1.4f) + 1.5f * p[1];
+        case recipe::CHIME: return p[0] < 0.5f ? 0.25f : p[0] > 2.5f ? 2.0f : 1.0f;
         default: return 1.0f;
     }
 }
@@ -117,6 +118,7 @@ float trim(int r) {
         case recipe::HORN: return 0.12f;
         case recipe::BELL: return 0.15f;
         case recipe::WHISTLE: return 0.12f;
+        case recipe::CHIME: return 0.2f;
         default: return 1.0f;
     }
 }
@@ -816,6 +818,29 @@ void Synth::renderVoice(Voice& v, float& left, float& right) {
             }
             v.f[0].process(tone);
             s = v.f[0].low * on * attack;
+            break;
+        }
+        case recipe::CHIME: {
+            // Small and soft: two ticks for painting, two notes up for good news, two down for
+            // bad, four rising for a new era. Each note a little bell, rung and left to fade.
+            int kind = static_cast<int>(p[0] + 0.5f);
+            if (kind == 0) {
+                float t = v.age < 0.08f ? v.age : v.age - 0.08f;
+                if (control) v.f[0].set(2200.0f, 1.5f, sr);
+                v.f[0].process(rng.white() * std::exp(-t * 400.0f));
+                s = v.f[0].band * 0.8f;
+                break;
+            }
+            static const float good[] = {659.3f, 880.0f}, bad[] = {587.3f, 440.0f}, era[] = {523.3f, 659.3f, 784.0f, 1046.5f};
+            const float* notes = kind == 1 ? good : kind == 2 ? bad : era;
+            int count = kind == 3 ? 4 : 2;
+            float step = kind == 3 ? 0.16f : 0.14f;
+            int n = std::min(count - 1, static_cast<int>(v.age / step));
+            float t = v.age - n * step;
+            if (static_cast<int>(v.state[0]) != n + 1) { v.state[0] = static_cast<float>(n + 1); v.osc[0].phase = 0; v.osc[1].phase = 0; }
+            float f = notes[n];
+            float ring = std::exp(-t * (n == count - 1 ? 3.0f : 9.0f)) * std::min(1.0f, t / 0.004f);
+            s = (v.osc[0].sine(f, sr) + v.osc[1].sine(f * 2.76f, sr) * 0.25f * std::exp(-t * 12.0f)) * ring * 0.6f;
             break;
         }
         case recipe::IMPACT: {

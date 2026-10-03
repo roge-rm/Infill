@@ -231,5 +231,6 @@ int main(int argc, char** argv) {
     render(dir, "clunk", 2, {}, {{0.1f, recipe::CLUNK, {1.0f}}, {0.9f, recipe::CLUNK, {0.4f}}});
     render(dir, "click", 1, {}, {{0.1f, recipe::CLICK, {0.0f}}, {0.5f, recipe::CLICK, {1.0f}}});
     render(dir, "caution", 1, {}, {{0.1f, recipe::CAUTION, {0.0f}}});
+    render(dir, "chimes", 7, {}, {{0.1f, recipe::CHIME, {0.0f}}, {1.0f, recipe::CHIME, {1.0f}}, {2.5f, recipe::CHIME, {2.0f}}, {4.0f, recipe::CHIME, {3.0f}}});
     return 0;
 }

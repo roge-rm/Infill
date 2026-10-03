@@ -39,6 +39,7 @@ constexpr int SLAP = 62;       // p0 energy
 constexpr int HORN = 63;       // p0 kind (0 bulb, 1 car, 2 truck), p1 length (0..1)
 constexpr int BELL = 64;       // p0 how hard
 constexpr int WHISTLE = 65;    // p0 kind (0 steam whistle, 1 diesel horn, 2 ship's horn), p1 length (0..1)
+constexpr int CHIME = 66;      // p0 kind (0 a tick, 1 good news, 2 bad news, 3 a new era)
 }  // namespace recipe
 
 /** Surfaces an impact can be on, for its character. */
@@ -64,7 +65,7 @@ inline int busOf(int r) {
     switch (r) {
         case recipe::IMPACT: case recipe::CRUNCH: case recipe::EXPLOSION: case recipe::SPLASH: case recipe::SLAP: case recipe::CLUNK:
             return bus::EFFECTS;
-        case recipe::CLICK: case recipe::CAUTION:
+        case recipe::CLICK: case recipe::CAUTION: case recipe::CHIME:
             return bus::UI;
         default:
             return bus::TOWN;

@@ -37,6 +37,7 @@ object Recipes {
     const val HORN = 63
     const val BELL = 64
     const val WHISTLE = 65
+    const val CHIME = 66
 }
 
 /** What an impact is on, for how it rings. `material` in recipes.h. */
