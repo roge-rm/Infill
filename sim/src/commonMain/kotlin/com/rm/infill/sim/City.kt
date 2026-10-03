@@ -121,6 +121,9 @@ class City(
     var fireFunding = 100
     var parkFunding = 100
 
+    /** How well kept the parks are with their funding, in percent: a park let go still does a little. */
+    private fun parksKept(): Int = 40 + 60 * parkFunding.coerceIn(0, 100) / 100
+
     /** The town month by month, for the graphs. */
     val history = History()
 
@@ -567,7 +570,8 @@ class City(
                 }
             }
             is Action.RemovePipes -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
-                val count = m.waterPipe[i] + m.sewerPipe[i] + m.stormPipe[i]
+                // The layers hold each pipe's material, so count the pipes, whatever they're made of.
+                val count = listOf(m.waterPipe[i], m.sewerPipe[i], m.stormPipe[i]).count { it.toInt() != 0 }
                 if (count > 0) {
                     changes += i
                     cost += Prices.REMOVE_PIPE * count
@@ -1818,6 +1822,8 @@ class City(
             wetGround(rain + melt, frozen, weather.temperature)
             if (river > Balance.BANKFULL) overflowRivers()
             weatherDisasters()
+            // The wind, sun, tide and river change what some stations make.
+            if (buildings.values.any { it.type in WEATHER_STATIONS }) updatePower()
         }
         bridgeWeather()
         traffic.snowedIn = snowedIn > 0
@@ -1873,7 +1879,7 @@ class City(
         startTraffic()
         trade()
         updateCrime()
-        Effects.landValue(map, { i -> buildings[map.building[i]]?.type }, nearRoad, map.landValue) { i ->
+        Effects.landValue(map, { i -> buildings[map.building[i]]?.type }, nearRoad, map.landValue, parksKept()) { i ->
             // People and jobs on the tile, a building's shared over its lots.
             val b = buildings[map.building[i]]
             if (b == null || b.underway > 0) 0 else (b.people?.size ?: b.type.capacity) / (b.type.width * b.type.height)
@@ -2026,7 +2032,8 @@ class City(
             if (!givesWay(b.built, b.type.life)) continue
             b.outage = max(1, Balance.MEND_PLANT * 100 / reliefFunding)
             outages += b.id
-            repairBill += Prices.of(b.type) / 10
+            // Emergency repairs: more money, quicker mending, as for the networks.
+            repairBill += Prices.of(b.type) / 10 * reliefFunding / 100
             networksDirty = true
             events += CityEvent(EventKind.BrokeDown, b.x, b.y, b.type)
         }
@@ -2509,20 +2516,21 @@ class City(
 
     /** What comes with the weather: gales, blizzards and heat waves. */
     private fun weatherDisasters() {
-        if (disasterLevel == 0) return
         val w = weather
-        if (w.windSpeed >= Weather.GALE) gale()
-        if (w.precipitation == Precipitation.Snow && w.intensity >= Balance.BLIZZARD && w.windSpeed >= Balance.BLIZZARD_WIND && snowedIn == 0) {
-            val garages = buildings.values.count { it.type == BuildingType.BUS_GARAGE }
-            snowedIn = max(1, Balance.BLIZZARD_DAYS - garages)
-            events += CityEvent(EventKind.Blizzard, -1, -1, null)
-        }
+        // A heat wave is weather, and pushes the power peak up whatever the setting. What it does to people is a disaster.
         if (w.temperature >= w.climate.heatWave) {
             if (heatWaveDays == 0) {
                 events += CityEvent(EventKind.HeatWave, -1, -1, null)
                 heatWavesThisYear++
             }
             heatWaveDays += Balance.WEATHER_DAYS
+        }
+        if (disasterLevel == 0) return
+        if (w.windSpeed >= Weather.GALE) gale()
+        if (w.precipitation == Precipitation.Snow && w.intensity >= Balance.BLIZZARD && w.windSpeed >= Balance.BLIZZARD_WIND && snowedIn == 0) {
+            val garages = buildings.values.count { it.type == BuildingType.BUS_GARAGE }
+            snowedIn = max(1, Balance.BLIZZARD_DAYS - garages)
+            events += CityEvent(EventKind.Blizzard, -1, -1, null)
         }
     }
 
@@ -3238,7 +3246,7 @@ class City(
             val each = stats.visitorsBy[by] * stay / 100 / at.size / Balance.RESIDENTS_PER_SHOPPER
             for (b in at) accessOf(b).let { if (it >= 0) shoppersAt[it] += each }
         }
-        for (b in buildings.values) if (b.type == BuildingType.HOTEL && b.served > 0) {
+        for (b in buildings.values) if (b.type.hotel && b.served > 0) {
             accessOf(b).let { if (it >= 0) shoppersAt[it] += b.served / Balance.RESIDENTS_PER_SHOPPER }
         }
         // Goods, in hundredths of a load until each tile's are added up.
@@ -4352,8 +4360,8 @@ class City(
         val hotels = ArrayList<Building>()
         for (b in buildings.values) {
             if (b.underway > 0) continue
-            if (b.type == BuildingType.PARK) draw += Balance.PARK_DRAW
-            if (b.type == BuildingType.HOTEL) hotels += b
+            if (b.type == BuildingType.PARK) draw += Balance.PARK_DRAW * parksKept() / 100
+            if (b.type.hotel) hotels += b
             if (isHeritage(b)) draw += Balance.HERITAGE_DRAW
         }
         // Fewer come in hard times, or to a town known for its crime.
@@ -4496,6 +4504,12 @@ class City(
         stats.powerIn = (grid.imported / 1000).toInt()
         stats.powerOut = (grid.exported / 1000).toInt()
     }
+
+    /** Stations whose output goes with the weather, the tide or the river. */
+    private val WEATHER_STATIONS = setOf(
+        BuildingType.HYDRO_PLANT, BuildingType.WIND_FARM, BuildingType.SOLAR_FARM, BuildingType.RIVER_TURBINE,
+        BuildingType.TIDAL_TURBINE, BuildingType.OFFSHORE_WIND, BuildingType.BATTERY,
+    )
 
     /** How full the batteries go into the evening, in percent. */
     private var batteryCharge = 0
@@ -5602,7 +5616,7 @@ class City(
             var target = Balance.HEALTH_BASE + Balance.CARE_HEALTH * careShare / 100 + Balance.WEALTH_HEALTH * h.wealth
             if (m.watered[i]) target += Balance.MAINS_HEALTH
             if (m.sewered[i]) target += Balance.MAINS_HEALTH
-            if (parks.around(b.x, b.y, 4) > 0) target += Balance.PARK_HEALTH
+            if (parks.around(b.x, b.y, 4) > 0) target += Balance.PARK_HEALTH * parksKept() / 100
             // An ambulance that can get there in time.
             val ambulance = m.ambulanceCover[i].toInt() and 0xff
             target += Balance.AMBULANCE_HEALTH * ambulance / 255
@@ -5626,13 +5640,13 @@ class City(
             val nursed = if (h.elderly == 0) 0 else min(100, (nursing[b.id] ?: 0) * 100 / h.elderly)
             var elderDied = min(h.elderly, flow(h.elderly, Demography.elderlyDeaths(year) * factor / 100 * saved / 100 * (100 - Balance.NURSING_SAVES * nursed / 100) / 100))
             var childDied = min(h.children - grown, flow(h.children, Demography.childDeaths(year) * factor / 100))
-            // A heat wave takes the elderly in the hottest homes, the less so with a doctor.
-            if (heatWaveDays > 0) {
+            // A heat wave takes the elderly in the hottest homes, the less so with a doctor, unless disasters are off.
+            if (heatWaveDays > 0 && disasterLevel > 0) {
                 val heat = m.heat[i].toInt() and 0xff
                 val careless = 100 - careShare
                 // A cooling centre nearby takes in the old and frail.
                 val cooled = if (h.elderly == 0) 0 else min(100, (cooling[b.id] ?: 0) * 100 / h.elderly) * Balance.COOLING_SAVES / 100
-                elderDied = min(h.elderly, elderDied + flow(h.elderly, heat / 10 * Balance.HEAT_DEATHS * careless / 100 * (100 - cooled) / 100))
+                elderDied = min(h.elderly, elderDied + flow(h.elderly, heat / 10 * Balance.HEAT_DEATHS * careless / 100 * (100 - cooled) / 100 * disasterLevel / 2))
                 if (heat >= Balance.HOT_HOME) h.health = max(5, h.health - Balance.HEAT_HEALTH)
             }
             // An epidemic strikes a home by how crowded and poorly served it is.
@@ -6958,7 +6972,13 @@ class City(
             // Tunnels: the fans and pumps.
             if (map.lowRoad[i].toInt() != 0) roads += Balance.ROAD_TUNNEL_UPKEEP
             if (map.lowRail[i].toInt() != 0) track += Balance.RAIL_TUNNEL_UPKEEP
-            waterworks += (map.waterPipe[i] + map.sewerPipe[i] + map.stormPipe[i] + map.bank[i]) * Balance.PIPE_UPKEEP
+            // A pipe of any material costs the same to keep.
+            var pipes = 0
+            if (map.waterPipe[i].toInt() != 0) pipes++
+            if (map.sewerPipe[i].toInt() != 0) pipes++
+            if (map.stormPipe[i].toInt() != 0) pipes++
+            if (map.bank[i].toInt() != 0) pipes++
+            waterworks += pipes * Balance.PIPE_UPKEEP
         }
         s.waterUpkeep = waterworks.roundToLong()
         s.phoneUpkeep = (phoneUpkeep + phoneLines).roundToLong()
@@ -7240,7 +7260,7 @@ class City(
         }
         for (v in longArrayOf(s.portUpkeep, s.duesIncome, s.tollIncome)) w.long(v)
         for (v in intArrayOf(s.portLoads, s.visitors, s.guests, s.rooms, *s.visitorsBy)) w.int(v)
-        val hotels = buildings.values.filter { it.type == BuildingType.HOTEL && it.room > 0 }
+        val hotels = buildings.values.filter { it.type.hotel && it.room > 0 }
         w.count(hotels.size)
         for (b in hotels) { w.int(b.id); w.int(b.served); w.int(b.room) }
         // Since version 24: kinds of bridge, tolls and closures.

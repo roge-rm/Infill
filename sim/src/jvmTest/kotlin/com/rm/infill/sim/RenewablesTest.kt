@@ -126,4 +126,21 @@ class RenewablesTest {
         assertTrue(c.stationAvailable(turbine) > 0)
         assertTrue(c.stationOutput(turbine) > 0, "the town uses it")
     }
+
+    @Test
+    fun aWindFarmsOutputGoesWithEachSpellOfWeather() {
+        // A wind farm on a line and nothing else, so nothing grows to have the grid worked out again.
+        val c = City(12, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true; it.disasterLevel = 0 }
+        City::class.java.getDeclaredField("funds").apply { isAccessible = true }.setLong(c, 5_000_000L)
+        City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, 2005)
+        assertTrue(c.apply(Action.PlaceBuilding(BuildingType.WIND_FARM, 30, 30)).ok)
+        assertTrue(c.apply(Action.BuildPowerLine(Action.roadPath(c.map, 32, 31, 50, 31, true))).ok)
+        c.tick()
+        val seen = HashSet<Long>()
+        repeat(90) {
+            c.tick()
+            seen += c.stats.powerCapacity
+        }
+        assertTrue(seen.size > 2, "capacity $seen")
+    }
 }

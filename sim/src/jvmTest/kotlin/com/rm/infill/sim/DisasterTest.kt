@@ -154,8 +154,9 @@ class DisasterTest {
             c.month()
             seen += c.kinds()
         }
+        // A heat wave still comes, as weather, but does no harm.
         val disasters = setOf(
-            EventKind.Gale, EventKind.Blizzard, EventKind.HeatWave, EventKind.IndustrialAccident, EventKind.NuclearAccident,
+            EventKind.Gale, EventKind.Blizzard, EventKind.IndustrialAccident, EventKind.NuclearAccident,
             EventKind.Earthquake, EventKind.Epidemic,
         )
         assertTrue(seen.intersect(disasters).isEmpty(), "$seen")

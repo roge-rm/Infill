@@ -70,7 +70,12 @@ internal object Effects {
      * pollution, crime, industry next door, busy roads, track and freight
      * yards lower it.
      */
-    fun landValue(map: CityMap, buildingTypes: (Int) -> BuildingType?, nearRoad: BooleanArray, out: ByteArray, activity: (Int) -> Int = { 0 }) {
+    fun landValue(
+        map: CityMap, buildingTypes: (Int) -> BuildingType?, nearRoad: BooleanArray, out: ByteArray,
+        /** How well the parks are kept, in percent: they add less to the land around them when they're let go. */
+        parksKept: Int = 100,
+        activity: (Int) -> Int = { 0 },
+    ) {
         val w = map.width
         val h = map.height
         val water = SummedArea(w, h) { if (map.terrain[it] == Terrain.WATER) 1 else 0 }
@@ -109,7 +114,7 @@ internal object Effects {
             // Unless the water's foul.
             if (foul != null) v -= min(30, foul.around(x, y, 3) / 60)
             v += min(trees.around(x, y, 2) * 3, 18)
-            v += min(parks.around(x, y, 4) * 8, 32)
+            v += min(parks.around(x, y, 4) * 8, 32) * parksKept / 100
             v += min(shops.around(x, y, 8) / 3, 40)
             // Where much goes on, the land's wanted: a busy centre grows dear.
             v += min(busy.around(x, y, Balance.ACTIVITY_REACH) / Balance.ACTIVITY_PER_VALUE, Balance.ACTIVITY_VALUE)

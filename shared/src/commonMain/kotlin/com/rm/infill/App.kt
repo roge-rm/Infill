@@ -280,18 +280,26 @@ private fun Screens(settings: Settings) {
     var menuOpen by remember { mutableStateOf(false) }
     val notice = remember { mutableStateOf<Message?>(null) }
     var savesChanged by remember { mutableIntStateOf(0) }
-    val saves = remember(savesChanged, loadOpen, screen) {
-        platform.saves().mapNotNull { f -> platform.readSave(f)?.let { SaveGame.summary(it) }?.let { f to it } }
+    // Regions, and the files of the towns in them, which are opened from the region rather than listed as towns.
+    val regionsAndTowns = remember(savesChanged, loadOpen, screen) {
+        val towns = HashSet<String>()
+        val rows = platform.saves().mapNotNull { f ->
+            platform.readSave(f)?.takeIf { Region.isRegion(it) }?.let { bytes ->
+                runCatching { Region.read(bytes) }.getOrNull()?.let { r ->
+                    r.towns.forEach { t -> t?.let { towns += it.file } }
+                    RegionRow(f, r.name, r.towns.count { it != null }, r.towns.size)
+                }
+            }
+        }
+        rows to towns
+    }
+    val regions = regionsAndTowns.first
+    val saves = remember(savesChanged, loadOpen, screen, regionsAndTowns) {
+        platform.saves().filter { it !in regionsAndTowns.second }
+            .mapNotNull { f -> platform.readSave(f)?.let { SaveGame.summary(it) }?.let { f to it } }
             .sortedBy { if (it.first == AUTOSAVE) 0 else 1 }
     }
     val lastSave = saves.firstOrNull { it.first == AUTOSAVE }?.second
-    val regions = remember(savesChanged, loadOpen, screen) {
-        platform.saves().mapNotNull { f ->
-            platform.readSave(f)?.takeIf { Region.isRegion(it) }?.let { bytes ->
-                runCatching { Region.read(bytes) }.getOrNull()?.let { r -> RegionRow(f, r.name, r.towns.count { it != null }, r.towns.size) }
-            }
-        }
-    }
 
     /** The region [file], read, or null if it can't be. */
     fun readRegion(file: String): Region? = platform.readSave(file)?.let { runCatching { Region.read(it) }.getOrNull() }
@@ -851,6 +859,7 @@ private fun GameScreen(
                 .focusable()
                 .onPreviewKeyEvent { event ->
                     keys.onKey(event) { action ->
+                        if (action.dev && !platform.devKeys) return@onKey
                         when (action) {
                             KeyAction.ToolInspect -> pick(Tool.Inspect)
                             KeyAction.ToolBulldoze -> pick(Tool.Bulldoze)

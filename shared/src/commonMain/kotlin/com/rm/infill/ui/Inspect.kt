@@ -334,7 +334,7 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
         stats += StatItem(Glyph.Crate, stringResource(Res.string.label_port_loads), groupThousands(loads.toLong()))
         stats += StatItem(Glyph.Ship, stringResource(Res.string.label_ships), groupThousands(((loads + Balance.SHIP_LOAD - 1) / Balance.SHIP_LOAD).toLong()))
     }
-    if (t == BuildingType.HOTEL && built && b.room > 0) {
+    if (t.hotel && built && b.room > 0) {
         val share = b.served * 100 / b.room
         stats += StatItem(Glyph.Suitcase, stringResource(Res.string.label_guests), stringResource(Res.string.value_of, groupThousands(b.served.toLong()), groupThousands(b.room.toLong())), share / 100f, toneOf(share, 60, 20))
     }

@@ -77,6 +77,8 @@ class CoolingTest {
             if (centre) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.COOLING_CENTRE, 5, 21)).ok)
             repeat(2) { repeat(31) { c.tick() } }
             City::class.java.getDeclaredField("heatWaveDays").apply { isAccessible = true }.setInt(c, 10)
+            // Heat deaths are a disaster, so they need disasters on.
+            c.disasterLevel = 2
             var died = 0
             repeat(6) {
                 City::class.java.getDeclaredField("heatWaveDays").apply { isAccessible = true }.setInt(c, 10)

@@ -12,6 +12,8 @@ class AndroidPlatform(context: Context) : Platform {
     private val hidden = mutableListOf<() -> Unit>()
     private val shown = mutableListOf<() -> Unit>()
 
+    override val devKeys = context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+
     override fun saves(): List<String> =
         dir.listFiles().orEmpty().filter { it.name.endsWith(EXT) }.map { it.name.removeSuffix(EXT) }
 

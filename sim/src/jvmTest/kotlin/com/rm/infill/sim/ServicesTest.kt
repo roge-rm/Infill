@@ -168,4 +168,17 @@ class ServicesTest {
         assertEquals(hash, c.map.hash())
         assertEquals(funds, c.funds)
     }
+
+    @Test
+    fun parksLetGoAddLessToTheLandAroundThem() {
+        fun value(funding: Int): Int {
+            val c = City(31, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true; it.disasterLevel = 0 }
+            City::class.java.getDeclaredField("funds").apply { isAccessible = true }.setLong(c, 5_000_000L)
+            assertTrue(c.apply(Action.PlaceParks(30, 30, 33, 33)).ok)
+            c.parkFunding = funding
+            repeat(32) { c.tick() }
+            return c.map.landValue[c.map.index(35, 35)].toInt() and 0xff
+        }
+        assertTrue(value(100) > value(0), "${value(100)} against ${value(0)}")
+    }
 }

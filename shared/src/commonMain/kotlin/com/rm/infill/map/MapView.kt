@@ -127,7 +127,7 @@ fun MapView(
             val b = game.city.building(map.building[i])
             when {
                 b == null -> -1
-                b.type == BuildingType.HOTEL -> if (b.room == 0) 0 else maxOf(30, b.served * 255 / b.room)
+                b.type.hotel -> if (b.room == 0) 0 else maxOf(30, b.served * 255 / b.room)
                 b.type == BuildingType.PARK || game.city.isHeritage(b) -> 255
                 b.type.station || b.type.port -> 200
                 else -> -1

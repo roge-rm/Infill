@@ -265,6 +265,16 @@ enum class BuildingType(
     /** Ships load and unload here. */
     val port get() = portTier > 0
 
+    /** The era it first goes up in: its year's, or later where its zone or density waits for an era of its own. */
+    val era: Era get() = maxOf(
+        Era.of(year),
+        if (density == Density.TOWER) Era.MOTOR else Era.TOWNSHIP,
+        if (zone == Zone.MIXED) Era.STREETCAR else Era.TOWNSHIP,
+    )
+
+    /** Takes guests: the hotel and the hotel tower. */
+    val hotel get() = this == HOTEL || this == HOTEL_TOWER
+
     /** How big a port it is: 1 a wharf, 2 docks, 3 a container port, 0 for anything else. */
     val portTier: Int get() = when (this) {
         WHARF, WHARF_NS -> 1

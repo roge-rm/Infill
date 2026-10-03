@@ -329,7 +329,7 @@ fun <T> Chips(options: List<T>, selected: T, label: @Composable (T) -> String, o
     }
 }
 
-/** The saved cities, newest first, to load or delete. */
+/** The saved regions and cities, the autosave first, to load or delete. */
 @Composable
 fun LoadWindow(
     saves: List<Pair<String, SaveSummary>>,

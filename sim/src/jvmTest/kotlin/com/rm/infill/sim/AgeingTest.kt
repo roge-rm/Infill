@@ -265,4 +265,16 @@ class AgeingTest {
         c.days(60)
         assertTrue(c.stats.population > 0)
     }
+
+    @Test
+    fun aPipeCostsTheSameToKeepAndTakeUpWhateverItsMadeOf() {
+        fun upkeep(material: Material): Pair<Long, Long> {
+            val c = City(3, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true; it.disasterLevel = 0 }
+            City::class.java.getDeclaredField("funds").apply { isAccessible = true }.setLong(c, 5_000_000L)
+            assertTrue(c.apply(Action.BuildPipe(Action.roadPath(c.map, 5, 10, 40, 10, true), Pipe.WATER, material)).ok)
+            repeat(32) { c.tick() }
+            return c.stats.waterUpkeep to c.plan(Action.RemovePipes(0, 0, 63, 63)).cost
+        }
+        assertEquals(upkeep(Material.CAST_IRON), upkeep(Material.PLASTIC_MAIN))
+    }
 }
