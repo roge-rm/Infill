@@ -89,7 +89,7 @@ fun AdviceLine(advice: List<Advice>, onLook: (Int, Int) -> Unit, modifier: Modif
 }
 
 @Composable
-private fun adviceText(a: Advice): String {
+internal fun adviceText(a: Advice): String {
     val zone = zoneNoun(a.zone)?.let { stringResource(it) } ?: ""
     return when (a.kind) {
         AdviceKind.DEBT -> stringResource(Res.string.advice_debt)
@@ -116,7 +116,7 @@ private fun zoneNoun(zone: Byte): StringResource? = when (zone) {
     else -> null
 }
 
-private fun adviceGlyph(kind: AdviceKind): Glyph = when (kind) {
+internal fun adviceGlyph(kind: AdviceKind): Glyph = when (kind) {
     AdviceKind.DEBT -> Glyph.Coins
     AdviceKind.POWER_SHORT, AdviceKind.NO_POWER -> Glyph.Bolt
     AdviceKind.WATER_SHORT, AdviceKind.NO_WATER, AdviceKind.NO_SEWER -> Glyph.Drop

@@ -132,6 +132,8 @@ fun StatusStrip(
     modifier: Modifier = Modifier,
     /** Cameras the strip runs round, as stretches across the window in pixels: the buttons keep clear of them. */
     cameras: List<ClosedFloatingPointRange<Float>> = emptyList(),
+    /** Opens the Demand window, from the demand bars. */
+    onDemand: () -> Unit = {},
 ) {
     val c = Infill.colors
     game.revision
@@ -177,7 +179,10 @@ fun StatusStrip(
         val mixed = if (!city.allowsZone(Zone.MIXED)) null
         else if (st.residentialDemand > 0 && st.commercialDemand > 0) minOf(st.residentialDemand, st.commercialDemand * Balance.MIXED_PEOPLE_PER_JOB)
         else minOf(0, minOf(st.residentialDemand, st.commercialDemand * Balance.MIXED_PEOPLE_PER_JOB))
-        DemandBars(st.residentialDemand, st.commercialDemand, st.industryDemand, st.officeDemand, st.farmDemand, mixed, st.population + st.jobs, Modifier.padding(end = 4.dp))
+        DemandBars(
+            st.residentialDemand, st.commercialDemand, st.industryDemand, st.officeDemand, st.farmDemand, mixed, st.population + st.jobs,
+            Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClickLabel = stringResource(Res.string.demand), role = Role.Button, onClick = onDemand).padding(2.dp).padding(end = 2.dp),
+        )
     }
     ChromeBox(modifier) {
         // On an upright phone the readings go on a second line under the buttons.

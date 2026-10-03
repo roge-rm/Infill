@@ -6714,12 +6714,24 @@ class City(
         for (w in 0 until Wealth.LEVELS) wealthGap[w] = want[w] - (if (residents == 0) 0 else s.byWealth[w] * 1000 / residents)
     }
 
+    /** What the month's demand is worked out from, before what's here and what's coming is taken off. */
+    private class DemandInputs(
+        val market: Double,
+        val fromLand: Double,
+        val fromWorks: Double,
+        val offices: Double,
+        val airOffices: Double,
+        val spendingJobs: Double,
+        val settlers: Double,
+        val workersNeeded: Double,
+    )
+
     /**
-     * Level 1 demand. Industry answers the outside market, shops answer the
-     * town's people, and homes answer the jobs plus a trickle of settlers.
-     * Taxes above or below the default move each one.
+     * Industry answers the outside market, farms the market and the land's
+     * goods brought in, offices the town's size and its airports, shops what
+     * people spend, and homes the workers the jobs need plus a trickle of settlers.
      */
-    private fun demand() {
+    private fun demandInputs(): DemandInputs {
         val s = stats
         val years = year - START_YEAR
         val market = (Balance.EXPORT_BASE + Balance.EXPORT_PER_RESIDENT * s.population) *
@@ -6737,25 +6749,85 @@ class City(
             if (g.fromLand) fromLand += wanted / Balance.LOADS_PER_FARM_JOB
             else fromWorks += wanted / Balance.LOADS_PER_WORKS_JOB
         }
-        // What's going up already counts against demand.
-        val industryGap = market + fromWorks - s.industryJobs
-        s.industryDemand = taxed(industryGap - s.industryJobsComing, industrialTax)
-        val farmGap = market * Balance.FARM_MARKET + fromLand - s.farmJobs
-        s.farmDemand = taxed(farmGap - s.farmJobsComing, industrialTax)
         // Office work grows with the town and with the century.
         val perHundred = Balance.OFFICES_1900 + (Balance.OFFICES_2000 - Balance.OFFICES_1900) * (years / 100.0).coerceIn(0.0, 1.0)
-        val officeGap = Balance.OFFICE_BASE + s.population * perHundred / 100.0 + airports.sumOf { Balance.AIR_OFFICES[it.type.airTier] * fit(it) / 100 } - s.officeJobs
-        s.officeDemand = taxed(officeGap - s.officeJobsComing, commercialTax)
+        val offices = Balance.OFFICE_BASE + s.population * perHundred / 100.0
+        val airOffices = airports.sumOf { Balance.AIR_OFFICES[it.type.airTier] * fit(it) / 100 }.toDouble()
         // The shops answer what people spend, more the better off they are.
-        // Shoppers from next door want shops here; shoppers going next door don't.
-        val shopGap = s.spending / Balance.RESIDENTS_PER_SHOP_JOB - s.shopJobs.toDouble() + s.shoppingIn - s.shoppingOut
-        s.commercialDemand = taxed(shopGap - s.shopJobsComing, commercialTax)
+        val spendingJobs = s.spending / Balance.RESIDENTS_PER_SHOP_JOB.toDouble()
         val settlers = (Balance.SETTLERS + Balance.SETTLERS_PER_RESIDENT * s.population) * (if (railPassengers) Balance.RAIL_SETTLERS else 1.0) * Balance.AIR_SETTLERS[airTier] *
             (100 - displacedCut()) / 100.0
         // Homes for the people the jobs need, children and the elderly with them.
         val workersPerResident = if (s.population == 0) Balance.LABOUR_SHARE else (s.workers.toDouble() / s.population).coerceIn(0.25, 0.6)
         // Work over the border counts as jobs here for those who live here; jobs here done by commuters don't need homes.
-        val seekers = (jobs + s.commutersOut - s.commutersIn) / workersPerResident + settlers - s.population
+        val workersNeeded = (jobs + s.commutersOut - s.commutersIn) / workersPerResident
+        return DemandInputs(market, fromLand, fromWorks, offices, airOffices, spendingJobs, settlers, workersNeeded)
+    }
+
+    /**
+     * What makes up each zone's demand now, for the Demand window: what calls
+     * for more, what's here already and what's coming, and what the tax
+     * rate does to it. People for homes, jobs for the rest. Worked out from the
+     * month's figures and today's tax rates, so a tax change shows at once.
+     */
+    fun demandParts(): List<ZoneDemand> {
+        val s = stats
+        val d = demandInputs()
+        fun zone(zone: Byte, tax: Int, vararg parts: Pair<DemandSource, Double>): ZoneDemand {
+            val gap = parts.sumOf { it.second }
+            val total = taxed(gap, tax)
+            val shown = parts.filter { it.second.toInt() != 0 }.map { DemandPart(it.first, it.second.toInt()) }
+            val byTax = total - shown.sumOf { it.amount }
+            return ZoneDemand(zone, shown + (if (byTax != 0) listOf(DemandPart(DemandSource.TAX, byTax)) else emptyList()), total, tax)
+        }
+        return listOf(
+            zone(
+                Zone.RESIDENTIAL, residentialTax,
+                DemandSource.WORKERS_NEEDED to d.workersNeeded, DemandSource.SETTLERS to d.settlers, DemandSource.LIVING_HERE to -s.population.toDouble(),
+                DemandSource.EMPTY_HOMES to -s.emptyRoom.toDouble(), DemandSource.GOING_UP to -s.homesComing.toDouble(),
+            ),
+            zone(
+                Zone.COMMERCIAL, commercialTax,
+                DemandSource.SPENDING to d.spendingJobs, DemandSource.SHOPPERS_IN to s.shoppingIn.toDouble(), DemandSource.SHOPPERS_OUT to -s.shoppingOut.toDouble(),
+                DemandSource.JOBS_HERE to -s.shopJobs.toDouble(), DemandSource.GOING_UP to -s.shopJobsComing.toDouble(),
+            ),
+            zone(
+                Zone.INDUSTRIAL, industrialTax,
+                DemandSource.MARKET to d.market, DemandSource.BROUGHT_IN to d.fromWorks,
+                DemandSource.JOBS_HERE to -s.industryJobs.toDouble(), DemandSource.GOING_UP to -s.industryJobsComing.toDouble(),
+            ),
+            zone(
+                Zone.OFFICE, commercialTax,
+                DemandSource.TOWN_SIZE to d.offices, DemandSource.AIRPORTS to d.airOffices,
+                DemandSource.JOBS_HERE to -s.officeJobs.toDouble(), DemandSource.GOING_UP to -s.officeJobsComing.toDouble(),
+            ),
+            zone(
+                Zone.FARMLAND, industrialTax,
+                DemandSource.MARKET to d.market * Balance.FARM_MARKET, DemandSource.BROUGHT_IN to d.fromLand,
+                DemandSource.JOBS_HERE to -s.farmJobs.toDouble(), DemandSource.GOING_UP to -s.farmJobsComing.toDouble(),
+            ),
+        )
+    }
+
+    /**
+     * Level 1 demand. Industry answers the outside market, shops answer the
+     * town's people, and homes answer the jobs plus a trickle of settlers.
+     * Taxes above or below the default move each one.
+     */
+    private fun demand() {
+        val s = stats
+        val d = demandInputs()
+        // What's going up already counts against demand.
+        val industryGap = d.market + d.fromWorks - s.industryJobs
+        s.industryDemand = taxed(industryGap - s.industryJobsComing, industrialTax)
+        val farmGap = d.market * Balance.FARM_MARKET + d.fromLand - s.farmJobs
+        s.farmDemand = taxed(farmGap - s.farmJobsComing, industrialTax)
+        val officeGap = d.offices + d.airOffices - s.officeJobs
+        s.officeDemand = taxed(officeGap - s.officeJobsComing, commercialTax)
+        // Shoppers from next door want shops here; shoppers going next door don't.
+        val shopGap = d.spendingJobs - s.shopJobs.toDouble() + s.shoppingIn - s.shoppingOut
+        s.commercialDemand = taxed(shopGap - s.shopJobsComing, commercialTax)
+        val seekers = d.workersNeeded + d.settlers - s.population
         s.homeSeekers = taxed(seekers, residentialTax)
         // The empty homes take what they can of it before anyone builds.
         val homeGap = seekers - s.emptyRoom

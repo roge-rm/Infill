@@ -477,6 +477,7 @@ private val ACTION_NAMES: Map<KeyAction, StringResource> = mapOf(
     KeyAction.Budget to Res.string.budget,
     KeyAction.Graphs to Res.string.graphs,
     KeyAction.People to Res.string.people,
+    KeyAction.Demand to Res.string.demand,
     KeyAction.NextOverlay to Res.string.overlay,
     KeyAction.Back to Res.string.key_back,
     KeyAction.Menu to Res.string.menu,

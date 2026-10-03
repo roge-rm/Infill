@@ -187,6 +187,7 @@ import com.rm.infill.ui.LineDraftBar
 import com.rm.infill.ui.JunctionKind
 import com.rm.infill.ui.junctionKindsIn
 import com.rm.infill.ui.PeopleWindow
+import com.rm.infill.ui.DemandWindow
 import com.rm.infill.ui.EraWindow
 import com.rm.infill.sim.Era
 import com.rm.infill.ui.BudgetWindow
@@ -712,6 +713,7 @@ private fun GameScreen(
         var budgetOpen by remember { mutableStateOf(false) }
         var graphsOpen by remember { mutableStateOf(false) }
         var peopleOpen by remember { mutableStateOf(false) }
+        var demandOpen by remember { mutableStateOf(false) }
         var eraShown by remember { mutableStateOf<Era?>(null) }
         var paused by remember { mutableStateOf(true) }
         val keys = remember { KeyInput() }
@@ -968,10 +970,10 @@ private fun GameScreen(
             // The keys come back to the map from wherever they were.
             runCatching { focus.requestFocus() }
             when {
-                fromTools && drag == null && inspected == null && !choosingOverlay && !budgetOpen && !graphsOpen && !peopleOpen &&
+                fromTools && drag == null && inspected == null && !choosingOverlay && !budgetOpen && !graphsOpen && !peopleOpen && !demandOpen &&
                     !linesOpen && !districtsOpen && eraShown == null -> {}
-                budgetOpen || graphsOpen || peopleOpen || linesOpen || districtsOpen || eraShown != null -> {
-                    budgetOpen = false; graphsOpen = false; peopleOpen = false; linesOpen = false; districtsOpen = false; eraShown = null
+                budgetOpen || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null -> {
+                    budgetOpen = false; graphsOpen = false; peopleOpen = false; demandOpen = false; linesOpen = false; districtsOpen = false; eraShown = null
                 }
                 drag != null -> drag = null
                 choosingOverlay -> choosingOverlay = false
@@ -1149,6 +1151,7 @@ private fun GameScreen(
             KeyAction.Budget -> budgetOpen = !budgetOpen
             KeyAction.Graphs -> graphsOpen = !graphsOpen
             KeyAction.People -> peopleOpen = !peopleOpen
+            KeyAction.Demand -> demandOpen = !demandOpen
             KeyAction.NextOverlay -> overlay = Overlay.entries[(overlay.ordinal + 1) % Overlay.entries.size]
             KeyAction.Speed1 -> { speed = 0; paused = false }
             KeyAction.Speed2 -> { speed = 1; paused = false }
@@ -1173,7 +1176,7 @@ private fun GameScreen(
         }
 
         // The keys come back to the map whenever a window or panel over it closes, which takes the focus with it.
-        val anyOpen = windowOpen || budgetOpen || graphsOpen || peopleOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
+        val anyOpen = windowOpen || budgetOpen || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
         LaunchedEffect(anyOpen) { if (!anyOpen) focus.requestFocus() }
 
         // A controller's buttons do on the map what they're set to, as keys do. Away from the map the
@@ -1342,6 +1345,7 @@ private fun GameScreen(
                         .then(if (twoLines) Modifier.fillMaxWidth() else Modifier)
                 },
                 cameras = cameras,
+                onDemand = { demandOpen = true },
             )
             // Under the strip, however many lines it takes: what's holding the town back, then any message.
             Column(
@@ -1546,6 +1550,7 @@ private fun GameScreen(
             if (graphsOpen) GraphsWindow(game) { graphsOpen = false }
             eraShown?.let { EraWindow(game, it) { eraShown = null } }
             if (peopleOpen) PeopleWindow(game, { peopleOpen = false; graphsOpen = true }) { peopleOpen = false }
+            if (demandOpen) DemandWindow(game) { demandOpen = false }
         }
         }
     }

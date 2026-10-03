@@ -478,6 +478,125 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
     }
 }
 
+/**
+ * What each zone wants and why: how much is wanted or how much too much, the
+ * parts that make it up, the zone's tax, and anything holding it back, then
+ * the town's work and homes. Opened from the demand bars.
+ */
+@Composable
+fun DemandWindow(game: GameState, onClose: () -> Unit) {
+    val c = Infill.colors
+    game.revision
+    val city = game.city
+    val s = city.stats
+    fun n(v: Int) = groupThousands(v.toLong())
+    Window(Res.string.demand, onClose, Glyph.Zone, help = "zones-and-growth") {
+        for (z in city.demandParts()) {
+            if (!city.allowsZone(z.zone)) continue
+            val kind = ZoneKind.entries.first { it.zone == z.zone }
+            val homes = z.zone == com.rm.infill.sim.Zone.RESIDENTIAL
+            @Composable
+            fun amount(v: Int) = if (homes) pluralStringResource(Res.plurals.count_people, kotlin.math.abs(v), n(kotlin.math.abs(v))) else pluralStringResource(Res.plurals.count_jobs, kotlin.math.abs(v), n(kotlin.math.abs(v)))
+            Section(stringResource(kind.title)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MarkIcon(ZoneMark(z.zone))
+                    Text(
+                        when {
+                            z.total > 0 -> stringResource(Res.string.demand_wanted, amount(z.total))
+                            z.total < 0 -> stringResource(Res.string.demand_too_much, amount(z.total))
+                            else -> stringResource(Res.string.demand_steady)
+                        },
+                        color = when {
+                            z.total > 0 -> c.good
+                            z.total < 0 -> c.bad
+                            else -> c.textDim
+                        },
+                        fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                // The sum, a line a part, what calls for more and what takes it away.
+                Column(Modifier.semantics(mergeDescendants = true) { }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    for (p in z.parts) {
+                        Row(Modifier.fillMaxWidth()) {
+                            Text(stringResource(demandSourceName(p.source)), color = c.textDim, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                            Text(
+                                if (p.amount > 0) "+${n(p.amount)}" else "\u2212${n(-p.amount)}",
+                                color = c.text, fontSize = 13.sp,
+                            )
+                        }
+                    }
+                }
+                val tax = stringResource(Res.string.tax)
+                when (z.zone) {
+                    com.rm.infill.sim.Zone.RESIDENTIAL ->
+                        Stepper(GlyphMark(Glyph.Coins), tax, city.residentialTax, 1) { game.setTaxes(r = (city.residentialTax + it).coerceIn(0, 20)) }
+                    com.rm.infill.sim.Zone.COMMERCIAL, com.rm.infill.sim.Zone.OFFICE ->
+                        Stepper(GlyphMark(Glyph.Coins), tax, city.commercialTax, 1) { game.setTaxes(c = (city.commercialTax + it).coerceIn(0, 20)) }
+                    else ->
+                        Stepper(GlyphMark(Glyph.Coins), tax, city.industrialTax, 1) { game.setTaxes(i = (city.industrialTax + it).coerceIn(0, 20)) }
+                }
+                // Shops and offices share a rate, and so do works and farms.
+                when (z.zone) {
+                    com.rm.infill.sim.Zone.COMMERCIAL -> Res.string.tax_shared_offices
+                    com.rm.infill.sim.Zone.OFFICE -> Res.string.tax_shared_shops
+                    com.rm.infill.sim.Zone.INDUSTRIAL -> Res.string.tax_shared_farms
+                    com.rm.infill.sim.Zone.FARMLAND -> Res.string.tax_shared_works
+                    else -> null
+                }?.let { Text(stringResource(it), color = c.textDim, fontSize = 12.sp) }
+                // What's stopping it growing, as the advice line has it.
+                for (a in city.advice.filter { it.zone == z.zone }) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GlyphIcon(adviceGlyph(a.kind), c.warn, Modifier.size(16.dp))
+                        Text(adviceText(a), color = c.text, fontSize = 13.sp)
+                    }
+                }
+                if (homes && city.needsWayIn()) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GlyphIcon(Glyph.Road, c.warn, Modifier.size(16.dp))
+                        Text(stringResource(Res.string.advice_no_way_in), color = c.text, fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+        if (city.allowsZone(com.rm.infill.sim.Zone.MIXED)) {
+            Section(stringResource(Res.string.zone_mixed)) {
+                Text(stringResource(Res.string.demand_mixed), color = c.textDim, fontSize = 13.sp)
+            }
+        }
+        Section(stringResource(Res.string.demand_town), Glyph.Person) {
+            StatGrid(
+                listOfNotNull(
+                    StatItem(Glyph.Briefcase, stringResource(Res.string.label_unemployed), stringResource(Res.string.percent, s.unemployment), s.unemployment / 100f, when { s.unemployment >= 15 -> Tone.Bad; s.unemployment >= 7 -> Tone.Warn; else -> Tone.Good }),
+                    StatItem(Glyph.Briefcase, stringResource(Res.string.jobs_spare), n(s.vacant)),
+                    StatItem(Glyph.Tag, stringResource(Res.string.empty_homes), n(s.emptyHomes)),
+                    StatItem(Glyph.Arrows, stringResource(Res.string.moved_in), n(s.movedIn)),
+                    StatItem(Glyph.Road, stringResource(Res.string.way_in), stringResource(if (city.hasWayIn()) Res.string.way_in_open else Res.string.way_in_none), tone = if (city.hasWayIn()) Tone.Good else Tone.Bad),
+                    if (s.commutersOut > 0) StatItem(Glyph.Arrows, stringResource(Res.string.commuting_out), n(s.commutersOut)) else null,
+                    if (s.commutersIn > 0) StatItem(Glyph.Arrows, stringResource(Res.string.commuting_in), n(s.commutersIn)) else null,
+                ),
+            )
+        }
+    }
+}
+
+/** What a part of a zone's demand is called. */
+private fun demandSourceName(source: com.rm.infill.sim.DemandSource) = when (source) {
+    com.rm.infill.sim.DemandSource.WORKERS_NEEDED -> Res.string.demand_workers_needed
+    com.rm.infill.sim.DemandSource.SETTLERS -> Res.string.demand_settlers
+    com.rm.infill.sim.DemandSource.LIVING_HERE -> Res.string.demand_living_here
+    com.rm.infill.sim.DemandSource.EMPTY_HOMES -> Res.string.demand_empty_homes
+    com.rm.infill.sim.DemandSource.GOING_UP -> Res.string.demand_going_up
+    com.rm.infill.sim.DemandSource.SPENDING -> Res.string.demand_spending
+    com.rm.infill.sim.DemandSource.SHOPPERS_IN -> Res.string.shopping_in
+    com.rm.infill.sim.DemandSource.SHOPPERS_OUT -> Res.string.shopping_out
+    com.rm.infill.sim.DemandSource.JOBS_HERE -> Res.string.demand_jobs_here
+    com.rm.infill.sim.DemandSource.MARKET -> Res.string.demand_market
+    com.rm.infill.sim.DemandSource.BROUGHT_IN -> Res.string.demand_brought_in
+    com.rm.infill.sim.DemandSource.TOWN_SIZE -> Res.string.demand_town_size
+    com.rm.infill.sim.DemandSource.AIRPORTS -> Res.string.demand_airports
+    com.rm.infill.sim.DemandSource.TAX -> Res.string.demand_tax
+}
+
 /** What's drawn at the start of a stepper's row: a zone's colour or a drawing. */
 sealed class Mark
 class ZoneMark(val zone: Byte) : Mark()
