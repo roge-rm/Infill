@@ -474,6 +474,9 @@
     <string name="play_town">Play %1$s</string>
     <string name="no_town_here">No town here yet</string>
     <string name="found_town">Found a town here</string>
+    <!-- A square of a region, read out by screen readers: across, then down, from 1. -->
+    <string name="region_square">Square %1$d, %2$d</string>
+    <string name="open_land">Open land</string>
     <string name="menu_region">Region</string>
     <string name="region_towns">Region, %1$d of %2$d towns</string>
     <string name="tool_side">Tools on their side</string>
@@ -482,6 +485,20 @@
     <string name="tool_side_right">Right</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+    <!-- What a tap on a piece of news or advice does, read out by screen readers. -->
+    <string name="look_there">Look there</string>
+    <!-- The map, as a screen reader names it, with the tool in hand. -->
+    <string name="the_map">Map</string>
+    <!-- Where the cursor is on the map: across, then down. -->
+    <string name="tile_at">Tile %1$d, %2$d</string>
+    <string name="map_no_cursor">Move the cursor to start</string>
+    <!-- A screen reader's longer cursor moves: "Cursor up 8". -->
+    <string name="cursor_far_up">Cursor up %1$d</string>
+    <string name="cursor_far_down">Cursor down %1$d</string>
+    <string name="cursor_far_left">Cursor left %1$d</string>
+    <string name="cursor_far_right">Cursor right %1$d</string>
+    <!-- Lets go of a road, line or area being laid, without laying it. -->
+    <string name="let_go">Let go</string>
     <string name="language">Language</string>
     <!-- The phone's or browser's own language. -->
     <string name="language_auto">Auto</string>
@@ -522,6 +539,19 @@
     <string name="key_next_tab">Next tab</string>
 
     <string name="speed">Speed</string>
+    <!-- How fast the game goes, read out on the speed button. -->
+    <string name="speed_slow">Slow</string>
+    <string name="speed_normal">Normal</string>
+    <string name="speed_fast">Fast</string>
+    <!-- On or off, read out on buttons that switch something. -->
+    <string name="state_on">On</string>
+    <string name="state_off">Off</string>
+    <string name="era">Era</string>
+    <!-- How much a zone is wanted, read out for the demand bars: "Residential: wanted". -->
+    <string name="demand_high">wanted</string>
+    <string name="demand_some">a little wanted</string>
+    <string name="demand_none">steady</string>
+    <string name="demand_over">too much</string>
     <string name="temperature">%1$s°</string>
     <string name="demand">Demand</string>
     <string name="jobs_label">Jobs</string>

@@ -1,5 +1,15 @@
 package com.rm.infill
 
+import com.rm.infill.ui.listText
+import com.rm.infill.ui.tileSummary
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
@@ -90,6 +100,20 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import com.rm.infill.map.MapGestures
 import com.rm.infill.res.Res
+import com.rm.infill.res.cursor_far_down
+import com.rm.infill.res.cursor_far_left
+import com.rm.infill.res.cursor_far_right
+import com.rm.infill.res.cursor_far_up
+import com.rm.infill.res.key_cursor_down
+import com.rm.infill.res.key_cursor_left
+import com.rm.infill.res.key_cursor_right
+import com.rm.infill.res.key_cursor_up
+import com.rm.infill.res.key_use
+import com.rm.infill.res.let_go
+import com.rm.infill.res.list_join
+import com.rm.infill.res.map_no_cursor
+import com.rm.infill.res.name_colon_value
+import com.rm.infill.res.the_map
 import com.rm.infill.res.money
 import com.rm.infill.res.not_enough_money
 import com.rm.infill.res.needs_track
@@ -1195,6 +1219,30 @@ private fun GameScreen(
             }
         }
 
+        // For screen readers the map is one thing, read out at the cursor. Its
+        // actions move the cursor and use the tool there, as the arrows and
+        // Enter do, and what's at the cursor is said each time it moves.
+        val mapSaid = stringResource(Res.string.name_colon_value, stringResource(Res.string.the_map), stringResource(tool.title))
+        val useLabel = stringResource(Res.string.key_use)
+        val here = cursor?.let { (x, y) ->
+            val summary = tileSummary(game, x, y)
+            if (drag != null && costText.isNotEmpty()) stringResource(Res.string.list_join, summary, costText) else summary
+        } ?: stringResource(Res.string.map_no_cursor)
+        var cursorSaid by remember { mutableStateOf("") }
+        // Only when the cursor or the tool moves on, so a busy town doesn't talk over itself.
+        LaunchedEffect(cursor, drag, tool) { cursorSaid = here }
+        val far = CURSOR_FAR
+        val ways = listOf(
+            stringResource(Res.string.key_cursor_up) to (0 to -1), stringResource(Res.string.key_cursor_down) to (0 to 1),
+            stringResource(Res.string.key_cursor_left) to (-1 to 0), stringResource(Res.string.key_cursor_right) to (1 to 0),
+            stringResource(Res.string.cursor_far_up, far) to (0 to -far), stringResource(Res.string.cursor_far_down, far) to (0 to far),
+            stringResource(Res.string.cursor_far_left, far) to (-far to 0), stringResource(Res.string.cursor_far_right, far) to (far to 0),
+        )
+        val letGo = stringResource(Res.string.let_go)
+        val mapActions = ways.map { (label, d) -> CustomAccessibilityAction(label) { moveCursor(d.first, d.second); true } } +
+            listOf(CustomAccessibilityAction(useLabel) { useAtCursor(); true }) +
+            (if (drag != null) listOf(CustomAccessibilityAction(letGo) { drag = null; true }) else emptyList())
+
         // Panels draw buildings in their own art.
         CompositionLocalProvider(LocalAtlas provides atlas) {
         BoxWithConstraints(
@@ -1233,7 +1281,14 @@ private fun GameScreen(
                 },
                 hour = hour,
                 cursor = cursor,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().semantics {
+                    contentDescription = mapSaid
+                    stateDescription = cursorSaid
+                    liveRegion = LiveRegionMode.Polite
+                    // A double tap uses the tool at the cursor, where a tap would land in the middle of the screen.
+                    onClick(label = useLabel) { useAtCursor(); true }
+                    customActions = mapActions
+                },
             )
 
             val safe = WindowInsets.safeDrawing
@@ -1478,6 +1533,9 @@ private fun GameScreen(
 /** The left stick pushed all the way moves the cursor this many tiles a second, or this far on the screen when zoomed out. */
 private const val STICK_TILES = 8f
 private const val STICK_DP = 500f
+
+/** How far a screen reader's long cursor steps go, in tiles. */
+private const val CURSOR_FAR = 8
 
 private val CURSOR_ACTIONS = setOf(KeyAction.CursorUp, KeyAction.CursorDown, KeyAction.CursorLeft, KeyAction.CursorRight)
 

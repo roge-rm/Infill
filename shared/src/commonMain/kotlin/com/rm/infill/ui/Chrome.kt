@@ -1,5 +1,6 @@
 package com.rm.infill.ui
 
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.foundation.text.BasicText
@@ -44,6 +45,19 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.res.Res
+import com.rm.infill.res.budget
+import com.rm.infill.res.demand_high
+import com.rm.infill.res.demand_none
+import com.rm.infill.res.demand_over
+import com.rm.infill.res.demand_some
+import com.rm.infill.res.era
+import com.rm.infill.res.name_colon_value
+import com.rm.infill.res.people
+import com.rm.infill.res.speed_fast
+import com.rm.infill.res.speed_normal
+import com.rm.infill.res.speed_slow
+import com.rm.infill.res.state_off
+import com.rm.infill.res.state_on
 import com.rm.infill.res.list_join
 import com.rm.infill.res.name_value
 import com.rm.infill.res.date
@@ -133,16 +147,18 @@ fun StatusStrip(
         SquareButton(selected = paused, size = button, description = label, onClick = onPause) { tint ->
             PauseIcon(paused, tint, Modifier.size(22.dp))
         }
-        SquareButton(selected = false, size = button, description = stringResource(Res.string.speed), onClick = onSpeed) { tint ->
+        val speedName = stringResource(listOf(Res.string.speed_slow, Res.string.speed_normal, Res.string.speed_fast)[speed.coerceIn(0, 2)])
+        SquareButton(selected = false, size = button, description = stringResource(Res.string.speed), onClick = onSpeed, state = speedName) { tint ->
             SpeedIcon(speed, tint, Modifier.size(22.dp))
         }
-        SquareButton(selected = overlayOn, size = button, description = stringResource(Res.string.overlay), onClick = onOverlay) { tint ->
+        val viewState = stringResource(if (overlayOn) Res.string.state_on else Res.string.state_off)
+        SquareButton(selected = overlayOn, size = button, description = stringResource(Res.string.overlay), onClick = onOverlay, state = viewState) { tint ->
             LayersIcon(tint, Modifier.size(22.dp))
         }
         Text(
             stringResource(Res.string.date, months.getOrElse(city.month) { "" }, city.year),
             color = c.text, fontSize = textSize, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onEra).padding(2.dp),
+            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClickLabel = stringResource(Res.string.era), role = Role.Button, onClick = onEra).padding(2.dp),
         )
     }
     val readings = @Composable {
@@ -150,9 +166,9 @@ fun StatusStrip(
         WeatherReading(skyOf(w.fog, w.precipitation, w.cloud, night), w.temperature, compact && !twoLines, textSize)
         Text(
             moneyText(city.funds), color = if (city.funds < 0) Color(0xFFD84343) else c.text, fontSize = textSize,
-            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onBudget).padding(2.dp),
+            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClickLabel = stringResource(Res.string.budget), role = Role.Button, onClick = onBudget).padding(2.dp),
         )
-        Box(Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onPeople).padding(2.dp)) {
+        Box(Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClickLabel = stringResource(Res.string.people), role = Role.Button, onClick = onPeople).padding(2.dp)) {
             PersonCount(city.stats.population, textSize)
         }
         val st = city.stats
@@ -280,7 +296,19 @@ fun DemandBars(residential: Int, commercial: Int, industrial: Int, office: Int, 
     val zones = listOfNotNull(Zone.RESIDENTIAL, Zone.COMMERCIAL, Zone.INDUSTRIAL, Zone.OFFICE, Zone.FARMLAND, if (mixed != null) Zone.MIXED else null)
     val values = listOfNotNull(residential, commercial, industrial, office, farmland, mixed).map { (it / scale).coerceIn(-1f, 1f) }
     val colours = zones.map { zoneColour(it) }
-    val label = stringResource(Res.string.demand)
+    // Read out as each zone and how wanted it is.
+    val names = zones.map { z -> stringResource(ZoneKind.entries.first { it.zone == z }.title) }
+    val words = values.map {
+        stringResource(
+            when {
+                it > 0.5f -> Res.string.demand_high
+                it > 0.1f -> Res.string.demand_some
+                it < -0.1f -> Res.string.demand_over
+                else -> Res.string.demand_none
+            },
+        )
+    }
+    val label = stringResource(Res.string.name_colon_value, stringResource(Res.string.demand), listText(names.zip(words) { n, w -> stringResource(Res.string.name_colon_value, n, w) }))
     Canvas(modifier.size(width = (8 * values.size).dp, height = 28.dp).semantics { contentDescription = label }) {
         val bar = size.width / values.size
         val mid = size.height / 2f
@@ -421,6 +449,8 @@ private fun SquareButton(
     size: Dp,
     description: String,
     onClick: () -> Unit,
+    /** How it's set, for screen readers, where the drawing shows it: the speed. */
+    state: String? = null,
     content: @Composable (tint: androidx.compose.ui.graphics.Color) -> Unit,
 ) {
     val c = Infill.colors
@@ -429,7 +459,10 @@ private fun SquareButton(
             .size(size)
             .clip(RoundedCornerShape(8.dp))
             .background(if (selected) c.accent else c.button)
-            .semantics { contentDescription = description }
+            .semantics {
+                contentDescription = description
+                state?.let { stateDescription = it }
+            }
             .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { content(if (selected) c.onAccent else c.text) }

@@ -1,5 +1,11 @@
 package com.rm.infill.ui
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -74,6 +80,26 @@ fun RegionScreen(region: Region, onPlay: (Int) -> Unit, onFound: (Int, String) -
                     PICKED, androidx.compose.ui.geometry.Offset(x * cell, y * cell), androidx.compose.ui.geometry.Size(cell, cell),
                     style = androidx.compose.ui.graphics.drawscope.Stroke(4.dp.toPx()),
                 )
+            }
+            // The squares again for screen readers, each named by its town and picked with a double tap.
+            Column(Modifier.fillMaxSize()) {
+                for (y in 0 until region.size) {
+                    Row(Modifier.fillMaxWidth().weight(1f)) {
+                        for (x in 0 until region.size) {
+                            val k = y * region.size + x
+                            val where = stringResource(Res.string.region_square, x + 1, y + 1)
+                            val what = region.towns[k]?.name ?: stringResource(Res.string.open_land)
+                            val said = stringResource(Res.string.name_colon_value, where, what)
+                            Box(
+                                Modifier.weight(1f).fillMaxHeight().semantics {
+                                    contentDescription = said
+                                    selected = k == chosen
+                                    onClick { chosen = k; true }
+                                },
+                            )
+                        }
+                    }
+                }
             }
         }
         val town = region.towns[chosen]

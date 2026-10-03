@@ -1,5 +1,7 @@
 package com.rm.infill.ui
 
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -83,6 +85,7 @@ import com.rm.infill.res.inspect_fertile
 import com.rm.infill.res.inspect_ore
 import com.rm.infill.res.inspect_coal_seam
 import com.rm.infill.res.Res
+import com.rm.infill.res.look_there
 import com.rm.infill.res.building_bank
 import com.rm.infill.res.building_cottage
 import com.rm.infill.res.building_shophouse
@@ -403,10 +406,12 @@ fun healthWord(health: Int): String = stringResource(
 @Composable
 fun MessageChip(text: String, onClick: (() -> Unit)?, modifier: Modifier = Modifier) {
     val c = Infill.colors
-    ChromeBox(modifier) {
+    val look = stringResource(Res.string.look_there)
+    // Said out loud when it comes up, for screen readers.
+    ChromeBox(modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
         Text(
             text, color = c.text, fontSize = 14.sp,
-            modifier = (if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+            modifier = (if (onClick != null) Modifier.clickable(onClickLabel = look, role = Role.Button, onClick = onClick) else Modifier)
                 .padding(horizontal = 14.dp, vertical = 8.dp),
         )
     }

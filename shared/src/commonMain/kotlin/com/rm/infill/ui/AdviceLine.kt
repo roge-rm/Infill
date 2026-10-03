@@ -1,5 +1,11 @@
 package com.rm.infill.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -58,19 +64,25 @@ fun AdviceLine(advice: List<Advice>, onLook: (Int, Int) -> Unit, modifier: Modif
     }
     val alpha by animateFloatAsState(if (fresh) 1f else STALE_ALPHA, tween(FADE_MS))
     val a = advice[shown.mod(advice.size)]
+    val text = adviceText(a)
+    val look = stringResource(Res.string.look_there)
+    // Screen readers hear the worst thing when it changes, without the going round.
+    val worst = adviceText(advice[0])
     ChromeBox(modifier.alpha(alpha)) {
+        Box(Modifier.size(1.dp).semantics { contentDescription = worst; liveRegion = LiveRegionMode.Polite })
         Row(
             Modifier
-                .clickable(role = Role.Button) {
+                .clickable(onClickLabel = look, role = Role.Button) {
                     if (a.x >= 0) onLook(a.x, a.y)
                     shown++
                 }
+                .clearAndSetSemantics { contentDescription = text }
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             GlyphIcon(adviceGlyph(a.kind), c.warn, Modifier.size(16.dp))
-            Text(adviceText(a), color = c.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(text, color = c.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (advice.size > 1) Text("${shown.mod(advice.size) + 1}/${advice.size}", color = c.textDim, fontSize = 12.sp)
         }
     }

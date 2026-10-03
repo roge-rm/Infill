@@ -1,5 +1,12 @@
 package com.rm.infill.ui
 
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import com.rm.infill.res.green_roofs
 import com.rm.infill.res.cool_roofs
 import com.rm.infill.res.carbon_heating
@@ -270,19 +277,24 @@ val LocalKeyboardPlay = compositionLocalOf { false }
 @Composable
 fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, top: (@Composable () -> Unit)? = null, help: String? = null, content: @Composable () -> Unit) {
     val c = Infill.colors
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Color(0x66000000))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        // The dimmed map behind: a tap on it closes the window. Screen readers
+        // close it with back or the close button, so it's left out for them.
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(Color(0x66000000))
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
+                .clearAndSetSemantics { },
+        )
         ChromeBox(
             Modifier
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(12.dp)
                 .widthIn(max = 480.dp)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                // Taps on the window stay in it, without making it one big button for screen readers.
+                .pointerInput(Unit) { detectTapGestures { } }
+                .semantics { paneTitle = title },
         ) {
             // Tab stays in the window, going round from the last button to the first, and Shift and Tab the other way.
             val whole = remember { FocusRequester() }
@@ -313,7 +325,10 @@ fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, top: (
                             GlyphIcon(it, c.onAccent, Modifier.size(20.dp))
                         }
                     }
-                    Text(title, color = c.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        title, color = c.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f).semantics { heading() }, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
                     val openHelp = LocalHelp.current
                     if (help != null && openHelp != null) HelpButton { openHelp(help) }
                     CloseButton(onClose)
@@ -559,7 +574,7 @@ fun GraphsWindow(game: GameState, onClose: () -> Unit) {
                                 .weight(1f)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(if (on) c.accent else c.button)
-                                .clickable(role = Role.Tab) { series = s }
+                                .selectable(selected = on, role = Role.Tab) { series = s }
                                 .padding(vertical = 6.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
@@ -1066,7 +1081,7 @@ private fun PolicyTile(glyph: Glyph, label: String, on: Boolean, modifier: Modif
             .clip(RoundedCornerShape(8.dp))
             .background(if (on) c.accent else c.button)
             .semantics(mergeDescendants = true) { contentDescription = label }
-            .clickable(role = Role.Switch, onClick = onClick)
+            .toggleable(value = on, role = Role.Switch) { onClick() }
             .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),

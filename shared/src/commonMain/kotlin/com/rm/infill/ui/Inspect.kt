@@ -1,5 +1,7 @@
 package com.rm.infill.ui
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -126,7 +128,8 @@ fun InspectPanel(
     val city = game.city
     val building = city.buildingAt(x, y)
     val card = if (building != null) buildingCard(city, building, onAction) else tileCard(city, x, y, onAction, onLines)
-    ChromeBox(modifier) {
+    // Screen readers hear the card's name when it opens.
+    ChromeBox(modifier.semantics { paneTitle = card.title }) {
         BoxWithConstraints {
             val columns = if (maxWidth >= 440.dp) 3 else 2
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -148,6 +151,20 @@ fun InspectPanel(
 }
 
 /** Along the bottom: land value, crime and its kinds, pollution, then the district and the tile. */
+/**
+ * What's on a tile in a few words, for a screen reader at the cursor: where
+ * it is, what's there and how it is, from the same card Inspect shows.
+ */
+@Composable
+fun tileSummary(game: GameState, x: Int, y: Int): String {
+    game.revision
+    val city = game.city
+    val building = city.buildingAt(x, y)
+    val card = if (building != null) buildingCard(city, building, {}) else tileCard(city, x, y, {}, {})
+    val where = stringResource(Res.string.tile_at, x, y)
+    return listText(listOfNotNull(where, card.title, card.subtitle) + card.pills.map { it.text })
+}
+
 @Composable
 private fun LandStrip(city: City, x: Int, y: Int) {
     val c = Infill.colors

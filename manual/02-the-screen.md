@@ -1,5 +1,5 @@
 # The screen
-> The strip, the tools, the map views, inspecting, undo, the keys and a controller.
+> The strip, the tools, the map views, inspecting, undo, the keys, a controller and TalkBack.
 
 ## The strip
 
@@ -75,6 +75,14 @@ The game can be played with a controller too.
 - In a window, the d-pad or the left stick moves between its buttons, A presses one and B closes it.
 
 The buttons can be changed in Settings.
+
+## TalkBack
+
+With TalkBack or another screen reader, the buttons, windows and figures are all read out, and so is the news when it comes.
+
+- The map is one item, named with the tool in hand. Its actions move the cursor a tile or eight tiles at a time and use the tool there, and what's at the cursor is read each time it moves.
+- A double tap on the map uses the tool at the cursor, as Enter does. To lay a road, use it at one end, move the cursor to the other and use it again. **Let go** drops it.
+- A keyboard or a controller works alongside it.
 
 ## Saving and loading
 

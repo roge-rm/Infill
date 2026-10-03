@@ -1,5 +1,8 @@
 package com.rm.infill.ui
 
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.map.TileAtlas
 import com.rm.infill.res.Res
+import com.rm.infill.res.name_colon_value
 import com.rm.infill.res.name_value
 import com.rm.infill.res.percent
 import com.rm.infill.res.close
@@ -86,7 +90,7 @@ fun CardHeader(icon: ChoiceIcon, title: String, subtitle: String?, onClose: (() 
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         ChoiceTile(LocalAtlas.current, icon, title, false, 44.dp, null)
         Column(Modifier.weight(1f)) {
-            Text(title, color = c.text, fontSize = Type.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, color = c.text, fontSize = Type.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
             subtitle?.let { Text(it, color = c.textDim, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
         }
         onClose?.let { CloseButton(it) }
@@ -185,7 +189,8 @@ fun StatGrid(stats: List<StatItem>, columns: Int = 2) {
 @Composable
 fun StatCell(s: StatItem, modifier: Modifier = Modifier) {
     val c = Infill.colors
-    Row(modifier, verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // Read out as one: what it is and its value.
+    Row(modifier.semantics(mergeDescendants = true) { }, verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.size(28.dp).clip(RoundedCornerShape(7.dp)).background(c.button), contentAlignment = Alignment.Center) {
             GlyphIcon(s.glyph, if (s.tone == Tone.Plain || s.fraction == null) c.textDim else toneColour(s.tone), Modifier.size(17.dp))
         }
@@ -251,8 +256,9 @@ fun MiniMeter(glyph: Glyph, label: String, value: Int, highIsBad: Boolean, modif
         highIsBad -> if (value >= 150) Tone.Bad else if (value >= 70) Tone.Warn else Tone.Good
         else -> if (value >= 150) Tone.Good else if (value >= 70) Tone.Warn else Tone.Bad
     }
+    val said = stringResource(Res.string.name_colon_value, label, level(value))
     Row(
-        modifier.semantics(mergeDescendants = true) { contentDescription = label },
+        modifier.semantics(mergeDescendants = true) { contentDescription = said },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -268,7 +274,11 @@ fun Section(title: String, glyph: Glyph? = null, content: @Composable () -> Unit
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             glyph?.let { GlyphIcon(it, c.accent, Modifier.size(15.dp)) }
-            Text(title.uppercase(), color = c.textDim, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.6.sp)
+            Text(
+                title.uppercase(), color = c.textDim, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.6.sp,
+                // Said as written, since some readers spell out capitals.
+                modifier = Modifier.semantics { heading(); contentDescription = title },
+            )
         }
         content()
     }
@@ -301,6 +311,8 @@ fun ActionButton(a: ActionItem) {
         Modifier
             .clip(RoundedCornerShape(8.dp))
             .background(if (asking) c.bad.copy(alpha = 0.25f) else c.button)
+            // Asking for the second tap is said out loud.
+            .semantics { liveRegion = LiveRegionMode.Polite }
             .clickable(enabled = a.enabled, role = Role.Button) {
                 if (a.confirm && !asking) asking = true
                 else {

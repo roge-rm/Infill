@@ -55,7 +55,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Saving"),
             ManualBlock(ManualKind.Para, "The town saves itself at the start of every month and when you leave the app, and **Continue** on the first screen picks up from there. **Save** in the menu keeps a copy under the town's name."),
         )),
-        ManualSection("the-screen", "The screen", "The strip, the tools, the map views, inspecting, undo, the keys and a controller.", listOf(
+        ManualSection("the-screen", "The screen", "The strip, the tools, the map views, inspecting, undo, the keys, a controller and TalkBack.", listOf(
             ManualBlock(ManualKind.Heading, "The strip"),
             ManualBlock(ManualKind.Para, "Along the top, from the left:"),
             ManualBlock(ManualKind.Bullet, "The menu."),
@@ -105,6 +105,11 @@ object Manual {
             ManualBlock(ManualKind.Bullet, "Start opens the menu, and Select steps through the map views."),
             ManualBlock(ManualKind.Bullet, "In a window, the d-pad or the left stick moves between its buttons, A presses one and B closes it."),
             ManualBlock(ManualKind.Para, "The buttons can be changed in Settings."),
+            ManualBlock(ManualKind.Heading, "TalkBack"),
+            ManualBlock(ManualKind.Para, "With TalkBack or another screen reader, the buttons, windows and figures are all read out, and so is the news when it comes."),
+            ManualBlock(ManualKind.Bullet, "The map is one item, named with the tool in hand. Its actions move the cursor a tile or eight tiles at a time and use the tool there, and what's at the cursor is read each time it moves."),
+            ManualBlock(ManualKind.Bullet, "A double tap on the map uses the tool at the cursor, as Enter does. To lay a road, use it at one end, move the cursor to the other and use it again. **Let go** drops it.", "A double-click on the map uses the tool at the cursor, as Enter does. To lay a road, use it at one end, move the cursor to the other and use it again. **Let go** drops it."),
+            ManualBlock(ManualKind.Bullet, "A keyboard or a controller works alongside it."),
             ManualBlock(ManualKind.Heading, "Saving and loading"),
             ManualBlock(ManualKind.Para, "The town saves itself at the start of each month and whenever you leave the app, in one autosave. **Save** in the menu keeps it under its name, and a save with the same name is replaced. **Load** lists regions first, then towns with the autosave at the top. **Delete** asks for a second tap.", "The town saves itself at the start of each month and whenever you leave the app, in one autosave. **Save** in the menu keeps it under its name, and a save with the same name is replaced. **Load** lists regions first, then towns with the autosave at the top. **Delete** asks for a second click."),
         )),

@@ -1,5 +1,12 @@
 package com.rm.infill.ui
 
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -282,8 +289,11 @@ fun climateName(c: Climate) = when (c) {
 fun <T> StepSlider(label: StringResource, options: List<T>, value: T, name: @Composable (T) -> String, set: (T) -> Unit) {
     val c = Infill.colors
     val at = options.indexOf(value).coerceAtLeast(0)
+    val title = stringResource(label)
+    val shown = name(value)
     Column {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        // The slider reads out its name and value itself, so this line is for the eyes only.
+        Row(Modifier.fillMaxWidth().clearAndSetSemantics { }, verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(label), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
             Text(name(value), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         }
@@ -292,6 +302,7 @@ fun <T> StepSlider(label: StringResource, options: List<T>, value: T, name: @Com
             onValueChange = { v -> options.getOrNull(v.roundToInt())?.let { if (it != value) set(it) } },
             valueRange = 0f..(options.size - 1).toFloat(),
             steps = (options.size - 2).coerceAtLeast(0),
+            modifier = Modifier.semantics { contentDescription = title; stateDescription = shown },
             colors = SliderDefaults.colors(
                 thumbColor = c.accent, activeTrackColor = c.accent, inactiveTrackColor = c.button,
                 activeTickColor = c.onAccent, inactiveTickColor = c.textDim,
@@ -314,7 +325,8 @@ fun seaName(sea: com.rm.infill.sim.Sea) = when (sea) {
 @Composable
 fun <T> Chips(options: List<T>, selected: T, label: @Composable (T) -> String, onSelect: (T) -> Unit) {
     val c = Infill.colors
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    // One of a set, read out as chosen or not.
+    FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         for (o in options) {
             val on = o == selected
             Text(
@@ -326,7 +338,7 @@ fun <T> Chips(options: List<T>, selected: T, label: @Composable (T) -> String, o
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .background(if (on) c.accent else c.button)
-                    .clickable(role = Role.Button) { onSelect(o) }
+                    .selectable(selected = on, role = Role.RadioButton) { onSelect(o) }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             )
         }
@@ -475,7 +487,11 @@ private fun SettingHead(title: StringResource, glyph: Glyph) {
     val c = Infill.colors
     Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         GlyphIcon(glyph, c.accent, Modifier.size(15.dp))
-        Text(stringResource(title).uppercase(), color = c.textDim, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.6.sp)
+        val words = stringResource(title)
+        Text(
+            words.uppercase(), color = c.textDim, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.6.sp,
+            modifier = Modifier.semantics { heading(); contentDescription = words },
+        )
     }
 }
 
