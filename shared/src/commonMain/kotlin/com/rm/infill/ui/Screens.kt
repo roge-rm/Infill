@@ -579,11 +579,14 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
                         }) { settings.toolSide = it }
                         SettingHead(Res.string.ui_size, Glyph.Zone)
                         Chips(Settings.SCALES, settings.uiScale, { stringResource(Res.string.percent, (it * 100).toInt()) }) { settings.uiScale = it }
-                        SettingHead(Res.string.language, Glyph.Book)
-                        // Each language by its own name, so it can be found whatever's showing.
-                        Chips(listOf("") + Settings.LANGUAGES.keys, settings.language, {
-                            if (it.isEmpty()) stringResource(Res.string.language_auto) else Settings.LANGUAGES.getValue(it)
-                        }) { settings.language = it }
+                        // Only once there's more than one language to pick.
+                        if (Settings.LANGUAGES.size > 1) {
+                            SettingHead(Res.string.language, Glyph.Book)
+                            // Each language by its own name, so it can be found whatever's showing.
+                            Chips(listOf("") + Settings.LANGUAGES.keys, settings.language, {
+                                if (it.isEmpty()) stringResource(Res.string.language_auto) else Settings.LANGUAGES.getValue(it)
+                            }) { settings.language = it }
+                        }
                     }
                     SettingsTab.Sound -> {
                         val levels = (0..100 step 10).toList()

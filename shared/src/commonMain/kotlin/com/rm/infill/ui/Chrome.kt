@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.res.Res
+import com.rm.infill.res.speed_fastest
 import com.rm.infill.res.budget
 import com.rm.infill.res.demand_high
 import com.rm.infill.res.demand_none
@@ -147,7 +148,7 @@ fun StatusStrip(
         SquareButton(selected = paused, size = button, description = label, onClick = onPause) { tint ->
             PauseIcon(paused, tint, Modifier.size(22.dp))
         }
-        val speedName = stringResource(listOf(Res.string.speed_slow, Res.string.speed_normal, Res.string.speed_fast)[speed.coerceIn(0, 2)])
+        val speedName = stringResource(listOf(Res.string.speed_slow, Res.string.speed_normal, Res.string.speed_fast, Res.string.speed_fastest)[speed.coerceIn(0, 3)])
         SquareButton(selected = false, size = button, description = stringResource(Res.string.speed), onClick = onSpeed, state = speedName) { tint ->
             SpeedIcon(speed, tint, Modifier.size(22.dp))
         }

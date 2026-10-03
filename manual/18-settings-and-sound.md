@@ -9,7 +9,6 @@
 - **Theme**: **Auto**, **Light** or **Dark**.
 - **Tools on their side**: where the toolbar goes when it runs down the side of the screen, away from the camera or always on the left or right.
 - **Size of controls and text**: from 100% to 130%.
-- **Language**: **Auto** follows the phone's language, or pick one by name.
 
 ## Sound
 

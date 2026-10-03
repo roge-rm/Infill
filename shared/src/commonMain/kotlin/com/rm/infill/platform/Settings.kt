@@ -210,6 +210,8 @@ class Settings(private val store: Platform) {
         /**
          * The languages there are strings for, each with its name in itself.
          * A new translation adds a values-xx folder of strings and a line here.
+         * The choice shows in Settings once there's more than one, and the
+         * manual's Settings section gets a line for it then.
          */
         val LANGUAGES = linkedMapOf("en" to "English")
         private const val SCALE = "ui_scale"

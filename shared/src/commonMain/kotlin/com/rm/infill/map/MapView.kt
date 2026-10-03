@@ -1,5 +1,7 @@
 package com.rm.infill.map
 
+import kotlinx.coroutines.Dispatchers
+import androidx.compose.runtime.produceState
 import com.rm.infill.platform.platform
 import com.rm.infill.sim.Balance
 import androidx.compose.ui.platform.LocalDensity
@@ -77,6 +79,8 @@ fun MapView(
     tint: Color,
     weather: WeatherLook,
     running: Boolean,
+    /** How fast the game's going, 1 at normal speed, for what travels across the map. */
+    pace: Float = 1f,
     graphics: Graphics,
     gestures: MapGestures,
     preview: Preview?,
@@ -104,10 +108,16 @@ fun MapView(
     var hoverX by remember { mutableIntStateOf(-1) }
     var hoverY by remember { mutableIntStateOf(-1) }
     val g by rememberUpdatedState(gestures)
-    val clouds = remember { CloudTextures.make() }
+    // Made away from the screen's thread, so loading a town doesn't wait on them; no clouds until then.
+    val clouds by produceState<CloudTextures?>(null) { value = withContext(Dispatchers.Default) { CloudTextures.make() } }
 
     // Rain, snow, clouds and traffic move while the game runs.
+    // Two clocks: real seconds for what falls and flickers (rain, snow, fires),
+    // and seconds at the game's speed for what travels (clouds, traffic, trains,
+    // ships and planes), so those go faster when the game does.
     var weatherTime by remember { mutableFloatStateOf(0f) }
+    var travelTime by remember { mutableFloatStateOf(0f) }
+    val paceNow by rememberUpdatedState(pace)
     val fires = game.city.burningNow > 0
     val traffic = graphics.vehicles > 0 && game.city.stats.population > 0
     val trains = graphics.trains > 0 && game.city.trainRoutes.isNotEmpty()
@@ -144,7 +154,9 @@ fun MapView(
         var last = withFrameNanos { it }
         while (true) {
             val now = withFrameNanos { it }
-            weatherTime += (now - last) / 1e9f
+            val seconds = (now - last) / 1e9f
+            weatherTime += seconds
+            travelTime += seconds * paceNow
             last = now
         }
     }
@@ -187,7 +199,7 @@ fun MapView(
                     city.year < ELECTRIC_TRAINS_FROM -> 1f
                     else -> 2f
                 }
-                val trains = trainSounds(city.trainRoutes, map.width, weatherTime, graphics.trains, kind)
+                val trains = trainSounds(city.trainRoutes, map.width, travelTime, graphics.trains, kind)
                 sound.frame(listener, hourNow, dt, trains, frame)
                 AudioEngine.scene(frame.count, frame.keys, frame.recipes, frame.flags, frame.params)
                 for (shot in frame.shots) AudioEngine.event(shot.recipe, shot.params, shot.delay, seeds.nextInt())
@@ -286,16 +298,16 @@ fun MapView(
         drawNeighbours(game.city.neighbours, map, camera, atlas, look)
         drawFloods(map, camera)
         drawWorks(map, camera)
-        if (planes) drawPlanes(game.city.airportsShown(), camera, weatherTime, jets = game.city.year >= Balance.JET_YEAR)
-        val raised = if (ships) drawShips(game.city.shipRoutes, map, camera, weatherTime, graphics.trains, graphics.smoke && game.city.year < Balance.STEAM_UNTIL) else emptySet()
+        if (planes) drawPlanes(game.city.airportsShown(), camera, travelTime, jets = game.city.year >= Balance.JET_YEAR)
+        val raised = if (ships) drawShips(game.city.shipRoutes, map, camera, travelTime, graphics.trains, graphics.smoke && game.city.year < Balance.STEAM_UNTIL) else emptySet()
         // Road traffic waits for a train at a crossing, and for a bridge that's open for a ship.
-        val stopped = (if (trains) drawTrains(game.city.trainRoutes, map, camera, weatherTime, graphics.trains, graphics.smoke, steam = game.city.year < Balance.STEAM_TRAINS_UNTIL) else emptySet()) + raised
+        val stopped = (if (trains) drawTrains(game.city.trainRoutes, map, camera, travelTime, graphics.trains, graphics.smoke, steam = game.city.year < Balance.STEAM_TRAINS_UNTIL) else emptySet()) + raised
         if (traffic) {
-            drawVehicles(map, camera, game.city.year, weatherTime, graphics.vehicles, stopped)
-            drawTransit(map, camera, weatherTime, game.city.lineStates())
+            drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped)
+            drawTransit(map, camera, travelTime, game.city.lineStates())
         }
         if (fires) drawFires(map, camera, weather, weatherTime)
-        drawWeather(weather, camera, clouds, weatherTime, sun.strength, graphics)
+        drawWeather(weather, camera, clouds, travelTime, weatherTime, sun.strength, graphics)
         // Modulate rather than Multiply: the same for an opaque tint, and Android before 10 has only this one.
         if (tint != Color.White) drawRect(tint, blendMode = BlendMode.Modulate)
         if (underground) drawUnderground(map, camera, game.city.monthNow)

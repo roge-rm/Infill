@@ -132,26 +132,28 @@ class CloudTextures(val levels: List<ImageBitmap>) {
 }
 
 /**
- * Draws the weather over the map at [time] seconds: cloud shadows drifting
- * across the ground, then rain or snow and fog over everything. What's drawn
- * depends on [graphics].
+ * Draws the weather over the map: cloud shadows drifting across the ground
+ * at [cloudTime] seconds, which runs at the game's speed, then rain or snow
+ * falling at [fallTime], which is real time, and fog over everything. What's
+ * drawn depends on [graphics].
  */
 internal fun DrawScope.drawWeather(
     look: WeatherLook,
     camera: Camera,
     clouds: CloudTextures?,
-    time: Float,
+    cloudTime: Float,
+    fallTime: Float,
     sunStrength: Float,
     graphics: Graphics,
 ) {
     val texture = clouds?.forCloud(look.cloud)
     if (graphics.cloudShadows && texture != null && sunStrength > 0f) {
-        cloudShadows(texture, look, camera, time, (0.28f * sunStrength).coerceIn(0f, 1f))
+        cloudShadows(texture, look, camera, cloudTime, (0.28f * sunStrength).coerceIn(0f, 1f))
     }
     if (graphics.particles > 0f) {
         when (look.precipitation) {
-            Precipitation.Rain -> rain(look, time, graphics.particles)
-            Precipitation.Snow -> snow(look, time, graphics.particles)
+            Precipitation.Rain -> rain(look, fallTime, graphics.particles)
+            Precipitation.Snow -> snow(look, fallTime, graphics.particles)
             Precipitation.None -> {}
         }
     }
@@ -159,7 +161,7 @@ internal fun DrawScope.drawWeather(
         drawRect(FOG, alpha = 0.32f)
         // Banks of thicker fog drifting through.
         if (graphics.cloudShadows && clouds != null) {
-            cloudShadows(clouds.levels[1], look, camera, time * 0.4f, 0.16f, colour = FOG_BANK, scale = 0.6f)
+            cloudShadows(clouds.levels[1], look, camera, cloudTime * 0.4f, 0.16f, colour = FOG_BANK, scale = 0.6f)
         }
     }
 }

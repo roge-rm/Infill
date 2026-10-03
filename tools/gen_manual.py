@@ -93,8 +93,6 @@ DESKTOP_SENTENCES = {
         "With **Inspect**, dragging moves the map and a click opens a card on what's there:",
     "Settings are kept on this phone and change as you go.":
         "Settings are kept in this browser and change as you go.",
-    "**Language**: **Auto** follows the phone's language, or pick one by name.":
-        "**Language**: **Auto** follows the browser's language, or pick one by name.",
 }
 
 

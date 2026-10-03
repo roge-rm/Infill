@@ -1149,6 +1149,7 @@ private fun GameScreen(
             KeyAction.Speed1 -> { speed = 0; paused = false }
             KeyAction.Speed2 -> { speed = 1; paused = false }
             KeyAction.Speed3 -> { speed = 2; paused = false }
+            KeyAction.Speed4 -> { speed = 3; paused = false }
             KeyAction.Pause -> paused = !paused
             KeyAction.Undo -> undo()
             KeyAction.Redo -> redo()
@@ -1267,7 +1268,7 @@ private fun GameScreen(
             val screenHeight = maxHeight
             viewSize = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
             MapView(
-                game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, graphics, gestures, preview, costText, overlay,
+                game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, SPEEDS[speed].toFloat(), graphics, gestures, preview, costText, overlay,
                 underground = tool == Tool.Water || tunnelling && (tool == Tool.Road || tool == Tool.Rail && railKind == RailKind.Track) ||
                     tool == Tool.Bulldoze && bulldozeKind == BulldozeKind.Tunnel || (tool == Tool.Transit && (transitKind == TransitKind.Subway || transitKind == TransitKind.Station)) ||
                     (tool == Tool.Power && powerKind.buried) || (tool == Tool.Phone && phoneKind.duct),
@@ -1587,7 +1588,7 @@ private val DEV_WEATHER = listOf(
  * half as fast and fast four times. No more than a few days run in one frame.
  */
 private const val SECONDS_PER_MONTH = 600.0
-private val SPEEDS = doubleArrayOf(0.5, 1.0, 4.0)
+private val SPEEDS = doubleArrayOf(0.5, 1.0, 4.0, 10.0)
 private const val MAX_DAYS_PER_FRAME = 4
 
 /**
