@@ -1338,6 +1338,8 @@ private fun GameScreen(
                         .onSizeChanged { stripSize = it }
                         .windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                         .padding(gap)
+                        // Two lines take the width, so their ends line up.
+                        .then(if (twoLines) Modifier.fillMaxWidth() else Modifier)
                 },
                 cameras = cameras,
             )

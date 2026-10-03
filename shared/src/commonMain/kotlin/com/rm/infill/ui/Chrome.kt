@@ -182,18 +182,21 @@ fun StatusStrip(
     ChromeBox(modifier) {
         // On an upright phone the readings go on a second line under the buttons.
         if (twoLines) {
-            Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                if (cameras.isEmpty()) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gap)) { buttons() }
-                else ClearOf(cameras, gap) { buttons() }
+            // Across the whole width: the buttons on the left and the date on the right, then the readings spread
+            // out under them with undo and redo at the end.
+            Column(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                ClearOf(cameras, gap, Modifier.fillMaxWidth(), pinLast = true) { buttons() }
                 Row(
-                    Modifier.padding(start = 4.dp),
+                    Modifier.fillMaxWidth().padding(start = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(gap),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     readings()
                     // Undo and redo live up here on an upright phone, so the toolbar keeps its labels.
-                    HistoryButton(false, game.canUndo, 32.dp, onUndo)
-                    HistoryButton(true, game.canRedo, 32.dp, onRedo)
+                    Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                        HistoryButton(false, game.canUndo, 32.dp, onUndo)
+                        HistoryButton(true, game.canRedo, 32.dp, onRedo)
+                    }
                 }
             }
         } else {
@@ -215,13 +218,20 @@ fun StatusStrip(
 
 /**
  * A row of [content] spaced by [spacing], each moved along past any of the
- * [cameras] (stretches across the window, in pixels) it would sit over.
+ * [cameras] (stretches across the window, in pixels) it would sit over. With
+ * [pinLast], the last one goes at the far end, or as near it as the cameras let it.
  */
 @Composable
-private fun ClearOf(cameras: List<ClosedFloatingPointRange<Float>>, spacing: Dp, content: @Composable () -> Unit) {
+private fun ClearOf(
+    cameras: List<ClosedFloatingPointRange<Float>>,
+    spacing: Dp,
+    modifier: Modifier = Modifier,
+    pinLast: Boolean = false,
+    content: @Composable () -> Unit,
+) {
     var left by remember { mutableFloatStateOf(0f) }
     val sorted = remember(cameras) { cameras.sortedBy { it.start } }
-    Layout(content, Modifier.onGloballyPositioned { left = it.positionInWindow().x }) { measurables, constraints ->
+    Layout(content, modifier.onGloballyPositioned { left = it.positionInWindow().x }) { measurables, constraints ->
         val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
         val space = spacing.roundToPx()
         val xs = IntArray(placeables.size)
@@ -235,7 +245,20 @@ private fun ClearOf(cameras: List<ClosedFloatingPointRange<Float>>, spacing: Dp,
             xs[k] = x
             x += p.width + space
         }
-        val width = (x - space).coerceIn(constraints.minWidth, constraints.maxWidth)
+        if (pinLast && placeables.isNotEmpty() && constraints.hasBoundedWidth) {
+            val k = placeables.size - 1
+            val w = placeables[k].width
+            var end = constraints.maxWidth - w
+            // Back from the far end past any camera, but never back over the one before.
+            for (cam in sorted.reversed()) {
+                val from = cam.start - left - space
+                val to = cam.endInclusive - left + space
+                if (end < to && end + w > from) end = (from - w).toInt()
+            }
+            if (end > xs[k]) xs[k] = end
+            x = maxOf(x, xs[k] + w + space)
+        }
+        val width = (if (pinLast && constraints.hasBoundedWidth) constraints.maxWidth else x - space).coerceIn(constraints.minWidth, constraints.maxWidth)
         val height = placeables.maxOfOrNull { it.height } ?: 0
         layout(width, height) { placeables.forEachIndexed { k, p -> p.place(xs[k], (height - p.height) / 2) } }
     }
