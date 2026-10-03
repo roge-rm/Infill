@@ -65,6 +65,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -281,7 +292,29 @@ fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, top: (
                 .widthIn(max = 480.dp)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
         ) {
-            Column(Modifier.padding(16.dp)) {
+            // Tab stays in the window, going round from the last button to the first, and Shift and Tab the other way.
+            val whole = remember { FocusRequester() }
+            val focusManager = LocalFocusManager.current
+            val inputMode = LocalInputModeManager.current
+            Column(
+                Modifier
+                    .padding(16.dp)
+                    .focusRequester(whole)
+                    .focusProperties { onExit = { cancelFocusChange() } }
+                    .focusGroup()
+                    .onPreviewKeyEvent { e ->
+                        if (e.key != Key.Tab || e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        inputMode.requestInputMode(InputMode.Keyboard)
+                        if (!e.isShiftPressed) {
+                            if (!focusManager.moveFocus(FocusDirection.Next)) runCatching { whole.requestFocus() }
+                        } else if (!focusManager.moveFocus(FocusDirection.Previous)) {
+                            // From the first, round to the last.
+                            runCatching { whole.requestFocus() }
+                            repeat(MAX_TABS) { if (!focusManager.moveFocus(FocusDirection.Next)) return@onPreviewKeyEvent true }
+                        }
+                        true
+                    },
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     glyph?.let {
                         Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(c.accent), contentAlignment = Alignment.Center) {
@@ -296,7 +329,12 @@ fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, top: (
                 // Opened from the keyboard, the keys go straight into the window.
                 val keyed = LocalKeyboardPlay.current
                 val first = remember { FocusRequester() }
-                LaunchedEffect(Unit) { if (keyed) runCatching { first.requestFocus() } }
+                LaunchedEffect(Unit) {
+                    if (!keyed) return@LaunchedEffect
+                    // Buttons only take focus once the keys are in use.
+                    inputMode.requestInputMode(InputMode.Keyboard)
+                    runCatching { first.requestFocus() }
+                }
                 // What stays put above the part that scrolls, such as tabs.
                 Column(Modifier.focusRequester(first).focusGroup()) {
                     top?.let { Box(Modifier.padding(top = 14.dp)) { it() } }
@@ -1045,3 +1083,6 @@ private fun PolicyTile(glyph: Glyph, label: String, on: Boolean, modifier: Modif
         Text(label, color = if (on) c.onAccent else c.text, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
+
+/** As many buttons as a window could have, to stop at the last one going round. */
+private const val MAX_TABS = 400
