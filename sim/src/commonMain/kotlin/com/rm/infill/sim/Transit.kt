@@ -68,8 +68,11 @@ class TransitLine(val id: Int, val tram: Boolean, val stops: IntArray, var vehic
     fun copy() = TransitLine(id, tram, stops.copyOf(), vehicles)
 }
 
-/** How a line is doing, as last worked out: whether it runs, as what, its round trip and wait, and the tiles it runs over. */
-class LineState(val mode: Mode, val running: Boolean, val roundTrip: Int, val wait: Int, val vehicles: Int, val route: IntArray)
+/**
+ * How a line is doing, as last worked out: whether it runs, as what, its round trip and wait, the tiles it runs
+ * over, and how [full] it was, last month's riders as a share of what its vehicles can carry, in percent.
+ */
+class LineState(val mode: Mode, val running: Boolean, val roundTrip: Int, val wait: Int, val vehicles: Int, val route: IntArray, val full: Int = 0)
 
 internal class TransitNetwork(private val map: CityMap) {
     /**
@@ -162,8 +165,9 @@ internal class TransitNetwork(private val map: CityMap) {
             val headway = trip / vehicles
             val perVehicle = if (line.tram) Balance.TRAM_VEHICLE_RIDERS else Balance.BUS_VEHICLE_RIDERS
             val crowd = riders(mode.ordinal, line.id) / maxOf(1, vehicles * perVehicle)
+            val full = riders(mode.ordinal, line.id) * 100 / maxOf(1, vehicles * perVehicle)
             val wait = maxOf(Balance.SHORTEST_WAIT, headway / 2 * (1 + minOf(crowd, 3)))
-            states[line.id] = LineState(mode, true, trip, wait, vehicles, route)
+            states[line.id] = LineState(mode, true, trip, wait, vehicles, route, full)
             val (onTile, dirs, atStop, stopLine) = when (mode) {
                 Mode.TRAM -> Quad(tram, tramDirs, tramStop, tramStopLine)
                 Mode.TROLLEY -> Quad(trolley, trolleyDirs, trolleyStop, trolleyStopLine)

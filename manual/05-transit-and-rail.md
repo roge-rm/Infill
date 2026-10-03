@@ -32,6 +32,8 @@ From the Streetcar era, the **Subway** tab lays **Subway** tunnel under anything
 
 A line runs only if its first stop is joined to a working depot or garage. A new line suggests how many vehicles it needs for its length. More vehicles mean shorter waits, and crowded ones longer waits. Each tram costs $4,000 and each bus $1,500, plus a little a month, and taking vehicles off sells them back at half price. **Lines** in the tray opens the list of lines, with their riders, round trip and wait.
 
+On the map, each line's vehicles run its route out and back. They wait a moment at each stop and slow in traffic where there's no bus and tram lane, and the busier the line, the more riders show in the windows.
+
 Every ride on a tram, bus, trolleybus or subway pays a fare of 30 cents, under **Fares** in the budget. The **Free fares** district policy lets people ride free in that district, and the ride feels shorter to them, so more take it.
 
 Stops raise land value nearby, and subway stations raise it more. From 2000, mixed use near a stop does better.

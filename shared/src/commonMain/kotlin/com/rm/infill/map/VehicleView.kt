@@ -9,6 +9,7 @@ import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Mode
 import com.rm.infill.sim.LineState
 import com.rm.infill.sim.Heading
+import com.rm.infill.sim.Stop
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
@@ -130,7 +131,9 @@ private fun lineSpeed(map: CityMap, across: Boolean, at: Int): Float {
 /**
  * Each line's trams, buses or trolleybuses, as many as it has, spaced along
  * its route and going round it out and back: trams down the middle of their
- * track, buses keeping to the right.
+ * track, buses keeping to the right. They pause at each stop, and slow in
+ * traffic where there's no lane kept for them; the fuller the line, the more
+ * riders show in the windows.
  */
 internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, lines: Collection<LineState>) {
     val t = camera.tilePx
@@ -143,26 +146,64 @@ internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, li
         val n = route.size
         val tram = line.mode == Mode.TRAM
         val speed = if (tram) TRAM_TILES else BUS_TILES
+        val stopBit = if (tram) Stop.TRAM else Stop.BUS
+        // The line's timetable: how long each tile takes to cross, and the pause at a stop in its middle.
+        val moving = FloatArray(n)
+        val pause = FloatArray(n)
+        val starts = FloatArray(n + 1)
+        for (j in 0 until n) {
+            val i = route[j]
+            val busy = map.congestion[i].toInt() and 0xff
+            val jammed = map.road[i].toInt() != 0 && map.lane[i].toInt() == 0
+            moving[j] = 1f / speed / (if (jammed) 1f - min(0.75f, busy / 340f) else 1f)
+            pause[j] = if (map.stop[i].toInt() and stopBit != 0) STOP_SECONDS else 0f
+            starts[j + 1] = starts[j] + moving[j] + pause[j]
+        }
+        val period = starts[n]
+        val seats = if (tram) TRAM_SEATS else BUS_SEATS
+        val seated = min(seats, ceil(seats * line.full / 100f).toInt())
         for (k in 0 until line.vehicles) {
-            // Along the route from tile middle to tile middle, round the bends; buses keep to the right.
-            val pos = (time * speed + k * n / line.vehicles.toFloat()) % n
+            // Where it is on the timetable, then on the route: half across its tile, any pause, the other half.
+            val at = (time + k * period / line.vehicles).mod(period)
+            var j = 0
+            while (j < n - 1 && starts[j + 1] <= at) j++
+            val into = at - starts[j]
+            val half = moving[j] / 2f
+            val pos = when {
+                into < half -> j - 0.5f + into / moving[j]
+                into < half + pause[j] -> j.toFloat()
+                else -> j - 0.5f + (into - pause[j]) / moving[j]
+            }
             val i = floor(pos + 0.5f).toInt()
             val u = pos + 0.5f - i
-            val (cx, cy, heading) = pointThrough(route[(i - 1 + n) % n], route[i % n], route[(i + 1) % n], u, map.width, if (tram) 0f else KERB)
+            val (cx, cy, heading) = pointThrough(route[(i - 1 + n) % n], route[i.mod(n)], route[(i + 1) % n], u, map.width, if (tram) 0f else KERB)
             if (cx < topLeft.x - 1 || cx > bottomRight.x + 1 || cy < topLeft.y - 1 || cy > bottomRight.y + 1) continue
-            val at = camera.tileToScreen(cx, cy, size)
+            val spot = camera.tileToScreen(cx, cy, size)
             when (line.mode) {
-                Mode.TRAM -> car(at, t, heading, 0.7f, 0.24f, TRAM_BODY, TRAM_ENDS)
+                Mode.TRAM -> car(spot, t, heading, 0.7f, 0.24f, TRAM_BODY, TRAM_ENDS)
                 Mode.TROLLEY -> {
-                    car(at, t, heading, 0.45f, 0.17f, TROLLEY_BODY, GLASS)
+                    car(spot, t, heading, 0.45f, 0.17f, TROLLEY_BODY, GLASS)
                     // Its two poles back and up to the wire.
-                    rotate(heading, at) {
-                        val back = Offset(at.x - t * 0.15f, at.y)
+                    rotate(heading, spot) {
+                        val back = Offset(spot.x - t * 0.15f, spot.y)
                         drawLine(POLE, back, Offset(back.x - t * 0.2f, back.y - t * 0.05f), max(1f, t * 0.03f))
                     }
                 }
-                else -> car(at, t, heading, 0.45f, 0.17f, BUS_BODY, GLASS)
+                else -> car(spot, t, heading, 0.45f, 0.17f, BUS_BODY, GLASS)
             }
+            if (seated > 0 && t >= RIDERS_TILE_PX) riders(spot, t, heading, if (tram) 0.7f else 0.45f, seats, seated)
+        }
+    }
+}
+
+/** [count] of [seats] riders as heads in a row down the middle of a tram or bus [length] tiles long. */
+private fun DrawScope.riders(at: Offset, t: Float, heading: Float, length: Float, seats: Int, count: Int) {
+    val inside = t * length * 0.72f
+    val r = max(1f, t * 0.03f)
+    rotate(heading, at) {
+        for (k in 0 until count) {
+            val x = at.x - inside / 2 + inside * (k + 0.5f) / seats
+            drawCircle(RIDER, r, Offset(x, at.y))
         }
     }
 }
@@ -231,6 +272,15 @@ private const val MIN_TILE_PX = 12f
 private const val TRAM_TILES = 0.55f
 private const val BUS_TILES = 0.45f
 private const val KERB = 0.15f
+
+/** How long a tram or bus waits at a stop, in seconds at normal speed. */
+private const val STOP_SECONDS = 1.2f
+
+/** Riders show once a tile is this big, and as heads in this many seats. */
+private const val RIDERS_TILE_PX = 28f
+private const val TRAM_SEATS = 6
+private const val BUS_SEATS = 4
+private val RIDER = Color(0xFF1E1A16)
 
 private val TRAM_BODY = Color(0xFFE8DCC0)
 private val TRAM_ENDS = Color(0xFF8E2A2A)
