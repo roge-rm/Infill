@@ -64,7 +64,7 @@ class GoodsTest {
         assertTrue(on(2, 9).all { it == BuildingType.WOODLOT }, "woods: ${on(2, 9)}")
         assertTrue(on(12, 18).all { it == BuildingType.MINE }, "ore: ${on(12, 18)}")
         assertTrue(on(22, 28).all { it == BuildingType.COLLIERY }, "coal: ${on(22, 28)}")
-        assertTrue(on(32, 45).all { it == BuildingType.FARM }, "soil: ${on(32, 45)}")
+        assertTrue(on(32, 45).all { it.isFarm }, "soil: ${on(32, 45)}")
         assertTrue(c.stats.farmJobs > 0)
         // Woodlots keep their trees.
         val woodlot = c.all().firstOrNull { it.type == BuildingType.WOODLOT }

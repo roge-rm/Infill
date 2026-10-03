@@ -8,6 +8,10 @@ object Balance {
     /** Residents per shop job the town wants. */
     const val RESIDENTS_PER_SHOP_JOB = 7.0
 
+    /** How often a lot that could take any size grows a building on one lot, and on two, in percent; the rest on four, so the big ones go up where there's room and the small ones fill the gaps. */
+    const val ONE_LOT_SHARE = 30
+    const val TWO_LOT_SHARE = 30
+
     /** Demand is worked out again this often, in days, between the turns of the month. */
     const val DEMAND_DAYS = 7
 

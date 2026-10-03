@@ -953,10 +953,11 @@ fun EraWindow(game: GameState, era: Era, onClose: () -> Unit) {
             for (t in BuildingType.entries) if (brought(t.year, t.era)) add(stringResource(buildingName(t)) to buildingIcon(t))
             for (m in Material.entries) if (brought(m.year)) add(stringResource(materialName(m)) to ChoiceIcon(glyph = Glyph.Pipe, glyphColour = PIPE_COLOURS[m.pipe]))
             if (Era.of(Balance.TROLLEYBUS_YEAR) == era) add(stringResource(Res.string.trolley_wire) to ChoiceIcon(intArrayOf(com.rm.infill.map.Atlas.ROAD_STREET + 10, com.rm.infill.map.Atlas.TROLLEY_WIRE + 10)))
-            // Districts and homes over shops with the streetcar, towers with the motor age.
+            // Districts, offices and homes over shops with the streetcar, towers with the motor age.
             if (era == Era.STREETCAR) {
                 add(stringResource(Res.string.districts) to ChoiceIcon(glyph = Glyph.District))
                 add(stringResource(Res.string.zone_mixed) to ChoiceIcon(buildingIcon(BuildingType.SHOPHOUSE).sprites, back = zoneColour(com.rm.infill.sim.Zone.MIXED)))
+                add(stringResource(Res.string.zone_office) to ChoiceIcon(buildingIcon(BuildingType.OFFICES).sprites, back = zoneColour(com.rm.infill.sim.Zone.OFFICE)))
             }
             if (era == Era.MOTOR) add(stringResource(Res.string.density_tower) to ChoiceIcon(glyph = Glyph.Tower))
         }

@@ -1,6 +1,7 @@
 package com.rm.infill.sim
 
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -51,9 +52,29 @@ class OfficeTest {
     @Test
     fun officesSurviveASave() {
         val c = town(1930)
-        val loaded = SaveGame.read(SaveGame.write(c)).also { it.disasterLevel = 0 }
+        // Allowing everything isn't saved, and the town has offices before their era, so the copy needs it too.
+        val loaded = SaveGame.read(SaveGame.write(c)).also { it.disasterLevel = 0; it.everything = true }
         assertEquals(c.stats.officeJobs, loaded.stats.officeJobs)
         repeat(100) { c.tick(); loaded.tick() }
         assertEquals(c.map.hash(), loaded.map.hash())
+    }
+
+    @Test
+    fun officesComeWithTheStreetcar() {
+        val c = City(9, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.disasterLevel = 0 }
+        val m = c.map
+        c.apply(Action.BuildRoad(Action.roadPath(m, 0, 30, 63, 30, true)))
+        c.apply(Action.PlaceZone(2, 27, 60, 29, Zone.RESIDENTIAL))
+        repeat(3) { repeat(31) { c.tick() } }
+        // A township has no offices to zone, wants none and isn't told it does.
+        assertFalse(c.allowsZone(Zone.OFFICE))
+        assertFalse(c.apply(Action.PlaceZone(2, 31, 20, 33, Zone.OFFICE)).ok)
+        assertEquals(0, c.stats.officeDemand)
+        assertTrue(c.advice.none { it.zone == Zone.OFFICE })
+        // With the streetcar they come in.
+        City::class.java.getDeclaredField("era").apply { isAccessible = true }.set(c, Era.STREETCAR)
+        assertTrue(c.allowsZone(Zone.OFFICE))
+        repeat(8) { c.tick() }
+        assertTrue(c.stats.officeDemand > 0, "offices wanted once they're in")
     }
 }

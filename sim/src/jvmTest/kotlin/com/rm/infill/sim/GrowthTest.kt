@@ -129,7 +129,7 @@ class GrowthTest {
         c.undo()
         for (i in 0 until c.map.size) {
             val b = c.building(c.map.building[i])
-            assertEquals(if (b == null) 0 else b.type.ordinal + 1, c.map.buildingType[i].toInt(), "tile $i")
+            assertEquals(if (b == null) 0 else b.type.ordinal + 1, (c.map.buildingType[i].toInt() and 0xff), "tile $i")
         }
     }
 

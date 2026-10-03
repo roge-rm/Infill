@@ -15,6 +15,57 @@ internal object BuildingSprites {
         for (t in BuildingType.entries) {
             val (f, n) = when (t) {
                 BuildingType.COTTAGE -> Atlas.COTTAGE to Atlas.COTTAGE_COUNT
+                BuildingType.CABIN -> Atlas.CABIN to Atlas.CABIN_COUNT
+                BuildingType.SMALLHOLDING_DEEP -> Atlas.SMALLHOLDING_DEEP to Atlas.SMALLHOLDING_DEEP_COUNT
+                BuildingType.SMALLHOLDING_WIDE -> Atlas.SMALLHOLDING_WIDE to Atlas.SMALLHOLDING_WIDE_COUNT
+                BuildingType.VILLA_DEEP -> Atlas.VILLA_DEEP to Atlas.VILLA_DEEP_COUNT
+                BuildingType.VILLA_WIDE -> Atlas.VILLA_WIDE to Atlas.VILLA_WIDE_COUNT
+                BuildingType.MANSION -> Atlas.MANSION to Atlas.MANSION_COUNT
+                BuildingType.TERRACE_DEEP -> Atlas.TERRACE_DEEP to Atlas.TERRACE_DEEP_COUNT
+                BuildingType.TERRACE_WIDE -> Atlas.TERRACE_WIDE to Atlas.TERRACE_WIDE_COUNT
+                BuildingType.COURT_TENEMENTS -> Atlas.COURT_TENEMENTS to Atlas.COURT_TENEMENTS_COUNT
+                BuildingType.SLAB_DEEP -> Atlas.SLAB_DEEP to Atlas.SLAB_DEEP_COUNT
+                BuildingType.SLAB_WIDE -> Atlas.SLAB_WIDE to Atlas.SLAB_WIDE_COUNT
+                BuildingType.STOREFRONTS_DEEP -> Atlas.STOREFRONTS_DEEP to Atlas.STOREFRONTS_DEEP_COUNT
+                BuildingType.STOREFRONTS_WIDE -> Atlas.STOREFRONTS_WIDE to Atlas.STOREFRONTS_WIDE_COUNT
+                BuildingType.COVERED_MARKET -> Atlas.COVERED_MARKET to Atlas.COVERED_MARKET_COUNT
+                BuildingType.ARCADE_DEEP -> Atlas.ARCADE_DEEP to Atlas.ARCADE_DEEP_COUNT
+                BuildingType.ARCADE_WIDE -> Atlas.ARCADE_WIDE to Atlas.ARCADE_WIDE_COUNT
+                BuildingType.EMPORIUM -> Atlas.EMPORIUM to Atlas.EMPORIUM_COUNT
+                BuildingType.STORE_BLOCK_DEEP -> Atlas.STORE_BLOCK_DEEP to Atlas.STORE_BLOCK_DEEP_COUNT
+                BuildingType.STORE_BLOCK_WIDE -> Atlas.STORE_BLOCK_WIDE to Atlas.STORE_BLOCK_WIDE_COUNT
+                BuildingType.ROADHOUSE_DEEP -> Atlas.ROADSIDE_DEEP to Atlas.ROADSIDE_DEEP_COUNT
+                BuildingType.FEED_STORE -> Atlas.FEED_STORE to Atlas.FEED_STORE_COUNT
+                BuildingType.LUMBER_YARD_DEEP -> Atlas.LUMBER_YARD_DEEP to Atlas.LUMBER_YARD_DEEP_COUNT
+                BuildingType.LUMBER_YARD_WIDE -> Atlas.LUMBER_YARD_WIDE to Atlas.LUMBER_YARD_WIDE_COUNT
+                BuildingType.BRICKWORKS -> Atlas.BRICKWORKS to Atlas.BRICKWORKS_COUNT
+                BuildingType.SHEDS_DEEP -> Atlas.SHEDS_DEEP to Atlas.SHEDS_DEEP_COUNT
+                BuildingType.SHEDS_WIDE -> Atlas.SHEDS_WIDE to Atlas.SHEDS_WIDE_COUNT
+                BuildingType.STOREHOUSES -> Atlas.STOREHOUSES to Atlas.STOREHOUSES_COUNT
+                BuildingType.FOUNDRY -> Atlas.FOUNDRY to Atlas.FOUNDRY_COUNT
+                BuildingType.MACHINE_SHOP_DEEP -> Atlas.MACHINE_SHOP_DEEP to Atlas.MACHINE_SHOP_DEEP_COUNT
+                BuildingType.MACHINE_SHOP_WIDE -> Atlas.MACHINE_SHOP_WIDE to Atlas.MACHINE_SHOP_WIDE_COUNT
+                BuildingType.CHAMBERS_DEEP -> Atlas.CHAMBERS_DEEP to Atlas.CHAMBERS_DEEP_COUNT
+                BuildingType.CHAMBERS_WIDE -> Atlas.CHAMBERS_WIDE to Atlas.CHAMBERS_WIDE_COUNT
+                BuildingType.OFFICE_PARK -> Atlas.OFFICE_PARK to Atlas.OFFICE_PARK_COUNT
+                BuildingType.OFFICE_ROW_DEEP -> Atlas.OFFICE_ROW_DEEP to Atlas.OFFICE_ROW_DEEP_COUNT
+                BuildingType.OFFICE_ROW_WIDE -> Atlas.OFFICE_ROW_WIDE to Atlas.OFFICE_ROW_WIDE_COUNT
+                BuildingType.OFFICE_COURT -> Atlas.OFFICE_COURT to Atlas.OFFICE_COURT_COUNT
+                BuildingType.SLIM_OFFICES -> Atlas.SLIM_OFFICES to Atlas.SLIM_OFFICES_COUNT
+                BuildingType.OFFICE_SLAB_DEEP -> Atlas.OFFICE_SLAB_DEEP to Atlas.OFFICE_SLAB_DEEP_COUNT
+                BuildingType.OFFICE_SLAB_WIDE -> Atlas.OFFICE_SLAB_WIDE to Atlas.OFFICE_SLAB_WIDE_COUNT
+                BuildingType.TWIN_SHOPHOUSES_DEEP -> Atlas.TWIN_SHOPHOUSES_DEEP to Atlas.TWIN_SHOPHOUSES_DEEP_COUNT
+                BuildingType.TWIN_SHOPHOUSES_WIDE -> Atlas.TWIN_SHOPHOUSES_WIDE to Atlas.TWIN_SHOPHOUSES_WIDE_COUNT
+                BuildingType.CORNER_PARADE -> Atlas.STREET_PARADE to Atlas.STREET_PARADE_COUNT
+                BuildingType.SHOPS_AND_FLATS_DEEP -> Atlas.SHOPS_AND_FLATS_DEEP to Atlas.SHOPS_AND_FLATS_DEEP_COUNT
+                BuildingType.SHOPS_AND_FLATS_WIDE -> Atlas.SHOPS_AND_FLATS_WIDE to Atlas.SHOPS_AND_FLATS_WIDE_COUNT
+                BuildingType.PARADE_BLOCK -> Atlas.PARADE_BLOCK to Atlas.PARADE_BLOCK_COUNT
+                BuildingType.MIXED_SLAB_DEEP -> Atlas.MIXED_SLAB_DEEP to Atlas.MIXED_SLAB_DEEP_COUNT
+                BuildingType.MIXED_SLAB_WIDE -> Atlas.MIXED_SLAB_WIDE to Atlas.MIXED_SLAB_WIDE_COUNT
+                BuildingType.MIXED_COURT -> Atlas.MIXED_COURT to Atlas.MIXED_COURT_COUNT
+                BuildingType.MARKET_GARDEN -> Atlas.MARKET_GARDEN to Atlas.MARKET_GARDEN_COUNT
+                BuildingType.ORCHARD_DEEP -> Atlas.ORCHARD_DEEP to Atlas.ORCHARD_DEEP_COUNT
+                BuildingType.ORCHARD_WIDE -> Atlas.ORCHARD_WIDE to Atlas.ORCHARD_WIDE_COUNT
                 BuildingType.SHOPHOUSE -> Atlas.SHOPHOUSE to Atlas.SHOPHOUSE_COUNT
                 BuildingType.MAIN_STREET_FLATS -> Atlas.FLATS_OVER_SHOPS to Atlas.FLATS_OVER_SHOPS_COUNT
                 BuildingType.MIXED_BLOCK -> Atlas.MIXED_BLOCK to Atlas.MIXED_BLOCK_COUNT

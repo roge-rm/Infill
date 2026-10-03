@@ -99,7 +99,7 @@ internal object Effects {
         val fouled = if (map.brownfield.any { it.toInt() != 0 }) SummedArea(w, h) { map.brownfield[it].toInt() } else null
         // The railway, if there is one, read straight off the map.
         val railway = map.rail.any { it != Rail.NONE }
-        fun typeOn(i: Int) = map.buildingType[i].toInt() - 1
+        fun typeOn(i: Int) = (map.buildingType[i].toInt() and 0xff) - 1
         val stations = if (railway) SummedArea(w, h) { val t = typeOn(it); if (t == STATION || t == STATION_NS) 1 else 0 } else null
         val yards = if (railway) SummedArea(w, h) { val t = typeOn(it); if (t == YARD || t == YARD_NS || t == TERMINAL || t == TERMINAL_NS) 1 else 0 } else null
         val track = if (railway) SummedArea(w, h) { if (map.rail[it] != Rail.NONE) 1 else 0 } else null

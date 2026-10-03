@@ -13,7 +13,7 @@ Dirt roads, wells and septic tanks, and power for those who can get it.
 
 Needs 1,500 people, and mains water or a railway station.
 
-Avenues and boulevards, mixed use, districts, high schools, ambulances, police headquarters, sewage works, the subway, buses and trolleybuses, oil power, high-voltage lines, incinerators, docks and the airfield.
+Avenues and boulevards, offices, mixed use, districts, high schools, ambulances, police headquarters, sewage works, the subway, buses and trolleybuses, oil power, high-voltage lines, incinerators, docks and the airfield.
 
 ## Motor age, from 1940
 

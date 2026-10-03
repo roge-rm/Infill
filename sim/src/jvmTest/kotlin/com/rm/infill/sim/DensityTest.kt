@@ -85,7 +85,8 @@ class DensityTest {
         c.map.landValue[i] = 90
         @Suppress("UNCHECKED_CAST")
         val dearer = choices.invoke(c, house, i, Zone.RESIDENTIAL, 100) as List<BuildingType>
-        assertEquals(listOf(BuildingType.ROW_HOUSES), dearer)
+        // Row houses, in whatever size fits.
+        assertTrue(dearer.isNotEmpty() && dearer.all { it.like == BuildingType.ROW_HOUSES }, "$dearer")
     }
 
     @Test

@@ -77,10 +77,37 @@ enum class BuildingType(
     MAIN_STREET_FLATS(Zone.MIXED, 2, 14, density = Density.MEDIUM, needs = 2, year = 1910, appeal = 54, value = 70, buildDays = 80, jobs = 5),
     MIXED_BLOCK(Zone.MIXED, 3, 50, density = Density.HIGH, needs = 3, year = 1950, appeal = 64, value = 100, buildDays = 160, jobs = 14),
     PODIUM_TOWER(Zone.MIXED, 4, 400, width = 2, height = 2, density = Density.TOWER, needs = 3, year = 2000, appeal = 78, value = 150, buildDays = 320, jobs = 80),
+    /** Homes over shops in other sizes: twin shophouses and a corner parade, shops and flats and a parade block, a slab and a court. */
+    TWIN_SHOPHOUSES_DEEP(Zone.MIXED, 1, 8, height = 2, density = Density.LOW, year = 1910, value = 40, buildDays = 60, jobs = 4),
+    TWIN_SHOPHOUSES_WIDE(Zone.MIXED, 1, 8, width = 2, density = Density.LOW, year = 1910, value = 40, buildDays = 60, jobs = 4),
+    CORNER_PARADE(Zone.MIXED, 1, 16, width = 2, height = 2, density = Density.LOW, year = 1910, value = 45, buildDays = 90, jobs = 8),
+    SHOPS_AND_FLATS_DEEP(Zone.MIXED, 2, 28, height = 2, density = Density.MEDIUM, needs = 2, year = 1910, appeal = 54, value = 70, buildDays = 120, jobs = 10),
+    SHOPS_AND_FLATS_WIDE(Zone.MIXED, 2, 28, width = 2, density = Density.MEDIUM, needs = 2, year = 1910, appeal = 54, value = 70, buildDays = 120, jobs = 10),
+    PARADE_BLOCK(Zone.MIXED, 2, 56, width = 2, height = 2, density = Density.MEDIUM, needs = 2, year = 1910, appeal = 56, value = 72, buildDays = 160, jobs = 20),
+    MIXED_SLAB_DEEP(Zone.MIXED, 3, 100, height = 2, density = Density.HIGH, needs = 3, year = 1950, appeal = 64, value = 100, buildDays = 220, jobs = 28),
+    MIXED_SLAB_WIDE(Zone.MIXED, 3, 100, width = 2, density = Density.HIGH, needs = 3, year = 1950, appeal = 64, value = 100, buildDays = 220, jobs = 28),
+    MIXED_COURT(Zone.MIXED, 3, 200, width = 2, height = 2, density = Density.HIGH, needs = 3, year = 1950, appeal = 66, value = 105, buildDays = 280, jobs = 56),
+    /**
+     * In other sizes, so a lot of any shape has something to grow: a 1 by 2 runs
+     * back from the road (DEEP) or along it (WIDE), the same building turned.
+     */
+    VILLA_DEEP(Zone.RESIDENTIAL, 3, 26, height = 2, density = Density.LOW, needs = 2, appeal = 63, buildDays = 60),
+    VILLA_WIDE(Zone.RESIDENTIAL, 3, 26, width = 2, density = Density.LOW, needs = 2, appeal = 63, buildDays = 60),
+    MANSION(Zone.RESIDENTIAL, 3, 40, width = 2, height = 2, density = Density.LOW, needs = 2, appeal = 68, value = 90, buildDays = 90),
+    TERRACE_DEEP(Zone.RESIDENTIAL, 4, 44, height = 2, density = Density.MEDIUM, needs = 2, appeal = 66, value = 70, buildDays = 90),
+    TERRACE_WIDE(Zone.RESIDENTIAL, 4, 44, width = 2, density = Density.MEDIUM, needs = 2, appeal = 66, value = 70, buildDays = 90),
+    COURT_TENEMENTS(Zone.RESIDENTIAL, 5, 120, width = 2, height = 2, density = Density.MEDIUM, needs = 3, appeal = 70, value = 75, buildDays = 140),
+    SLAB_DEEP(Zone.RESIDENTIAL, 6, 120, height = 2, density = Density.HIGH, needs = 3, year = 1905, appeal = 72, value = 100, buildDays = 180),
+    SLAB_WIDE(Zone.RESIDENTIAL, 6, 120, width = 2, density = Density.HIGH, needs = 3, year = 1905, appeal = 72, value = 100, buildDays = 180),
+
     /** Rural: a farmstead, a country house from 1920, and a house on acreage from 1950, each on a big lot. */
     FARMSTEAD(Zone.RESIDENTIAL, 1, 5, width = 2, height = 2, density = Density.RURAL, buildDays = 40),
     COUNTRY_HOUSE(Zone.RESIDENTIAL, 2, 8, width = 2, height = 2, density = Density.RURAL, needs = 1, year = 1920, appeal = 45, buildDays = 60),
     ACREAGE_HOME(Zone.RESIDENTIAL, 3, 10, width = 2, height = 2, density = Density.RURAL, needs = 1, year = 1950, appeal = 50, buildDays = 70),
+    /** And on the smaller rural lots, a cabin and a smallholding. */
+    CABIN(Zone.RESIDENTIAL, 1, 3, density = Density.RURAL, buildDays = 20),
+    SMALLHOLDING_DEEP(Zone.RESIDENTIAL, 1, 4, height = 2, density = Density.RURAL, buildDays = 30),
+    SMALLHOLDING_WIDE(Zone.RESIDENTIAL, 1, 4, width = 2, density = Density.RURAL, buildDays = 30),
 
     GENERAL_STORE(Zone.COMMERCIAL, 1, 3, density = Density.LOW, buildDays = 20),
     SHOP(Zone.COMMERCIAL, 2, 6, density = Density.LOW, needs = 1, appeal = 50, buildDays = 30),
@@ -90,15 +117,36 @@ enum class BuildingType(
     OFFICE_BLOCK(Zone.COMMERCIAL, 5, 50, density = Density.HIGH, needs = 3, year = 1910, appeal = 70, value = 110, buildDays = 150),
     DEPARTMENT_STORE(Zone.COMMERCIAL, 6, 160, width = 2, height = 2, density = Density.HIGH, needs = 3, year = 1910, appeal = 72, value = 120, buildDays = 220),
     HOTEL_TOWER(Zone.COMMERCIAL, 6, 300, width = 2, height = 2, density = Density.TOWER, needs = 3, year = 1960, appeal = 76, value = 150, buildDays = 300),
+    /** Shops in other sizes: storefronts and a covered market, an arcade and an emporium, and a block of stores. */
+    STOREFRONTS_DEEP(Zone.COMMERCIAL, 2, 12, height = 2, density = Density.LOW, needs = 1, appeal = 50, buildDays = 45),
+    STOREFRONTS_WIDE(Zone.COMMERCIAL, 2, 12, width = 2, density = Density.LOW, needs = 1, appeal = 50, buildDays = 45),
+    COVERED_MARKET(Zone.COMMERCIAL, 2, 24, width = 2, height = 2, density = Density.LOW, needs = 1, appeal = 52, buildDays = 60),
+    ARCADE_DEEP(Zone.COMMERCIAL, 3, 24, height = 2, density = Density.MEDIUM, needs = 2, appeal = 60, value = 70, buildDays = 90),
+    ARCADE_WIDE(Zone.COMMERCIAL, 3, 24, width = 2, density = Density.MEDIUM, needs = 2, appeal = 60, value = 70, buildDays = 90),
+    EMPORIUM(Zone.COMMERCIAL, 3, 48, width = 2, height = 2, density = Density.MEDIUM, needs = 2, appeal = 62, value = 75, buildDays = 120),
+    STORE_BLOCK_DEEP(Zone.COMMERCIAL, 5, 100, height = 2, density = Density.HIGH, needs = 3, year = 1910, appeal = 70, value = 110, buildDays = 180),
+    STORE_BLOCK_WIDE(Zone.COMMERCIAL, 5, 100, width = 2, density = Density.HIGH, needs = 3, year = 1910, appeal = 70, value = 110, buildDays = 180),
     /** Rural shops: a crossroads store, and a roadhouse from 1930. */
     CROSSROADS_STORE(Zone.COMMERCIAL, 1, 4, density = Density.RURAL, buildDays = 20),
     ROADHOUSE(Zone.COMMERCIAL, 2, 10, width = 2, height = 1, density = Density.RURAL, needs = 1, year = 1930, appeal = 40, buildDays = 40),
+    ROADHOUSE_DEEP(Zone.COMMERCIAL, 2, 10, height = 2, density = Density.RURAL, needs = 1, year = 1930, appeal = 40, buildDays = 40),
+    FEED_STORE(Zone.COMMERCIAL, 1, 8, width = 2, height = 2, density = Density.RURAL, buildDays = 40),
 
     WORKSHOP(Zone.INDUSTRIAL, 1, 6, pollution = 4, density = Density.LOW, buildDays = 20),
     MILL(Zone.INDUSTRIAL, 2, 12, pollution = 10, density = Density.LOW, needs = 1, appeal = 55, buildDays = 40),
     WAREHOUSE(Zone.INDUSTRIAL, 3, 16, pollution = 6, density = Density.MEDIUM, needs = 2, appeal = 58, buildDays = 50),
     FACTORY(Zone.INDUSTRIAL, 4, 30, pollution = 18, density = Density.MEDIUM, needs = 3, appeal = 62, buildDays = 90),
     WORKS(Zone.INDUSTRIAL, 5, 140, width = 2, height = 2, pollution = 40, density = Density.HIGH, needs = 3, appeal = 64, buildDays = 200),
+    /** Industry in other sizes: a lumber yard and a brickworks, goods sheds and storehouses, a foundry and a machine shop. */
+    LUMBER_YARD_DEEP(Zone.INDUSTRIAL, 1, 12, height = 2, pollution = 6, density = Density.LOW, buildDays = 30),
+    LUMBER_YARD_WIDE(Zone.INDUSTRIAL, 1, 12, width = 2, pollution = 6, density = Density.LOW, buildDays = 30),
+    BRICKWORKS(Zone.INDUSTRIAL, 2, 48, width = 2, height = 2, pollution = 20, density = Density.LOW, needs = 1, appeal = 55, buildDays = 70),
+    SHEDS_DEEP(Zone.INDUSTRIAL, 3, 32, height = 2, pollution = 10, density = Density.MEDIUM, needs = 2, appeal = 58, buildDays = 70),
+    SHEDS_WIDE(Zone.INDUSTRIAL, 3, 32, width = 2, pollution = 10, density = Density.MEDIUM, needs = 2, appeal = 58, buildDays = 70),
+    STOREHOUSES(Zone.INDUSTRIAL, 3, 64, width = 2, height = 2, pollution = 12, density = Density.MEDIUM, needs = 2, appeal = 58, buildDays = 100),
+    FOUNDRY(Zone.INDUSTRIAL, 5, 35, pollution = 30, density = Density.HIGH, needs = 3, appeal = 64, buildDays = 100),
+    MACHINE_SHOP_DEEP(Zone.INDUSTRIAL, 5, 70, height = 2, pollution = 30, density = Density.HIGH, needs = 3, appeal = 64, buildDays = 150),
+    MACHINE_SHOP_WIDE(Zone.INDUSTRIAL, 5, 70, width = 2, pollution = 30, density = Density.HIGH, needs = 3, appeal = 64, buildDays = 150),
 
     /** Offices: rooms over a shop, an office building, a tower from the 1920s, and a glass one from the 1960s. */
     OFFICES(Zone.OFFICE, 1, 10, density = Density.LOW, needs = 1, appeal = 52, value = 55, buildDays = 30),
@@ -108,6 +156,16 @@ enum class BuildingType(
     /** Above high: a skyscraper with setbacks from the 1930s, and a supertall from 2000. */
     SKYSCRAPER(Zone.OFFICE, 4, 800, width = 2, height = 2, density = Density.TOWER, needs = 3, year = 1930, appeal = 76, value = 150, buildDays = 360),
     SUPERTALL(Zone.OFFICE, 5, 1400, width = 3, height = 3, density = Density.TOWER, needs = 3, year = 2000, appeal = 80, value = 180, buildDays = 480),
+    /** Offices in other sizes: chambers and an office park, an office row and court, a narrow block and a slab. */
+    CHAMBERS_DEEP(Zone.OFFICE, 1, 20, height = 2, density = Density.LOW, needs = 1, appeal = 52, value = 55, buildDays = 45),
+    CHAMBERS_WIDE(Zone.OFFICE, 1, 20, width = 2, density = Density.LOW, needs = 1, appeal = 52, value = 55, buildDays = 45),
+    OFFICE_PARK(Zone.OFFICE, 1, 40, width = 2, height = 2, density = Density.LOW, needs = 1, year = 1955, appeal = 55, value = 60, buildDays = 90),
+    OFFICE_ROW_DEEP(Zone.OFFICE, 2, 60, height = 2, density = Density.MEDIUM, needs = 2, year = 1905, appeal = 62, value = 80, buildDays = 120),
+    OFFICE_ROW_WIDE(Zone.OFFICE, 2, 60, width = 2, density = Density.MEDIUM, needs = 2, year = 1905, appeal = 62, value = 80, buildDays = 120),
+    OFFICE_COURT(Zone.OFFICE, 2, 120, width = 2, height = 2, density = Density.MEDIUM, needs = 2, year = 1905, appeal = 64, value = 85, buildDays = 160),
+    SLIM_OFFICES(Zone.OFFICE, 3, 60, density = Density.HIGH, needs = 3, year = 1920, appeal = 70, value = 115, buildDays = 150),
+    OFFICE_SLAB_DEEP(Zone.OFFICE, 3, 100, height = 2, density = Density.HIGH, needs = 3, year = 1920, appeal = 70, value = 115, buildDays = 200),
+    OFFICE_SLAB_WIDE(Zone.OFFICE, 3, 100, width = 2, density = Density.HIGH, needs = 3, year = 1920, appeal = 70, value = 115, buildDays = 200),
 
     /** On farmland, by what's under the lot: a mine on ore, a colliery on coal, a well on oil, a woodlot in the woods, otherwise a farm. */
     MINE(Zone.FARMLAND, 1, 20, width = 2, height = 2, pollution = 8, density = Density.LOW, buildDays = 90),
@@ -115,6 +173,10 @@ enum class BuildingType(
     WOODLOT(Zone.FARMLAND, 1, 3, density = Density.LOW, buildDays = 15),
     OIL_WELL(Zone.FARMLAND, 1, 4, pollution = 10, density = Density.LOW, buildDays = 40),
     FARM(Zone.FARMLAND, 1, 4, width = 2, height = 2, density = Density.LOW, buildDays = 30),
+    /** Smaller farms for smaller lots: a market garden, and an orchard. */
+    MARKET_GARDEN(Zone.FARMLAND, 1, 2, density = Density.LOW, buildDays = 15),
+    ORCHARD_DEEP(Zone.FARMLAND, 1, 3, height = 2, density = Density.LOW, buildDays = 25),
+    ORCHARD_WIDE(Zone.FARMLAND, 1, 3, width = 2, density = Density.LOW, buildDays = 25),
 
     /** Power stations: their smoke follows their output, see [Generation]. Hydro goes beside a river. */
     COAL_PLANT(Zone.NONE, 0, 8, width = 2, height = 2, life = 35),
@@ -269,8 +331,40 @@ enum class BuildingType(
     val era: Era get() = maxOf(
         Era.of(year),
         if (density == Density.TOWER) Era.MOTOR else Era.TOWNSHIP,
-        if (zone == Zone.MIXED) Era.STREETCAR else Era.TOWNSHIP,
+        if (zone == Zone.MIXED || zone == Zone.OFFICE) Era.STREETCAR else Era.TOWNSHIP,
     )
+
+    /**
+     * The building this one is a bigger or smaller kind of, for what its work
+     * needs, how its ground sheds rain and the like; itself for the rest.
+     */
+    val like: BuildingType get() = when (this) {
+        VILLA_DEEP, VILLA_WIDE, MANSION -> LARGE_HOUSE
+        TERRACE_DEEP, TERRACE_WIDE -> ROW_HOUSES
+        COURT_TENEMENTS -> TENEMENT
+        SLAB_DEEP, SLAB_WIDE -> APARTMENTS
+        CABIN, SMALLHOLDING_DEEP, SMALLHOLDING_WIDE -> FARMSTEAD
+        STOREFRONTS_DEEP, STOREFRONTS_WIDE, COVERED_MARKET -> SHOP
+        ARCADE_DEEP, ARCADE_WIDE, EMPORIUM -> MAIN_STREET
+        STORE_BLOCK_DEEP, STORE_BLOCK_WIDE -> DEPARTMENT_STORE
+        ROADHOUSE_DEEP -> ROADHOUSE
+        FEED_STORE -> CROSSROADS_STORE
+        LUMBER_YARD_DEEP, LUMBER_YARD_WIDE -> WORKSHOP
+        BRICKWORKS -> MILL
+        SHEDS_DEEP, SHEDS_WIDE, STOREHOUSES -> WAREHOUSE
+        FOUNDRY, MACHINE_SHOP_DEEP, MACHINE_SHOP_WIDE -> FACTORY
+        CHAMBERS_DEEP, CHAMBERS_WIDE, OFFICE_PARK -> OFFICES
+        OFFICE_ROW_DEEP, OFFICE_ROW_WIDE, OFFICE_COURT -> OFFICE_BUILDING
+        SLIM_OFFICES, OFFICE_SLAB_DEEP, OFFICE_SLAB_WIDE -> OFFICE_TOWER
+        TWIN_SHOPHOUSES_DEEP, TWIN_SHOPHOUSES_WIDE, CORNER_PARADE -> SHOPHOUSE
+        SHOPS_AND_FLATS_DEEP, SHOPS_AND_FLATS_WIDE, PARADE_BLOCK -> MAIN_STREET_FLATS
+        MIXED_SLAB_DEEP, MIXED_SLAB_WIDE, MIXED_COURT -> MIXED_BLOCK
+        MARKET_GARDEN, ORCHARD_DEEP, ORCHARD_WIDE -> FARM
+        else -> this
+    }
+
+    /** Grows food on the land: a farm, a market garden or an orchard. */
+    val isFarm get() = this == FARM || this == MARKET_GARDEN || this == ORCHARD_DEEP || this == ORCHARD_WIDE
 
     /** Takes guests: the hotel and the hotel tower. */
     val hotel get() = this == HOTEL || this == HOTEL_TOWER

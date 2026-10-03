@@ -42,7 +42,7 @@ enum class WorksKind(val output: Good, val rate: Int, val inputs: List<Pair<Good
 object Land {
     /** What [t] makes, in loads a month for each hundred jobs, or null if it isn't a land works. */
     fun output(t: BuildingType): Pair<Good, Int>? = when (t) {
-        BuildingType.FARM -> Good.FOOD to 100
+        BuildingType.FARM, BuildingType.MARKET_GARDEN, BuildingType.ORCHARD_DEEP, BuildingType.ORCHARD_WIDE -> Good.FOOD to 100
         BuildingType.WOODLOT -> Good.TIMBER to 100
         BuildingType.MINE -> Good.ORE to 100
         BuildingType.COLLIERY -> Good.COAL to 100
@@ -59,7 +59,7 @@ object Land {
         BuildingType.OIL_WELL -> resource == Resource.OIL
         // A seam is for mining; elsewhere, the woods for timber and open land for farming.
         BuildingType.WOODLOT -> terrain == Terrain.TREES && !seam(resource)
-        BuildingType.FARM -> terrain != Terrain.TREES && terrain != Terrain.WATER && !seam(resource)
+        BuildingType.FARM, BuildingType.MARKET_GARDEN, BuildingType.ORCHARD_DEEP, BuildingType.ORCHARD_WIDE -> terrain != Terrain.TREES && terrain != Terrain.WATER && !seam(resource)
         else -> true
     }
 }

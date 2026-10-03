@@ -3860,56 +3860,134 @@ def rail_fence(b, look, x0, y0, x1, y1):
         b.d.point((xx, gy1 - 1), col)
 
 
-def barn(b, look, x0, y0, x1, y1, height, roof_col):
-    """A red barn with a big door and a ridge to the street."""
+def barn(b, look, x0, y0, x1, y1, height, roof_col, wall_col=c("#9a3a2e")):
+    """A barn with a big door and a ridge to the street: red, weathered grey or white."""
     roof, wall = b.box(x0, y0, x1, y1, height)
     d = b.d
-    d.rectangle(wall, c("#9a3a2e"))
+    d.rectangle(wall, wall_col)
     for xx in range(wall[0] + 2, wall[2], 3):
-        d.line([xx, wall[1] + 1, xx, wall[3] - 1], c("#8a3226"))
+        d.line([xx, wall[1] + 1, xx, wall[3] - 1], shade(wall_col, 0.9))
     cx = (wall[0] + wall[2]) // 2
-    d.rectangle([cx - 3, wall[3] - 7, cx + 3, wall[3]], c("#5a2a20"))
+    d.rectangle([cx - 3, wall[3] - 7, cx + 3, wall[3]], shade(wall_col, 0.55))
     d.line([cx - 3, wall[3] - 7, cx + 3, wall[3]], TRIM)
     d.line([cx + 3, wall[3] - 7, cx - 3, wall[3]], TRIM)
     d.rectangle(wall, outline=OUTLINE)
-    gable_ns(d, roof, wall, roof_col, c("#9a3a2e"), look)
+    gable_ns(d, roof, wall, roof_col, wall_col, look)
     b.casters[-1] = (1, x0, y0, x1 + 1, y1 + 1, height + (x1 - x0) // 3)
 
 
+def silo(b, look, x0, y0, size, height):
+    """A round silo beside a barn: a pale stave tower with a domed cap."""
+    roof, wall = b.box(x0, y0, x0 + size, y0 + size, height)
+    d = b.d
+    col = c("#c8c0ae")
+    d.rectangle(wall, col)
+    for yy in range(wall[1] + 2, wall[3], 3):
+        d.line([wall[0], yy, wall[2], yy], shade(col, 0.88))
+    d.rectangle(wall, outline=OUTLINE)
+    cap = SNOW_ROOF[0] if look == "snow" else c("#8a8f94")
+    d.ellipse([roof[0], roof[1], roof[2], roof[3]], cap, outline=OUTLINE)
+
+
+def haystacks(b, look, spots):
+    """Round haystacks in a field, in tile pixels; none under the snow."""
+    if look == "snow":
+        return
+    col = c("#d8b84a") if look in ("summer", "dry", "autumn") else c("#b8a060")
+    for x, y in spots:
+        gx, gy = b.ground(x, y)
+        b.d.ellipse([gx - 3, gy - 4, gx + 3, gy + 1], col, outline=shade(col, 0.6))
+        b.d.line([gx - 2, gy - 3, gx + 1, gy - 3], shade(col, 1.15))
+
+
+def coop(b, look, x0, y0):
+    """A small hen house with a lean-to roof."""
+    roof, wall = b.box(x0, y0, x0 + 6, y0 + 4, STOREY - 1)
+    b.d.rectangle(wall, c("#c8b48a"))
+    b.d.rectangle(wall, outline=OUTLINE)
+    b.d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#6b4a36"))
+
+
+def crop_rows(b, look, x0, y0, x1, y1, seed):
+    """A field in rows: green shoots in spring, gold in late summer, stubble in autumn, bare in winter."""
+    gx0, gy0 = b.ground(x0, y0)
+    gx1, gy1 = b.ground(x1, y1)
+    if look == "snow":
+        b.d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND)
+        return
+    soil = c("#6b4a30")
+    b.d.rectangle([gx0, gy0, gx1, gy1], soil)
+    crop = {"spring": c("#6fae4a"), "summer": c("#5f9f42"), "dry": c("#d8b84a"), "autumn": c("#b89a58")}.get(look)
+    if crop is None:
+        return
+    rng = random.Random(seed)
+    for yy in range(gy0 + 1, gy1, 3):
+        for xx in range(gx0 + 1, gx1):
+            if rng.random() < 0.8:
+                b.d.point((xx, yy), crop)
+
+
 def farmstead(look, v):
-    """A farmhouse and a red barn on 2 by 2 tiles: a dirt yard between them, a kitchen garden, a paddock and a windbreak."""
+    """
+    A farmhouse and a barn on 2 by 2 tiles, set forward from the back of the lot
+    so nothing reaches over the farm behind: a yard between them and a lane to
+    the road. Each of the four is its own farm: a paddock; an orchard and a
+    silo; haystacks and pines down one side; a coop and a field of crops.
+    """
     b = Building(2, 2, height=2 * STOREY + 14)
     d = b.d
-    flip = v == 1
+    flip = v % 2 == 1
+
     def X(x0, x1):
         return (63 - x1, 63 - x0) if flip else (x0, x1)
-    # The yard, the lane out to the road, the garden and the paddock.
-    yx0, yx1 = X(6, 44)
-    lot_ground(b, look, yx0, 22, yx1, 44, c("#a8946c"))
-    lx0, lx1 = X(22, 27)
-    lot_ground(b, look, lx0, 44, lx1, 63, c("#a8946c"))
-    gx0, gx1 = X(6, 20)
-    if look in ("spring", "summer", "dry", "autumn"):
-        lot_ground(b, look, gx0, 48, gx1, 60, c("#6b4a30"))
-        rng = random.Random(9100 + v)
-        for yy in range(50, 60, 3):
-            for xx in range(gx0 + 2, gx1 - 1, 3):
-                gx, gy = b.ground(xx, yy)
-                if look != "autumn" or rng.random() < 0.5:
-                    d.point((gx, gy), rng.choice([c("#5f9f42"), c("#4f8c34"), c("#d8b84a")]))
-    px0, px1 = X(34, 61)
-    rail_fence(b, look, px0, 47, px1, 61)
+
+    yard = [c("#a8946c"), c("#9c8a68"), c("#b09a70"), c("#a08c62")][v]
+    yx0, yx1 = X(8, 48)
+    lot_ground(b, look, yx0, 34, yx1, 46, yard)
+    lx0, lx1 = X(24, 29)
+    lot_ground(b, look, lx0, 46, lx1, 63, yard)
+    # What's behind the buildings first, then the buildings, then what's in front, so each sits over what's behind it.
+    if v == 2:
+        # Pines down the west side, a windbreak, back to front.
+        for k, yy in enumerate(range(14, 62, 8)):
+            rural_trees(b, look, v, [(4, yy, -4)], 9200 + k)
+    if v == 3:
+        # An old tree behind the barn.
+        rural_trees(b, look, v, [(X(54, 55)[0], 18, 7)], 9310)
     # The farmhouse and the barn.
-    hx0, hx1 = X(8, 26)
-    house_shape(b, look, v, (hx0, 8, hx1, 22), 2, SIDING[(v * 2) % 4], SHINGLE[0], False, ("porch", "stack"))
+    walls = [SIDING[0], c("#e8d48a"), BRICK20, SIDING[1]][v]
+    hx0, hx1 = X(8, 26) if v != 2 else X(12, 28)
+    house_shape(b, look, v, (hx0, 22, hx1, 34), 2, walls, [SHINGLE[0], SHINGLE[2], SHINGLE[1], c("#3f6b4a")][v], False, ("porch", "stack"), brick_walls=v == 2)
     bx0, bx1 = X(34, 54)
-    barn(b, look, bx0, 4, bx1, 22, STOREY + 8, SHINGLE[1] if v == 0 else IRON_ROOF)
-    # A windbreak along the back, and a shade tree by the house.
-    for k, xx in enumerate(range(3, 62, 9)):
-        tx = 63 - xx if flip else xx
-        rural_trees(b, look, v, [(tx, 4 if k % 2 else 3, -4)], 9200 + k)
-    tx0, _ = X(29, 30)
-    rural_trees(b, look, v, [(tx0, 30, 6)], 9300 + v)
+    barn_wall = [c("#9a3a2e"), c("#8c8a84"), c("#9a3a2e"), c("#e8e4da")][v]
+    barn_roof = [SHINGLE[1], IRON_ROOF, IRON_ROOF, c("#3f6b4a")][v]
+    barn(b, look, bx0, 18, bx1, 34, STOREY + 8, barn_roof, barn_wall)
+    if v == 1:
+        sx, _ = X(56, 61)
+        silo(b, look, sx, 22, 5, 3 * STOREY)
+    # In front: the garden, the paddock, the orchard, the hay or the crops.
+    if v == 0:
+        gx0, gx1 = X(6, 20)
+        crop_rows(b, look, gx0, 49, gx1, 60, 9100)
+        px0, px1 = X(34, 61)
+        rail_fence(b, look, px0, 49, px1, 61)
+        rural_trees(b, look, v, [(X(30, 31)[0], 44, 6)], 9300)
+    elif v == 1:
+        ox0, _ = X(36, 37)
+        step = 8 if not flip else -8
+        spots = [(ox0 + step * k, yy, 4) for yy in (50, 59) for k in range(3)]
+        rural_trees(b, look, v, spots, 9320)
+        rural_trees(b, look, v, [(X(14, 15)[0], 54, 6)], 9330)
+    elif v == 2:
+        haystacks(b, look, [(X(40, 41)[0], 52), (X(48, 49)[0], 56), (X(55, 56)[0], 51)])
+        fx0, fx1 = X(34, 61)
+        rail_fence(b, look, fx0, 47, fx1, 61)
+    else:
+        cx, _ = X(8, 14)
+        coop(b, look, cx, 48)
+        fx0, fx1 = X(32, 61)
+        crop_rows(b, look, fx0, 49, fx1, 61, 9340)
+        rural_trees(b, look, v, [(X(18, 19)[0], 58, 5)], 9350)
     return b
 
 
@@ -4645,6 +4723,592 @@ def jail(look, v):
     return b
 
 
+# ---- Other sizes ---------------------------------------------------------------
+# Every zone has buildings for a lot of one tile, two (running back from the
+# road, deep, or along it, wide: the same building turned) and four, so a gap
+# of any shape has something to grow. The 1 by 2s take [wide].
+
+PARKING = c("#77777a")
+GLASSHOUSE = c("#c8dce4")
+
+
+def walls_of(d, wall, kind, col):
+    """Brick, painted boards, dressed stone or glass curtain wall."""
+    if kind == "brick":
+        brick(d, wall, col)
+    elif kind == "siding":
+        siding(d, wall, col)
+    elif kind == "glass":
+        d.rectangle(wall, col)
+        for xx in range(wall[0] + 3, wall[2], 4):
+            d.line([xx, wall[1] + 1, xx, wall[3] - 1], shade(col, 0.75))
+    else:
+        d.rectangle(wall, col)
+        for yy in range(wall[1] + 3, wall[3], STOREY):
+            d.line([wall[0] + 1, yy, wall[2] - 1, yy], shade(col, 0.9))
+
+
+def block(b, look, box, storeys, kind, col, roof="flat", roof_col=None, every=4, shop=None, has_door=True,
+          features=(), seed=0, glass=WINDOW, ledge=True):
+    """One block on the footprint [box]: walls, windows, a shop front if [shop] is its awning colour, and a roof."""
+    d = b.d
+    x0, y0, x1, y1 = box
+    roof_r, wall = b.box(x0, y0, x1, y1, storeys * STOREY + 2)
+    walls_of(d, wall, kind, col)
+    if shop is not None:
+        if storeys > 1:
+            windows(d, (wall[0], wall[1], wall[2], wall[3] - STOREY - 2), storeys - 1, sill=TRIM, every=every, glass=glass)
+        shopfront(d, wall, shop, look)
+    else:
+        windows(d, wall, storeys, sill=TRIM if kind != "glass" else None, every=every, glass=glass, skip_door=has_door)
+        if has_door:
+            door(d, wall)
+    d.rectangle(wall, outline=OUTLINE)
+    if roof == "flat":
+        if ledge:
+            cornice(d, wall, shade(col, 1.12) if kind == "stone" else CORNICE)
+        flat_roof(b.img, roof_r, look, random.Random(seed), features, parapet=CORNICE if ledge else PARAPET)
+    elif roof == "gable_ew":
+        gable_ew(d, roof_r, roof_col, look)
+    elif roof == "gable_ns":
+        gable_ns(d, roof_r, wall, roof_col, col, look)
+        b.casters[-1] = (1, x0, y0, x1 + 1, y1 + 1, storeys * STOREY + 2 + (x1 - x0) // 3)
+    elif roof == "saw":
+        rx0, ry0, rx1, ry1 = roof_r
+        for xx in range(rx0, rx1 - 4, 7):
+            top = SNOW_ROOF[0] if look == "snow" else SAW[0]
+            d.rectangle([xx, ry0, xx + 3, ry1], top)
+            d.rectangle([xx + 4, ry0, min(xx + 6, rx1), ry1], SNOW_ROOF[2] if look == "snow" else c("#b8c4ca"))
+        d.rectangle(roof_r, outline=OUTLINE)
+    return roof_r, wall
+
+
+def parking(b, look, x0, y0, x1, y1, seed):
+    """A car park: tarmac, its bays marked, and a few cars."""
+    gx0, gy0 = b.ground(x0, y0)
+    gx1, gy1 = b.ground(x1, y1)
+    b.d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else PARKING)
+    rng = random.Random(seed)
+    for xx in range(gx0 + 2, gx1 - 2, 5):
+        b.d.line([xx, gy0 + 1, xx, gy0 + 3], c("#e8e4da"))
+        if rng.random() < 0.6:
+            b.d.rectangle([xx + 1, gy0 + 1, xx + 3, gy0 + 4], rng.choice([c("#6b2330"), c("#263a5a"), c("#d9cfb0"), c("#2e4a3a")]))
+
+
+def stacks(b, look, x0, y0, x1, y1, col):
+    """Piles of timber or bricks in a yard, in tile pixels."""
+    for yy in range(y0, y1, 5):
+        for xx in range(x0, x1, 7):
+            gx, gy = b.ground(xx, yy)
+            top = SNOW if look == "snow" else shade(col, 1.15)
+            b.d.rectangle([gx, gy - 2, gx + 5, gy + 2], col, OUTLINE)
+            b.d.line([gx + 1, gy - 1, gx + 4, gy - 1], top)
+
+
+def lot_size(wide):
+    return Building(2, 1, height=0) if wide else Building(1, 2, height=0)
+
+
+def sized(w, h, height):
+    return Building(w, h, height=height)
+
+
+# Homes.
+
+def cabin(look, v):
+    """A rural cabin on one lot: a one-storey house of boards, a woodpile, a garden and a tree."""
+    b = Building(height=STOREY + 12)
+    lot_ground(b, look, 4, 20, 27, 27, c("#a8946c"))
+    house_shape(b, look, v, (6, 8, 22, 19), 1, [TIMBER, c("#c9b48a"), SIDING[2]][v], SHINGLE[v % 3], v == 1, ("porch", "stack"))
+    stacks(b, look, 24, 12, 29, 18, LUMBER)
+    if look not in ("snow", "winter"):
+        crop_rows(b, look, 3, 23, 14, 29, 9400 + v)
+    rural_trees(b, look, v, [(27, 28, 4)] if v != 2 else [(4, 28, -4)], 9410 + v)
+    return b
+
+
+def smallholding(look, v, wide):
+    """A cottage, a shed and a vegetable plot on a long rural lot, along the road or back from it."""
+    b = Building(2, 1, height=STOREY + 12) if wide else Building(1, 2, height=STOREY + 12)
+    if wide:
+        house_shape(b, look, v, (4, 8, 22, 22), 1, SIDING[(v + 1) % 4], SHINGLE[v % 3], False, ("porch", "stack"))
+        barn(b, look, 40, 8, 54, 22, STOREY + 4, IRON_ROOF if v else SHINGLE[1])
+        crop_rows(b, look, 26, 24, 60, 30, 9420 + v)
+        rail_fence(b, look, 24, 3, 61, 30)
+    else:
+        barn(b, look, 8, 6, 22, 16, STOREY + 2, IRON_ROOF if v else SHINGLE[1])
+        crop_rows(b, look, 4, 20, 27, 34, 9420 + v)
+        rail_fence(b, look, 2, 18, 29, 36)
+        house_shape(b, look, v, (6, 42, 25, 56), 1, SIDING[(v + 1) % 4], SHINGLE[v % 3], False, ("porch", "stack"))
+        lot_ground(b, look, 13, 57, 17, 63, c("#a8946c"))
+    return b
+
+
+def villa(look, v, wide):
+    """A big detached house with a long garden: beside it along the road, or behind it."""
+    b = Building(2, 1, height=2 * STOREY + 12) if wide else Building(1, 2, height=2 * STOREY + 12)
+    wall_col = [c("#efe6d0"), BRICK20, c("#d6c9a8")][v]
+    if wide:
+        lawn_ground(b, look, 2, 2, 61, 29, 9430 + v)
+        house_shape(b, look, v, (4, 8, 30, 24), 2, wall_col, SHINGLE[2 - v % 3], False, ("porch", "dormers", "bay_left"), brick_walls=v == 1)
+        rural_trees(b, look, v, [(42, 14, 6), (56, 24, 5), (36, 28, -4)], 9440 + v)
+    else:
+        lawn_ground(b, look, 2, 2, 29, 61, 9430 + v)
+        rural_trees(b, look, v, [(8, 12, 6), (22, 20, 5), (14, 30, -4)], 9440 + v)
+        house_shape(b, look, v, (4, 38, 28, 54), 2, wall_col, SHINGLE[2 - v % 3], False, ("porch", "dormers", "bay_right"), brick_walls=v == 1)
+        lot_ground(b, look, 14, 55, 18, 63, DRIVE)
+    return b
+
+
+def mansion(look, v):
+    """A grand house on 2 by 2 tiles: three storeys of stone or brick, a drive round to the door, lawns, a hedge and old trees."""
+    b = Building(2, 2, height=3 * STOREY + 14)
+    d = b.d
+    lawn_ground(b, look, 2, 2, 61, 61, 9450 + v)
+    lot_ground(b, look, 28, 40, 35, 63, DRIVE)
+    lot_ground(b, look, 16, 38, 47, 42, DRIVE)
+    col = [c("#d8cfba"), BRICK20][v]
+    house_shape(b, look, v, (12, 16, 51, 36), 3, col, SHINGLE[2], False, ("porch", "dormers", "stack", "bay_left", "bay_right"), brick_walls=v == 1)
+    rural_trees(b, look, v, [(6, 50, 7), (56, 52, 7), (8, 10, 6), (56, 10, -6)], 9460 + v)
+    return b
+
+
+def terrace(look, v, wide):
+    """A row of narrow brick houses, each with its door and stoop; turned, a short row with back yards and sheds behind."""
+    b = Building(2, 1, height=2 * STOREY + 10) if wide else Building(1, 2, height=2 * STOREY + 10)
+    d = b.d
+    cols = [BRICK, BRICK20, c("#8a5a44"), c("#b0704e"), c("#7a4a3c"), c("#a8583f")]
+    spans = [(2 + k * 10, 11 + k * 10) for k in range(6)] if wide else [(2, 10), (11, 20), (21, 29)]
+    y0, y1 = (7, 25) if wide else (39, 57)
+    if not wide:
+        lot_ground(b, look, 2, 4, 29, 36, c("#8a8478"))
+        for k, (x0, x1) in enumerate(spans):
+            roof, wall = b.box(x0 + 2, 10, x1 - 2, 16, STOREY - 1)
+            d.rectangle(wall, TIMBER)
+            d.rectangle(wall, outline=OUTLINE)
+            d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#5a5a60"))
+    for k, (x0, x1) in enumerate(spans):
+        roof, wall = b.box(x0, y0, x1, y1, 2 * STOREY + 2)
+        brick(d, wall, cols[(k + v) % len(cols)])
+        wx0, wy0, wx1, wy1 = wall
+        d.rectangle([wx0 + 2, wy0 + 2, wx0 + 3, wy0 + 4], WINDOW)
+        d.rectangle([wx1 - 3, wy0 + 2, wx1 - 2, wy0 + 4], WINDOW)
+        d.rectangle([wx1 - 3, wy1 - 5, wx1 - 2, wy1 - 3], WINDOW)
+        d.rectangle([wx0 + 2, wy1 - 5, wx0 + 3, wy1], DOOR)
+        d.line([wx0 + 1, wy1 + 1, wx0 + 4, wy1 + 1], STONE)
+        d.rectangle(wall, outline=OUTLINE)
+        gable_ew(d, roof, SHINGLE[(k + v) % 3], look)
+    return b
+
+
+def court_tenements(look, v):
+    """Four tenements round a court on 2 by 2 tiles, three storeys of brick, a way in from the street."""
+    b = Building(2, 2, height=3 * STOREY + 4)
+    lot_ground(b, look, 20, 20, 43, 43, c("#8a8478"))
+    col = [BRICK, c("#8a5a44")][v]
+    block(b, look, (2, 2, 61, 17), 3, "brick", col, every=4, seed=9470 + v, features=[("stack", 4, 3), ("stack", 30, 3), ("stack", 52, 3)])
+    block(b, look, (2, 18, 17, 61), 3, "brick", shade(col, 1.05), every=4, has_door=False, seed=9471 + v)
+    block(b, look, (46, 18, 61, 61), 3, "brick", shade(col, 0.95), every=4, has_door=False, seed=9472 + v)
+    block(b, look, (18, 46, 27, 61), 3, "brick", col, every=4, has_door=False, seed=9473 + v)
+    block(b, look, (36, 46, 45, 61), 3, "brick", col, every=4, has_door=False, seed=9474 + v)
+    return b
+
+
+def slab(look, v, wide):
+    """A long slab of flats, six storeys, balconies in rows: along the road, or running back from it."""
+    b = Building(2, 1, height=6 * STOREY + 6) if wide else Building(1, 2, height=6 * STOREY + 6)
+    col = [c("#cfc6b0"), c("#b8b0a0"), c("#d8d4c8")][v]
+    if not wide:
+        lawn_ground(b, look, 2, 2, 29, 61, 9480 + v)
+    box = (2, 4, 61, 27) if wide else (4, 6, 27, 58)
+    roof, wall = block(b, look, box, 6, "stone", col, every=3, seed=9481 + v, features=[("hatch", 6, 4), ("vent", 20, 6)])
+    d = b.d
+    for yy in range(wall[1] + 5, wall[3] - 4, STOREY):
+        d.line([wall[0] + 2, yy, wall[2] - 2, yy], shade(col, 0.7))
+    return b
+
+
+# Shops.
+
+def storefronts(look, v, wide):
+    """A row of one-storey shops under awnings; turned, two shops with a store shed behind."""
+    b = Building(2, 1, height=STOREY + 10) if wide else Building(1, 2, height=STOREY + 10)
+    if wide:
+        for k in range(4):
+            block(b, look, (2 + k * 15, 8, 15 + k * 15, 26), 1, "brick" if (k + v) % 2 else "siding", PAINT[(k + v) % len(PAINT)] if (k + v) % 2 == 0 else BRICKS[(k + v) % len(BRICKS)],
+                  shop=AWNINGS[(k + v) % len(AWNINGS)], seed=9500 + k, features=[("vent", 4, 3)])
+    else:
+        lot_ground(b, look, 2, 4, 29, 30, c("#8a8478"))
+        roof, wall = b.box(4, 8, 27, 20, STOREY + 2)
+        siding(b.d, wall, PAINT[v % len(PAINT)])
+        b.d.rectangle(wall, outline=OUTLINE)
+        gable_ew(b.d, roof, IRON_ROOF, look)
+        stacks(b, look, 6, 24, 26, 29, CRATE)
+        for k in range(2):
+            block(b, look, (2 + k * 15, 38, 15 + k * 15, 58), 1, "brick", BRICKS[(k + v) % len(BRICKS)], shop=AWNINGS[(k + 2 * v) % len(AWNINGS)], seed=9510 + k)
+    return b
+
+
+def covered_market(look, v):
+    """A market hall on 2 by 2 tiles: iron and glass over brick, stalls with awnings along the front."""
+    b = Building(2, 2, height=3 * STOREY + 8)
+    d = b.d
+    roof, wall = b.box(4, 8, 59, 46, 3 * STOREY + 2)
+    brick(d, wall, [BRICKS[0], BRICKS[2]][v])
+    for xx in range(wall[0] + 4, wall[2] - 3, 8):
+        d.arc([xx, wall[1] + 2, xx + 6, wall[1] + 10], 180, 360, TRIM)
+        d.rectangle([xx + 1, wall[1] + 6, xx + 5, wall[3] - 1], PLATE_GLASS)
+    d.rectangle(wall, outline=OUTLINE)
+    rx0, ry0, rx1, ry1 = roof
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else GLASSHOUSE)
+    for xx in range(rx0 + 3, rx1, 4):
+        d.line([xx, ry0, xx, ry1], c("#5a6670"))
+    d.line([rx0, (ry0 + ry1) // 2, rx1, (ry0 + ry1) // 2], c("#3e4850"))
+    d.rectangle(roof, outline=OUTLINE)
+    lot_ground(b, look, 2, 48, 61, 61, c("#a49a88"))
+    for k, xx in enumerate(range(6, 58, 10)):
+        block(b, look, (xx, 51, xx + 7, 58), 1, "siding", PAINT[(k + v) % len(PAINT)], shop=AWNINGS[(k + v) % len(AWNINGS)], seed=9520 + k, ledge=False)
+    return b
+
+
+def arcade(look, v, wide):
+    """Shops either side of a glazed arcade, two storeys of brick or stone, the arcade's mouth on the street."""
+    b = Building(2, 1, height=3 * STOREY + 6) if wide else Building(1, 2, height=3 * STOREY + 6)
+    d = b.d
+    col = [BRICKS[1], GREY_STONE, BRICKS[4]][v]
+    kind = "stone" if col == GREY_STONE else "brick"
+    box = (1, 5, 62, 27) if wide else (2, 6, 29, 59)
+    roof, wall = block(b, look, box, 3, kind, col, shop=AWNINGS[(v + 1) % len(AWNINGS)], seed=9530 + v)
+    rx0, ry0, rx1, ry1 = roof
+    if wide:
+        mx = (rx0 + rx1) // 2
+        d.rectangle([mx - 4, ry0 + 1, mx + 4, ry1 - 1], SNOW_ROOF[1] if look == "snow" else GLASSHOUSE, OUTLINE)
+        d.rectangle([mx - 3, wall[3] - 8, mx + 3, wall[3]], c("#2a2a30"))
+    else:
+        d.rectangle([rx0 + 10, ry0 + 2, rx1 - 10, ry1 - 2], SNOW_ROOF[1] if look == "snow" else GLASSHOUSE, OUTLINE)
+    sign(d, wall[0] + 6, wall[2] - 6, wall[1] + 1, AWNINGS[(v + 4) % len(AWNINGS)])
+    return b
+
+
+def emporium(look, v):
+    """A big store on 2 by 2 tiles: four storeys, shop windows all along, a corner tower with a clock."""
+    b = Building(2, 2, height=6 * STOREY + 8)
+    col = [c("#d6cdb8"), BRICKS[2]][v]
+    kind = "stone" if v == 0 else "brick"
+    roof, wall = block(b, look, (2, 6, 61, 59), 4, kind, col, shop=AWNINGS[(v + 2) % len(AWNINGS)], every=5, seed=9540 + v,
+                       features=[("skylight", 10, 10), ("skylight", 30, 10), ("tank", 40, 30), ("hatch", 12, 34)])
+    block(b, look, (48, 46, 61, 59), 6, kind, shade(col, 0.95), every=4, has_door=False, seed=9541 + v)
+    sign(b.d, wall[0] + 6, wall[2] - 20, wall[3] - STOREY - 4, c("#2b3440"))
+    return b
+
+
+def store_block(look, v, wide):
+    """Seven storeys of shops and offices, shop windows below and a cornice above: along the road or running back."""
+    b = Building(2, 1, height=7 * STOREY + 8) if wide else Building(1, 2, height=7 * STOREY + 8)
+    col = [c("#c98f6e"), c("#d6cdb8"), c("#b9b8b0")][v]
+    box = (2, 4, 61, 27) if wide else (3, 6, 28, 58)
+    block(b, look, box, 7, "stone", col, shop=AWNINGS[v % len(AWNINGS)], every=4, seed=9550 + v, features=[("tank", 10, 8), ("stack", 4, 3)])
+    return b
+
+
+def roadside_deep(look, v):
+    """The roadhouse turned: the diner on the road and its car park behind."""
+    b = Building(1, 2, height=STOREY + 10)
+    parking(b, look, 3, 4, 28, 30, 9560 + v)
+    block(b, look, (3, 38, 28, 57), 1, "siding", [c("#e8e0c8"), c("#c8423a")][v], shop=AWNINGS[(v + 3) % len(AWNINGS)], seed=9561 + v)
+    sign(b.d, 6, 25, b.lift + 38 - STOREY - 1, c("#c8423a") if v == 0 else c("#2f5f5a"))
+    return b
+
+
+def feed_store(look, v):
+    """A farm supply store on 2 by 2 tiles: a barn of a shop, grain bins, and sacks and fencing stacked in the yard."""
+    b = Building(2, 2, height=3 * STOREY + 8)
+    lot_ground(b, look, 2, 30, 61, 61, c("#a8946c"))
+    barn(b, look, 6, 12, 36, 32, STOREY + 8, IRON_ROOF if v else SHINGLE[1], [c("#9a3a2e"), c("#8c8a84")][v])
+    silo(b, look, 42, 16, 7, 3 * STOREY)
+    silo(b, look, 52, 16, 7, 3 * STOREY)
+    stacks(b, look, 8, 42, 34, 56, CRATE)
+    rail_fence(b, look, 40, 38, 60, 58)
+    return b
+
+
+# Industry.
+
+def lumber_yard(look, v, wide):
+    """A lumber yard: a saw shed with an iron roof and stacks of boards drying in the yard."""
+    b = Building(2, 1, height=STOREY + 10) if wide else Building(1, 2, height=STOREY + 10)
+    if wide:
+        lot_ground(b, look, 2, 2, 61, 29, c("#8a8070"))
+        block(b, look, (3, 8, 24, 26), 1, "siding", PAINT[v % len(PAINT)], roof="gable_ew", roof_col=IRON_ROOF, has_door=True, seed=9600 + v)
+        stacks(b, look, 28, 8, 60, 28, LUMBER)
+    else:
+        lot_ground(b, look, 2, 2, 29, 61, c("#8a8070"))
+        stacks(b, look, 4, 6, 28, 32, LUMBER)
+        block(b, look, (4, 38, 27, 57), 1, "siding", PAINT[v % len(PAINT)], roof="gable_ew", roof_col=IRON_ROOF, has_door=True, seed=9600 + v)
+    return b
+
+
+def brickworks(look, v):
+    """A brickworks on 2 by 2 tiles: bottle kilns, a tall chimney, drying sheds and stacks of bricks."""
+    b = Building(2, 2, height=46)
+    d = b.d
+    lot_ground(b, look, 2, 2, 61, 61, c("#9a6a4e"))
+    stacks(b, look, 6, 46, 58, 60, BRICK)
+    block(b, look, (4, 26, 34, 40), 1, "siding", TIMBER, roof="gable_ew", roof_col=IRON_ROOF, has_door=False, seed=9610 + v)
+    for k, kx in enumerate((40, 52)):
+        roof, wall = b.box(kx - 5, 24, kx + 5, 34, 3 * STOREY)
+        d.rectangle(wall, BRICKS[(k + v) % len(BRICKS)])
+        d.rectangle(wall, outline=OUTLINE)
+        d.ellipse([roof[0], roof[1], roof[2], roof[3]], SNOW_ROOF[0] if look == "snow" else c("#3a3a3e"), outline=OUTLINE)
+    chimney(b, 20, 20, 46, BRICKS[v % len(BRICKS)], look)
+    return b
+
+
+def sheds(look, v, wide):
+    """Goods sheds: a long run of loading doors under an iron roof, along the road or back from it."""
+    b = Building(2, 1, height=2 * STOREY + 4) if wide else Building(1, 2, height=2 * STOREY + 4)
+    d = b.d
+    box = (1, 4, 62, 27) if wide else (3, 4, 28, 59)
+    roof, wall = b.box(*box, 2 * STOREY + 2)
+    brick(d, wall, BRICKS[(v + 1) % len(BRICKS)])
+    x0, y0, x1, y1 = wall
+    for xx in range(x0 + 3, x1 - 6, 9):
+        d.rectangle([xx, y1 - 7, xx + 5, y1], TIMBER, OUTLINE)
+    d.rectangle(wall, outline=OUTLINE)
+    if wide:
+        gable_ew(d, roof, IRON_ROOF if v != 1 else c("#4f6b52"), look)
+    else:
+        flat_roof(b.img, roof, look, random.Random(9620 + v), [("vent", 6, 8), ("vent", 16, 20), ("vent", 6, 34)])
+    return b
+
+
+def storehouses(look, v):
+    """Two big warehouses on 2 by 2 tiles with a yard between for the carts and lorries."""
+    b = Building(2, 2, height=3 * STOREY + 4)
+    lot_ground(b, look, 2, 2, 61, 61, c("#8a8478"))
+    block(b, look, (2, 4, 61, 22), 3, "brick", BRICKS[v % len(BRICKS)], every=5, seed=9630 + v, features=[("vent", 8, 6), ("vent", 30, 6), ("hatch", 48, 6)])
+    block(b, look, (2, 40, 40, 60), 2, "brick", BRICKS[(v + 2) % len(BRICKS)], every=5, seed=9631 + v, features=[("vent", 10, 6)])
+    stacks(b, look, 44, 44, 60, 58, CRATE)
+    return b
+
+
+def foundry(look, v):
+    """A foundry on one lot: a brick casting shed, its roof vents glowing, a tall chimney."""
+    b = Building(height=40)
+    d = b.d
+    roof, wall = block(b, look, (2, 8, 25, 28), 2, "brick", BRICKS[(v + 3) % len(BRICKS)], roof="gable_ew", roof_col=IRON_ROOF, seed=9640 + v)
+    d.rectangle([roof[0] + 6, roof[1] + 1, roof[0] + 12, roof[1] + 2], c("#e8803a") if look != "snow" else SNOW_ROOF[1])
+    chimney(b, 28, 10, 40, BRICK, look)
+    return b
+
+
+def machine_shop(look, v, wide):
+    """A machine shop under a sawtooth roof, a chimney at the end: along the road or running back."""
+    b = Building(2, 1, height=36) if wide else Building(1, 2, height=36)
+    box = (1, 4, 56, 27) if wide else (2, 10, 29, 59)
+    block(b, look, box, 3, "brick", BRICKS[v % len(BRICKS)], roof="saw", every=5, glass=c("#6c7f8a"), seed=9650 + v)
+    if wide:
+        chimney(b, 60, 12, 36, BRICK, look)
+    else:
+        chimney(b, 8, 6, 36, BRICK, look)
+    return b
+
+
+# Offices.
+
+def chambers(look, v, wide):
+    """Office chambers: three storeys of stone or brick with a grand door, along the road or with a yard behind."""
+    b = Building(2, 1, height=3 * STOREY + 6) if wide else Building(1, 2, height=3 * STOREY + 6)
+    col = [c("#d8d0bc"), BRICKS[2], c("#c4b49a")][v]
+    kind = "brick" if col == BRICKS[2] else "stone"
+    if wide:
+        block(b, look, (2, 6, 61, 27), 3, kind, col, every=5, seed=9700 + v, features=[("stack", 6, 3), ("stack", 50, 3)])
+    else:
+        lawn_ground(b, look, 2, 2, 29, 30, 9701 + v)
+        rural_trees(b, look, v, [(10, 18, 5), (22, 24, 4)], 9702 + v)
+        block(b, look, (3, 36, 28, 58), 3, kind, col, every=5, seed=9700 + v, features=[("stack", 4, 3)])
+    return b
+
+
+def office_park(look, v):
+    """A 1950s office park on 2 by 2 tiles: two low glass-fronted blocks among lawns and a car park."""
+    b = Building(2, 2, height=2 * STOREY + 4)
+    lawn_ground(b, look, 2, 2, 61, 61, 9710 + v)
+    parking(b, look, 4, 46, 59, 60, 9711 + v)
+    block(b, look, (4, 6, 40, 20), 2, "glass", c("#8fa8b8"), seed=9712 + v, ledge=False, features=[("vent", 10, 4)])
+    block(b, look, (30, 26, 59, 40), 2, "glass", c("#a8b8c0"), seed=9713 + v, ledge=False, features=[("vent", 6, 4)])
+    rural_trees(b, look, v, [(10, 36, 5), (52, 14, 5)], 9714 + v)
+    return b
+
+
+def office_row(look, v, wide):
+    """Five storeys of offices in pale stone, tall windows in bays: along the road or running back."""
+    b = Building(2, 1, height=5 * STOREY + 8) if wide else Building(1, 2, height=5 * STOREY + 8)
+    col = [c("#d8d0bc"), c("#c4b49a"), c("#cfc6b0")][v]
+    box = (2, 4, 61, 27) if wide else (3, 6, 28, 58)
+    block(b, look, box, 5, "stone", col, every=4, seed=9720 + v, features=[("tank", 16, 8), ("vent", 4, 4)])
+    return b
+
+
+def office_court(look, v):
+    """Offices round a court on 2 by 2 tiles, five storeys of stone, a grand entrance on the street."""
+    b = Building(2, 2, height=5 * STOREY + 8)
+    col = [c("#d6cdb8"), c("#c98f6e")][v]
+    lawn_ground(b, look, 20, 20, 43, 43, 9730 + v)
+    block(b, look, (2, 2, 61, 17), 5, "stone", col, every=4, has_door=False, seed=9731 + v, features=[("tank", 30, 6)])
+    block(b, look, (2, 18, 17, 61), 5, "stone", shade(col, 1.04), every=4, has_door=False, seed=9732 + v)
+    block(b, look, (46, 18, 61, 61), 5, "stone", shade(col, 0.96), every=4, has_door=False, seed=9733 + v)
+    block(b, look, (18, 46, 45, 61), 5, "stone", col, every=4, seed=9734 + v)
+    return b
+
+
+def slim_offices(look, v):
+    """A narrow office tower on one lot: nine storeys, piers running up, a crown on top."""
+    b = Building(height=9 * STOREY + 8)
+    col = [c("#cfc4a8"), c("#b8876a")][v]
+    roof, wall = block(b, look, (5, 6, 26, 26), 9, "stone", col, every=4, seed=9740 + v, features=[("tank", 8, 6)])
+    d = b.d
+    for xx in range(wall[0] + 4, wall[2] - 2, 5):
+        d.line([xx, wall[1] + 2, xx, wall[3] - 6], shade(col, 0.85))
+    return b
+
+
+def office_slab(look, v, wide):
+    """A slab of offices, ten storeys of glass and stone bands: along the road or running back."""
+    b = Building(2, 1, height=10 * STOREY + 6) if wide else Building(1, 2, height=10 * STOREY + 6)
+    box = (2, 4, 61, 27) if wide else (3, 6, 28, 58)
+    roof, wall = block(b, look, box, 10, "glass", [c("#7f98a8"), c("#8a9a90")][v], seed=9750 + v, ledge=False, features=[("hatch", 6, 6), ("vent", 20, 8)])
+    d = b.d
+    for yy in range(wall[1] + 4, wall[3], STOREY):
+        d.line([wall[0] + 1, yy, wall[2] - 1, yy], c("#d8d4c8"))
+    return b
+
+
+# Homes over shops.
+
+def twin_shophouses(look, v, wide):
+    """Two shophouses side by side; turned, one on the street and a yard and store behind."""
+    b = Building(2, 1, height=2 * STOREY + 8) if wide else Building(1, 2, height=2 * STOREY + 8)
+    if wide:
+        for k in range(2):
+            block(b, look, (3 + k * 30, 6, 29 + k * 30, 26), 2, "brick", BRICKS[(k + v) % len(BRICKS)], shop=AWNINGS[(k + 2 * v) % len(AWNINGS)], every=5,
+                  seed=9800 + k, features=[("stack", 3, 3)])
+    else:
+        lot_ground(b, look, 3, 4, 28, 30, c("#8a8478"))
+        stacks(b, look, 6, 10, 26, 26, CRATE)
+        block(b, look, (3, 36, 28, 58), 3, "brick", BRICKS[v % len(BRICKS)], shop=AWNINGS[(v + 1) % len(AWNINGS)], every=5, seed=9801 + v, features=[("stack", 3, 3)])
+    return b
+
+
+def corner_parade(look, v):
+    """A parade of shops with rooms above, round a street corner on 2 by 2 tiles, a yard behind."""
+    b = Building(2, 2, height=2 * STOREY + 8)
+    lot_ground(b, look, 2, 2, 40, 40, c("#8a8478"))
+    for k in range(4):
+        block(b, look, (2 + k * 15, 44, 15 + k * 15, 61), 2, "brick", BRICKS[(k + v) % len(BRICKS)], shop=AWNINGS[(k + v) % len(AWNINGS)], every=5, seed=9810 + k)
+    for k in range(2):
+        block(b, look, (44, 6 + k * 18, 61, 22 + k * 18), 2, "brick", BRICKS[(k + v + 2) % len(BRICKS)], shop=AWNINGS[(k + v + 3) % len(AWNINGS)], every=5, seed=9815 + k)
+    return b
+
+
+def shops_and_flats(look, v, wide):
+    """Four storeys of flats over a row of shops: along the road or running back from it."""
+    b = Building(2, 1, height=4 * STOREY + 6) if wide else Building(1, 2, height=4 * STOREY + 6)
+    box = (2, 5, 61, 27) if wide else (3, 6, 28, 58)
+    block(b, look, box, 4, "brick", [BRICKS[0], BRICKS[2], BRICKS[3]][v], shop=AWNINGS[(v + 1) % len(AWNINGS)], every=4, seed=9820 + v,
+          features=[("stack", 4, 3), ("stack", 24, 3), ("hatch", 12, 8)])
+    return b
+
+
+def parade_block(look, v):
+    """A mansion block of flats over a parade of shops on 2 by 2 tiles, four storeys round a court."""
+    b = Building(2, 2, height=4 * STOREY + 6)
+    col = [BRICKS[2], BRICKS[0]][v]
+    block(b, look, (2, 2, 61, 17), 4, "brick", col, every=4, has_door=False, seed=9830 + v)
+    block(b, look, (2, 18, 17, 43), 4, "brick", shade(col, 1.05), every=4, has_door=False, seed=9831 + v)
+    block(b, look, (46, 18, 61, 43), 4, "brick", shade(col, 0.95), every=4, has_door=False, seed=9832 + v)
+    block(b, look, (2, 44, 61, 61), 4, "brick", col, shop=AWNINGS[(v + 2) % len(AWNINGS)], every=4, seed=9833 + v)
+    return b
+
+
+def mixed_slab(look, v, wide):
+    """A slab of flats on a podium of shops, seven storeys: along the road or running back."""
+    b = Building(2, 1, height=7 * STOREY + 6) if wide else Building(1, 2, height=7 * STOREY + 6)
+    box = (2, 4, 61, 27) if wide else (3, 6, 28, 58)
+    roof, wall = block(b, look, box, 7, "stone", [c("#d8d4c8"), c("#cfc6b0")][v], shop=AWNINGS[(v + 4) % len(AWNINGS)], every=3, seed=9840 + v,
+                       features=[("hatch", 6, 6)])
+    d = b.d
+    for yy in range(wall[1] + 5, wall[3] - STOREY - 4, STOREY):
+        d.line([wall[0] + 2, yy, wall[2] - 2, yy], c("#9a9a9e"))
+    return b
+
+
+def mixed_court(look, v):
+    """Six storeys of flats round a court on 2 by 2 tiles, shops all along the ground floor."""
+    b = Building(2, 2, height=6 * STOREY + 6)
+    col = [c("#d8d4c8"), c("#c9b48a")][v]
+    lawn_ground(b, look, 20, 20, 43, 43, 9850 + v)
+    block(b, look, (2, 2, 61, 17), 6, "stone", col, every=3, has_door=False, seed=9851 + v)
+    block(b, look, (2, 18, 17, 43), 6, "stone", shade(col, 1.04), every=3, has_door=False, seed=9852 + v)
+    block(b, look, (46, 18, 61, 43), 6, "stone", shade(col, 0.96), every=3, has_door=False, seed=9853 + v)
+    block(b, look, (2, 44, 61, 61), 6, "stone", col, shop=AWNINGS[(v + 5) % len(AWNINGS)], every=3, seed=9854 + v)
+    return b
+
+
+# Farmland.
+
+def market_garden(look, v):
+    """A market garden on one lot: beds in rows, a glasshouse and a potting shed."""
+    b = Building(height=STOREY + 6)
+    d = b.d
+    crop_rows(b, look, 2, 14, 29, 29, 9900 + v)
+    roof, wall = b.box(3, 3, 18, 11, STOREY)
+    d.rectangle(wall, GLASSHOUSE)
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else shade(GLASSHOUSE, 1.05), OUTLINE)
+    for xx in range(roof[0] + 3, roof[2], 3):
+        d.line([xx, roof[1], xx, roof[3]], c("#8aa0aa"))
+    roof, wall = b.box(22, 4, 28, 10, STOREY - 1)
+    d.rectangle(wall, TIMBER)
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#6b4a36"), OUTLINE)
+    return b
+
+
+def orchard(look, v, wide):
+    """An orchard: fruit trees in rows and a small packing shed, along the road or back from it."""
+    b = Building(2, 1, height=STOREY + 8) if wide else Building(1, 2, height=STOREY + 8)
+    lawn_ground(b, look, 2, 2, (61 if wide else 29), (29 if wide else 61), 9910 + v)
+    if wide:
+        spots = [(xx, yy, 4) for yy in (12, 24) for xx in range(14, 60, 9)]
+        block(b, look, (2, 14, 10, 24), 1, "siding", TIMBER, roof="gable_ew", roof_col=SHINGLE[1], has_door=True, seed=9911 + v)
+    else:
+        spots = [(xx, yy, 4) for yy in range(10, 50, 9) for xx in (8, 20)]
+        block(b, look, (8, 52, 22, 60), 1, "siding", TIMBER, roof="gable_ew", roof_col=SHINGLE[1], has_door=True, seed=9911 + v)
+    rural_trees(b, look, v, spots, 9912 + v)
+    return b
+
+
+# Each 1 by 2 drawn both ways: deep, back from the road, and wide, along it.
+def both(name, draw, count):
+    return [(name + "_deep", lambda look, v: draw(look, v, False), count), (name + "_wide", lambda look, v: draw(look, v, True), count)]
+
+
+SIZES = (
+    [("cabin", cabin, 3)] + both("smallholding", smallholding, 2) + both("villa", villa, 3) + [("mansion", mansion, 2)]
+    + both("terrace", terrace, 2) + [("court_tenements", court_tenements, 2)] + both("slab", slab, 3)
+    + both("storefronts", storefronts, 2) + [("covered_market", covered_market, 2)] + both("arcade", arcade, 3) + [("emporium", emporium, 2)]
+    + both("store_block", store_block, 3) + [("roadside_deep", roadside_deep, 2), ("feed_store", feed_store, 2)]
+    + both("lumber_yard", lumber_yard, 2) + [("brickworks", brickworks, 2)] + both("sheds", sheds, 2) + [("storehouses", storehouses, 2), ("foundry", foundry, 2)]
+    + both("machine_shop", machine_shop, 2)
+    + both("chambers", chambers, 3) + [("office_park", office_park, 2)] + both("office_row", office_row, 3) + [("office_court", office_court, 2), ("slim_offices", slim_offices, 2)]
+    + both("office_slab", office_slab, 2)
+    + both("twin_shophouses", twin_shophouses, 2) + [("street_parade", corner_parade, 2)] + both("shops_and_flats", shops_and_flats, 3)
+    + [("parade_block", parade_block, 2)] + both("mixed_slab", mixed_slab, 2) + [("mixed_court", mixed_court, 2)]
+    + [("market_garden", market_garden, 2)] + both("orchard", orchard, 2)
+)
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -4671,12 +5335,13 @@ BUILDINGS = [
     ("volunteer_hall", volunteer_hall, 2), ("ladder_company", ladder_company, 1), ("ambulance_station", ambulance_station, 1),
     ("nursing_home", nursing_home, 2), ("cooling_centre", cooling_centre, 2), ("library", library, 2), ("college", college, 2),
     ("police_hq", police_hq, 1), ("courthouse", courthouse, 2), ("jail", jail, 1),
-    ("farmstead", farmstead, 2), ("country_house", country_house, 2), ("acreage_home", acreage_home, 2),
+    ("farmstead", farmstead, 4), ("country_house", country_house, 2), ("acreage_home", acreage_home, 2),
     ("crossroads_store", crossroads_store, 2), ("roadhouse", roadhouse, 2),
     ("highrise", highrise, 2), ("slender_tower", slender_tower, 2), ("tall_hotel", highrise_hotel, 2),
     ("skyscraper", skyscraper, 2), ("supertall", supertall, 2),
     ("shophouse", shophouse, 3), ("flats_over_shops", flats_over_shops, 3), ("mixed_block", mixed_block, 2), ("podium_tower", podium_tower, 2),
 ]
+BUILDINGS += SIZES
 
 
 def for_sale(look):

@@ -4,7 +4,7 @@ package com.rm.infill.sim
 object Stormwater {
     /** The share of tile [i] that's hard surface, 0 to 100: its building, road or track, or else its ground. */
     fun hardness(map: CityMap, i: Int): Int {
-        val t = map.buildingType[i].toInt()
+        val t = (map.buildingType[i].toInt() and 0xff)
         val building = if (t == 0) -1 else building(BuildingType.entries[t - 1])
         val road = RoadType.of(map.road[i])?.let { road(it) } ?: -1
         val track = if (map.rail[i] != Rail.NONE) TRACK else -1
@@ -18,7 +18,7 @@ object Stormwater {
         return maxOf(building, shaded, track, if (building < 0 && road < 0 && track < 0) ground else -1)
     }
 
-    private fun building(t: BuildingType): Int = when (t) {
+    private fun building(t: BuildingType): Int = when (t.like) {
         BuildingType.COTTAGE -> 40
         BuildingType.HOUSE -> 50
         BuildingType.LARGE_HOUSE -> 60
@@ -86,6 +86,8 @@ object Stormwater {
         BuildingType.SUBWAY_STATION -> 60
         BuildingType.TREATMENT_PLANT -> 65
         BuildingType.STORM_POND -> 0
+        // The other sizes are looked up as what they're like, above.
+        else -> 80
     }
 
     private fun road(t: RoadType): Int = when (t) {

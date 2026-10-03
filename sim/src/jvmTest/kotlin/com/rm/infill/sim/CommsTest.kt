@@ -80,7 +80,9 @@ class CommsTest {
     fun officesWantThePhone() {
         val with = town(1945).also { it.months(48) }
         val without = town(1945, exchange = false, trunk = false).also { it.months(48) }
-        assertTrue(with.stats.officeJobs >= without.stats.officeJobs, "with ${with.stats.officeJobs}, without ${without.stats.officeJobs}")
+        // Offices come in bigger and smaller buildings, so what's going up counts as well as what's open.
+        fun offices(c: City) = c.stats.officeJobs + c.stats.officeJobsComing
+        assertTrue(offices(with) >= offices(without), "with ${offices(with)}, without ${offices(without)}")
         assertTrue(with.stats.population + with.stats.jobs > without.stats.population + without.stats.jobs)
     }
 

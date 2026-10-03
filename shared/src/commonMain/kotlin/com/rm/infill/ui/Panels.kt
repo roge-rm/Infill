@@ -85,6 +85,39 @@ import com.rm.infill.res.inspect_fertile
 import com.rm.infill.res.inspect_ore
 import com.rm.infill.res.inspect_coal_seam
 import com.rm.infill.res.Res
+import com.rm.infill.res.building_arcade
+import com.rm.infill.res.building_brickworks
+import com.rm.infill.res.building_cabin
+import com.rm.infill.res.building_chambers
+import com.rm.infill.res.building_corner_parade
+import com.rm.infill.res.building_court_tenements
+import com.rm.infill.res.building_covered_market
+import com.rm.infill.res.building_emporium
+import com.rm.infill.res.building_feed_store
+import com.rm.infill.res.building_foundry
+import com.rm.infill.res.building_lumber_yard
+import com.rm.infill.res.building_machine_shop
+import com.rm.infill.res.building_mansion
+import com.rm.infill.res.building_market_garden
+import com.rm.infill.res.building_mixed_court
+import com.rm.infill.res.building_mixed_slab
+import com.rm.infill.res.building_office_court
+import com.rm.infill.res.building_office_park
+import com.rm.infill.res.building_office_row
+import com.rm.infill.res.building_office_slab
+import com.rm.infill.res.building_orchard
+import com.rm.infill.res.building_parade_block
+import com.rm.infill.res.building_sheds
+import com.rm.infill.res.building_shops_and_flats
+import com.rm.infill.res.building_slab
+import com.rm.infill.res.building_slim_offices
+import com.rm.infill.res.building_smallholding
+import com.rm.infill.res.building_store_block
+import com.rm.infill.res.building_storefronts
+import com.rm.infill.res.building_storehouses
+import com.rm.infill.res.building_terrace
+import com.rm.infill.res.building_twin_shophouses
+import com.rm.infill.res.building_villa
 import com.rm.infill.res.look_there
 import com.rm.infill.res.building_bank
 import com.rm.infill.res.building_cottage
@@ -264,6 +297,57 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.FARMSTEAD -> Res.string.building_farmstead
     BuildingType.COUNTRY_HOUSE -> Res.string.building_country_house
     BuildingType.ACREAGE_HOME -> Res.string.building_acreage_home
+    BuildingType.CABIN -> Res.string.building_cabin
+    BuildingType.SMALLHOLDING_DEEP -> Res.string.building_smallholding
+    BuildingType.SMALLHOLDING_WIDE -> Res.string.building_smallholding
+    BuildingType.VILLA_DEEP -> Res.string.building_villa
+    BuildingType.VILLA_WIDE -> Res.string.building_villa
+    BuildingType.MANSION -> Res.string.building_mansion
+    BuildingType.TERRACE_DEEP -> Res.string.building_terrace
+    BuildingType.TERRACE_WIDE -> Res.string.building_terrace
+    BuildingType.COURT_TENEMENTS -> Res.string.building_court_tenements
+    BuildingType.SLAB_DEEP -> Res.string.building_slab
+    BuildingType.SLAB_WIDE -> Res.string.building_slab
+    BuildingType.STOREFRONTS_DEEP -> Res.string.building_storefronts
+    BuildingType.STOREFRONTS_WIDE -> Res.string.building_storefronts
+    BuildingType.COVERED_MARKET -> Res.string.building_covered_market
+    BuildingType.ARCADE_DEEP -> Res.string.building_arcade
+    BuildingType.ARCADE_WIDE -> Res.string.building_arcade
+    BuildingType.EMPORIUM -> Res.string.building_emporium
+    BuildingType.STORE_BLOCK_DEEP -> Res.string.building_store_block
+    BuildingType.STORE_BLOCK_WIDE -> Res.string.building_store_block
+    BuildingType.ROADHOUSE_DEEP -> Res.string.building_roadhouse
+    BuildingType.FEED_STORE -> Res.string.building_feed_store
+    BuildingType.LUMBER_YARD_DEEP -> Res.string.building_lumber_yard
+    BuildingType.LUMBER_YARD_WIDE -> Res.string.building_lumber_yard
+    BuildingType.BRICKWORKS -> Res.string.building_brickworks
+    BuildingType.SHEDS_DEEP -> Res.string.building_sheds
+    BuildingType.SHEDS_WIDE -> Res.string.building_sheds
+    BuildingType.STOREHOUSES -> Res.string.building_storehouses
+    BuildingType.FOUNDRY -> Res.string.building_foundry
+    BuildingType.MACHINE_SHOP_DEEP -> Res.string.building_machine_shop
+    BuildingType.MACHINE_SHOP_WIDE -> Res.string.building_machine_shop
+    BuildingType.CHAMBERS_DEEP -> Res.string.building_chambers
+    BuildingType.CHAMBERS_WIDE -> Res.string.building_chambers
+    BuildingType.OFFICE_PARK -> Res.string.building_office_park
+    BuildingType.OFFICE_ROW_DEEP -> Res.string.building_office_row
+    BuildingType.OFFICE_ROW_WIDE -> Res.string.building_office_row
+    BuildingType.OFFICE_COURT -> Res.string.building_office_court
+    BuildingType.SLIM_OFFICES -> Res.string.building_slim_offices
+    BuildingType.OFFICE_SLAB_DEEP -> Res.string.building_office_slab
+    BuildingType.OFFICE_SLAB_WIDE -> Res.string.building_office_slab
+    BuildingType.TWIN_SHOPHOUSES_DEEP -> Res.string.building_twin_shophouses
+    BuildingType.TWIN_SHOPHOUSES_WIDE -> Res.string.building_twin_shophouses
+    BuildingType.CORNER_PARADE -> Res.string.building_corner_parade
+    BuildingType.SHOPS_AND_FLATS_DEEP -> Res.string.building_shops_and_flats
+    BuildingType.SHOPS_AND_FLATS_WIDE -> Res.string.building_shops_and_flats
+    BuildingType.PARADE_BLOCK -> Res.string.building_parade_block
+    BuildingType.MIXED_SLAB_DEEP -> Res.string.building_mixed_slab
+    BuildingType.MIXED_SLAB_WIDE -> Res.string.building_mixed_slab
+    BuildingType.MIXED_COURT -> Res.string.building_mixed_court
+    BuildingType.MARKET_GARDEN -> Res.string.building_market_garden
+    BuildingType.ORCHARD_DEEP -> Res.string.building_orchard
+    BuildingType.ORCHARD_WIDE -> Res.string.building_orchard
     BuildingType.HOTEL_TOWER -> Res.string.building_hotel_tower
     BuildingType.CROSSROADS_STORE -> Res.string.building_crossroads_store
     BuildingType.ROADHOUSE -> Res.string.building_roadhouse

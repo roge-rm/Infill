@@ -180,7 +180,7 @@ fun StatusStrip(
         else if (st.residentialDemand > 0 && st.commercialDemand > 0) minOf(st.residentialDemand, st.commercialDemand * Balance.MIXED_PEOPLE_PER_JOB)
         else minOf(0, minOf(st.residentialDemand, st.commercialDemand * Balance.MIXED_PEOPLE_PER_JOB))
         DemandBars(
-            st.residentialDemand, st.commercialDemand, st.industryDemand, st.officeDemand, st.farmDemand, mixed, st.population + st.jobs,
+            st.residentialDemand, st.commercialDemand, st.industryDemand, if (city.allowsZone(Zone.OFFICE)) st.officeDemand else null, st.farmDemand, mixed, st.population + st.jobs,
             Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClickLabel = stringResource(Res.string.demand), role = Role.Button, onClick = onDemand).padding(2.dp).padding(end = 2.dp),
         )
     }
@@ -319,10 +319,10 @@ private fun PersonCount(count: Int, size: androidx.compose.ui.unit.TextUnit) {
  * change in place and so wouldn't be seen to change.
  */
 @Composable
-fun DemandBars(residential: Int, commercial: Int, industrial: Int, office: Int, farmland: Int, mixed: Int?, townSize: Int, modifier: Modifier = Modifier) {
+fun DemandBars(residential: Int, commercial: Int, industrial: Int, office: Int?, farmland: Int, mixed: Int?, townSize: Int, modifier: Modifier = Modifier) {
     val c = Infill.colors
     val scale = max(20f, 0.06f * townSize)
-    val zones = listOfNotNull(Zone.RESIDENTIAL, Zone.COMMERCIAL, Zone.INDUSTRIAL, Zone.OFFICE, Zone.FARMLAND, if (mixed != null) Zone.MIXED else null)
+    val zones = listOfNotNull(Zone.RESIDENTIAL, Zone.COMMERCIAL, Zone.INDUSTRIAL, if (office != null) Zone.OFFICE else null, Zone.FARMLAND, if (mixed != null) Zone.MIXED else null)
     val values = listOfNotNull(residential, commercial, industrial, office, farmland, mixed).map { (it / scale).coerceIn(-1f, 1f) }
     val colours = zones.map { zoneColour(it) }
     // Read out as each zone and how wanted it is.

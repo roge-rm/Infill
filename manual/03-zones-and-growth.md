@@ -8,9 +8,9 @@ You don't build homes, shops or works yourself. You zone land for them and the t
 - **Residential**: homes.
 - **Commercial**: shops, then hotels, banks and department stores.
 - **Industrial**: workshops, mills, warehouses, factories and works.
-- **Offices**: offices, then office towers and skyscrapers.
+- **Offices**: offices, then office towers and skyscrapers. They come with the Streetcar era; before that, office work is done in the shops and banks.
 - **Mixed use** (from the Streetcar era): flats over shops, for main streets.
-- **Farmland**: farms, woodlots and, on a seam, mines and oil wells.
+- **Farmland**: farms, orchards and market gardens, woodlots and, on a seam, mines and oil wells.
 
 Zoning costs $5 a tile, or $2 for rural.
 
@@ -18,13 +18,17 @@ Zoning costs $5 a tile, or $2 for rural.
 
 Each zone is painted with a density, which is the tallest it can grow:
 
-- **Rural**: big lots in the country, for homes and shops only. Rural lots grow only farmsteads, country houses and the like, and need almost nothing.
+- **Rural**: big lots in the country, for homes and shops only. Rural lots grow only farmsteads, cabins, country houses and the like, and need almost nothing.
 - **Low density**: cottages to large houses, stores and shops, workshops and mills.
 - **Medium density**: row houses and tenements, main street blocks, warehouses and factories.
 - **High density**: apartments, department stores, works and office towers.
 - **Towers** (from the Motor age): tower blocks, skyscrapers and the tallest buildings. Not for industry.
 
 Changing the density of land that's already zoned is free.
+
+## Sizes
+
+Every zone has buildings on one lot, on two, and on four, from cottages and villas to mansions, and shops to covered markets. A two-lot building runs along the road or back from it. Where there's room, the town more often puts up a bigger building, and the smaller ones fill the gaps between. Up to medium density a bigger building can take in the lots of lesser buildings beside it, but never ones as good as itself.
 
 ## How a lot grows
 
@@ -60,7 +64,7 @@ The demand bars in the strip show what the town wants, worked out again each wee
 - Homes are wanted when there are more jobs than people to fill them, plus newcomers. Nobody moves in without a way in. A railway station on a line to the edge brings more, and so does an airport. People forced out of town put newcomers off for a while.
 - Shops are wanted for what the town's people spend. Better-off people spend more.
 - Works are wanted for the outside market, which grows with the town and the years and rises and falls with the economy. A road to the edge, a freight yard, a freight terminal and a port all make it bigger. Works are also wanted for goods the town brings in that it could make.
-- Offices are wanted more and more as the years go by.
+- Offices, once they come in, are wanted more and more as the town and the years grow.
 - Farms are wanted for food and timber, and for the market.
 - Mixed use takes from both homes and shops when both are wanted.
 

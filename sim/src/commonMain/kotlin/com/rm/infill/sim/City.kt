@@ -2392,7 +2392,7 @@ class City(
         val park = if (year >= Balance.PARK_COOLS_YEAR) 100 + Balance.PARK_COOLS_MORE else 100
         val green = SummedArea(m.width, m.height) {
             when {
-                m.buildingType[it].toInt() - 1 == BuildingType.PARK.ordinal -> park
+                (m.buildingType[it].toInt() and 0xff) - 1 == BuildingType.PARK.ordinal -> park
                 m.terrain[it] == Terrain.TREES || m.terrain[it] == Terrain.WATER || m.streetTrees[it].toInt() != 0 -> 100
                 m.building[it] != 0 && greenRoof(it) -> Balance.GREEN_ROOF_GREEN
                 else -> 0
@@ -2596,7 +2596,7 @@ class City(
                 if (disaster(Balance.NUCLEAR_PPM + Balance.NUCLEAR_WEAR_PPM * wear / 100 * wear / 100)) nuclearAccident(b)
                 continue
             }
-            val heavy = t == BuildingType.MILL || t == BuildingType.WAREHOUSE || t == BuildingType.FACTORY || t == BuildingType.WORKS ||
+            val heavy = t.like == BuildingType.MILL || t.like == BuildingType.WAREHOUSE || t.like == BuildingType.FACTORY || t == BuildingType.WORKS ||
                 t == BuildingType.MINE || t == BuildingType.COLLIERY ||
                 t == BuildingType.COAL_PLANT || t == BuildingType.OIL_PLANT || t == BuildingType.GAS_PLANT
             if (!heavy) continue
@@ -2835,7 +2835,8 @@ class City(
     fun allowsDistricts() = everything || era >= Era.STREETCAR
 
     /** Whether [zone] can be zoned in this era: homes over shops from the streetcar age. */
-    fun allowsZone(zone: Byte) = everything || zone != Zone.MIXED || era >= Era.STREETCAR
+    /** Mixed use and offices come with the Streetcar era; the rest are there from the start. */
+    fun allowsZone(zone: Byte) = everything || zone != Zone.MIXED && zone != Zone.OFFICE || era >= Era.STREETCAR
 
     fun allowsDensity(density: Byte): Boolean = everything || density != Density.TOWER || era >= Era.MOTOR
 
@@ -2982,7 +2983,7 @@ class City(
         b.worksKind?.let { return it.output to t.capacity * it.rate }
         val (g, rate) = Land.output(t) ?: return null
         // Farms on poor soil grow less.
-        val soil = if (t == BuildingType.FARM && map.resource[map.index(b.x, b.y)] != Resource.FERTILE) Balance.POOR_SOIL else 100
+        val soil = if (t.isFarm && map.resource[map.index(b.x, b.y)] != Resource.FERTILE) Balance.POOR_SOIL else 100
         return g to t.capacity * rate * soil / 100
     }
 
@@ -5633,9 +5634,9 @@ class City(
             val b = buildings[m.building[j]]
             if (b != null && b.type == BuildingType.LIBRARY && b.x == j % m.width && b.y == j / m.width && b.outage == 0 && b.underway == 0) 1 else 0
         }
-        val parks = SummedArea(m.width, m.height) { if (m.buildingType[it].toInt() - 1 == BuildingType.PARK.ordinal) 1 else 0 }
+        val parks = SummedArea(m.width, m.height) { if ((m.buildingType[it].toInt() and 0xff) - 1 == BuildingType.PARK.ordinal) 1 else 0 }
         val fouled = if (m.brownfield.any { it.toInt() != 0 }) SummedArea(m.width, m.height) { m.brownfield[it].toInt() } else null
-        val dumpsNear = SummedArea(m.width, m.height) { if (m.buildingType[it].toInt() - 1 == BuildingType.DUMP.ordinal) 1 else 0 }
+        val dumpsNear = SummedArea(m.width, m.height) { if ((m.buildingType[it].toInt() and 0xff) - 1 == BuildingType.DUMP.ordinal) 1 else 0 }
         s.pupils = pupils.values.sum()
         s.highSchoolPupils = teens.values.sum()
         s.cared = clinic.values.sum() + hospital.values.sum()
@@ -5694,7 +5695,7 @@ class City(
             }
             // An epidemic strikes a home by how crowded and poorly served it is.
             if (epidemicMonths > 0) {
-                val crowd = when (b.type) {
+                val crowd = when (b.type.like) {
                     BuildingType.TENEMENT, BuildingType.APARTMENTS, BuildingType.APARTMENT_COURT -> 150
                     BuildingType.ROW_HOUSES -> 120
                     else -> 100
@@ -5823,8 +5824,7 @@ class City(
             }
         }
         if (best < 0) return 0
-        // The rung's usual building, now and then the other choice where it's allowed: a bank among the shops.
-        val type = if (bestOptions.size == 1 || rng.nextInt(4) != 0) bestOptions[0] else bestOptions[1 + rng.nextInt(bestOptions.size - 1)]
+        val type = pickType(bestOptions)
         val b = buildings[map.building[best]]
         val added = when {
             type.large -> assemble(type, best, b)
@@ -5915,10 +5915,32 @@ class City(
                 val inside = there != null && there.id == replacing?.id && there.x >= ax && there.y >= ay &&
                     there.x + there.type.width <= ax + t.width && there.y + there.type.height <= ay + t.height
                 if (there != null && (there.type.large && !inside || there.underway > 0 || there.burning > 0)) ok = false
+                // Up to medium density, a bigger building only takes in neighbours a rung or more below it,
+                // a mansion over old cottages, never ones as good as itself.
+                if (there != null && !inside && there.id != replacing?.id && Density.rank(t.density) <= Density.rank(Density.MEDIUM) &&
+                    there.type.stage >= t.stage
+                ) ok = false
             }
             if (ok) return map.index(ax, ay)
         }
         return -1
+    }
+
+    /**
+     * Which of [options] goes up: the densest that's let in, in a size picked by
+     * chance among those that fit (the bigger more often, so the small ones fill the gaps),
+     * and of those the rung's usual building, now and then the other choice
+     * where it's allowed: a bank among the shops.
+     */
+    private fun pickType(options: List<BuildingType>): BuildingType {
+        if (options.size == 1) return options[0]
+        val top = options.filter { it.density == options[0].density }
+        val bySize = top.groupBy { it.width * it.height }
+        val roll = rng.nextInt(100)
+        val want = if (roll < Balance.ONE_LOT_SHARE) 1 else if (roll < Balance.ONE_LOT_SHARE + Balance.TWO_LOT_SHARE) 2 else 4
+        val size = bySize.keys.minBy { abs(it - want) * 10 + it }
+        val pool = bySize.getValue(size)
+        return if (pool.size == 1 || rng.nextInt(4) != 0) pool[0] else pool[1 + rng.nextInt(pool.size - 1)]
     }
 
     /** Clears the lots for [t] around lot [i] and starts it going up. Returns the room it'll have. */
@@ -6212,7 +6234,7 @@ class City(
 
     /** How much a tile soaks up pollution: 2 for park or woods, 1 for street trees. */
     private fun greenWeight(i: Int): Int = when {
-        map.terrain[i] == Terrain.TREES || map.buildingType[i].toInt() - 1 == BuildingType.PARK.ordinal -> 2
+        map.terrain[i] == Terrain.TREES || (map.buildingType[i].toInt() and 0xff) - 1 == BuildingType.PARK.ordinal -> 2
         map.streetTrees[i].toInt() != 0 -> 1
         else -> 0
     }
@@ -6226,7 +6248,7 @@ class City(
             val x = sx + (tx - sx) * k / steps
             val y = sy + (ty - sy) * k / steps
             val i = map.index(x, y)
-            if (map.terrain[i] == Terrain.TREES || map.buildingType[i].toInt() - 1 == BuildingType.PARK.ordinal) return amount * Balance.BELT_PASSES / 100
+            if (map.terrain[i] == Terrain.TREES || (map.buildingType[i].toInt() and 0xff) - 1 == BuildingType.PARK.ordinal) return amount * Balance.BELT_PASSES / 100
         }
         return amount
     }
@@ -6829,11 +6851,16 @@ class City(
                 DemandSource.MARKET to d.market, DemandSource.BROUGHT_IN to d.fromWorks,
                 DemandSource.JOBS_HERE to -s.industryJobs.toDouble(), DemandSource.GOING_UP to -s.industryJobsComing.toDouble(),
             ),
-            zone(
-                Zone.OFFICE, commercialTax,
-                DemandSource.TOWN_SIZE to d.offices, DemandSource.AIRPORTS to d.airOffices,
-                DemandSource.JOBS_HERE to -s.officeJobs.toDouble(), DemandSource.GOING_UP to -s.officeJobsComing.toDouble(),
-            ),
+            if (allowsZone(Zone.OFFICE)) {
+                zone(
+                    Zone.OFFICE, commercialTax,
+                    DemandSource.TOWN_SIZE to d.offices, DemandSource.AIRPORTS to d.airOffices,
+                    DemandSource.JOBS_HERE to -s.officeJobs.toDouble(), DemandSource.GOING_UP to -s.officeJobsComing.toDouble(),
+                )
+            } else {
+                // Not come in yet: nothing wanted.
+                zone(Zone.OFFICE, commercialTax)
+            },
             zone(
                 Zone.FARMLAND, industrialTax,
                 DemandSource.MARKET to d.market * Balance.FARM_MARKET, DemandSource.BROUGHT_IN to d.fromLand,
@@ -6855,7 +6882,8 @@ class City(
         s.industryDemand = taxed(industryGap - s.industryJobsComing, industrialTax)
         val farmGap = d.market * Balance.FARM_MARKET + d.fromLand - s.farmJobs
         s.farmDemand = taxed(farmGap - s.farmJobsComing, industrialTax)
-        val officeGap = d.offices + d.airOffices - s.officeJobs
+        // No office work's wanted until offices come in; before then it's done in the shops and banks.
+        val officeGap = if (allowsZone(Zone.OFFICE)) d.offices + d.airOffices - s.officeJobs else 0.0
         s.officeDemand = taxed(officeGap - s.officeJobsComing, commercialTax)
         // Shoppers from next door want shops here; shoppers going next door don't.
         val shopGap = d.spendingJobs - s.shopJobs.toDouble() + s.shoppingIn - s.shoppingOut
@@ -6905,8 +6933,8 @@ class City(
             Zone.OFFICE to s.officeDemand, Zone.FARMLAND to s.farmDemand,
         )
         for ((zone, demand) in wanted) {
-            // A zone that's grown this month isn't stuck.
-            if (demand < Balance.ADVICE_DEMAND || grown[zone.toInt()] > 0) continue
+            // A zone that's grown this month isn't stuck, and one that hasn't come in yet isn't asked for.
+            if (demand < Balance.ADVICE_DEMAND || grown[zone.toInt()] > 0 || !allowsZone(zone)) continue
             stuck(zone)?.let { out += it }
         }
         grown.fill(0)

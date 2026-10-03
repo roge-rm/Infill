@@ -121,7 +121,7 @@ object Demography {
      * The schooling each kind of job wants, in percent unschooled, schooled and
      * educated: a workshop takes anyone, a bank wants educated clerks.
      */
-    fun jobSkills(type: BuildingType): IntArray = when (type) {
+    fun jobSkills(type: BuildingType): IntArray = when (type.like) {
         BuildingType.GENERAL_STORE -> intArrayOf(70, 30, 0)
         BuildingType.SHOP -> intArrayOf(40, 60, 0)
         BuildingType.BANK -> intArrayOf(0, 55, 45)
