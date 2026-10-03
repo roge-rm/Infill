@@ -61,6 +61,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -256,6 +261,9 @@ fun Window(
 /** Opens the help at a section of the manual, or at its contents for null. Null where there's no help to open. */
 val LocalHelp = staticCompositionLocalOf<((String?) -> Unit)?> { null }
 
+/** Whether the game is being played from the keyboard just now: a key was pressed since the last touch or click. */
+val LocalKeyboardPlay = compositionLocalOf { false }
+
 @Composable
 fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, top: (@Composable () -> Unit)? = null, help: String? = null, content: @Composable () -> Unit) {
     val c = Infill.colors
@@ -285,9 +293,15 @@ fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, top: (
                     if (help != null && openHelp != null) HelpButton { openHelp(help) }
                     CloseButton(onClose)
                 }
+                // Opened from the keyboard, the keys go straight into the window.
+                val keyed = LocalKeyboardPlay.current
+                val first = remember { FocusRequester() }
+                LaunchedEffect(Unit) { if (keyed) runCatching { first.requestFocus() } }
                 // What stays put above the part that scrolls, such as tabs.
-                top?.let { Box(Modifier.padding(top = 14.dp)) { it() } }
-                Column(Modifier.padding(top = 14.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(18.dp)) { content() }
+                Column(Modifier.focusRequester(first).focusGroup()) {
+                    top?.let { Box(Modifier.padding(top = 14.dp)) { it() } }
+                    Column(Modifier.padding(top = 14.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(18.dp)) { content() }
+                }
             }
         }
     }

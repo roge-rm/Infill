@@ -525,19 +525,28 @@ fun serviceTabs(city: City): List<TrayTab> {
  * and water each split into their kinds, those [city] has something of.
  */
 @Composable
-fun toolTabs(tool: Tool, city: City): List<TrayTab> = tool.group.tools.flatMap { t ->
+fun toolTabs(tool: Tool, city: City): List<TrayTab> = toolTabKeys(tool, city).map { k ->
+    when (k) {
+        is TransitGroup -> TrayTab(k, stringResource(k.title), transitGlyph(k))
+        is WaterGroup -> TrayTab(k, stringResource(k.title), waterGlyph(k))
+        else -> (k as Tool).let { t -> TrayTab(t, stringResource(t.title), toolGlyph(t)) }
+    }
+}
+
+/** What [toolTabs] are of, in order: tools, or kinds of transit or water. */
+fun toolTabKeys(tool: Tool, city: City): List<Any> = tool.group.tools.flatMap { t ->
     when (t) {
         Tool.Transit -> {
             val open = transitKindsIn(city).filter { it != TransitKind.Remove && !it.list }.flatMap { it.groups }.toSet()
-            TransitGroup.entries.filter { it in open }.map { TrayTab(it, stringResource(it.title), transitGlyph(it)) }
+            TransitGroup.entries.filter { it in open }
         }
         Tool.Water -> {
             val open = waterKindsIn(city).filter { it != WaterKind.Remove }.flatMap { it.groups }.toSet()
-            WaterGroup.entries.filter { it in open }.map { TrayTab(it, stringResource(it.title), waterGlyph(it)) }
+            WaterGroup.entries.filter { it in open }
         }
         // Districts come with the streetcar age.
-        Tool.Districts -> if (city.allowsDistricts()) listOf(TrayTab(t, stringResource(t.title), toolGlyph(t))) else emptyList()
-        else -> listOf(TrayTab(t, stringResource(t.title), toolGlyph(t)))
+        Tool.Districts -> if (city.allowsDistricts()) listOf(t) else emptyList()
+        else -> listOf(t)
     }
 }
 

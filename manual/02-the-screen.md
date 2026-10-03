@@ -49,10 +49,13 @@ Undo takes back up to 100 things and gives back what they cost. It's for slips, 
 
 ## Keys
 
-With a keyboard:
+The whole game can be played from a keyboard.
 
-- Arrows or W, A, S and D move the map, and + and - zoom.
-- 1 to 0 pick the tools: Inspect, Bulldoze, Road, Rail, Zone, Power, Water, Services, Transit and Traffic. Pressing one again steps through its kinds.
+- The arrows move a cursor on the map, and the map follows it. Enter uses the tool at the cursor: it inspects, puts a building down, or starts a road, a line or an area, which the next Enter finishes where the cursor's got to. Esc lets go of it.
+- W, A, S and D move the map, and + and - zoom.
+- 1 to 0 pick the tools: Inspect, Bulldoze, Road, Rail, Zone, Power, Water, Services, Transit and Traffic. T is Phone, O Ports, I Air and \ Districts. Pressing one again steps through its kinds.
+- [ and ] step through the tray's choices, and , and . through its tabs.
+- Tab moves between the buttons on the screen, Enter presses one, and Esc goes back to the map. A window opened from the keyboard starts on its first button, and Esc closes it.
 - B, G and P open the Budget, Graphs and People. V steps through the map views.
 - Space pauses. Shift and 1, 2 or 3 set the speed.
 - Esc closes what's open, then puts the tool down, then opens the menu.

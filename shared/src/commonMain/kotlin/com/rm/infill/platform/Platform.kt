@@ -53,4 +53,27 @@ expect fun cameraCutouts(): List<androidx.compose.ui.geometry.Rect>
 
 /** While [enabled], the system back button (Android's) calls [onBack] instead of leaving the app. */
 @androidx.compose.runtime.Composable
-expect fun BackButton(enabled: Boolean, onBack: () -> Unit)
+expect fun SystemBackButton(enabled: Boolean, onBack: () -> Unit)
+
+/**
+ * While [enabled], the back button and Esc call [onBack]. The one added last
+ * goes first, so Esc closes the window on top, as back does.
+ */
+@androidx.compose.runtime.Composable
+fun BackButton(enabled: Boolean, onBack: () -> Unit) {
+    SystemBackButton(enabled, onBack)
+    val current = androidx.compose.runtime.rememberUpdatedState(onBack)
+    androidx.compose.runtime.DisposableEffect(enabled) {
+        val handler = { current.value() }
+        if (enabled) Escape.handlers += handler
+        onDispose { Escape.handlers -= handler }
+    }
+}
+
+/** What Esc does, newest first. */
+object Escape {
+    internal val handlers = mutableListOf<() -> Unit>()
+
+    /** Does what Esc does now, and says whether there was anything. */
+    fun press(): Boolean = handlers.lastOrNull()?.let { it(); true } ?: false
+}

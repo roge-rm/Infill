@@ -91,10 +91,13 @@ fun MapView(
     lines: List<Pair<Int, IntArray>> = emptyList(),
     /** The hour of the game's day, for the town's sound. */
     hour: Float = 12f,
+    /** The keyboard's cursor, if keys are being used to play. */
+    cursor: Pair<Int, Int>? = null,
     modifier: Modifier = Modifier,
 ) {
     val map = game.city.map
     val page = Infill.colors.page
+    val cursorColour = Infill.colors.accent
     val renderer = remember(map, atlas, graphics) { atlas?.let { MapRenderer(map, it, graphics) } }
     val measurer = rememberTextMeasurer()
     var redraw by remember { mutableIntStateOf(0) }
@@ -301,6 +304,7 @@ fun MapView(
         if (lines.isNotEmpty()) drawLines(lines, map, camera)
         if (preview != null) drawPreview(preview, map, camera, measurer, costText)
         else if (gestures.toolActive && hoverX >= 0) drawHover(hoverX, hoverY, camera)
+        cursor?.let { (x, y) -> drawCursor(x, y, camera, cursorColour) }
     }
 }
 

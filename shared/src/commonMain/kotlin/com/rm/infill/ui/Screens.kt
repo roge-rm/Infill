@@ -427,6 +427,11 @@ fun MenuWindow(
 }
 
 private val ACTION_NAMES: Map<KeyAction, StringResource> = mapOf(
+    KeyAction.CursorUp to Res.string.key_cursor_up,
+    KeyAction.CursorDown to Res.string.key_cursor_down,
+    KeyAction.CursorLeft to Res.string.key_cursor_left,
+    KeyAction.CursorRight to Res.string.key_cursor_right,
+    KeyAction.Use to Res.string.key_use,
     KeyAction.PanUp to Res.string.key_pan_up,
     KeyAction.PanDown to Res.string.key_pan_down,
     KeyAction.PanLeft to Res.string.key_pan_left,
@@ -444,6 +449,13 @@ private val ACTION_NAMES: Map<KeyAction, StringResource> = mapOf(
     KeyAction.ToolTransit to Res.string.tool_transit,
     KeyAction.ToolTraffic to Res.string.tool_traffic,
     KeyAction.ToolDistricts to Res.string.tool_districts,
+    KeyAction.ToolPhone to Res.string.tool_phone,
+    KeyAction.ToolPorts to Res.string.tool_port,
+    KeyAction.ToolAir to Res.string.tool_air,
+    KeyAction.PrevChoice to Res.string.key_prev_choice,
+    KeyAction.NextChoice to Res.string.key_next_choice,
+    KeyAction.PrevTab to Res.string.key_prev_tab,
+    KeyAction.NextTab to Res.string.key_next_tab,
     KeyAction.Pause to Res.string.pause,
     KeyAction.Budget to Res.string.budget,
     KeyAction.Graphs to Res.string.graphs,

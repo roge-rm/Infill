@@ -19,7 +19,12 @@ import com.rm.infill.res.event_tunnel_flooded
 import com.rm.infill.res.label_bridge_kind
 import com.rm.infill.platform.AUTOSAVE
 import com.rm.infill.platform.BackButton
+import com.rm.infill.platform.Escape
 import com.rm.infill.ui.LocalHelp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerEventPass
+import com.rm.infill.ui.LocalKeyboardPlay
 import com.rm.infill.ui.HelpWindow
 import com.rm.infill.platform.Settings
 import com.rm.infill.platform.ThemeChoice
@@ -71,6 +76,14 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
+import com.rm.infill.ui.toolTabKeys
+import com.rm.infill.ui.airKindsIn
+import com.rm.infill.ui.portKindsIn
+import com.rm.infill.ui.phoneKindsIn
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Arrangement
@@ -251,13 +264,33 @@ fun App() {
         val base = LocalDensity.current
         // The help opens over everything, at a section or the contents, from wherever asks for it.
         var help by remember { mutableStateOf<HelpAt?>(null) }
+        // Played from the keyboard since a key went down, until the next touch or click.
+        var keyboardPlay by remember { mutableStateOf(false) }
         CompositionLocalProvider(
             LocalDensity provides Density(base.density * settings.uiScale, base.fontScale),
             LocalHelp provides { section -> help = HelpAt(section) },
+            LocalKeyboardPlay provides keyboardPlay,
         ) {
-            Screens(settings)
-            help?.let { h ->
-                key(h) { HelpWindow({ help = null }, h.section) }
+            Box(
+                Modifier.fillMaxSize()
+                    .onPreviewKeyEvent { e ->
+                        keyboardPlay = true
+                        // Esc closes what's on top, wherever the keys are.
+                        e.key == Key.Escape && e.type == KeyEventType.KeyDown && Escape.press()
+                    }
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val e = awaitPointerEvent(PointerEventPass.Initial)
+                                if (e.type == PointerEventType.Press) keyboardPlay = false
+                            }
+                        }
+                    },
+            ) {
+                Screens(settings)
+                help?.let { h ->
+                    key(h) { HelpWindow({ help = null }, h.section) }
+                }
             }
         }
     }
@@ -548,6 +581,8 @@ private fun GameScreen(
         var speed by remember { mutableIntStateOf(1) }
         var drag by remember { mutableStateOf<ToolDrag?>(null) }
         var inspected by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+        // The keyboard's cursor on the map, there once a key has moved it, gone at the next touch or click.
+        var cursor by remember { mutableStateOf<Pair<Int, Int>?>(null) }
         var message by notice
         var serviceKind by remember { mutableStateOf(ServiceKind.Police) }
         var overlay by remember { mutableStateOf(Overlay.None) }
@@ -695,46 +730,81 @@ private fun GameScreen(
             else stringResource(Res.string.money, groupThousands(it.plan.cost))
         } ?: ""
 
+        /** Steps the tool's kind on by [by], round to the start after the last: the next road, zone, service and so on. */
+        fun stepKind(by: Int) {
+            fun <T> step(kinds: List<T>, now: T): T = if (kinds.isEmpty()) now else kinds[((kinds.indexOf(now) + by) % kinds.size + kinds.size) % kinds.size]
+            when (tool) {
+                Tool.Zone -> zoneKind = step(ZoneKind.entries.filter { city.allowsZone(it.zone) }, zoneKind)
+                Tool.Road -> roadKind = step(roadsIn(city), roadKind)
+                Tool.Rail -> railKind = step(railKindsIn(city), railKind)
+                Tool.Water -> waterKind = step(waterKindsIn(city), waterKind)
+                Tool.Power -> powerKind = step(powerKindsIn(city), powerKind)
+                Tool.Bulldoze -> bulldozeKind = step(BulldozeKind.entries, bulldozeKind)
+                Tool.Traffic -> junctionKind = step(junctionKindsIn(city), junctionKind)
+                Tool.Transit -> {
+                    // The list of lines opens a window, so the key steps past it.
+                    transitKind = step(transitKindsIn(city).filter { !it.list }, transitKind)
+                    lineDraft = emptyList()
+                }
+                Tool.Services -> serviceKind = step(servicesIn(city), serviceKind)
+                Tool.Phone -> phoneKind = step(phoneKindsIn(city), phoneKind)
+                Tool.Port -> portKind = step(portKindsIn(city), portKind)
+                Tool.Air -> airKind = step(airKindsIn(city), airKind)
+                Tool.Districts -> districtChoice = step(listOf(NEW_DISTRICT, 0) + city.districts.map { it.id }, districtChoice)
+                Tool.Inspect -> {}
+            }
+        }
+
         fun pick(t: Tool) {
-            // Picking the zone tool again moves on to the next kind of zone.
-            if (t == Tool.Zone && tool == Tool.Zone) zoneKind = ZoneKind.entries[(zoneKind.ordinal + 1) % ZoneKind.entries.size]
-            if (t == Tool.Road && tool == Tool.Road) {
-                val roads = roadsIn(city)
-                roadKind = roads[(roads.indexOf(roadKind) + 1) % roads.size]
-            }
-            if (t == Tool.Rail && tool == Tool.Rail) {
-                val kinds = railKindsIn(city)
-                railKind = kinds[(kinds.indexOf(railKind) + 1) % kinds.size]
-            }
-            if (t == Tool.Water && tool == Tool.Water) {
-                val kinds = waterKindsIn(city)
-                waterKind = kinds[(kinds.indexOf(waterKind) + 1) % kinds.size]
-            }
-            if (t == Tool.Power && tool == Tool.Power) {
-                val kinds = powerKindsIn(city)
-                powerKind = kinds[(kinds.indexOf(powerKind) + 1) % kinds.size]
-            }
-            if (t == Tool.Bulldoze && tool == Tool.Bulldoze) bulldozeKind = BulldozeKind.entries[(bulldozeKind.ordinal + 1) % BulldozeKind.entries.size]
-            if (t == Tool.Traffic && tool == Tool.Traffic) {
-                val kinds = junctionKindsIn(city)
-                junctionKind = kinds[(kinds.indexOf(junctionKind) + 1) % kinds.size]
-            }
-            if (t == Tool.Transit && tool == Tool.Transit) {
-                // The list of lines opens a window, so the key steps past it.
-                val kinds = transitKindsIn(city).filter { !it.list }
-                transitKind = kinds[(kinds.indexOf(transitKind) + 1) % kinds.size]
-                lineDraft = emptyList()
-            }
-            if (t == Tool.Services && tool == Tool.Services) {
-                val services = servicesIn(city)
-                serviceKind = services[(services.indexOf(serviceKind) + 1) % services.size]
-            }
+            // Picking the same tool again moves on to its next kind.
+            if (t == tool) stepKind(1)
             tool = t
             lastTool[t.group] = t
             trayFolded = false
             choosingOverlay = false
             drag = null
             if (t != Tool.Inspect) inspected = null
+        }
+
+        /** Opens one of the tray's tabs: another tool on the same button, or a kind of transit or water. */
+        fun openTab(t: Any) {
+            when (t) {
+                is Tool -> if (t != tool) pick(t)
+                is TransitGroup -> {
+                    if (tool != Tool.Transit) pick(Tool.Transit)
+                    transitTab = t
+                    val kind = lastTransit[t] ?: transitKindsIn(city).first { t in it.groups && !it.list && it != TransitKind.Remove }
+                    if (kind != transitKind) lineDraft = emptyList()
+                    transitKind = kind
+                }
+                is WaterGroup -> {
+                    if (tool != Tool.Water) pick(Tool.Water)
+                    waterTab = t
+                    waterKind = lastWater[t] ?: waterKindsIn(city).first { t in it.groups && it != WaterKind.Remove }
+                }
+            }
+        }
+
+        /** Steps through the tray's tabs by [by], round to the first after the last. */
+        fun stepTab(by: Int) {
+            // The services' tabs are kinds of service.
+            if (tool == Tool.Services) {
+                val groups = servicesIn(city).map { it.group }.distinct()
+                if (groups.size < 2) return
+                val g = groups[((groups.indexOf(serviceKind.group) + by) % groups.size + groups.size) % groups.size]
+                serviceKind = lastService[g] ?: servicesIn(city).first { it.group == g }
+                return
+            }
+            val tabs = toolTabKeys(tool, city)
+            if (tabs.size < 2) return
+            val transitNow = if (transitTab in transitKind.groups) transitTab else transitKind.groups.first()
+            val waterNow = if (waterTab in waterKind.groups) waterTab else waterKind.groups.first()
+            val now = tabs.indexOf(when (tool) {
+                Tool.Transit -> transitNow
+                Tool.Water -> waterNow
+                else -> tool
+            }).coerceAtLeast(0)
+            openTab(tabs[((now + by) % tabs.size + tabs.size) % tabs.size])
         }
 
         // A toolbar button: its tool used last, or again on the open one to fold or open its choices.
@@ -775,6 +845,8 @@ private fun GameScreen(
 
         // Esc and the back button: let go of a drag, close what's open, put the tool down, then the menu.
         fun back() {
+            // The keys come back to the map from wherever they were.
+            runCatching { focus.requestFocus() }
             when {
                 budgetOpen || graphsOpen || peopleOpen || linesOpen || districtsOpen || eraShown != null -> {
                     budgetOpen = false; graphsOpen = false; peopleOpen = false; linesOpen = false; districtsOpen = false; eraShown = null
@@ -790,44 +862,109 @@ private fun GameScreen(
         // one stands aside while one of the app's windows is open over the game.
         BackButton(enabled = !windowOpen) { back() }
 
+        fun actionOf(d: ToolDrag) = d.action(
+            tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map,
+            junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind,
+        )
+
+        /** Lets go of the drag: does what it's for. */
+        fun toolUp() {
+            val d = drag
+            drag = null
+            // Planning a line: each stop of its kind tapped joins it, in order.
+            if (d != null && tool == Tool.Transit && transitKind.line != 0) {
+                val i = city.map.index(d.x1, d.y1)
+                val kind = if (transitKind.line == 2) Stop.TRAM else Stop.BUS
+                if (city.map.stop[i].toInt() and kind != 0 && lineDraft.lastOrNull() != i) lineDraft = lineDraft + i
+            }
+            val action = d?.let(::actionOf)
+            if (action != null) {
+                val made = action is Action.PaintDistrict && action.id == NEW_DISTRICT
+                val plan = game.apply(action)
+                tell(plan.problem)
+                // Heard where it is on screen, more or less.
+                val x = if (plan.changes.isEmpty()) camera.centreX else plan.changes.sumOf { it % city.map.width }.toFloat() / plan.changes.size
+                val across = viewSize.width / camera.tilePx / 2f
+                Sounds.action(action, plan, city, if (across > 0f) (x - camera.centreX) / across else 0f)
+                // What it did, such as people forced out by a clearing, is told at once.
+                game.takeEvents(::showEvent)
+                // Out of the way once something's built, to see it.
+                if (plan.ok) trayFolded = true
+                // Once made, go on painting into the new district.
+                if (made && plan.ok) city.districts.lastOrNull()?.let { districtChoice = it.id }
+            }
+        }
+
         val gestures = MapGestures(
             toolActive = tool != Tool.Inspect,
-            onToolDown = { x, y -> drag = ToolDrag(x, y, x, y) },
+            onToolDown = { x, y -> cursor = null; drag = ToolDrag(x, y, x, y) },
             onToolMove = { x, y -> drag = drag?.to(x, y) },
-            onToolUp = {
-                val d = drag
-                drag = null
-                // Planning a line: each stop of its kind tapped joins it, in order.
-                if (d != null && tool == Tool.Transit && transitKind.line != 0) {
-                    val i = city.map.index(d.x1, d.y1)
-                    val kind = if (transitKind.line == 2) Stop.TRAM else Stop.BUS
-                    if (city.map.stop[i].toInt() and kind != 0 && lineDraft.lastOrNull() != i) lineDraft = lineDraft + i
-                }
-                val action = d?.action(tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind)
-                if (action != null) {
-                    val made = action is Action.PaintDistrict && action.id == NEW_DISTRICT
-                    val plan = game.apply(action)
-                    tell(plan.problem)
-                    // Heard where it is on screen, more or less.
-                    val x = if (plan.changes.isEmpty()) camera.centreX else plan.changes.sumOf { it % city.map.width }.toFloat() / plan.changes.size
-                    val across = viewSize.width / camera.tilePx / 2f
-                    Sounds.action(action, plan, city, if (across > 0f) (x - camera.centreX) / across else 0f)
-                    // What it did, such as people forced out by a clearing, is told at once.
-                    game.takeEvents(::showEvent)
-                    // Out of the way once something's built, to see it.
-                    if (plan.ok) trayFolded = true
-                    // Once made, go on painting into the new district.
-                    if (made && plan.ok) city.districts.lastOrNull()?.let { districtChoice = it.id }
-                }
-            },
+            onToolUp = ::toolUp,
             onToolCancel = { drag = null },
-            onTap = { x, y -> if (tool == Tool.Inspect) inspected = x to y },
+            onTap = { x, y -> cursor = null; if (tool == Tool.Inspect) inspected = x to y },
         )
+
+        /** Pans just enough to keep tile [x], [y] a few tiles in from the edges of the view. */
+        fun keepInView(x: Int, y: Int) {
+            if (viewSize.width <= 0f) return
+            val p = camera.tileToScreen(x + 0.5f, y + 0.5f, viewSize)
+            val mx = minOf(camera.tilePx * CURSOR_MARGIN, viewSize.width / 3f)
+            val my = minOf(camera.tilePx * CURSOR_MARGIN, viewSize.height / 3f)
+            val dx = when {
+                p.x < mx -> mx - p.x
+                p.x > viewSize.width - mx -> viewSize.width - mx - p.x
+                else -> 0f
+            }
+            val dy = when {
+                p.y < my -> my - p.y
+                p.y > viewSize.height - my -> viewSize.height - my - p.y
+                else -> 0f
+            }
+            if (dx != 0f || dy != 0f) camera.panBy(dx, dy)
+        }
+
+        /** Moves the cursor [dx], [dy] tiles, starting it in the middle of the view, and a drag's far end with it. */
+        fun moveCursor(dx: Int, dy: Int) {
+            val m = city.map
+            val (cx, cy) = cursor ?: (camera.centreX.toInt() to camera.centreY.toInt())
+            val x = (cx + dx).coerceIn(0, m.width - 1)
+            val y = (cy + dy).coerceIn(0, m.height - 1)
+            cursor = x to y
+            drag = drag?.to(x, y)
+            keepInView(x, y)
+        }
+
+        /**
+         * The tool at the cursor: inspects, or starts a drag and then finishes
+         * it where the cursor's been moved to. A building, a stop or anything
+         * else that goes on one tile goes in at once.
+         */
+        fun useAtCursor() {
+            val at = cursor
+            if (at == null) {
+                moveCursor(0, 0)
+                return
+            }
+            val (x, y) = at
+            if (tool == Tool.Inspect) {
+                inspected = x to y
+                return
+            }
+            if (drag != null) {
+                toolUp()
+                return
+            }
+            drag = ToolDrag(x, y, x, y)
+            val one = actionOf(ToolDrag(x, y, x, y))
+            if (one == null || one is Action.PlaceBuilding || one is Action.PlaceStop || one is Action.FitScrubbers) toolUp()
+        }
 
         // Pans and zooms while a key is held, at the same speed whatever the frame rate.
         LaunchedEffect(keys.heldVersion) {
             if (keys.held.isEmpty()) return@LaunchedEffect
             var last = withFrameNanos { it }
+            var held = 0f
+            var sinceStep = 0f
             while (true) {
                 val now = withFrameNanos { it }
                 val seconds = (now - last) / 1e9f
@@ -843,9 +980,25 @@ private fun GameScreen(
                 val centre = Offset(viewSize.width / 2f, viewSize.height / 2f)
                 if (KeyAction.ZoomIn in keys.held) camera.zoomBy(1f + KEY_ZOOM * seconds, centre, viewSize)
                 if (KeyAction.ZoomOut in keys.held) camera.zoomBy(1f / (1f + KEY_ZOOM * seconds), centre, viewSize)
+                // A cursor key held down: after a moment, a tile at a time and quicker.
+                held += seconds
+                if (held >= CURSOR_DELAY) {
+                    sinceStep += seconds
+                    while (sinceStep >= CURSOR_EVERY) {
+                        sinceStep -= CURSOR_EVERY
+                        var cx = 0
+                        var cy = 0
+                        if (KeyAction.CursorUp in keys.held) cy--
+                        if (KeyAction.CursorDown in keys.held) cy++
+                        if (KeyAction.CursorLeft in keys.held) cx--
+                        if (KeyAction.CursorRight in keys.held) cx++
+                        if (cx != 0 || cy != 0) moveCursor(cx, cy)
+                    }
+                }
             }
         }
         // The keys come back to the map whenever a window or panel over it closes, which takes the focus with it.
+        var mapFocused by remember { mutableStateOf(false) }
         val anyOpen = windowOpen || budgetOpen || graphsOpen || peopleOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
         LaunchedEffect(anyOpen) { if (!anyOpen) focus.requestFocus() }
 
@@ -855,12 +1008,29 @@ private fun GameScreen(
             Modifier
                 .fillMaxSize()
                 .focusRequester(focus)
-                .onFocusChanged { if (!it.hasFocus) keys.releaseAll() }
+                .onFocusChanged {
+                    mapFocused = it.isFocused
+                    if (!it.hasFocus) keys.releaseAll()
+                }
                 .focusable()
                 .onPreviewKeyEvent { event ->
+                    // With a button, a tray or a window focused, Tab, Enter and the arrows are theirs.
+                    if (!mapFocused) return@onPreviewKeyEvent false
                     keys.onKey(event) { action ->
                         if (action.dev && !platform.devKeys) return@onKey
                         when (action) {
+                            KeyAction.CursorUp -> moveCursor(0, -1)
+                            KeyAction.CursorDown -> moveCursor(0, 1)
+                            KeyAction.CursorLeft -> moveCursor(-1, 0)
+                            KeyAction.CursorRight -> moveCursor(1, 0)
+                            KeyAction.Use -> useAtCursor()
+                            KeyAction.ToolPhone -> pick(Tool.Phone)
+                            KeyAction.ToolPorts -> pick(Tool.Port)
+                            KeyAction.ToolAir -> pick(Tool.Air)
+                            KeyAction.PrevChoice -> stepKind(-1)
+                            KeyAction.NextChoice -> stepKind(1)
+                            KeyAction.PrevTab -> stepTab(-1)
+                            KeyAction.NextTab -> stepTab(1)
                             KeyAction.ToolInspect -> pick(Tool.Inspect)
                             KeyAction.ToolBulldoze -> pick(Tool.Bulldoze)
                             KeyAction.ToolRoad -> pick(Tool.Road)
@@ -913,6 +1083,7 @@ private fun GameScreen(
                     if (draft != null) drawn + (0 to draft) else drawn
                 },
                 hour = hour,
+                cursor = cursor,
                 modifier = Modifier.fillMaxSize(),
             )
 
@@ -1049,23 +1220,7 @@ private fun GameScreen(
                     // The tab open: a key stepping on to a kind in another tab takes the tab with it.
                     val transitNow = if (transitTab in transitKind.groups) transitTab else transitKind.groups.first()
                     val waterNow = if (waterTab in waterKind.groups) waterTab else waterKind.groups.first()
-                    val onTab = { t: Any ->
-                        when (t) {
-                            is Tool -> if (t != tool) pick(t)
-                            is TransitGroup -> {
-                                if (tool != Tool.Transit) pick(Tool.Transit)
-                                transitTab = t
-                                val kind = lastTransit[t] ?: transitKindsIn(city).first { t in it.groups && !it.list && it != TransitKind.Remove }
-                                if (kind != transitKind) lineDraft = emptyList()
-                                transitKind = kind
-                            }
-                            is WaterGroup -> {
-                                if (tool != Tool.Water) pick(Tool.Water)
-                                waterTab = t
-                                waterKind = lastWater[t] ?: waterKindsIn(city).first { t in it.groups && it != WaterKind.Remove }
-                            }
-                        }
-                    }
+                    val onTab = { t: Any -> openTab(t) }
                     when (tool) {
                         Tool.Inspect -> {}
                         Tool.Zone -> ChoiceTray(atlas, zoneChoices(city, densityKind), zoneKind, { zoneKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab) {
@@ -1168,6 +1323,11 @@ private fun GameScreen(
 }
 
 /** A tile on screen, in dp: the whole range, and where a new city starts. */
+/** Tiles the keyboard's cursor keeps from the edge of the view, and how its keys repeat: after a moment, then this often. */
+private const val CURSOR_MARGIN = 3f
+private const val CURSOR_DELAY = 0.35f
+private const val CURSOR_EVERY = 0.06f
+
 private const val MIN_TILE_DP = 3f
 private const val MAX_TILE_DP = 96f
 private const val START_TILE_DP = 24f

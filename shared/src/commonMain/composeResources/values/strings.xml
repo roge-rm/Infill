@@ -500,6 +500,15 @@
     <string name="key_zoom_in">Zoom in</string>
     <string name="key_zoom_out">Zoom out</string>
     <string name="key_back">Back and menu</string>
+    <string name="key_cursor_up">Cursor up</string>
+    <string name="key_cursor_down">Cursor down</string>
+    <string name="key_cursor_left">Cursor left</string>
+    <string name="key_cursor_right">Cursor right</string>
+    <string name="key_use">Use the tool</string>
+    <string name="key_prev_choice">Previous choice</string>
+    <string name="key_next_choice">Next choice</string>
+    <string name="key_prev_tab">Previous tab</string>
+    <string name="key_next_tab">Next tab</string>
 
     <string name="speed">Speed</string>
     <string name="temperature">%1$s°</string>

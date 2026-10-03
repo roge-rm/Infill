@@ -134,6 +134,10 @@ class Settings(private val store: Platform) {
         // if nothing else has taken it.
         // Keys saved before this was kept came from 0.1, which had only the actions it had then.
         val known = store.setting(KNOWN)?.split(',')?.toSet() ?: FIRST_ACTIONS
+        // The arrows panned the map until the cursor came; where they still do, they move the cursor now.
+        if (KeyAction.CursorUp.name !in known) {
+            for ((arrow, pan, cursor) in ARROWS) if (out[arrow] == pan) out[arrow] = cursor
+        }
         for ((k, a) in DefaultKeys) {
             val added = a.name !in known && a !in out.values
             if ((a.dev || added) && k !in out) out[k] = a
@@ -152,6 +156,13 @@ class Settings(private val store: Platform) {
             "PanUp", "PanDown", "PanLeft", "PanRight", "ZoomIn", "ZoomOut",
             "ToolInspect", "ToolBulldoze", "ToolRoad", "ToolZone", "ToolPower", "ToolServices",
             "Budget", "Graphs", "NextOverlay", "Speed1", "Speed2", "Speed3", "Pause", "Back", "Undo", "Redo",
+        )
+
+        private val ARROWS = listOf(
+            Triple(Key.DirectionUp, KeyAction.PanUp, KeyAction.CursorUp),
+            Triple(Key.DirectionDown, KeyAction.PanDown, KeyAction.CursorDown),
+            Triple(Key.DirectionLeft, KeyAction.PanLeft, KeyAction.CursorLeft),
+            Triple(Key.DirectionRight, KeyAction.PanRight, KeyAction.CursorRight),
         )
 
         val SCALES = listOf(1f, 1.1f, 1.2f, 1.3f)

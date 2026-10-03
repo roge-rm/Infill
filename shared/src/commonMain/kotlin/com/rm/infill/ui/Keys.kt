@@ -17,6 +17,13 @@ import androidx.compose.ui.input.key.type
  * (panning, zooming), the rest happen once per press.
  */
 enum class KeyAction(val held: Boolean = false, val dev: Boolean = false) {
+    // The cursor on the map, for playing with keys alone: it moves a tile a press, and on while held.
+    CursorUp(held = true),
+    CursorDown(held = true),
+    CursorLeft(held = true),
+    CursorRight(held = true),
+    /** Uses the tool at the cursor: starts and finishes a drag, places a building, or inspects. */
+    Use,
     PanUp(held = true),
     PanDown(held = true),
     PanLeft(held = true),
@@ -34,6 +41,14 @@ enum class KeyAction(val held: Boolean = false, val dev: Boolean = false) {
     ToolTransit,
     ToolTraffic,
     ToolDistricts,
+    ToolPhone,
+    ToolPorts,
+    ToolAir,
+    /** The tray's choices and tabs, a step at a time. */
+    PrevChoice,
+    NextChoice,
+    PrevTab,
+    NextTab,
     Budget,
     Graphs,
     People,
@@ -73,13 +88,15 @@ val DefaultChords: Map<KeyChord, KeyAction> = mapOf(
 
 /** The keys out of the box. Settings will be able to change these. */
 val DefaultKeys: Map<Key, KeyAction> = mapOf(
-    Key.DirectionUp to KeyAction.PanUp,
+    Key.DirectionUp to KeyAction.CursorUp,
+    Key.DirectionDown to KeyAction.CursorDown,
+    Key.DirectionLeft to KeyAction.CursorLeft,
+    Key.DirectionRight to KeyAction.CursorRight,
+    Key.Enter to KeyAction.Use,
+    Key.NumPadEnter to KeyAction.Use,
     Key.W to KeyAction.PanUp,
-    Key.DirectionDown to KeyAction.PanDown,
     Key.S to KeyAction.PanDown,
-    Key.DirectionLeft to KeyAction.PanLeft,
     Key.A to KeyAction.PanLeft,
-    Key.DirectionRight to KeyAction.PanRight,
     Key.D to KeyAction.PanRight,
     Key.Equals to KeyAction.ZoomIn,
     Key.Plus to KeyAction.ZoomIn,
@@ -97,19 +114,26 @@ val DefaultKeys: Map<Key, KeyAction> = mapOf(
     Key.Nine to KeyAction.ToolTransit,
     Key.Zero to KeyAction.ToolTraffic,
     Key.Backslash to KeyAction.ToolDistricts,
+    Key.T to KeyAction.ToolPhone,
+    Key.O to KeyAction.ToolPorts,
+    Key.I to KeyAction.ToolAir,
+    Key.LeftBracket to KeyAction.PrevChoice,
+    Key.RightBracket to KeyAction.NextChoice,
+    Key.Comma to KeyAction.PrevTab,
+    Key.Period to KeyAction.NextTab,
     Key.B to KeyAction.Budget,
     Key.G to KeyAction.Graphs,
     Key.P to KeyAction.People,
     Key.V to KeyAction.NextOverlay,
     Key.Spacebar to KeyAction.Pause,
     Key.Escape to KeyAction.Back,
-    Key.LeftBracket to KeyAction.DevSeasonBack,
-    Key.RightBracket to KeyAction.DevSeasonNext,
-    Key.Comma to KeyAction.DevHourBack,
-    Key.Period to KeyAction.DevHourNext,
-    Key.K to KeyAction.DevGraphics,
-    Key.Q to KeyAction.DevWeather,
-    Key.X to KeyAction.DevFire,
+    Key.F5 to KeyAction.DevSeasonBack,
+    Key.F6 to KeyAction.DevSeasonNext,
+    Key.F7 to KeyAction.DevHourBack,
+    Key.F8 to KeyAction.DevHourNext,
+    Key.F9 to KeyAction.DevGraphics,
+    Key.F10 to KeyAction.DevWeather,
+    Key.F12 to KeyAction.DevFire,
 )
 
 /**
@@ -177,5 +201,5 @@ private val KEY_NAMES: Map<Key, String> = buildMap {
     put(Key.Backspace, "Backspace"); put(Key.Delete, "Delete")
     put(Key.Minus, "-"); put(Key.Equals, "="); put(Key.Plus, "+"); put(Key.Comma, ","); put(Key.Period, ".")
     put(Key.LeftBracket, "["); put(Key.RightBracket, "]"); put(Key.Slash, "/"); put(Key.Semicolon, ";")
-    put(Key.NumPadAdd, "Num +"); put(Key.NumPadSubtract, "Num -")
+    put(Key.NumPadAdd, "Num +"); put(Key.NumPadSubtract, "Num -"); put(Key.NumPadEnter, "Num Enter")
 }

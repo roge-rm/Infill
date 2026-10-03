@@ -121,6 +121,17 @@ internal fun DrawScope.drawHover(x: Int, y: Int, camera: Camera) {
     drawRect(HOVER, camera.tileToScreen(x.toFloat(), y.toFloat(), size), Size(t, t), style = Stroke(maxOf(1f, 1.5f * density)))
 }
 
+/** The keyboard's cursor: a bold square in [colour], with a dark edge so it shows on any ground. */
+internal fun DrawScope.drawCursor(x: Int, y: Int, camera: Camera, colour: Color) {
+    val t = camera.tilePx
+    val at = camera.tileToScreen(x.toFloat(), y.toFloat(), size)
+    val w = maxOf(2f, 2.5f * density)
+    drawRect(CURSOR_EDGE, Offset(at.x - w, at.y - w), Size(t + 2 * w, t + 2 * w), style = Stroke(w))
+    drawRect(colour, at, Size(t, t), style = Stroke(w))
+}
+
+private val CURSOR_EDGE = Color(0x99000000)
+
 private fun DrawScope.rect(x0: Int, y0: Int, x1: Int, y1: Int, camera: Camera, fill: Color, edge: Color) {
     val a = camera.tileToScreen(minOf(x0, x1).toFloat(), minOf(y0, y1).toFloat(), size)
     val b = camera.tileToScreen(maxOf(x0, x1) + 1f, maxOf(y0, y1) + 1f, size)

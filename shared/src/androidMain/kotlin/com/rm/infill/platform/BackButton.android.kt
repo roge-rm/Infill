@@ -4,4 +4,4 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 
 @Composable
-actual fun BackButton(enabled: Boolean, onBack: () -> Unit) = BackHandler(enabled, onBack)
+actual fun SystemBackButton(enabled: Boolean, onBack: () -> Unit) = BackHandler(enabled, onBack)
