@@ -14,6 +14,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -458,10 +459,14 @@ private fun SettingHead(title: StringResource, glyph: Glyph) {
     }
 }
 
-/** Graphics, theme, the size of controls and text, and the keys. */
+/** The settings' tabs. */
+private enum class SettingsTab { Display, Sound, Game, Keys }
+
+/** Graphics, theme, the size of controls and text, sound, disasters and the keys, a tab each. */
 @Composable
 fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
     val c = Infill.colors
+    var tab by remember { mutableStateOf(SettingsTab.Display) }
     var capturing by remember { mutableStateOf<KeyAction?>(null) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(capturing) { if (capturing != null) focus.requestFocus() }
@@ -478,70 +483,89 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
                 true
             },
     ) {
-        Window(Res.string.settings, onClose, Glyph.Auto) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SettingHead(Res.string.graphics, Glyph.Mountain)
-                Chips(GraphicsLevel.entries, settings.graphics, {
-                    stringResource(
-                        when (it) {
-                            GraphicsLevel.Low -> Res.string.graphics_low
-                            GraphicsLevel.Medium -> Res.string.graphics_medium
-                            GraphicsLevel.High -> Res.string.graphics_high
-                        },
-                    )
-                }) { settings.graphics = it }
-                SettingHead(Res.string.theme, Glyph.Lights)
-                Chips(ThemeChoice.entries, settings.theme, {
-                    stringResource(
-                        when (it) {
-                            ThemeChoice.Auto -> Res.string.theme_auto
-                            ThemeChoice.Light -> Res.string.theme_light
-                            ThemeChoice.Dark -> Res.string.theme_dark
-                        },
-                    )
-                }) { settings.theme = it }
-                SettingHead(Res.string.tool_side, Glyph.Arrows)
-                Chips(ToolSide.entries, settings.toolSide, {
-                    stringResource(
-                        when (it) {
-                            ToolSide.Auto -> Res.string.tool_side_auto
-                            ToolSide.Left -> Res.string.tool_side_left
-                            ToolSide.Right -> Res.string.tool_side_right
-                        },
-                    )
-                }) { settings.toolSide = it }
-                SettingHead(Res.string.sound, Glyph.Speaker)
-                val levels = (0..100 step 10).toList()
-                @Composable
-                fun level(v: Int) = if (v == 0) stringResource(Res.string.volume_off) else stringResource(Res.string.percent, v)
-                StepSlider(Res.string.volume_master, levels, settings.master / 10 * 10, { level(it) }) { settings.master = it }
-                StepSlider(Res.string.volume_town, levels, settings.townVolume / 10 * 10, { level(it) }) { settings.townVolume = it }
-                StepSlider(Res.string.volume_effects, levels, settings.effectsVolume / 10 * 10, { level(it) }) { settings.effectsVolume = it }
-                StepSlider(Res.string.volume_music, levels, settings.musicVolume / 10 * 10, { level(it) }) { settings.musicVolume = it }
-                SettingHead(Res.string.disasters, Glyph.Warn)
-                Chips(listOf(0, 1, 2), settings.disasters, {
-                    stringResource(listOf(Res.string.disasters_off, Res.string.disasters_fewer, Res.string.disasters_normal)[it])
-                }) { settings.disasters = it }
-                SettingHead(Res.string.ui_size, Glyph.Zone)
-                Chips(Settings.SCALES, settings.uiScale, { "${(it * 100).toInt()}%" }) { settings.uiScale = it }
-                SettingHead(Res.string.keys, Glyph.List)
-                for ((action, title) in ACTION_NAMES) {
-                    val keys = settings.keys.filterValues { it == action }.keys.map { keyName(it) }
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(title), color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                        Text(
-                            if (capturing == action) stringResource(Res.string.press_a_key) else keys.joinToString("  ").ifEmpty { "—" },
-                            color = if (capturing == action) c.onAccent else c.text,
-                            fontSize = 14.sp,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (capturing == action) c.accent else c.button)
-                                .clickable(role = Role.Button) { capturing = if (capturing == action) null else action }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                        )
+        val tabs = listOf(
+            TrayTab(SettingsTab.Display, stringResource(Res.string.settings_display), Glyph.Mountain),
+            TrayTab(SettingsTab.Sound, stringResource(Res.string.sound), Glyph.Speaker),
+            TrayTab(SettingsTab.Game, stringResource(Res.string.settings_game), Glyph.Warn),
+            TrayTab(SettingsTab.Keys, stringResource(Res.string.keys), Glyph.List),
+        )
+        Window(Res.string.settings, onClose, Glyph.Auto, top = {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (t in tabs) TabButton(t, t.key == tab, stacked = false, Modifier.weight(1f)) { tab = t.key as SettingsTab }
+            }
+        }) {
+            // As tall as the tallest short tab, so the tabs stay put when moving between them.
+            Column(Modifier.heightIn(min = 340.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                when (tab) {
+                    SettingsTab.Display -> {
+                        SettingHead(Res.string.graphics, Glyph.Mountain)
+                        Chips(GraphicsLevel.entries, settings.graphics, {
+                            stringResource(
+                                when (it) {
+                                    GraphicsLevel.Low -> Res.string.graphics_low
+                                    GraphicsLevel.Medium -> Res.string.graphics_medium
+                                    GraphicsLevel.High -> Res.string.graphics_high
+                                },
+                            )
+                        }) { settings.graphics = it }
+                        SettingHead(Res.string.theme, Glyph.Lights)
+                        Chips(ThemeChoice.entries, settings.theme, {
+                            stringResource(
+                                when (it) {
+                                    ThemeChoice.Auto -> Res.string.theme_auto
+                                    ThemeChoice.Light -> Res.string.theme_light
+                                    ThemeChoice.Dark -> Res.string.theme_dark
+                                },
+                            )
+                        }) { settings.theme = it }
+                        SettingHead(Res.string.tool_side, Glyph.Arrows)
+                        Chips(ToolSide.entries, settings.toolSide, {
+                            stringResource(
+                                when (it) {
+                                    ToolSide.Auto -> Res.string.tool_side_auto
+                                    ToolSide.Left -> Res.string.tool_side_left
+                                    ToolSide.Right -> Res.string.tool_side_right
+                                },
+                            )
+                        }) { settings.toolSide = it }
+                        SettingHead(Res.string.ui_size, Glyph.Zone)
+                        Chips(Settings.SCALES, settings.uiScale, { "${(it * 100).toInt()}%" }) { settings.uiScale = it }
+                    }
+                    SettingsTab.Sound -> {
+                        val levels = (0..100 step 10).toList()
+                        @Composable
+                        fun level(v: Int) = if (v == 0) stringResource(Res.string.volume_off) else stringResource(Res.string.percent, v)
+                        StepSlider(Res.string.volume_master, levels, settings.master / 10 * 10, { level(it) }) { settings.master = it }
+                        StepSlider(Res.string.volume_town, levels, settings.townVolume / 10 * 10, { level(it) }) { settings.townVolume = it }
+                        StepSlider(Res.string.volume_effects, levels, settings.effectsVolume / 10 * 10, { level(it) }) { settings.effectsVolume = it }
+                        StepSlider(Res.string.volume_music, levels, settings.musicVolume / 10 * 10, { level(it) }) { settings.musicVolume = it }
+                    }
+                    SettingsTab.Game -> {
+                        SettingHead(Res.string.disasters, Glyph.Warn)
+                        Chips(listOf(0, 1, 2), settings.disasters, {
+                            stringResource(listOf(Res.string.disasters_off, Res.string.disasters_fewer, Res.string.disasters_normal)[it])
+                        }) { settings.disasters = it }
+                    }
+                    SettingsTab.Keys -> {
+                        for ((action, title) in ACTION_NAMES) {
+                            val keys = settings.keys.filterValues { it == action }.keys.map { keyName(it) }
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(title), color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                                Text(
+                                    if (capturing == action) stringResource(Res.string.press_a_key) else keys.joinToString("  ").ifEmpty { "—" },
+                                    color = if (capturing == action) c.onAccent else c.text,
+                                    fontSize = 14.sp,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (capturing == action) c.accent else c.button)
+                                        .clickable(role = Role.Button) { capturing = if (capturing == action) null else action }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                )
+                            }
+                        }
+                        BigButton(stringResource(Res.string.reset_keys)) { settings.resetKeys() }
                     }
                 }
-                BigButton(stringResource(Res.string.reset_keys)) { settings.resetKeys() }
             }
         }
     }

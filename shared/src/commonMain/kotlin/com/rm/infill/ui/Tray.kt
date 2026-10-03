@@ -264,7 +264,7 @@ private fun Chevron(up: Boolean, colour: Color, modifier: Modifier) {
 private const val STACK_TABS = 4
 
 @Composable
-private fun TabButton(tab: TrayTab, on: Boolean, stacked: Boolean, modifier: Modifier, onClick: () -> Unit) {
+internal fun TabButton(tab: TrayTab, on: Boolean, stacked: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val c = Infill.colors
     val tint = if (on) c.onAccent else c.text
     val base = modifier

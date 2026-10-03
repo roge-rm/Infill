@@ -560,6 +560,8 @@
     <string name="megawatts">%1$s MW</string>
     <string name="kilowatts">%1$s kW</string>
     <string name="sound">Sound</string>
+    <string name="settings_display">Display</string>
+    <string name="settings_game">Game</string>
     <string name="volume_master">Everything</string>
     <string name="volume_town">The town</string>
     <string name="volume_effects">Tools and alerts</string>

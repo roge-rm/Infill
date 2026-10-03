@@ -243,12 +243,12 @@ import org.jetbrains.compose.resources.stringResource
  * cutout and scrolls if the screen is short.
  */
 @Composable
-fun Window(title: StringResource, onClose: () -> Unit, glyph: Glyph? = null, content: @Composable () -> Unit) {
-    WindowFrame(stringResource(title), onClose, glyph, content)
+fun Window(title: StringResource, onClose: () -> Unit, glyph: Glyph? = null, top: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) {
+    WindowFrame(stringResource(title), onClose, glyph, top, content)
 }
 
 @Composable
-fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, content: @Composable () -> Unit) {
+fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, top: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) {
     val c = Infill.colors
     Box(
         Modifier
@@ -274,6 +274,8 @@ fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, conten
                     Text(title, color = c.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     CloseButton(onClose)
                 }
+                // What stays put above the part that scrolls, such as tabs.
+                top?.let { Box(Modifier.padding(top = 14.dp)) { it() } }
                 Column(Modifier.padding(top = 14.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(18.dp)) { content() }
             }
         }
