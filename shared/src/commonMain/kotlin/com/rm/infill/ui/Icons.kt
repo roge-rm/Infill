@@ -258,7 +258,7 @@ enum class Glyph {
     Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
     Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance, Sack, Glass, Hat,
     Person, Briefcase, Wrench, Calendar, Snow, Gavel, Tag, Check, Warn, Building, Cable, Phone, Mast,
-    Anchor, Ship, Suitcase, Bridge, Plane,
+    Anchor, Ship, Suitcase, Bridge, Plane, Speaker,
 }
 
 /** The drawing for [tool]. */
@@ -519,6 +519,16 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
             for (k in 0 until 4) drawRect(c.copy(alpha = 0.35f), Offset((4 + k * 4.5f) * u, 8 * u), Size(3.2f * u, 4 * u))
             drawCircle(c, 2.4f * u, Offset(7 * u, 19 * u))
             drawCircle(c, 2.4f * u, Offset(17 * u, 19 * u))
+        }
+        Glyph.Speaker -> {
+            // A speaker and two waves coming off it.
+            val p = Path().apply {
+                moveTo(3 * u, 9 * u); lineTo(7 * u, 9 * u); lineTo(12 * u, 4.5f * u); lineTo(12 * u, 19.5f * u)
+                lineTo(7 * u, 15 * u); lineTo(3 * u, 15 * u); close()
+            }
+            drawPath(p, c)
+            drawArc(c, -50f, 100f, false, Offset(10 * u, 8 * u), Size(8 * u, 8 * u), style = Stroke(2 * u, cap = StrokeCap.Round))
+            drawArc(c, -50f, 100f, false, Offset(9 * u, 4.5f * u), Size(13 * u, 15 * u), style = Stroke(2 * u, cap = StrokeCap.Round))
         }
         Glyph.Phone -> {
             // An old handset.

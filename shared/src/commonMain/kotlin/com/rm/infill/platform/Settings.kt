@@ -68,6 +68,36 @@ class Settings(private val store: Platform) {
             store.setSetting(DISASTERS, v.toString())
         }
 
+    private var volumesState by mutableStateOf(
+        IntArray(VOLUMES.size) { k -> store.setting(VOLUMES[k])?.toIntOrNull()?.coerceIn(0, 100) ?: DEFAULT_VOLUMES[k] }.toList(),
+    )
+
+    /** How loud everything is, the town, the tools and alerts, and the music, each 0 to 100. */
+    var master: Int
+        get() = volumesState[0]
+        set(v) = setVolume(0, v)
+    var townVolume: Int
+        get() = volumesState[1]
+        set(v) = setVolume(1, v)
+    var effectsVolume: Int
+        get() = volumesState[2]
+        set(v) = setVolume(2, v)
+    var musicVolume: Int
+        get() = volumesState[3]
+        set(v) = setVolume(3, v)
+
+    private fun setVolume(k: Int, v: Int) {
+        volumesState = volumesState.toMutableList().also { it[k] = v.coerceIn(0, 100) }
+        store.setSetting(VOLUMES[k], v.toString())
+    }
+
+    /** What each of the synth's buses gets, 0 to 1: the town, effects, buttons (with the effects), and music. */
+    val busGains: FloatArray
+        get() {
+            val m = master / 100f
+            return floatArrayOf(m * townVolume / 100f, m * effectsVolume / 100f, m * effectsVolume / 100f, m * musicVolume / 100f)
+        }
+
     private var keysState by mutableStateOf(loadKeys())
 
     /** Which key does what. Kept as key codes, which differ between platforms, so they're kept per device. */
@@ -131,6 +161,8 @@ class Settings(private val store: Platform) {
         private const val DISASTERS = "disasters"
         private const val TOOL_SIDE = "tool_side"
         private const val KEYS = "keys"
+        private val VOLUMES = listOf("volume_master", "volume_town", "volume_effects", "volume_music")
+        private val DEFAULT_VOLUMES = listOf(80, 80, 70, 60)
 
         /** The actions there were when the keys were saved, so ones added since can have their defaults. */
         private const val KNOWN = "keys_known"

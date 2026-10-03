@@ -38,7 +38,13 @@ class MainActivity : ComponentActivity() {
 
     private val androidPlatform by lazy { AndroidPlatform(applicationContext) }
 
-    /** Put away: the game saves itself. */
+    /** Back again: the sound picks up. */
+    override fun onStart() {
+        super.onStart()
+        androidPlatform.show()
+    }
+
+    /** Put away: the game saves itself and goes quiet. */
     override fun onStop() {
         super.onStop()
         androidPlatform.hide()

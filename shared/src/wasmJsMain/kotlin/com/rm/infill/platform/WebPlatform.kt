@@ -35,6 +35,10 @@ object WebPlatform : Platform {
     override fun onHidden(action: () -> Unit) {
         document.addEventListener("visibilitychange", { if (pageHidden()) action() })
     }
+
+    override fun onShown(action: () -> Unit) {
+        document.addEventListener("visibilitychange", { if (!pageHidden()) action() })
+    }
 }
 
 private fun pageHidden(): Boolean = js("document.hidden")

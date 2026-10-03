@@ -229,6 +229,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import kotlin.math.max
 import com.rm.infill.ui.screenLayout
 import com.rm.infill.ui.theme.InfillTheme
+import com.rm.infill.audio.AudioEngine
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 /** The whole app, the same on every platform: the start screen, a new city, and the game. */
 @Composable
@@ -343,11 +346,30 @@ private fun Screens(settings: Settings) {
         play(city)
     }
 
-    // Put away or hidden: the game saves itself.
+    // Put away or hidden: the game saves itself and goes quiet.
     val current by rememberUpdatedState(game)
     LaunchedEffect(Unit) {
-        platform.onHidden { current?.let { platform.writeSave(AUTOSAVE, SaveGame.write(it.city)) } }
+        platform.onHidden {
+            current?.let { platform.writeSave(AUTOSAVE, SaveGame.write(it.city)) }
+            AudioEngine.pause(true)
+        }
+        platform.onShown { AudioEngine.pause(false) }
     }
+
+    // The sound: started once, off the main thread since opening the output
+    // can take a while, with more voices on a device that can take them.
+    val gains = settings.busGains
+    var soundStarted by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val voices = when (settings.graphics) {
+            GraphicsLevel.Low -> 16
+            GraphicsLevel.Medium -> 24
+            GraphicsLevel.High -> 32
+        }
+        withContext(Dispatchers.Default) { AudioEngine.start(voices) }
+        soundStarted = true
+    }
+    LaunchedEffect(soundStarted, gains.toList()) { if (soundStarted) AudioEngine.busGains(gains) }
 
     when (screen) {
         Screen.Start -> StartScreen(

@@ -559,6 +559,12 @@
     <string name="station_drawing">Using %1$s</string>
     <string name="megawatts">%1$s MW</string>
     <string name="kilowatts">%1$s kW</string>
+    <string name="sound">Sound</string>
+    <string name="volume_master">Everything</string>
+    <string name="volume_town">The town</string>
+    <string name="volume_effects">Tools and alerts</string>
+    <string name="volume_music">Music</string>
+    <string name="volume_off">Off</string>
     <string name="inspect_garbage">Garbage piling up</string>
     <string name="dump_fill">%1$d% full</string>
     <string name="emergency_repairs">Emergency repairs</string>

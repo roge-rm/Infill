@@ -25,6 +25,21 @@ android {
         targetSdk = 37
         versionCode = 900
         versionName = "0.9.0"
+        // The synth (app/src/main/cpp), brought over from Apogee.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
+        externalNativeBuild {
+            cmake {
+                cppFlags += listOf("-std=c++17", "-O2", "-ffast-math")
+                arguments += listOf("-DANDROID_STL=c++_shared")
+            }
+        }
+    }
+    ndkVersion = "28.2.13676358"
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "4.1.2"
+        }
     }
 
     signingConfigs {
@@ -51,6 +66,7 @@ android {
     }
     buildFeatures {
         compose = true
+        prefab = true
     }
 }
 
@@ -58,4 +74,25 @@ dependencies {
     implementation(project(":shared"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.oboe)
+}
+
+/**
+ * Renders every sound to WAV on this machine with the phone's synth:
+ * `./gradlew :app:soundGallery` writes them to the build folder's
+ * sound-gallery and prints their peak and loudness. `-Praw` turns the limiter
+ * off, for setting levels.
+ */
+tasks.register<Exec>("soundGallery") {
+    group = "verification"
+    description = "Renders every sound recipe to WAV files in build/sound-gallery"
+    val out = layout.buildDirectory.dir("sound-gallery").get().asFile
+    val cpp = file("src/main/cpp")
+    val raw = project.hasProperty("raw")
+    doFirst { out.mkdirs() }
+    commandLine(
+        "sh", "-c",
+        "g++ -std=c++17 -O2 -ffast-math -o '${out}/gallery' '${cpp}/tools/sound_gallery.cpp' '${cpp}/synth/synth.cpp' " +
+            "&& '${out}/gallery' '${out}'" + (if (raw) " raw" else ""),
+    )
 }

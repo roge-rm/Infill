@@ -11,6 +11,20 @@ plugins {
     alias(libs.plugins.compose.multiplatform)
 }
 
+// The synth as WebAssembly (web/synth/build.sh), served next to the page with
+// its worklet. It needs Emscripten (emsdk in ~/.local/share/emsdk, or $EMSDK).
+// Without it, the page is built silent.
+val synthOut = layout.buildDirectory.dir("web-synth")
+val emsdk = File(System.getenv("EMSDK") ?: "${System.getProperty("user.home")}/.local/share/emsdk")
+val buildSynth = tasks.register<Exec>("buildSynth") {
+    inputs.dir(rootProject.file("app/src/main/cpp/synth"))
+    inputs.dir(rootProject.file("web/synth"))
+    outputs.dir(synthOut)
+    val hasEmsdk = File(emsdk, "emsdk_env.sh").exists()
+    onlyIf("Emscripten is installed") { hasEmsdk }
+    commandLine(rootProject.file("web/synth/build.sh").absolutePath, synthOut.get().asFile.absolutePath)
+}
+
 kotlin {
     android {
         namespace = "com.rm.infill.shared"
@@ -42,6 +56,9 @@ kotlin {
         }
         wasmJsMain.dependencies {
             implementation(libs.kotlinx.browser)
+        }
+        wasmJsMain {
+            resources.srcDir(files(synthOut).builtBy(buildSynth))
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)

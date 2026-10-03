@@ -25,6 +25,9 @@ interface Platform {
 
     /** Called when the app goes into the background or the page is hidden. */
     fun onHidden(action: () -> Unit)
+
+    /** Called when the app or the page comes back. */
+    fun onShown(action: () -> Unit)
 }
 
 /** The platform the app is running on, set once when it starts. */

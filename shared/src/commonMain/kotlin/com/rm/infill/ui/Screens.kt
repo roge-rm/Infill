@@ -510,6 +510,14 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
                         },
                     )
                 }) { settings.toolSide = it }
+                SettingHead(Res.string.sound, Glyph.Speaker)
+                val levels = (0..100 step 10).toList()
+                @Composable
+                fun level(v: Int) = if (v == 0) stringResource(Res.string.volume_off) else stringResource(Res.string.percent, v)
+                StepSlider(Res.string.volume_master, levels, settings.master / 10 * 10, { level(it) }) { settings.master = it }
+                StepSlider(Res.string.volume_town, levels, settings.townVolume / 10 * 10, { level(it) }) { settings.townVolume = it }
+                StepSlider(Res.string.volume_effects, levels, settings.effectsVolume / 10 * 10, { level(it) }) { settings.effectsVolume = it }
+                StepSlider(Res.string.volume_music, levels, settings.musicVolume / 10 * 10, { level(it) }) { settings.musicVolume = it }
                 SettingHead(Res.string.disasters, Glyph.Warn)
                 Chips(listOf(0, 1, 2), settings.disasters, {
                     stringResource(listOf(Res.string.disasters_off, Res.string.disasters_fewer, Res.string.disasters_normal)[it])

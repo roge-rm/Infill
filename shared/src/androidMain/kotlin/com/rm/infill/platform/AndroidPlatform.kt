@@ -10,6 +10,7 @@ class AndroidPlatform(context: Context) : Platform {
     private val dir = File(context.filesDir, "saves").apply { mkdirs() }
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val hidden = mutableListOf<() -> Unit>()
+    private val shown = mutableListOf<() -> Unit>()
 
     override fun saves(): List<String> =
         dir.listFiles().orEmpty().filter { it.name.endsWith(EXT) }.map { it.name.removeSuffix(EXT) }
@@ -49,6 +50,13 @@ class AndroidPlatform(context: Context) : Platform {
 
     /** MainActivity calls this from onStop. */
     fun hide() = hidden.forEach { it() }
+
+    override fun onShown(action: () -> Unit) {
+        shown += action
+    }
+
+    /** MainActivity calls this from onStart. */
+    fun show() = shown.forEach { it() }
 
     private companion object {
         const val EXT = ".infill"
