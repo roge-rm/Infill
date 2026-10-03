@@ -959,8 +959,9 @@ private fun GameScreen(
 
         // A toolbar button: its tool used last, or again on the open one to fold or open its choices.
         fun pickGroup(g: ToolGroup) {
+            // Pressed again, it puts the tool away and goes back to looking.
             if (tool.group == g) {
-                if (choosingOverlay) choosingOverlay = false else trayFolded = !trayFolded
+                if (choosingOverlay) choosingOverlay = false else if (g != ToolGroup.Inspect) pick(Tool.Inspect)
                 return
             }
             pick(lastTool[g]?.takeIf { it != Tool.Districts || city.allowsDistricts() } ?: g.tools.first())

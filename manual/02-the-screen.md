@@ -22,7 +22,7 @@ Under the strip is the advice line, and under that, news as it happens: a fire, 
 
 The toolbar has six buttons: **Inspect**, **Bulldoze**, **Zones**, **Transport**, **Utilities** and **Services**. Then undo and redo.
 
-A button opens its tray: tabs for the tools that share it, a line naming what's picked and its price, and the choices as tiles. Tap the line to fold the tray away, and it folds by itself once you've built something. Tapping the same button again does the same. Only what the year and era allow is shown.
+A button opens its tray: tabs for the tools that share it, a line naming what's picked and its price, and the choices as tiles. Tap the line to fold the tray away, and it folds by itself once you've built something. Tapping the same button again puts the tool away and goes back to **Inspect**. Only what the year and era allow is shown.
 
 With a tool picked, one finger builds and two fingers move and zoom the map. Lines like roads, track and pipes are dragged, and go along one way then the other. Buildings go where you lift your finger.
 
