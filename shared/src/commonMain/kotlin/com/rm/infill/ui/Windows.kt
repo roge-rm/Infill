@@ -98,8 +98,6 @@ import com.rm.infill.res.clean_works
 import com.rm.infill.res.rent_control
 import com.rm.infill.res.districts
 import com.rm.infill.res.no_districts
-import com.rm.infill.res.district_figures
-import com.rm.infill.res.district_value
 import com.rm.infill.res.district_taxes
 import com.rm.infill.res.tax_homes
 import com.rm.infill.res.tax_shops
@@ -121,8 +119,6 @@ import com.rm.infill.res.lines
 import com.rm.infill.res.no_lines
 import com.rm.infill.res.line_name
 import com.rm.infill.res.remove
-import com.rm.infill.res.line_info
-import com.rm.infill.res.line_riders
 import com.rm.infill.res.line_not_running
 import com.rm.infill.res.line_vehicles
 import com.rm.infill.res.traffic_flow
@@ -135,7 +131,6 @@ import com.rm.infill.res.emergency_repairs
 import com.rm.infill.res.upkeep_garbage
 import com.rm.infill.res.upkeep_disasters
 import com.rm.infill.res.power
-import com.rm.infill.res.power_capacity
 import com.rm.infill.res.power_peak
 import com.rm.infill.res.power_short
 import com.rm.infill.res.garbage
@@ -239,15 +234,12 @@ import com.rm.infill.res.moved_in
 import com.rm.infill.res.moved_out
 import com.rm.infill.res.homes_by_wealth
 import com.rm.infill.res.work_by_schooling
-import com.rm.infill.res.workers
-import com.rm.infill.res.jobs_heading
 import com.rm.infill.res.unschooled
 import com.rm.infill.res.schooled
 import com.rm.infill.res.educated
 import com.rm.infill.res.school_places
 import com.rm.infill.res.high_school_places
 import com.rm.infill.res.care_places
-import com.rm.infill.res.taken_of
 import com.rm.infill.res.schools_and_care
 import com.rm.infill.ui.theme.Infill
 import org.jetbrains.compose.resources.StringResource
@@ -262,7 +254,7 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun Window(
     title: StringResource, onClose: () -> Unit, glyph: Glyph? = null, top: (@Composable () -> Unit)? = null,
-    /** The manual's section about this window, for a button that opens it. */
+    /** The id of the manual's section about this window (its file name in manual/ without the number), for a button that opens it. */
     help: String? = null,
     content: @Composable () -> Unit,
 ) {
@@ -352,7 +344,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
     game.revision
     val city = game.city
     val s = city.stats
-    Window(Res.string.budget, onClose, Glyph.Coins, help = "Money") {
+    Window(Res.string.budget, onClose, Glyph.Coins, help = "money") {
         Section(stringResource(Res.string.taxes), Glyph.Coin) {
             Stepper(ZoneMark(com.rm.infill.sim.Zone.RESIDENTIAL), stringResource(Res.string.tax_residential), city.residentialTax, 1) { game.setTaxes(r = (city.residentialTax + it).coerceIn(0, 20)) }
             Stepper(ZoneMark(com.rm.infill.sim.Zone.COMMERCIAL), stringResource(Res.string.tax_commercial), city.commercialTax, 1) { game.setTaxes(c = (city.commercialTax + it).coerceIn(0, 20)) }
@@ -437,7 +429,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
                 @Composable
                 fun power(kw: Int) = if (kw < 1000) stringResource(Res.string.kilowatts, groupThousands(kw.toLong())) else mw(kw.toLong())
                 @Composable
-                fun people(n: Int) = stringResource(Res.string.water_for, groupThousands(n.toLong()))
+                fun people(n: Int) = pluralStringResource(Res.plurals.water_for, n, groupThousands(n.toLong()))
                 @Composable
                 fun tonnes(n: Int) = stringResource(Res.string.tonnes, groupThousands(n.toLong()))
                 StatGrid(
@@ -499,12 +491,12 @@ private fun StepperRow(mark: Mark?, name: String, value: String, change: (Int) -
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         mark?.let { MarkIcon(it) }
         Text(name, color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        StepButton("−", stringResource(Res.string.less) + " " + name) { change(-step) }
+        StepButton("−", stringResource(Res.string.less_of, name)) { change(-step) }
         Text(
             value, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.widthIn(min = 48.dp), textAlign = TextAlign.Center,
         )
-        StepButton("+", stringResource(Res.string.more) + " " + name) { change(step) }
+        StepButton("+", stringResource(Res.string.more_of, name)) { change(step) }
     }
 }
 
@@ -555,7 +547,7 @@ fun GraphsWindow(game: GameState, onClose: () -> Unit) {
     game.revision
     val history = game.city.history
     var series by remember { mutableStateOf(Series.Population) }
-    Window(Res.string.graphs, onClose, Glyph.Arrows, help = "People") {
+    Window(Res.string.graphs, onClose, Glyph.Arrows, help = "people") {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // Two rows of four, so they fit an upright phone.
             for (row in SERIES.chunked(4)) {
@@ -592,8 +584,8 @@ fun GraphsWindow(game: GameState, onClose: () -> Unit) {
                 }
                 LineChart(values, c.accent, c.chromeEdge, Modifier.fillMaxWidth().height(180.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("${months.getOrElse(m0) { "" }} $y0", color = c.textDim, fontSize = 12.sp)
-                    Text("${months.getOrElse(m1) { "" }} $y1", color = c.textDim, fontSize = 12.sp)
+                    Text(stringResource(Res.string.date, months.getOrElse(m0) { "" }, y0), color = c.textDim, fontSize = 12.sp)
+                    Text(stringResource(Res.string.date, months.getOrElse(m1) { "" }, y1), color = c.textDim, fontSize = 12.sp)
                 }
             }
         }
@@ -653,7 +645,7 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
     game.revision
     val s = game.city.stats
     fun n(v: Int) = groupThousands(v.toLong())
-    Window(Res.string.people, onClose, Glyph.Person, help = "People") {
+    Window(Res.string.people, onClose, Glyph.Person, help = "people") {
         StatGrid(
             listOfNotNull(
                 StatItem(Glyph.Person, stringResource(Res.string.population), n(s.population)),
@@ -701,7 +693,7 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Row(Modifier.fillMaxWidth()) {
                         Text(stringResource(name), color = c.text, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                        Text(stringResource(Res.string.workers_jobs, n(s.workersBy[k]), n(s.jobsBy[k])), color = if (short) c.bad else c.textDim, fontSize = 12.sp)
+                        Text(stringResource(Res.string.list_join, pluralStringResource(Res.plurals.count_workers, s.workersBy[k], n(s.workersBy[k])), pluralStringResource(Res.plurals.count_jobs, s.jobsBy[k], n(s.jobsBy[k]))), color = if (short) c.bad else c.textDim, fontSize = 12.sp)
                     }
                     Meter(s.workersBy[k] / most.toFloat(), c.accent, Modifier.fillMaxWidth(), 5.dp)
                     Meter(s.jobsBy[k] / most.toFloat(), if (short) c.bad else c.textDim, Modifier.fillMaxWidth(), 5.dp)
@@ -731,7 +723,7 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
             val warming = city.warming
             StatGrid(
                 listOfNotNull(
-                    StatItem(Glyph.Heat, stringResource(Res.string.label_warming), stringResource(Res.string.value_degrees, "${warming / 10}.${warming % 10}"), minOf(1f, warming / 30f), toneOf(30 - warming, 20, 10)),
+                    StatItem(Glyph.Heat, stringResource(Res.string.label_warming), stringResource(Res.string.value_degrees, tenths(warming)), minOf(1f, warming / 30f), toneOf(30 - warming, 20, 10)),
                     StatItem(Glyph.Flame, stringResource(Res.string.label_heat_waves), n(city.heatWavesLastYear)),
                     StatItem(Glyph.Rain, stringResource(Res.string.label_floods), n(city.floodsLastYear)),
                     StatItem(Glyph.Smoke, stringResource(Res.string.label_carbon), stringResource(Res.string.value_tonnes, groupThousands(s.carbon)), wide = true),
@@ -818,7 +810,7 @@ fun EraWindow(game: GameState, era: Era, onClose: () -> Unit) {
     val c = Infill.colors
     game.revision
     val city = game.city
-    Window(eraName(era), onClose, Glyph.Calendar, help = "Eras") {
+    Window(eraName(era), onClose, Glyph.Calendar, help = "eras") {
         Text(stringResource(eraLine(era)), color = c.text, fontSize = 15.sp)
         // What it brings: in the township, only what comes after the start.
         fun brought(year: Int, of: Era = Era.of(year)) = of == era && (era != Era.TOWNSHIP || year > Era.TOWNSHIP.year)
@@ -877,7 +869,7 @@ private fun GoalRow(goal: Goal) {
 
 @Composable
 private fun goalText(goal: Goal): String = when (goal.kind) {
-    GoalKind.People -> stringResource(Res.string.goal_people, groupThousands(goal.need.toLong()))
+    GoalKind.People -> pluralStringResource(Res.plurals.goal_people, goal.need, groupThousands(goal.need.toLong()))
     GoalKind.MainsOrStation -> stringResource(Res.string.goal_mains_or_station)
     GoalKind.OnMains -> stringResource(Res.string.goal_on_mains, goal.need)
     GoalKind.OnSewer -> stringResource(Res.string.goal_on_sewer, goal.need)
@@ -916,7 +908,7 @@ fun LineDraftBar(stops: Int, tram: Boolean, onClear: () -> Unit, onMake: () -> U
         Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GlyphIcon(Glyph.Route, c.accent, Modifier.size(20.dp))
             Text(
-                stringResource(if (tram) Res.string.tram_line else Res.string.bus_line) + ", " + pluralStringResource(Res.plurals.line_stops, stops, stops),
+                stringResource(Res.string.list_join, stringResource(if (tram) Res.string.tram_line else Res.string.bus_line), pluralStringResource(Res.plurals.line_stops, stops, stops)),
                 color = c.text, fontSize = 14.sp,
             )
             if (stops > 0) TextButton(stringResource(Res.string.clear), false, onClear)
@@ -964,7 +956,7 @@ fun LinesWindow(game: GameState, onClose: () -> Unit) {
     val c = Infill.colors
     game.revision
     val city = game.city
-    Window(Res.string.lines, onClose, Glyph.Route, help = "Transit and rail") {
+    Window(Res.string.lines, onClose, Glyph.Route, help = "transit-and-rail") {
         if (city.lines.isEmpty()) Text(stringResource(Res.string.no_lines), color = c.textDim, fontSize = 14.sp)
         var buses = 0
         var trams = 0
@@ -1006,7 +998,7 @@ fun DistrictsWindow(game: GameState, onClose: () -> Unit) {
     val c = Infill.colors
     game.revision
     val city = game.city
-    Window(Res.string.districts, onClose, Glyph.District, help = "Districts") {
+    Window(Res.string.districts, onClose, Glyph.District, help = "districts") {
         if (city.districts.isEmpty()) Text(stringResource(Res.string.no_districts), color = c.textDim, fontSize = 14.sp)
         for (d in city.districts) {
             fun set(change: (com.rm.infill.sim.District) -> Unit) {

@@ -1,5 +1,18 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.Res
+import com.rm.infill.res.key_backspace
+import com.rm.infill.res.key_delete
+import com.rm.infill.res.key_enter
+import com.rm.infill.res.key_esc
+import com.rm.infill.res.key_num_enter
+import com.rm.infill.res.key_num_minus
+import com.rm.infill.res.key_num_plus
+import com.rm.infill.res.key_space
+import com.rm.infill.res.key_tab
+import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.StringResource
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
@@ -204,8 +217,16 @@ class KeyInput(
     }
 }
 
-/** A key's name as printed on it. */
-fun keyName(key: Key): String = KEY_NAMES[key] ?: "#${key.keyCode}"
+/** A key's name as printed on it, or in words for the ones with words on them. */
+@Composable
+fun keyName(key: Key): String = KEY_WORDS[key]?.let { stringResource(it) } ?: KEY_NAMES[key] ?: "#${key.keyCode}"
+
+/** Keys with words on them, which differ by language. */
+private val KEY_WORDS: Map<Key, StringResource> = mapOf(
+    Key.Spacebar to Res.string.key_space, Key.Escape to Res.string.key_esc, Key.Enter to Res.string.key_enter,
+    Key.Tab to Res.string.key_tab, Key.Backspace to Res.string.key_backspace, Key.Delete to Res.string.key_delete,
+    Key.NumPadAdd to Res.string.key_num_plus, Key.NumPadSubtract to Res.string.key_num_minus, Key.NumPadEnter to Res.string.key_num_enter,
+)
 
 private val KEY_NAMES: Map<Key, String> = buildMap {
     val letters = listOf(
@@ -218,9 +239,6 @@ private val KEY_NAMES: Map<Key, String> = buildMap {
     val functions = listOf(Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F6, Key.F7, Key.F8, Key.F9, Key.F10, Key.F11, Key.F12)
     functions.forEachIndexed { i, k -> put(k, "F${i + 1}") }
     put(Key.DirectionUp, "\u2191"); put(Key.DirectionDown, "\u2193"); put(Key.DirectionLeft, "\u2190"); put(Key.DirectionRight, "\u2192")
-    put(Key.Spacebar, "Space"); put(Key.Escape, "Esc"); put(Key.Enter, "Enter"); put(Key.Tab, "Tab")
-    put(Key.Backspace, "Backspace"); put(Key.Delete, "Delete")
     put(Key.Minus, "-"); put(Key.Equals, "="); put(Key.Plus, "+"); put(Key.Comma, ","); put(Key.Period, ".")
     put(Key.LeftBracket, "["); put(Key.RightBracket, "]"); put(Key.Slash, "/"); put(Key.Semicolon, ";"); put(Key.Backslash, "\\")
-    put(Key.NumPadAdd, "Num +"); put(Key.NumPadSubtract, "Num -"); put(Key.NumPadEnter, "Num Enter")
 }

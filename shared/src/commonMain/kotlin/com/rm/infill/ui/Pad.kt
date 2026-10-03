@@ -1,5 +1,8 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.Res
+import com.rm.infill.res.pad_dpad
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -39,12 +42,13 @@ val DefaultPad: Map<PadButton, KeyAction> = mapOf(
     PadButton.Select to KeyAction.NextOverlay,
 )
 
-/** A button's name as printed on most controllers. */
+/** A button's name as printed on most controllers, and the d-pad's in words. */
+@Composable
 fun padName(b: PadButton): String = when (b) {
-    PadButton.Up -> "D-pad ↑"
-    PadButton.Down -> "D-pad ↓"
-    PadButton.Left -> "D-pad ←"
-    PadButton.Right -> "D-pad →"
+    PadButton.Up -> stringResource(Res.string.pad_dpad, "↑")
+    PadButton.Down -> stringResource(Res.string.pad_dpad, "↓")
+    PadButton.Left -> stringResource(Res.string.pad_dpad, "←")
+    PadButton.Right -> stringResource(Res.string.pad_dpad, "→")
     else -> b.name
 }
 

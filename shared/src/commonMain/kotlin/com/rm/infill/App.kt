@@ -127,7 +127,6 @@ import com.rm.infill.res.event_epidemic_over
 import com.rm.infill.ui.transitKindsIn
 import com.rm.infill.res.needs_tram_track
 import com.rm.infill.res.needs_tunnel
-import com.rm.infill.res.road_only
 import com.rm.infill.res.road_with_pipes
 import com.rm.infill.res.nothing_to_undo
 import com.rm.infill.sim.Problem
@@ -177,6 +176,8 @@ import kotlin.math.min
 import com.rm.infill.ui.groupThousands
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.PluralStringResource
 import com.rm.infill.map.Atlas
 import com.rm.infill.map.Camera
 import com.rm.infill.map.Graphics
@@ -202,6 +203,7 @@ import com.rm.infill.ui.CityPanel
 import com.rm.infill.ui.KeyAction
 import com.rm.infill.ui.KeyInput
 import com.rm.infill.ui.Pad
+import com.rm.infill.ui.InLanguage
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.input.InputMode
@@ -272,38 +274,41 @@ fun App() {
         ThemeChoice.Light -> false
         ThemeChoice.Dark -> true
     }
-    InfillTheme(dark) {
-        // The size setting scales everything drawn in dp and sp at once.
-        val base = LocalDensity.current
-        // The help opens over everything, at a section or the contents, from wherever asks for it.
-        var help by remember { mutableStateOf<HelpAt?>(null) }
-        // Played from the keyboard since a key went down, until the next touch or click.
-        var keyboardPlay by remember { mutableStateOf(false) }
-        CompositionLocalProvider(
-            LocalDensity provides Density(base.density * settings.uiScale, base.fontScale),
-            LocalHelp provides { section -> help = HelpAt(section) },
-            LocalKeyboardPlay provides keyboardPlay,
-        ) {
-            PadMoves(settings) { keyboardPlay = true }
-            Box(
-                Modifier.fillMaxSize()
-                    .onPreviewKeyEvent { e ->
-                        keyboardPlay = true
-                        // Esc closes what's on top, wherever the keys are.
-                        e.key == Key.Escape && e.type == KeyEventType.KeyDown && Escape.press()
-                    }
-                    .pointerInput(Unit) {
-                        awaitPointerEventScope {
-                            while (true) {
-                                val e = awaitPointerEvent(PointerEventPass.Initial)
-                                if (e.type == PointerEventType.Press) keyboardPlay = false
-                            }
-                        }
-                    },
+    InLanguage(settings.language) {
+        InfillTheme(dark) {
+            // The size setting scales everything drawn in dp and sp at once.
+            val base = LocalDensity.current
+            // The help opens over everything, at a section or the contents, from wherever asks for it.
+            var help by remember { mutableStateOf<HelpAt?>(null) }
+            // Played from the keyboard since a key went down, until the next touch or click.
+            var keyboardPlay by remember { mutableStateOf(false) }
+            CompositionLocalProvider(
+                // A new one when the language changes, so every string is looked up again, in place.
+                LocalDensity provides remember(base, settings.uiScale, settings.language) { ScaledDensity(base.density * settings.uiScale, base.fontScale) },
+                LocalHelp provides { section -> help = HelpAt(section) },
+                LocalKeyboardPlay provides keyboardPlay,
             ) {
-                Screens(settings)
-                help?.let { h ->
-                    key(h) { HelpWindow({ help = null }, h.section) }
+                PadMoves(settings) { keyboardPlay = true }
+                Box(
+                    Modifier.fillMaxSize()
+                        .onPreviewKeyEvent { e ->
+                            keyboardPlay = true
+                            // Esc closes what's on top, wherever the keys are.
+                            e.key == Key.Escape && e.type == KeyEventType.KeyDown && Escape.press()
+                        }
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val e = awaitPointerEvent(PointerEventPass.Initial)
+                                    if (e.type == PointerEventType.Press) keyboardPlay = false
+                                }
+                            }
+                        },
+                ) {
+                    Screens(settings)
+                    help?.let { h ->
+                        key(h) { HelpWindow({ help = null }, h.section) }
+                    }
                 }
             }
         }
@@ -367,6 +372,14 @@ private fun PadMoves(settings: Settings, onUse: () -> Unit) {
 /** A way held on the controller moves again after this long, then this often, in milliseconds. */
 private const val PAD_REPEAT_DELAY = 400L
 private const val PAD_REPEAT_EVERY = 120L
+
+/**
+ * The screen's density with the size setting applied. It's a plain class, so
+ * a new one is a change even at the same size: the strings are looked up
+ * through the density, and that's how a new language reaches them all
+ * without starting the screens again.
+ */
+private class ScaledDensity(override val density: Float, override val fontScale: Float) : Density
 
 private enum class Screen { Start, New, Game, Region }
 
@@ -604,7 +617,7 @@ private fun Screens(settings: Settings) {
         notice.value?.let { m ->
             LaunchedEffect(m) { delay(MESSAGE_MS); notice.value = null }
             Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(12.dp), contentAlignment = Alignment.TopCenter) {
-                MessageChip(stringResource(m.text), null)
+                m.text?.let { MessageChip(stringResource(it), null) }
             }
         }
     }
@@ -737,8 +750,8 @@ private fun GameScreen(
                 EventKind.BuildingLost -> Message(Res.string.event_lost, e.type?.let { buildingName(it) }, e.x, e.y)
                 EventKind.FireSaved -> Message(Res.string.event_saved, e.type?.let { buildingName(it) }, e.x, e.y)
                 EventKind.FireDamaged -> Message(Res.string.event_fire_damage, e.type?.let { buildingName(it) }, e.x, e.y)
-                EventKind.ForcedOut -> Message(Res.string.event_forced_out, x = e.x, y = e.y, name = e.count.toString())
-                EventKind.JobsLost -> Message(Res.string.event_jobs_lost, x = e.x, y = e.y, name = e.count.toString())
+                EventKind.ForcedOut -> Message(null, x = e.x, y = e.y, counted = Res.plurals.event_forced_out, count = e.count)
+                EventKind.JobsLost -> Message(null, x = e.x, y = e.y, counted = Res.plurals.event_jobs_lost, count = e.count)
                 EventKind.Flooding -> Message(Res.string.event_flooding, x = e.x, y = e.y)
                 EventKind.RiverFlood -> Message(Res.string.event_river_flood, x = e.x, y = e.y)
                 EventKind.Sickness -> Message(Res.string.event_sickness, x = e.x, y = e.y)
@@ -1276,6 +1289,8 @@ private fun GameScreen(
                 message?.let { m ->
                     MessageChip(
                         when {
+                            m.counted != null -> pluralStringResource(m.counted, m.count, groupThousands(m.count.toLong()))
+                            m.text == null -> ""
                             m.arg != null -> stringResource(m.text, stringResource(m.arg))
                             m.name != null -> stringResource(m.text, m.name)
                             else -> stringResource(m.text)
@@ -1489,11 +1504,15 @@ private const val INSPECT_SHARE = 0.4f
 
 /** A message for the top of the screen, with a building's name in it and a tile to go to if it's about a place. */
 private data class Message(
-    val text: StringResource,
+    /** Null when it's [counted] instead. */
+    val text: StringResource?,
     val arg: StringResource? = null,
     val x: Int = -1,
     val y: Int = -1,
     val name: String? = null,
+    /** Said with a count instead, as the language says that many. */
+    val counted: PluralStringResource? = null,
+    val count: Int = 0,
 )
 
 /** Weather the W key steps through while the looks are being made: clear, cloudy, rain, snow, fog. */

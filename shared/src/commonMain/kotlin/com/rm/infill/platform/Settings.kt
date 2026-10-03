@@ -60,6 +60,16 @@ class Settings(private val store: Platform) {
             store.setSetting(TOOL_SIDE, v.name)
         }
 
+    private var languageState by mutableStateOf(store.setting(LANGUAGE)?.takeIf { it in LANGUAGES } ?: "")
+
+    /** The language the game is in, as a code like "en", or empty for the phone's own. */
+    var language: String
+        get() = languageState
+        set(v) {
+            languageState = v
+            store.setSetting(LANGUAGE, v.ifEmpty { null })
+        }
+
     private var disastersState by mutableStateOf(store.setting(DISASTERS)?.toIntOrNull()?.coerceIn(0, 2) ?: 2)
 
     /** How often disasters come: 0 never, 1 fewer, 2 normal. */
@@ -195,6 +205,13 @@ class Settings(private val store: Platform) {
         val SCALES = listOf(1f, 1.1f, 1.2f, 1.3f)
         private const val GRAPHICS = "graphics"
         private const val THEME = "theme"
+        private const val LANGUAGE = "language"
+
+        /**
+         * The languages there are strings for, each with its name in itself.
+         * A new translation adds a values-xx folder of strings and a line here.
+         */
+        val LANGUAGES = linkedMapOf("en" to "English")
         private const val SCALE = "ui_scale"
         private const val DISASTERS = "disasters"
         private const val TOOL_SIDE = "tool_side"

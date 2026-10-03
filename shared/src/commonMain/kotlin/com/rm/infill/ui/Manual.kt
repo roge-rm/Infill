@@ -17,6 +17,8 @@ class ManualBlock(val kind: ManualKind, val text: String, val desktop: String? =
 }
 
 class ManualSection(
+    /** Where it is in manual/, without the number: the same in every language, for opening it at. */
+    val id: String,
     val title: String,
     val summary: String,
     val blocks: List<ManualBlock>,
@@ -30,7 +32,7 @@ class ManualSection(
 
 object Manual {
     val sections: List<ManualSection> = listOf(
-        ManualSection("A first town", "From an empty map to a town that grows by itself.", listOf(
+        ManualSection("a-first-town", "A first town", "From an empty map to a town that grows by itself.", listOf(
             ManualBlock(ManualKind.Para, "Infill starts in January 1900 with \$20,000 and an empty piece of land. You lay the roads, zone the land and bring in power and water, and the town builds itself on what you give it. Over the years it fills in, and the eras ask more of it."),
             ManualBlock(ManualKind.Para, "", "On a computer a click is a tap. The right or middle mouse button moves the map and the wheel zooms. The keys are in Settings."),
             ManualBlock(ManualKind.Heading, "Starting"),
@@ -53,7 +55,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Saving"),
             ManualBlock(ManualKind.Para, "The town saves itself at the start of every month and when you leave the app, and **Continue** on the first screen picks up from there. **Save** in the menu keeps a copy under the town's name."),
         )),
-        ManualSection("The screen", "The strip, the tools, the map views, inspecting, undo, the keys and a controller.", listOf(
+        ManualSection("the-screen", "The screen", "The strip, the tools, the map views, inspecting, undo, the keys and a controller.", listOf(
             ManualBlock(ManualKind.Heading, "The strip"),
             ManualBlock(ManualKind.Para, "Along the top, from the left:"),
             ManualBlock(ManualKind.Bullet, "The menu."),
@@ -106,7 +108,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Saving and loading"),
             ManualBlock(ManualKind.Para, "The town saves itself at the start of each month and whenever you leave the app, in one autosave. **Save** in the menu keeps it under its name, and a save with the same name is replaced. **Load** lists regions first, then towns with the autosave at the top. **Delete** asks for a second tap.", "The town saves itself at the start of each month and whenever you leave the app, in one autosave. **Save** in the menu keeps it under its name, and a save with the same name is replaced. **Load** lists regions first, then towns with the autosave at the top. **Delete** asks for a second click."),
         )),
-        ManualSection("Zones and growth", "What each zone grows, what a lot needs to grow, demand and land value.", listOf(
+        ManualSection("zones-and-growth", "Zones and growth", "What each zone grows, what a lot needs to grow, demand and land value.", listOf(
             ManualBlock(ManualKind.Para, "You don't build homes, shops or works yourself. You zone land for them and the town builds what it wants there, when it wants it."),
             ManualBlock(ManualKind.Heading, "Zones"),
             ManualBlock(ManualKind.Bullet, "**Residential**: homes."),
@@ -159,7 +161,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Farmland"),
             ManualBlock(ManualKind.Para, "Farmland grows what's under it: a mine on iron ore or coal, an oil well on oil, a woodlot in trees, and a farm on open land. A farm off good soil grows half as much. The **Land** view shows what's in the ground."),
         )),
-        ManualSection("Roads and traffic", "Roads, crossings, bridges and tunnels, and how the town drives on them.", listOf(
+        ManualSection("roads-and-traffic", "Roads and traffic", "Roads, crossings, bridges and tunnels, and how the town drives on them.", listOf(
             ManualBlock(ManualKind.Para, "Everything in town needs a road. Lots grow up to three tiles from one, and a road reaching the edge of the map is what ties the town to the outside."),
             ManualBlock(ManualKind.Heading, "Laying roads"),
             ManualBlock(ManualKind.Para, "Pick **Road** under **Transport**, choose a kind in the tray and drag. The road goes along one way and then the other in an L, and the way you first move decides which comes first. Drawing over an old road upgrades it, and drawing over a worn one of the same kind relays it for less than new."),
@@ -203,7 +205,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Parking"),
             ManualBlock(ManualKind.Para, "There are no car parks to build. The **Limit parking** district policy has fewer people drive."),
         )),
-        ManualSection("Transit and rail", "Trams, buses, trolleybuses, the subway, and trains.", listOf(
+        ManualSection("transit-and-rail", "Transit and rail", "Trams, buses, trolleybuses, the subway, and trains.", listOf(
             ManualBlock(ManualKind.Para, "People go the quickest way they can. Those with a car can drive, and everyone walks or rides. Transit is how a town gets people to work before the car, and how it keeps the roads moving after."),
             ManualBlock(ManualKind.Heading, "How people choose"),
             ManualBlock(ManualKind.Para, "There's no choosing as such. Each trip takes whatever gets there soonest, counting the walk to the stop, the wait and the ride. Walking is slow, a minute a tile. A trip is counted as the best way it used, so someone who walks to the tram is a tram rider."),
@@ -233,7 +235,7 @@ object Manual {
             ManualBlock(ManualKind.Para, "Trains run on steam until 1955, then diesel."),
             ManualBlock(ManualKind.Para, "Stations, yards and ports need a phone from 1920, power from 1930 and broadband from 2005 to work their best, and stop altogether below half."),
         )),
-        ManualSection("Ports, airports and trade", "Ships, aircraft, goods and the outside market.", listOf(
+        ManualSection("ports-airports-and-trade", "Ports, airports and trade", "Ships, aircraft, goods and the outside market.", listOf(
             ManualBlock(ManualKind.Heading, "Goods"),
             ManualBlock(ManualKind.Para, "Farms, woodlots, mines and oil wells make raw goods: food, timber, iron ore, coal and crude oil. Sawmills, foundries, factories and refineries turn them into lumber, metal, fuel oil and goods. Shops need food, goods and, once there are cars, fuel."),
             ManualBlock(ManualKind.Para, "Goods go by truck to the nearest buyer in town with room. What no one in town wants, or no one near enough, goes out of town by road at the edge, by a freight yard on a line to the edge, or by a port. What the town can't make comes in by road and costs half as much again."),
@@ -255,7 +257,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Visitors"),
             ManualBlock(ManualKind.Para, "Visitors come for the town's size, its parks and its heritage buildings, and more of them as the years go by. Crime keeps them away. How many can get here depends on the roads, stations on a line to the edge, docks and airports. Half look for a room in a hotel or hotel tower, and they all spend in the shops. The People window shows how they came."),
         )),
-        ManualSection("Power", "Power stations, lines, losses, the peak, and the wind and sun.", listOf(
+        ManualSection("power", "Power", "Power stations, lines, losses, the peak, and the wind and sun.", listOf(
             ManualBlock(ManualKind.Para, "Power comes in slowly. In 1900 a home uses next to nothing, and only the better houses want it. By 1950 every home expects it, and each person uses more every decade until about 2010, then a little less."),
             ManualBlock(ManualKind.Heading, "Power stations"),
             ManualBlock(ManualKind.Para, "Under **Utilities**, **Power**:"),
@@ -283,7 +285,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Gales"),
             ManualBlock(ManualKind.Para, "A gale can bring down overhead lines, and they take a few days to mend. Buried cable is safe."),
         )),
-        ManualSection("Water, drains and garbage", "Wells and mains, pressure, sewers and foul water, storms and floods, and garbage.", listOf(
+        ManualSection("water-and-waste", "Water, drains and garbage", "Wells and mains, pressure, sewers and foul water, storms and floods, and garbage.", listOf(
             ManualBlock(ManualKind.Heading, "Wells and mains"),
             ManualBlock(ManualKind.Para, "To begin with every home has a well and a septic tank, and that's fine for cottages. As the town grows, homes and businesses want mains water and the sewer, and from about 1915 to 1955 going without them goes from normal to a real drawback."),
             ManualBlock(ManualKind.Para, "Under **Utilities**, **Water**:"),
@@ -315,7 +317,7 @@ object Manual {
             ManualBlock(ManualKind.Bullet, "**Recycling depot** (1975) takes three tenths of each building's garbage."),
             ManualBlock(ManualKind.Para, "Each one serves the town within 60 tiles. Garbage that isn't taken away piles up in yards, makes the place grimy and unhealthy, and puts people off."),
         )),
-        ManualSection("Phones and the internet", "Exchanges, lines, masts and broadband.", listOf(
+        ManualSection("phones", "Phones and the internet", "Exchanges, lines, masts and broadband.", listOf(
             ManualBlock(ManualKind.Para, "A phone starts out as something extra and ends up something everyone expects. Homes like one from 1930 and mind going without by 1960, and businesses sooner. From 1995 broadband goes the same way."),
             ManualBlock(ManualKind.Para, "Under **Utilities**, **Phone**:"),
             ManualBlock(ManualKind.Bullet, "**Telephone exchange** gives phones to homes and businesses around it, up to so many lines. It holds three times as many from 1930 and ten times from 1970. Joined to the edge of the map by a trunk line, it reaches twice as far."),
@@ -324,7 +326,7 @@ object Manual {
             ManualBlock(ManualKind.Bullet, "**Phone mast** (from 1985) gives everyone within reach a phone, if it stands on a trunk line out of town."),
             ManualBlock(ManualKind.Para, "A phone helps the police make arrests stick and the fire halls get there sooner. From 2000 some people with broadband work from home, and more with a fast service. Lines on poles can come down in gales."),
         )),
-        ManualSection("Services", "Police and justice, fire, health, schools and parks, and how their cover works.", listOf(
+        ManualSection("services", "Services", "Police and justice, fire, health, schools and parks, and how their cover works.", listOf(
             ManualBlock(ManualKind.Heading, "Cover"),
             ManualBlock(ManualKind.Para, "A service covers the town around it. In the early years cover is a circle around the building: full near it, fading to nothing at its edge. Once there are motor vehicles, police from 1920 and fire from 1915, cover is how quickly they can get there by road, so traffic and the street layout matter. Ambulances always go by road."),
             ManualBlock(ManualKind.Para, "How far a service reaches and how much it does depends on its funding, its staff and its condition."),
@@ -363,7 +365,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Funding"),
             ManualBlock(ManualKind.Para, "The budget has a funding slider for police, fire, parks, schools and health care, which scales what they do and what they cost. **Emergency repairs** sets how fast breakdowns and broken pipes, lines and roads are mended, from 50% to 200%, and what that costs."),
         )),
-        ManualSection("People", "Households, ages, schooling, wealth, work, health and getting about.", listOf(
+        ManualSection("people", "People", "Households, ages, schooling, wealth, work, health and getting about.", listOf(
             ManualBlock(ManualKind.Para, "Every home is a household of children, adults and elderly, and the town keeps count of each one."),
             ManualBlock(ManualKind.Heading, "Households"),
             ManualBlock(ManualKind.Para, "A household fills its home. Seven in ten adults work. Children grow up in about sixteen years, adults grow old, and the old die, sooner in poor health. Births are higher early on and fall over the century, and newcomers are better schooled as the years go by."),
@@ -385,7 +387,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "The People window"),
             ManualBlock(ManualKind.Para, "Tap the population for the People window: the population, health, how many are out of work, the commute and how well traffic flows, then the ages, wealth, births, deaths and moves last month, how people get to work, workers and jobs by schooling, school places and care, phones, the climate, visitors and justice. **Graphs** opens the town's history over the last twenty years.", "Click the population for the People window: the population, health, how many are out of work, the commute and how well traffic flows, then the ages, wealth, births, deaths and moves last month, how people get to work, workers and jobs by schooling, school places and care, phones, the climate, visitors and justice. **Graphs** opens the town's history over the last twenty years."),
         )),
-        ManualSection("Money", "Taxes, income, upkeep and the budget.", listOf(
+        ManualSection("money", "Money", "Taxes, income, upkeep and the budget.", listOf(
             ManualBlock(ManualKind.Para, "The town starts with \$20,000. Money in Infill is in 1900 dollars, so prices stay the same through the century."),
             ManualBlock(ManualKind.Heading, "Taxes"),
             ManualBlock(ManualKind.Para, "Tap the money in the strip for the budget. There are three rates, each from 0 to 20% and starting at 7%:", "Click the money in the strip for the budget. There are three rates, each from 0 to 20% and starting at 7%:"),
@@ -407,7 +409,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Debt"),
             ManualBlock(ManualKind.Para, "There are no loans. Upkeep can still take the town below zero, and the money shows red and the advice line says so. Raise taxes or cut spending to climb back out."),
         )),
-        ManualSection("Eras", "The six eras, what each needs and what each brings.", listOf(
+        ManualSection("eras", "Eras", "The six eras, what each needs and what each brings.", listOf(
             ManualBlock(ManualKind.Para, "The town moves through six eras. Each comes no sooner than its year, and only once the town has done what it asks. When one arrives the game pauses and shows what's new. Tap the date to see the era you're in and how close the next one is.", "The town moves through six eras. Each comes no sooner than its year, and only once the town has done what it asks. When one arrives the game pauses and shows what's new. Click the date to see the era you're in and how close the next one is."),
             ManualBlock(ManualKind.Para, "What you can build depends on the era as well as the year. Something from 1925 needs the Streetcar era, from 1955 the Motor age, and so on, even if the year has come."),
             ManualBlock(ManualKind.Heading, "Township, 1900"),
@@ -430,7 +432,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Ageing"),
             ManualBlock(ManualKind.Para, "Roads, pipes, track, lines and public buildings all have a life. Past it they wear, fail more often and cost more to mend. **Relay what's worn** under **Bulldoze** renews roads, track and pipes, and **Renovate** on a building's card renews it. Old homes lose appeal from about 40 years, unless they're heritage."),
         )),
-        ManualSection("Districts", "Painting districts, their taxes, height limits and policies.", listOf(
+        ManualSection("districts", "Districts", "Painting districts, their taxes, height limits and policies.", listOf(
             ManualBlock(ManualKind.Para, "From the Streetcar era you can paint the town into districts and give each its own rules. Under **Zones**, **Districts**, pick **New district** and paint, or pick a district to paint more of it, or **Erase**. Painting is free. A district painted down to nothing goes away."),
             ManualBlock(ManualKind.Para, "**Districts** in the tray lists them. Each card shows its people and jobs, its land value, crime and pollution, and its settings."),
             ManualBlock(ManualKind.Heading, "Taxes"),
@@ -449,7 +451,7 @@ object Manual {
             ManualBlock(ManualKind.Bullet, "**Green roofs** (from 2000): cooler still, they hold back some of the rain, homes like them, and they use less power."),
             ManualBlock(ManualKind.Para, "The roof policies cost a little upkeep for each building."),
         )),
-        ManualSection("The environment", "Pollution, grime, smog, noise, heat and carbon.", listOf(
+        ManualSection("the-environment", "The environment", "Pollution, grime, smog, noise, heat and carbon.", listOf(
             ManualBlock(ManualKind.Heading, "Pollution"),
             ManualBlock(ManualKind.Para, "Works, mines, power stations, freight yards, ports, airports and traffic all pollute, spreading a few tiles around them. Bigger works pollute more. Cars put out the most fumes from the 1920s to the 1970s and less after, and slow traffic and long waits at crossings put out more."),
             ManualBlock(ManualKind.Para, "Pollution lowers land value and health. Parks, woods and street trees soak up some of it, and a belt of park or woods between a works and the homes keeps most of it away. The **Pollution limit on works** district policy and scrubbers on power stations cut it at the source."),
@@ -463,7 +465,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Carbon"),
             ManualBlock(ManualKind.Para, "Power stations, traffic, works and heating all put out carbon. The world warms from 1980, and a town that puts out a lot warms it a little more. A warmer climate brings more hot spells, heavier rain and more gales. The People window's **Climate** section shows how warm it's got and where the town's carbon comes from, and the Future era asks for it to come down."),
         )),
-        ManualSection("Weather and disasters", "Climates, seasons, rain and snow, and what can go wrong.", listOf(
+        ManualSection("weather-and-disasters", "Weather and disasters", "Climates, seasons, rain and snow, and what can go wrong.", listOf(
             ManualBlock(ManualKind.Heading, "Climate and weather"),
             ManualBlock(ManualKind.Para, "Each map has a climate: **Temperate**, **Northern**, **Coastal** or **Dry**. It sets how warm each month is, how often it rains or snows, how wild the winters are and how much woods the land has."),
             ManualBlock(ManualKind.Para, "The weather changes every few days. It rains or snows when it's cloudy enough, snow at freezing. Snow builds up on the ground and melts with warmth and rain, and the map shows it. Fog comes on still, mild, cloudy days. The wind wanders from calm to strong."),
@@ -479,7 +481,7 @@ object Manual {
             ManualBlock(ManualKind.Bullet, "**An epidemic** goes round now and then, and the flu of 1918 always comes."),
             ManualBlock(ManualKind.Para, "Fires, floods and things wearing out happen whatever the setting."),
         )),
-        ManualSection("Regions", "Towns side by side, and what crosses between them.", listOf(
+        ManualSection("regions", "Regions", "Towns side by side, and what crosses between them.", listOf(
             ManualBlock(ManualKind.Para, "A region is a set of towns side by side on one piece of land, two by two, three by three or four by four. Lakes, rivers, the coast and woods carry across the borders. You play one town at a time, and the others stay as you left them."),
             ManualBlock(ManualKind.Heading, "Making a region"),
             ManualBlock(ManualKind.Para, "**New city**, then **A region of towns**. Pick a name, the grid, how big each town is, and the land. **Start** shows the region's map."),
@@ -496,13 +498,14 @@ object Manual {
             ManualBlock(ManualKind.Bullet, "**Smog, pollution, noise and foul water** drift over from a neighbour."),
             ManualBlock(ManualKind.Para, "A ledger keeps each neighbour's share straight, so two towns can't take the same jobs or the same spare power. The People window and the budget show what's crossing: who's working and shopping next door, goods, and power, water and garbage bought and sold."),
         )),
-        ManualSection("Settings and sound", "The settings, and what you hear.", listOf(
+        ManualSection("settings-and-sound", "Settings and sound", "The settings, and what you hear.", listOf(
             ManualBlock(ManualKind.Para, "**Settings** is on the first screen and in the menu. Settings are kept on this phone and change as you go.", "**Settings** is on the first screen and in the menu. Settings are kept in this browser and change as you go."),
             ManualBlock(ManualKind.Heading, "Display"),
             ManualBlock(ManualKind.Bullet, "**Graphics**: **Low** leaves out shadows, weather, vehicles, trains, ships and planes. **Medium** has fixed shadows and some of the rest. **High** has it all, with shadows that follow the sun."),
             ManualBlock(ManualKind.Bullet, "**Theme**: **Auto**, **Light** or **Dark**."),
             ManualBlock(ManualKind.Bullet, "**Tools on their side**: where the toolbar goes when it runs down the side of the screen, away from the camera or always on the left or right."),
             ManualBlock(ManualKind.Bullet, "**Size of controls and text**: from 100% to 130%."),
+            ManualBlock(ManualKind.Bullet, "**Language**: **Auto** follows the phone's language, or pick one by name.", "**Language**: **Auto** follows the browser's language, or pick one by name."),
             ManualBlock(ManualKind.Heading, "Sound"),
             ManualBlock(ManualKind.Para, "Four sliders: **Everything**, **The town**, **Tools and alerts** and **Music**."),
             ManualBlock(ManualKind.Para, "The town's sound comes from where you're looking. Close in you hear what's on the screen, each from its own side; zoomed out it blends into the sound of the whole town. Traffic goes from hooves and cart wheels to engines in the 1920s and quieter electric cars later on, with trams, trains, works, shops, the harbour and the sea, birds by day and crickets on summer nights, fires and sirens, aircraft, wind, rain and thunder. Snow muffles everything."),

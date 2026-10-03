@@ -35,11 +35,11 @@ import com.rm.infill.ui.theme.Infill
  * The manual, in the game. Its words come from manual/ by
  * tools/gen_manual.py, so don't write manual text here. The contents first,
  * then a section at a time; [start] opens straight at the section with that
- * title, and closing it then closes the help.
+ * id, and closing it then closes the help.
  */
 @Composable
 fun HelpWindow(onClose: () -> Unit, start: String? = null) {
-    var reading by remember { mutableStateOf(start?.let { t -> Manual.sections.firstOrNull { it.title == t } }) }
+    var reading by remember { mutableStateOf(start?.let { t -> Manual.sections.firstOrNull { it.id == t } }) }
     var page by remember { mutableStateOf<ManualSection?>(null) }
     val desktop = platform.onDesktop
     val open = page ?: reading

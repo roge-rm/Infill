@@ -44,6 +44,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.res.Res
+import com.rm.infill.res.list_join
+import com.rm.infill.res.name_value
 import com.rm.infill.res.date
 import com.rm.infill.res.money_owed
 import androidx.compose.ui.graphics.Color
@@ -254,9 +256,9 @@ private fun WeatherReading(sky: Sky, degrees: Int, compact: Boolean, textSize: a
 @Composable
 private fun PersonCount(count: Int, size: androidx.compose.ui.unit.TextUnit) {
     val c = Infill.colors
-    val label = stringResource(Res.string.population)
+    val label = stringResource(Res.string.name_value, stringResource(Res.string.population), groupThousands(count.toLong()))
     Row(
-        Modifier.semantics(mergeDescendants = true) { contentDescription = "$label $count" },
+        Modifier.semantics(mergeDescendants = true) { contentDescription = label },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
@@ -469,13 +471,37 @@ private fun PanelLine(name: String, value: String) {
 fun moneyText(amount: Long): String =
     if (amount < 0) stringResource(Res.string.money_owed, groupThousands(-amount)) else stringResource(Res.string.money, groupThousands(amount))
 
-/** 20000 as 20,000. */
+/**
+ * How numbers are written in the language being shown: the mark between
+ * thousands and the decimal mark. Set from the strings at the top of the
+ * app, so plain functions can use them too.
+ */
+object Numbers {
+    var group = ","
+    var decimal = "."
+}
+
+/** 20000 as 20,000, or as the language groups thousands. */
 fun groupThousands(n: Long): String {
     val digits = kotlin.math.abs(n).toString()
     val out = StringBuilder()
     digits.forEachIndexed { i, ch ->
-        if (i > 0 && (digits.length - i) % 3 == 0) out.append(',')
+        if (i > 0 && (digits.length - i) % 3 == 0) out.append(Numbers.group)
         out.append(ch)
     }
-    return if (n < 0) "-$out" else out.toString()
+    return if (n < 0) "\u2212$out" else out.toString()
+}
+
+/** Things listed one after another: "trams, buses, trains", as the language lists them. */
+@Composable
+fun listText(items: List<String>): String {
+    val join = stringResource(Res.string.list_join, "\u0000", "\u0001")
+    return items.reduceOrNull { a, b -> join.replace("\u0000", a).replace("\u0001", b) } ?: ""
+}
+
+/** [tenths] tenths as 2.5, with the language's decimal mark. */
+fun tenths(tenths: Int): String {
+    val sign = if (tenths < 0) "\u2212" else ""
+    val t = kotlin.math.abs(tenths)
+    return "$sign${groupThousands((t / 10).toLong())}${Numbers.decimal}${t % 10}"
 }

@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.map.TileAtlas
 import com.rm.infill.res.Res
+import com.rm.infill.res.name_value
+import com.rm.infill.res.percent
 import com.rm.infill.res.close
 import com.rm.infill.res.help
 import com.rm.infill.res.tap_again
@@ -233,7 +235,7 @@ fun BarKey(parts: List<Triple<String, Int, Color>>, percent: Boolean = false) {
         for ((name, n, colour) in parts) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Box(Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(colour))
-                Text(if (percent) "$name $n%" else "$name ${groupThousands(n.toLong())}", color = c.textDim, fontSize = Type.caption)
+                Text(stringResource(Res.string.name_value, name, if (percent) stringResource(Res.string.percent, n) else groupThousands(n.toLong())), color = c.textDim, fontSize = Type.caption)
             }
         }
     }

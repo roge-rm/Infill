@@ -59,6 +59,7 @@ import com.rm.infill.res.bridge_swing
 import com.rm.infill.res.bridge_trestle
 import com.rm.infill.res.bridge_cheapest
 import com.rm.infill.res.Res
+import com.rm.infill.res.name_colon_value
 import com.rm.infill.res.choice_building
 import com.rm.infill.res.close_view
 import com.rm.infill.res.fold_choices
@@ -208,12 +209,13 @@ fun TrayToggle(glyph: Glyph, label: String, on: Boolean, onClick: () -> Unit) {
 @Composable
 fun TrayCycle(glyph: Glyph, label: String, value: String, onClick: () -> Unit) {
     val c = Infill.colors
+    val labelled = stringResource(Res.string.name_colon_value, label, value)
     Row(
         Modifier
             .height(32.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(c.button)
-            .semantics { contentDescription = "$label: $value" }
+            .semantics { contentDescription = labelled }
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

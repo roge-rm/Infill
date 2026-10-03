@@ -93,6 +93,8 @@ DESKTOP_SENTENCES = {
         "With **Inspect**, dragging moves the map and a click opens a card on what's there:",
     "Settings are kept on this phone and change as you go.":
         "Settings are kept in this browser and change as you go.",
+    "**Language**: **Auto** follows the phone's language, or pick one by name.":
+        "**Language**: **Auto** follows the browser's language, or pick one by name.",
 }
 
 
@@ -194,7 +196,13 @@ def children_of(path):
     return [(p, parse(p)) for p in sorted(folder.glob("*.md"))]
 
 
-def kotlin(sections, used):
+def section_id(path):
+    """`12-money.md` -> `money`: a section's name that doesn't change with its title or number."""
+    stem = path.stem
+    head, _, rest = stem.partition("-")
+    return rest if head.isdigit() and rest else stem
+
+def kotlin(files, sections, used):
     q = lambda s: '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$") + '"'
     out = [
         "package com.rm.infill.ui",
@@ -216,6 +224,8 @@ def kotlin(sections, used):
         "}",
         "",
         "class ManualSection(",
+        "    /** Where it is in manual/, without the number: the same in every language, for opening it at. */",
+        "    val id: String,",
         "    val title: String,",
         "    val summary: String,",
         "    val blocks: List<ManualBlock>,",
@@ -232,8 +242,8 @@ def kotlin(sections, used):
     ]
     kinds = {HEADING: "Heading", PARA: "Para", BULLET: "Bullet", STEP: "Step", SUBHEADING: "Subheading"}
 
-    def emit(title, summary, blocks, kids, pad):
-        out.append(f"{pad}ManualSection({q(unlink(title))}, {q(unlink(summary))}, listOf(")
+    def emit(path, title, summary, blocks, kids, pad):
+        out.append(f"{pad}ManualSection({q(section_id(path))}, {q(unlink(title))}, {q(unlink(summary))}, listOf(")
         heading, sub = title, None
         for kind, text, only in blocks:
             if kind == HEADING:
@@ -255,12 +265,12 @@ def kotlin(sections, used):
             out.append(f"{pad}){tail}),")
             return
         out.append(f"{pad}), listOf(")
-        for _, (t, s2, b2) in kids:
-            emit(t, s2, b2, [], pad + "    ")
+        for kid, (t, s2, b2) in kids:
+            emit(kid, t, s2, b2, [], pad + "    ")
         out.append(f"{pad}){tail}),")
 
-    for (title, summary, blocks), kids in sections:
-        emit(title, summary, blocks, kids, "        ")
+    for path, ((title, summary, blocks), kids) in zip(files, sections):
+        emit(path, title, summary, blocks, kids, "        ")
     out += ["    )", "}", ""]
     return "\n".join(out)
 
@@ -296,7 +306,7 @@ def main():
         sys.exit("gen_manual: manual/ has no sections")
     sections = [(parse(p), children_of(p)) for p in files]
     used = set()
-    text = kotlin(sections, used)
+    text = kotlin(files, sections, used)
     lost = [phone for phone in DESKTOP_SENTENCES if phone not in used]
     if lost:
         print("  FAIL manual: a sentence the desktop wording replaces is no longer in manual/:")

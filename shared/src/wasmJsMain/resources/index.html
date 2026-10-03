@@ -18,6 +18,16 @@
     #loading { color: #22262b; }
   }
 </style>
+<script>
+  // The language chosen in Settings, when there is one, answers for the browser's own,
+  // since that's what the game's strings are looked up by.
+  (function () {
+    var own = Object.getOwnPropertyDescriptor(Navigator.prototype, "languages");
+    Object.defineProperty(Navigator.prototype, "languages", Object.assign({}, own, {
+      get: function () { return window.__infillLanguage ? [window.__infillLanguage] : own.get.apply(this); }
+    }));
+  })();
+</script>
 <script src="infill.js" defer></script>
 </head>
 <body>

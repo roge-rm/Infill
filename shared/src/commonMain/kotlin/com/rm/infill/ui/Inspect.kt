@@ -235,14 +235,14 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
         val ages = listOf(h.children to AGE_COLOURS[0], h.adults to AGE_COLOURS[1], h.elderly to AGE_COLOURS[2])
         stats += StatItem(
             Glyph.Person, stringResource(Res.string.label_residents),
-            "${h.size} · " + stringResource(Res.string.value_ages, h.children, h.adults, h.elderly), parts = ages, wide = true,
+            stringResource(Res.string.count_then, h.size, stringResource(Res.string.value_ages, h.children, h.adults, h.elderly)), parts = ages, wide = true,
         )
         stats += StatItem(Glyph.Coins, stringResource(Res.string.label_wealth), stringResource(wealthName(h.wealth)))
         stats += StatItem(Glyph.Cross, stringResource(Res.string.label_health), healthWord(h.health).replaceFirstChar { it.uppercase() }, h.health / 100f, toneOf(h.health, 65, 45))
-        if (h.children > 0) stats += StatItem(Glyph.Cap, stringResource(Res.string.label_schooling), "${h.schooling}%", h.schooling / 100f, toneOf(h.schooling))
+        if (h.children > 0) stats += StatItem(Glyph.Cap, stringResource(Res.string.label_schooling), stringResource(Res.string.percent, h.schooling), h.schooling / 100f, toneOf(h.schooling))
         if (h.adults > 0) {
             val schooled = (h.schooled[Education.SCHOOLED] + h.schooled[Education.EDUCATED]) * 100 / h.adults
-            stats += StatItem(Glyph.Briefcase, stringResource(Res.string.label_adults_schooled), "$schooled%", schooled / 100f, toneOf(schooled, 60, 30))
+            stats += StatItem(Glyph.Briefcase, stringResource(Res.string.label_adults_schooled), stringResource(Res.string.percent, schooled), schooled / 100f, toneOf(schooled, 60, 30))
         }
     }
     // The shops under homes over shops; anything else that isn't a home is its jobs.
@@ -254,10 +254,10 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     // A service: staff, wear, and how full it is.
     if ((t.service || t == BuildingType.EXCHANGE) && t != BuildingType.PARK && built) {
         val staffed = city.staffed(t)
-        stats += StatItem(Glyph.Person, stringResource(Res.string.label_staffed), "$staffed%", staffed / 100f, toneOf(staffed, 90, 60))
+        stats += StatItem(Glyph.Person, stringResource(Res.string.label_staffed), stringResource(Res.string.percent, staffed), staffed / 100f, toneOf(staffed, 90, 60))
         if (t.life > 0 || unmet.isNotEmpty()) {
             val condition = city.condition(b)
-            stats += StatItem(Glyph.Wrench, stringResource(Res.string.label_condition), "$condition%", condition / 100f, toneOf(condition, 100, 80))
+            stats += StatItem(Glyph.Wrench, stringResource(Res.string.label_condition), stringResource(Res.string.percent, condition), condition / 100f, toneOf(condition, 100, 80))
         }
         val room = b.room
         val label = when {
@@ -304,7 +304,7 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
             if (could > 0) made / could.toFloat() else 0f, Tone.Plain, wide = true,
         )
         if ((t == BuildingType.COAL_PLANT || t == BuildingType.OIL_PLANT) && made > 0) {
-            stats += StatItem(Glyph.Target, stringResource(Res.string.label_from_town), "${b.local}%", b.local / 100f, Tone.Plain)
+            stats += StatItem(Glyph.Target, stringResource(Res.string.label_from_town), stringResource(Res.string.percent, b.local), b.local / 100f, Tone.Plain)
         }
     }
     val kind = b.worksKind
@@ -313,16 +313,16 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
         val inputs = kind.inputs.map { stringResource(goodName(it.first)) }
         val from = if (inputs.size == 2) stringResource(Res.string.and_also, inputs[0], inputs[1]) else inputs[0]
         stats += StatItem(Glyph.Crate, stringResource(Res.string.label_makes), stringResource(Res.string.inspect_makes_from, stringResource(goodName(kind.output)), from), wide = true)
-        if (built) stats += StatItem(Glyph.Target, stringResource(Res.string.label_from_town), "${b.local}%", b.local / 100f, Tone.Plain)
+        if (built) stats += StatItem(Glyph.Target, stringResource(Res.string.label_from_town), stringResource(Res.string.percent, b.local), b.local / 100f, Tone.Plain)
     } else if (land != null) {
         stats += StatItem(Glyph.Crate, stringResource(Res.string.label_makes), stringResource(goodName(land.first)))
-        if (built) stats += StatItem(Glyph.Target, stringResource(Res.string.label_sold_in_town), "${b.local}%", b.local / 100f, Tone.Plain)
+        if (built) stats += StatItem(Glyph.Target, stringResource(Res.string.label_sold_in_town), stringResource(Res.string.percent, b.local), b.local / 100f, Tone.Plain)
     } else if (t.zone == Zone.COMMERCIAL && !t.office && built) {
-        stats += StatItem(Glyph.Crate, stringResource(Res.string.label_stock), "${b.local}%", b.local / 100f, if (city.shortOfStock(b)) Tone.Bad else Tone.Plain)
+        stats += StatItem(Glyph.Crate, stringResource(Res.string.label_stock), stringResource(Res.string.percent, b.local), b.local / 100f, if (city.shortOfStock(b)) Tone.Bad else Tone.Plain)
     }
     if (t == BuildingType.DUMP) {
         val full = (b.fill.toLong() * 100 / Balance.DUMP_ROOM).toInt()
-        stats += StatItem(Glyph.Bin, stringResource(Res.string.label_full), "$full%", full / 100f, when { full >= 90 -> Tone.Bad; full >= 70 -> Tone.Warn; else -> Tone.Good })
+        stats += StatItem(Glyph.Bin, stringResource(Res.string.label_full), stringResource(Res.string.percent, full), full / 100f, when { full >= 90 -> Tone.Bad; full >= 70 -> Tone.Warn; else -> Tone.Good })
     }
     if (t.airport && built) {
         if (!city.reachable(b)) pills += PillItem(Glyph.Road, stringResource(Res.string.pill_no_road), Tone.Bad)
@@ -362,7 +362,7 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     // How well a station, port or airport works for what it needs.
     if (!t.service && t != BuildingType.EXCHANGE && unmet.isNotEmpty()) {
         val fit = city.fit(b)
-        stats += StatItem(Glyph.Wrench, stringResource(Res.string.label_working), "$fit%", fit / 100f, toneOf(fit, 100, Needs.WORKING))
+        stats += StatItem(Glyph.Wrench, stringResource(Res.string.label_working), stringResource(Res.string.percent, fit), fit / 100f, toneOf(fit, 100, Needs.WORKING))
     }
     if (city.renovatable(b)) {
         val renew = Action.RenewArea(b.x, b.y, b.x, b.y)
@@ -525,7 +525,7 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
     // High voltage only feeds substations, so only ordinary lines carry a load to show.
     if (map.power[i] == Power.LINE) {
         val kw = city.lineLoad(i)
-        val mw = "${kw / 1000}.${kw % 1000 / 100}"
+        val mw = tenths(kw / 100)
         stats += StatItem(
             Glyph.Bolt, stringResource(Res.string.label_load), stringResource(Res.string.megawatts, mw),
             min(1f, kw / Balance.LINE_RATING.toFloat()), if (kw > Balance.LINE_RATING) Tone.Bad else if (kw > Balance.LINE_RATING * 3 / 4) Tone.Warn else Tone.Good,
@@ -542,7 +542,7 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
         val name = listOfNotNull(
             if (stops and Stop.TRAM != 0) stringResource(Res.string.tram_stop) else null,
             if (stops and Stop.BUS != 0) stringResource(Res.string.bus_stop) else null,
-        ).joinToString(", ")
+        ).let { listText(it) }
         stats += StatItem(if (stops and Stop.TRAM != 0) Glyph.Tram else Glyph.Bus, name, pluralStringResource(Res.plurals.stop_riders, city.stopRiders(i), city.stopRiders(i)))
         val calling = city.linesAt(i)
         if (calling.isNotEmpty()) {
@@ -550,7 +550,7 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
                 val number = city.lines.filter { it.tram == line.tram }.indexOf(line) + 1
                 stringResource(Res.string.line_name, stringResource(if (line.tram) Res.string.tram_line else Res.string.bus_line), number)
             }
-            stats += StatItem(Glyph.Route, stringResource(Res.string.label_lines), names.joinToString(", "), wide = true)
+            stats += StatItem(Glyph.Route, stringResource(Res.string.label_lines), listText(names), wide = true)
         }
         actions += ActionItem(Glyph.List, stringResource(Res.string.action_lines), onClick = onLines)
     }
@@ -647,8 +647,8 @@ private val AGE_COLOURS = listOf(Color(0xFF7FC4E8), Color(0xFF4C8FD6), Color(0xF
 
 /** Watts as megawatts, to a tenth below ten. */
 internal fun megawatts(w: Int): String {
-    val tenths = (w + 50_000) / 100_000
-    return if (tenths < 100) "${tenths / 10}.${tenths % 10}" else groupThousands((tenths / 10).toLong())
+    val t = (w + 50_000) / 100_000
+    return if (t < 100) tenths(t) else groupThousands((t / 10).toLong())
 }
 
 /** The year of a month counted from January 1900. */

@@ -91,6 +91,7 @@ import com.rm.infill.sim.City
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringArrayResource
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import kotlin.random.Random
 
 /** A wide button for the screens and menus. [primary] is the one most likely wanted. */
@@ -171,7 +172,7 @@ fun StartScreen(
 @Composable
 fun summaryLine(s: SaveSummary): String {
     val months = stringArrayResource(Res.array.month_short)
-    return stringResource(Res.string.save_line, months.getOrElse(s.month) { "" }, s.year, groupThousands(s.population.toLong()))
+    return pluralStringResource(Res.plurals.save_line, s.population, stringResource(Res.string.date, months.getOrElse(s.month) { "" }, s.year), groupThousands(s.population.toLong()))
 }
 
 /**
@@ -521,7 +522,7 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
             TrayTab(SettingsTab.Game, stringResource(Res.string.settings_game), Glyph.Warn),
             TrayTab(SettingsTab.Keys, stringResource(Res.string.keys), Glyph.List),
         )
-        Window(Res.string.settings, onClose, Glyph.Auto, help = "Settings and sound", top = {
+        Window(Res.string.settings, onClose, Glyph.Auto, help = "settings-and-sound", top = {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (t in tabs) TabButton(t, t.key == tab, stacked = false, Modifier.weight(1f)) { tab = t.key as SettingsTab }
             }
@@ -561,7 +562,12 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
                             )
                         }) { settings.toolSide = it }
                         SettingHead(Res.string.ui_size, Glyph.Zone)
-                        Chips(Settings.SCALES, settings.uiScale, { "${(it * 100).toInt()}%" }) { settings.uiScale = it }
+                        Chips(Settings.SCALES, settings.uiScale, { stringResource(Res.string.percent, (it * 100).toInt()) }) { settings.uiScale = it }
+                        SettingHead(Res.string.language, Glyph.Book)
+                        // Each language by its own name, so it can be found whatever's showing.
+                        Chips(listOf("") + Settings.LANGUAGES.keys, settings.language, {
+                            if (it.isEmpty()) stringResource(Res.string.language_auto) else Settings.LANGUAGES.getValue(it)
+                        }) { settings.language = it }
                     }
                     SettingsTab.Sound -> {
                         val levels = (0..100 step 10).toList()

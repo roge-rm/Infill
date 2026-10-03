@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+        The game's words, in English (Canadian spelling). To translate, copy this
+        file to values-xx/strings.xml (xx the language's code), translate the
+        text, and add the language to Settings.LANGUAGES. Keep the %1$s and %1$d
+        marks: they're filled with names and numbers, and can be moved about
+        or swapped. A string that takes another string's words says which.
+        The manual in manual/ is separate.
+    -->
     <string name="app_name">Infill</string>
 
     <string name="tool_inspect">Inspect</string>
@@ -24,14 +32,9 @@
     <string name="upkeep_flood">Flood clean-up</string>
     <string name="inspect_shut">Closed by the flood</string>
     <string name="inspect_flooded_before">It has flooded here</string>
-    <string name="road_only">Road only</string>
     <string name="road_with_pipes">With pipes under it</string>
     <string name="needs_water">It has to go beside water</string>
     <string name="event_flooding">Flooding in the streets</string>
-    <string name="inspect_mains">Mains water</string>
-    <string name="inspect_well">A well</string>
-    <string name="inspect_sewer">On the sewer</string>
-    <string name="inspect_septic">A septic tank</string>
     <string name="inspect_flooded">Flooded</string>
     <string name="inspect_foul">Sewage in the water</string>
     <string name="upkeep_water">Water and drains</string>
@@ -41,7 +44,6 @@
     <string name="inspect_crossing">Level crossing</string>
     <string name="inspect_linked">Trains to and from outside</string>
     <string name="inspect_not_linked">No line to the edge of the map</string>
-    <string name="inspect_no_road">No road reaches it</string>
     <string name="needs_track">It has to go beside the track</string>
     <string name="upkeep_rail">Railways</string>
     <string name="tool_zone">Zone</string>
@@ -70,14 +72,9 @@
     <string name="road_avenue">Avenue</string>
     <string name="road_one_way_avenue">One-way avenue</string>
     <string name="road_boulevard">Boulevard</string>
-    <string name="inspect_bridge">Bridge</string>
-    <string name="inspect_traffic">Traffic %1$s</string>
-    <string name="inspect_commute">Commute %1$d min</string>
-    <string name="inspect_no_commute">No work in reach</string>
     <string name="inspect_zone_residential">Zoned residential</string>
     <string name="inspect_zone_commercial">Zoned commercial</string>
     <string name="inspect_zone_industrial">Zoned industrial</string>
-    <string name="inspect_tile">Tile %1$d, %2$d</string>
     <string name="close">Close</string>
     <string name="undo">Undo</string>
     <string name="redo">Redo</string>
@@ -112,10 +109,6 @@
         <item quantity="one">%1$d passenger last month</item>
         <item quantity="other">%1$d passengers last month</item>
     </plurals>
-    <plurals name="loads_by_train">
-        <item quantity="one">%1$d load by train last month</item>
-        <item quantity="other">%1$d loads by train last month</item>
-    </plurals>
     <plurals name="residents">
         <item quantity="one">%1$d resident</item>
         <item quantity="other">%1$d residents</item>
@@ -128,19 +121,11 @@
         <item quantity="one">%1$d place</item>
         <item quantity="other">%1$d places</item>
     </plurals>
-    <plurals name="cares_for">
-        <item quantity="one">Cares for %1$d person</item>
-        <item quantity="other">Cares for %1$d people</item>
-    </plurals>
     <plurals name="for_sale_months">
         <item quantity="one">Empty and for sale for a month</item>
         <item quantity="other">Empty and for sale for %1$d months</item>
     </plurals>
     <string name="for_sale">Empty and for sale</string>
-    <string name="inspect_ages">%1$d young, %2$d grown, %3$d old</string>
-    <string name="inspect_health">Health %1$s</string>
-    <string name="inspect_schooling">Schooling %1$s</string>
-    <string name="inspect_adults_schooled">%1$d% of adults schooled</string>
     <string name="wealth_poor">Poor</string>
     <string name="wealth_middle">Middling</string>
     <string name="wealth_well_off">Well off</string>
@@ -168,8 +153,6 @@
     <string name="health">Health</string>
     <string name="homes_by_wealth">Wealth</string>
     <string name="work_by_schooling">Work by schooling</string>
-    <string name="workers">Workers</string>
-    <string name="jobs_heading">Jobs</string>
     <string name="unschooled">None</string>
     <string name="schooled">School</string>
     <string name="educated">High school</string>
@@ -177,7 +160,6 @@
     <string name="high_school_places">High school places</string>
     <string name="care_places">Care</string>
     <string name="schools_and_care">Schools and care</string>
-    <string name="taken_of">%1$s of %2$s</string>
     <string name="density_low">Low density</string>
     <string name="density_medium">Medium density</string>
     <string name="density_high">High density</string>
@@ -212,7 +194,10 @@
     <string name="era_future_line">What comes next.</string>
     <string name="era_brings">New</string>
     <string name="era_next">Next: %1$s, not before %2$d</string>
-    <string name="goal_people">%1$s people</string>
+    <plurals name="goal_people">
+        <item quantity="one">%1$s person</item>
+        <item quantity="other">%1$s people</item>
+    </plurals>
     <string name="goal_mains_or_station">Mains water or a railway station</string>
     <string name="goal_on_mains">%1$d% of people on mains water</string>
     <string name="goal_on_sewer">%1$d% of people on the sewer</string>
@@ -235,9 +220,7 @@
     <string name="material_clay_drain">Clay storm drain</string>
     <string name="material_concrete_drain">Concrete storm drain</string>
     <string name="material_plastic_drain">Plastic storm drain</string>
-    <string name="laid_in">%1$s, laid %2$d</string>
     <string name="laid">Laid %1$d</string>
-    <string name="built_in">Built %1$d</string>
     <string name="track">Track</string>
     <plurals name="mend_main">
         <item quantity="one">The main burst, a day to mend</item>
@@ -268,8 +251,6 @@
         <item quantity="one">Being renovated, a day to go</item>
         <item quantity="other">Being renovated, %1$d days to go</item>
     </plurals>
-    <string name="inspect_worn">Worn out, working at %1$d%: renew it to renovate</string>
-    <string name="inspect_renovatable">Getting old: renew it to renovate</string>
     <string name="volunteer_hall">Volunteer fire hall</string>
     <string name="ladder_company">Ladder company</string>
     <string name="ambulance_station">Ambulance station</string>
@@ -283,12 +264,6 @@
     <string name="police_hq">Police headquarters</string>
     <string name="courthouse">Courthouse</string>
     <string name="jail">Jail</string>
-    <string name="inspect_cases">%1$s cases for room for %2$s a month</string>
-    <string name="inspect_held">%1$s prisoners in room for %2$s</string>
-    <string name="inspect_arrests">%1$d arrests last month</string>
-    <string name="inspect_theft">Theft %1$s</string>
-    <string name="inspect_vice">Vice %1$s</string>
-    <string name="inspect_rackets">Rackets %1$s</string>
     <string name="overlay_ladders">Ladders</string>
     <plurals name="broken_down">
         <item quantity="one">Broken down, a day to mend</item>
@@ -297,7 +272,8 @@
     <string name="event_main_burst">A water main burst</string>
     <string name="event_sewer_collapsed">A sewer gave way</string>
     <string name="event_track_broken">The track broke</string>
-    <string name="event_broke_down">The %1$s broke down</string>
+    <!-- %1$s is a building's name, as the building_ strings have it. -->
+    <string name="event_broke_down">Broke down: %1$s</string>
     <string name="upkeep_repairs">Repairs</string>
     <string name="overlay_age">Age</string>
     <string name="sewage_works">Sewage works</string>
@@ -349,7 +325,6 @@
         <item quantity="one">Tunnel closed, a day to mend</item>
         <item quantity="other">Tunnel closed, %1$d days to mend</item>
     </plurals>
-    <string name="has_power">Has power</string>
     <string name="no_power">No power</string>
     <string name="inspect_power_line">Power line</string>
 
@@ -381,6 +356,16 @@
     <string name="percent">%1$d%</string>
     <string name="less">Less</string>
     <string name="more">More</string>
+    <!-- Read out on the − and + buttons beside a setting: "Less Homes". -->
+    <string name="less_of">Less %1$s</string>
+    <string name="more_of">More %1$s</string>
+    <!-- Two things in a list, "trams, buses"; longer lists repeat it. -->
+    <string name="list_join">%1$s, %2$s</string>
+    <!-- A name and its value, as a screen reader says it: "Population 1,200". -->
+    <string name="name_value">%1$s %2$s</string>
+    <string name="name_colon_value">%1$s: %2$s</string>
+    <!-- A count and what it's made of: "5 · 2 children, 2 grown-ups, 1 old". -->
+    <string name="count_then">%1$d · %2$s</string>
     <string name="done">Done</string>
 
     <string name="graphs">Graphs</string>
@@ -401,6 +386,7 @@
     <string name="advice_debt">Out of money: raise taxes or spend less</string>
     <string name="advice_power_short">Not enough power: build a power station</string>
     <string name="advice_water_short">Not enough water: build a pumping station</string>
+    <!-- %1$s is one of advice_homes, advice_shops, advice_works, advice_offices or advice_farms, at the start of the sentence. The six below take them too. -->
     <string name="advice_zone_more">%1$s are wanted: zone more land</string>
     <string name="advice_no_road">%1$s can't grow: no road to their lots</string>
     <string name="advice_no_power">%1$s can't grow: no power</string>
@@ -414,8 +400,14 @@
     <string name="advice_works">Works</string>
     <string name="advice_offices">Offices</string>
     <string name="advice_farms">Farms</string>
-    <string name="event_forced_out">%1$s people had nowhere to go and left town</string>
-    <string name="event_jobs_lost">%1$s jobs lost</string>
+    <plurals name="event_forced_out">
+        <item quantity="one">%1$s person had nowhere to go and left town</item>
+        <item quantity="other">%1$s people had nowhere to go and left town</item>
+    </plurals>
+    <plurals name="event_jobs_lost">
+        <item quantity="one">%1$s job lost</item>
+        <item quantity="other">%1$s jobs lost</item>
+    </plurals>
     <string name="pill_nonconforming">Doesn't fit the zoning</string>
     <string name="pill_upset">Neighbours upset by clearing</string>
 
@@ -423,9 +415,6 @@
     <string name="level_low">low</string>
     <string name="level_medium">medium</string>
     <string name="level_high">high</string>
-    <string name="inspect_land_value">Land value %1$s</string>
-    <string name="inspect_crime">Crime %1$s</string>
-    <string name="inspect_pollution">Pollution %1$s</string>
     <string name="on_fire">On fire</string>
 
     <string name="menu">Menu</string>
@@ -448,8 +437,12 @@
     <string name="yes">Yes</string>
     <string name="no">No</string>
     <string name="no_saves">No saved cities yet</string>
+    <!-- A town's name, for the save the game makes by itself. -->
     <string name="autosave_of">%1$s (autosave)</string>
-    <string name="save_line">%1$s %2$d, %3$s people</string>
+    <plurals name="save_line">
+        <item quantity="one">%1$s, %2$s person</item>
+        <item quantity="other">%1$s, %2$s people</item>
+    </plurals>
     <string name="delete">Delete</string>
     <string name="load_failed">That save couldn’t be loaded</string>
     <string name="graphics">Graphics</string>
@@ -489,10 +482,25 @@
     <string name="tool_side_right">Right</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+    <string name="language">Language</string>
+    <!-- The phone's or browser's own language. -->
+    <string name="language_auto">Auto</string>
     <string name="ui_size">Size of controls and text</string>
     <string name="keys">Keys</string>
     <string name="press_a_key">Press a key</string>
     <string name="press_a_button">Press a button</string>
+    <!-- Keys and controller buttons with words on them, as printed on most keyboards and controllers. -->
+    <string name="key_space">Space</string>
+    <string name="key_esc">Esc</string>
+    <string name="key_enter">Enter</string>
+    <string name="key_tab">Tab</string>
+    <string name="key_backspace">Backspace</string>
+    <string name="key_delete">Delete</string>
+    <string name="key_num_plus">Num +</string>
+    <string name="key_num_minus">Num -</string>
+    <string name="key_num_enter">Num Enter</string>
+    <!-- The d-pad and an arrow for which way: "D-pad ↑". -->
+    <string name="pad_dpad">D-pad %1$s</string>
     <string name="controller">Controller</string>
     <string name="reset_keys">Put the keys back</string>
     <string name="key_pan_up">Move up</string>
@@ -524,7 +532,11 @@
     <string name="play">Play</string>
     <string name="paused">Paused</string>
 
+    <!-- A month from month_short and a year: "Jan 1900". -->
     <string name="date">%1$s %2$d</string>
+    <!-- How numbers are written: the mark between thousands (20,000) and the decimal mark (2.5). -->
+    <string name="number_group">,</string>
+    <string name="number_decimal">.</string>
     <string name="money">$%1$s</string>
     <string name="money_owed">−$%1$s</string>
     <string name="population">Population</string>
@@ -561,13 +573,12 @@
     <string name="event_gale">A gale brought down lines and trees</string>
     <string name="event_blizzard">A blizzard: the roads are snowed in</string>
     <string name="event_heat_wave">A heat wave</string>
-    <string name="event_industrial_accident">An accident at the %1$s</string>
+    <!-- %1$s is a building's name, as the building_ strings have it. -->
+    <string name="event_industrial_accident">Accident: %1$s</string>
     <string name="event_nuclear_accident">A nuclear accident</string>
     <string name="event_earthquake">An earthquake</string>
     <string name="event_epidemic">An epidemic is going round</string>
     <string name="event_epidemic_over">The epidemic is over</string>
-    <string name="station_output">Making %1$s of %2$s</string>
-    <string name="station_drawing">Using %1$s</string>
     <string name="megawatts">%1$s MW</string>
     <string name="kilowatts">%1$s kW</string>
     <string name="sound">Sound</string>
@@ -580,12 +591,10 @@
     <string name="volume_music">Music</string>
     <string name="volume_off">Off</string>
     <string name="inspect_garbage">Garbage piling up</string>
-    <string name="dump_fill">%1$d% full</string>
     <string name="emergency_repairs">Emergency repairs</string>
     <string name="upkeep_garbage">Garbage and street trees</string>
     <string name="upkeep_disasters">Clean-up</string>
     <string name="power">Power</string>
-    <string name="power_capacity">Stations can make</string>
     <string name="power_peak">Peak use</string>
     <string name="power_short">Short</string>
     <string name="garbage">Garbage</string>
@@ -612,6 +621,7 @@
     <string name="building_woodlot">Woodlot</string>
     <string name="building_mine">Iron mine</string>
     <string name="building_colliery">Coal mine</string>
+    <!-- Goods, written to go inside a sentence: inspect_makes_from and and_also take them. -->
     <string name="good_food">food</string>
     <string name="good_timber">timber</string>
     <string name="good_ore">iron ore</string>
@@ -620,11 +630,8 @@
     <string name="good_metal">metal</string>
     <string name="good_goods">goods</string>
     <string name="and_also">%1$s and %2$s</string>
-    <string name="inspect_makes">Makes %1$s</string>
+    <!-- %1$s and %2$s are goods (good_ strings), and %2$s may be two joined by and_also. -->
     <string name="inspect_makes_from">Makes %1$s from %2$s</string>
-    <string name="inspect_local_needs">%1$d% of what it uses from town</string>
-    <string name="inspect_local_sold">%1$d% sold in town</string>
-    <string name="inspect_coal_local">%1$d% of its coal from town</string>
     <string name="inspect_fertile">Good soil</string>
     <string name="inspect_ore">Iron ore underground</string>
     <string name="inspect_coal_seam">A coal seam underground</string>
@@ -634,9 +641,6 @@
     <string name="good_oil">crude oil</string>
     <string name="good_fuel">fuel oil</string>
     <string name="inspect_oil">Oil underground</string>
-    <string name="inspect_stock_local">%1$d% of its stock from town</string>
-    <string name="inspect_short_of_stock">Can't get stock</string>
-    <string name="inspect_fuel_local">%1$d% of its fuel oil from town</string>
     <string name="trade">Trade</string>
     <string name="trade_out">Goods sold out of town</string>
     <string name="trade_in">Goods brought in</string>
@@ -661,7 +665,6 @@
     <string name="junction_lights">Traffic lights</string>
     <string name="junction_roundabout">Roundabout</string>
     <string name="junction_interchange">Interchange</string>
-    <string name="inspect_junction">%1$s, %2$d s to get through</string>
     <string name="overlay_junctions">Junctions</string>
     <string name="traffic_flow">Traffic flowing</string>
     <string name="overlay_trips">Trips</string>
@@ -673,33 +676,24 @@
     <string name="lines">Lines</string>
     <string name="make_line">Make the line</string>
     <string name="clear">Clear</string>
+    <!-- tram_line or bus_line and its number: "Tram line 2". -->
     <string name="line_name">%1$s %2$d</string>
-    <string name="line_info">%1$d stops, round trip %2$d min, a %3$d min wait</string>
     <string name="line_not_running">Not running: no depot or garage reaches it</string>
     <string name="line_vehicles">Vehicles</string>
     <string name="remove">Remove</string>
     <string name="no_lines">No lines yet</string>
     <string name="no_route">No way between those stops</string>
-    <string name="inspect_lines">Lines: %1$s</string>
     <string name="inspect_bus_lane">Bus and tram lane</string>
     <plurals name="line_stops">
         <item quantity="one">%1$d stop</item>
         <item quantity="other">%1$d stops</item>
     </plurals>
-    <plurals name="line_riders">
-        <item quantity="one">%1$d rider last month</item>
-        <item quantity="other">%1$s riders last month</item>
-    </plurals>
     <string name="overlay_line_load">Line load</string>
-    <string name="inspect_line_load">Carrying %1$s MW at the peak</string>
-    <string name="inspect_line_overloaded">Carrying %1$s MW at the peak, overloaded</string>
     <string name="tool_districts">Districts</string>
     <string name="new_district">New district</string>
     <string name="erase_district">Erase</string>
     <string name="districts">Districts</string>
     <string name="no_districts">No districts yet</string>
-    <string name="district_figures">%1$s people, %2$s jobs</string>
-    <string name="district_value">Land value %1$s, crime %2$s, pollution %3$s</string>
     <string name="district_taxes">Taxes against the town's</string>
     <string name="tax_homes">Homes</string>
     <string name="tax_shops">Shops and offices</string>
@@ -715,10 +709,6 @@
     <string name="no_trucks">No heavy trucks</string>
     <string name="clean_works">Pollution limit on works</string>
     <string name="rent_control">Rent control</string>
-    <string name="inspect_district">District: %1$s</string>
-    <string name="inspect_staffed">Staffed %1$d%</string>
-    <string name="inspect_crowded">Crowded: %1$s in room for %2$s</string>
-    <string name="inspect_taking">%1$s of %2$s places taken</string>
     <string name="group_zones">Zones</string>
     <string name="services_police">Police</string>
     <string name="transit_trams">Trams</string>
@@ -747,8 +737,6 @@
     <string name="label_schooling">Children's schooling</string>
     <string name="label_adults_schooled">Grown-ups schooled</string>
     <string name="label_commute">Commute</string>
-    <string name="label_water">Water</string>
-    <string name="label_sewage">Sewage</string>
     <string name="label_jobs">Jobs</string>
     <string name="label_staffed">Staffed</string>
     <string name="label_condition">Condition</string>
@@ -776,7 +764,6 @@
     <string name="label_theft">Theft</string>
     <string name="label_vice">Vice</string>
     <string name="label_rackets">Rackets</string>
-    <string name="label_density">Density</string>
     <string name="label_wait">Wait</string>
     <string name="value_mains">Mains</string>
     <string name="value_well">A well</string>
@@ -786,6 +773,7 @@
     <string name="value_minutes">%1$d min</string>
     <string name="value_seconds">%1$d s</string>
     <string name="value_out_of_reach">No work in reach</string>
+    <!-- A part of a whole, both numbers: "40 of 120". -->
     <string name="value_of">%1$s of %2$s</string>
     <string name="value_laid">Laid %1$d</string>
     <string name="value_running">Running</string>
@@ -807,7 +795,14 @@
     <string name="label_round_trip">Round trip</string>
     <string name="justice">Justice</string>
     <string name="policies">Policies</string>
-    <string name="workers_jobs">%1$s workers, %2$s jobs</string>
+    <plurals name="count_workers">
+        <item quantity="one">%1$s worker</item>
+        <item quantity="other">%1$s workers</item>
+    </plurals>
+    <plurals name="count_jobs">
+        <item quantity="one">%1$s job</item>
+        <item quantity="other">%1$s jobs</item>
+    </plurals>
     <string name="power_cable">Underground cable</string>
     <string name="high_cable">High-voltage cable</string>
     <string name="tool_phone">Phone</string>
@@ -851,7 +846,10 @@
     <string name="power_sold">Power sold</string>
     <string name="water_bought">Water bought</string>
     <string name="water_sold">Water sold</string>
-    <string name="water_for">For %1$s people</string>
+    <plurals name="water_for">
+        <item quantity="one">For %1$s person</item>
+        <item quantity="other">For %1$s people</item>
+    </plurals>
     <string name="garbage_sent">Garbage sent</string>
     <string name="garbage_taken_in">Garbage taken in</string>
     <string name="visitors">Visitors</string>
@@ -913,6 +911,7 @@
     <string name="label_office_draw">Office jobs it draws</string>
     <string name="overlay_noise">Noise</string>
     <string name="tool_air">Air</string>
+    <!-- %1$s is one of the need_ strings, which are written to follow it. -->
     <string name="pill_not_fitted">Not fitted for %1$s</string>
     <string name="need_power">power</string>
     <string name="need_water">water</string>
@@ -943,4 +942,138 @@
     <string name="cooling_centre">Cooling centre</string>
     <string name="cool_roofs">Cool roofs and paving</string>
     <string name="green_roofs">Green roofs</string>
+    <!--
+        Parts new town and district names are made from. A first part and an
+        ending run together ("Ash" + "ford"); now and then a first part and a
+        word after it ("Cedar Falls"), or a word before a place ("Port Elgin").
+        They needn't be translated word for word: give the language's own.
+    -->
+    <string-array name="town_first">
+        <item>Ash</item>
+        <item>Amber</item>
+        <item>Beacon</item>
+        <item>Birch</item>
+        <item>Black</item>
+        <item>Bridge</item>
+        <item>Brook</item>
+        <item>Cedar</item>
+        <item>Clear</item>
+        <item>Cold</item>
+        <item>Copper</item>
+        <item>Deer</item>
+        <item>Dover</item>
+        <item>East</item>
+        <item>Elm</item>
+        <item>Fair</item>
+        <item>Finch</item>
+        <item>Fox</item>
+        <item>Glen</item>
+        <item>Grand</item>
+        <item>Green</item>
+        <item>Harbour</item>
+        <item>Hazel</item>
+        <item>High</item>
+        <item>Holly</item>
+        <item>Iron</item>
+        <item>Kings</item>
+        <item>Lake</item>
+        <item>Lark</item>
+        <item>Long</item>
+        <item>Maple</item>
+        <item>Marsh</item>
+        <item>Mill</item>
+        <item>North</item>
+        <item>Oak</item>
+        <item>Pine</item>
+        <item>Queens</item>
+        <item>Red</item>
+        <item>River</item>
+        <item>Rock</item>
+        <item>Rose</item>
+        <item>Salt</item>
+        <item>Silver</item>
+        <item>South</item>
+        <item>Spring</item>
+        <item>Stone</item>
+        <item>Sun</item>
+        <item>Thorn</item>
+        <item>Timber</item>
+        <item>West</item>
+        <item>White</item>
+        <item>Willow</item>
+        <item>Wolf</item>
+        <item>Wood</item>
+        <item>Wren</item>
+    </string-array>
+    <string-array name="town_endings">
+        <item>ford</item>
+        <item>field</item>
+        <item>ton</item>
+        <item>ville</item>
+        <item>wood</item>
+        <item>brook</item>
+        <item>dale</item>
+        <item>burg</item>
+        <item>port</item>
+        <item>bury</item>
+        <item>vale</item>
+        <item>ridge</item>
+        <item>haven</item>
+        <item>mouth</item>
+        <item>stead</item>
+        <item>worth</item>
+        <item>ham</item>
+        <item>wick</item>
+        <item>by</item>
+        <item>gate</item>
+        <item>view</item>
+        <item>mere</item>
+        <item>cliff</item>
+        <item>hurst</item>
+    </string-array>
+    <string-array name="town_after">
+        <item>Falls</item>
+        <item>Springs</item>
+        <item>Mills</item>
+        <item>Crossing</item>
+        <item>Landing</item>
+        <item>Junction</item>
+        <item>Hill</item>
+        <item>Bay</item>
+        <item>Creek</item>
+        <item>Rapids</item>
+    </string-array>
+    <string-array name="town_before">
+        <item>Port</item>
+        <item>Fort</item>
+        <item>Mount</item>
+        <item>New</item>
+        <item>Glen</item>
+        <item>Lake</item>
+    </string-array>
+    <string-array name="town_places">
+        <item>Elgin</item>
+        <item>Albert</item>
+        <item>Hope</item>
+        <item>Carleton</item>
+        <item>Arthur</item>
+        <item>Stanley</item>
+        <item>Russell</item>
+        <item>Lorne</item>
+        <item>Durham</item>
+        <item>Clare</item>
+        <item>Perth</item>
+        <item>Selkirk</item>
+        <item>Warren</item>
+        <item>Hamilton</item>
+        <item>Grenville</item>
+        <item>Leslie</item>
+        <item>Morris</item>
+        <item>Dufferin</item>
+        <item>Garry</item>
+        <item>Ellis</item>
+    </string-array>
+    <!-- How a first part and a word after it go together, and a word before a place. -->
+    <string name="town_after_pattern">%1$s %2$s</string>
+    <string name="town_before_pattern">%1$s %2$s</string>
 </resources>
