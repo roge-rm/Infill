@@ -188,6 +188,28 @@ int main(int argc, char** argv) {
     render(dir, "level-outboard-full", 5, {{recipe::OUTBOARD, 0, [](float, float* p) { p[0] = 1; p[1] = 1; }}});
     render(dir, "level-outboard-cruise", 5, {{recipe::OUTBOARD, 0, [](float, float* p) { p[0] = 0.4f + 0.6f * 0.6f; p[1] = 0.6f; }}});
 
+    // The town.
+    render(dir, "traffic-horses", 10, {{recipe::TRAFFIC, 0, [](float, float* p) { p[0] = 0.8f; p[1] = 0; }}});
+    render(dir, "traffic-1930", 10, {{recipe::TRAFFIC, 0, [](float, float* p) { p[0] = 0.8f; p[1] = 1; }}});
+    render(dir, "traffic-highway", 10, {{recipe::TRAFFIC, 0, [](float, float* p) { p[0] = 1; p[1] = 1; p[3] = 1; }}});
+    render(dir, "traffic-electric", 10, {{recipe::TRAFFIC, 0, [](float, float* p) { p[0] = 0.8f; p[1] = 1; p[2] = 1; }}});
+    render(dir, "traffic-years", 20, {{recipe::TRAFFIC, 0, [](float t, float* p) { p[0] = 0.8f; p[1] = std::min(1.0f, t * 2); p[2] = std::max(0.0f, t * 2 - 1); }}});
+    render(dir, "tram", 20, {{recipe::TRAM, 0, [](float, float* p) { p[0] = 1; }}});
+    render(dir, "train-steam", 12, {{recipe::TRAIN, 0, [](float t, float* p) { p[0] = 1; p[1] = 0; p[2] = ramp(t); }}});
+    render(dir, "train-diesel", 12, {{recipe::TRAIN, 0, [](float t, float* p) { p[0] = 1; p[1] = 1; p[2] = ramp(t); }}});
+    render(dir, "train-electric", 12, {{recipe::TRAIN, 0, [](float t, float* p) { p[0] = 1; p[1] = 2; p[2] = ramp(t); }}});
+    render(dir, "birds", 15, {{recipe::BIRDS, 0, [](float, float* p) { p[0] = 1; p[1] = 0.2f; }}});
+    render(dir, "birds-dawn", 15, {{recipe::BIRDS, 0, [](float, float* p) { p[0] = 1; p[1] = 1; }}});
+    render(dir, "crickets", 10, {{recipe::CRICKETS, 0, [](float, float* p) { p[0] = 1; }}});
+    render(dir, "crowd", 10, {{recipe::CROWD, 0, [](float, float* p) { p[0] = 1; }}});
+    render(dir, "siren-bell", 8, {{recipe::SIREN, 0, [](float, float* p) { p[0] = 1; p[1] = 0; }}});
+    render(dir, "siren-wail", 12, {{recipe::SIREN, 0, [](float, float* p) { p[0] = 1; p[1] = 1; }}});
+    render(dir, "siren-electronic", 12, {{recipe::SIREN, 0, [](float, float* p) { p[0] = 1; p[1] = 2; }}});
+    render(dir, "horns", 4, {}, {{0.1f, recipe::HORN, {0, 0.3f}}, {1.3f, recipe::HORN, {1, 0.2f}}, {1.8f, recipe::HORN, {1, 0.1f}}, {2.6f, recipe::HORN, {2, 0.6f}}});
+    render(dir, "bell", 2, {}, {{0.1f, recipe::BELL, {1.0f}}});
+    render(dir, "whistles", 12, {}, {{0.1f, recipe::WHISTLE, {0, 0.5f}}, {3.5f, recipe::WHISTLE, {1, 0.5f}}, {7.0f, recipe::WHISTLE, {2, 0.6f}}});
+    render(dir, "hammering", 4, {}, {{0.1f, recipe::IMPACT, {0.5f, material::WOOD, 0.2f}}, {0.5f, recipe::IMPACT, {0.5f, material::WOOD, 0.2f}}, {0.9f, recipe::IMPACT, {0.6f, material::WOOD, 0.2f}}, {2.0f, recipe::IMPACT, {0.4f, material::METAL, 0.1f}}, {2.35f, recipe::IMPACT, {0.4f, material::METAL, 0.1f}}});
+
     // Places and weather.
     render(dir, "wind", 12, {{recipe::WIND, 0, [](float t, float* p) { p[0] = 0.2f + 0.8f * ramp(t); p[1] = 0.8f; p[2] = ramp(t); }}});
     render(dir, "rain", 6, {{recipe::RAIN, 0, [](float t, float* p) { p[0] = 0.7f; p[1] = t; }}});

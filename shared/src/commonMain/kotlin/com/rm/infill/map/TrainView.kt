@@ -8,6 +8,8 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import com.rm.infill.sim.Balance
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.TrainRoute
+import com.rm.infill.sound.Recipes
+import com.rm.infill.sound.TownSound
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -29,19 +31,10 @@ internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera
         val path = route.tiles
         if (path.size < 2) continue
         val length = (path.size - 1).toFloat()
-        val trains = min(most, 1 + route.load / (Balance.TRAIN_LOAD * 30))
+        val trains = trainsOn(route, most)
         val cars = if (route.passengers) PASSENGER_CARS else if (route.containers) CONTAINER_CARS else FREIGHT_CARS
-        val leg = length / SPEED
-        val period = 2 * (leg + STOP)
         for (n in 0 until trains) {
-            val phase = ((time + (k * 0.37f + n.toFloat() / trains) * period) % period + period) % period
-            // Out, a stop, back, a stop.
-            val (head, forward) = when {
-                phase < leg -> length * ease(phase / leg) to true
-                phase < leg + STOP -> length to true
-                phase < 2 * leg + STOP -> length * (1 - ease((phase - leg - STOP) / leg)) to false
-                else -> 0f to false
-            }
+            val (head, forward) = trainAt(route, k, n, trains, time).let { it.head to it.forward }
             for (c in 0 until cars + 2) {
                 // Engine, tender, then the cars, each behind the last.
                 val s = if (forward) head - c * CAR_GAP else head + c * CAR_GAP
@@ -63,6 +56,48 @@ internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera
         }
     }
     return crossings
+}
+
+/** How many trains run on [route]: more on a busier line, up to [most]. */
+internal fun trainsOn(route: TrainRoute, most: Int) = min(most, 1 + route.load / (Balance.TRAIN_LOAD * 30))
+
+/** Where a train's engine is along its route, which way it's going, and how fast, 0 to 1. */
+internal class TrainAt(val head: Float, val forward: Boolean, val speed: Float)
+
+/** Train [n] of [trains] on route [k] at [time]: out along the track, a stop at the far end, back, and a stop. */
+internal fun trainAt(route: TrainRoute, k: Int, n: Int, trains: Int, time: Float): TrainAt {
+    val length = (route.tiles.size - 1).toFloat()
+    val leg = length / SPEED
+    val period = 2 * (leg + STOP)
+    val phase = ((time + (k * 0.37f + n.toFloat() / trains) * period) % period + period) % period
+    // How fast the eased run is going, as a share of its fastest, halfway.
+    fun pace(u: Float) = 4f * u * (1 - u)
+    return when {
+        phase < leg -> TrainAt(length * ease(phase / leg), true, pace(phase / leg))
+        phase < leg + STOP -> TrainAt(length, true, 0f)
+        phase < 2 * leg + STOP -> TrainAt(length * (1 - ease((phase - leg - STOP) / leg)), false, pace((phase - leg - STOP) / leg))
+        else -> TrainAt(0f, false, 0f)
+    }
+}
+
+/** Every train's engine as something the town's sound can place, out of sight in a tunnel or not. */
+internal fun trainSounds(routes: List<TrainRoute>, width: Int, time: Float, most: Int, kind: Float): List<TownSound.Mover> {
+    if (most == 0) return emptyList()
+    val out = ArrayList<TownSound.Mover>()
+    for ((k, route) in routes.withIndex()) {
+        if (route.tiles.size < 2) continue
+        val trains = trainsOn(route, most)
+        for (n in 0 until trains) {
+            val at = trainAt(route, k, n, trains, time)
+            val (x, y, _) = pointOn(route.tiles, at.head, width)
+            val hidden = route.hidden[min(route.tiles.size - 1, (at.head + 0.5f).toInt())]
+            out += TownSound.Mover(
+                TownSound.KEY_MOVERS + k * 8 + n, Recipes.TRAIN, x, y, kind, 0.15f + 0.85f * at.speed,
+                loudness = if (hidden) 0.3f else 1f,
+            )
+        }
+    }
+    return out
 }
 
 private enum class Car { Engine, Tender, Diesel, Coach, Boxcar, Hopper, Flatcar, Container }

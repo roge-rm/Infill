@@ -16,6 +16,13 @@ object Recipes {
     const val SEA = 15
     const val COMPLEX = 16
     const val PORT = 17
+    const val TRAFFIC = 20
+    const val TRAM = 21
+    const val TRAIN = 22
+    const val BIRDS = 23
+    const val CRICKETS = 24
+    const val CROWD = 25
+    const val SIREN = 26
 
     // One-shots.
     const val IMPACT = 50
@@ -27,6 +34,9 @@ object Recipes {
     const val CAUTION = 58
     const val CLUNK = 61
     const val SLAP = 62
+    const val HORN = 63
+    const val BELL = 64
+    const val WHISTLE = 65
 }
 
 /** What an impact is on, for how it rings. `material` in recipes.h. */

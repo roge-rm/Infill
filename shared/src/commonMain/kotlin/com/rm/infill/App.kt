@@ -875,6 +875,7 @@ private fun GameScreen(
                     val draft = city.routeFor(lineDraft, transitKind.line == 2)
                     if (draft != null) drawn + (0 to draft) else drawn
                 },
+                hour = hour,
                 modifier = Modifier.fillMaxSize(),
             )
 

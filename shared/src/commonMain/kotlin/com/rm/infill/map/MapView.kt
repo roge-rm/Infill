@@ -2,6 +2,11 @@ package com.rm.infill.map
 
 import com.rm.infill.platform.platform
 import com.rm.infill.sim.Balance
+import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.ln
+import kotlinx.coroutines.delay
+import com.rm.infill.sound.TownSound
+import com.rm.infill.audio.AudioEngine
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.Zone
 import androidx.compose.foundation.Canvas
@@ -84,6 +89,8 @@ fun MapView(
     districts: List<Pair<Int, String>> = emptyList(),
     /** Transit lines to draw over the map, by id and the tiles each runs over; 0 for one being planned. */
     lines: List<Pair<Int, IntArray>> = emptyList(),
+    /** The hour of the game's day, for the town's sound. */
+    hour: Float = 12f,
     modifier: Modifier = Modifier,
 ) {
     val map = game.city.map
@@ -139,6 +146,54 @@ fun MapView(
         }
     }
 
+    // The town's sound, from where the camera is, a few times a second. What
+    // makes sound is looked over again when the town changes, at most every
+    // couple of seconds; the trains are placed where they're drawn.
+    val viewBox = remember { FloatArray(2) }
+    val hourNow by rememberUpdatedState(hour)
+    val dpPerPx = 1f / LocalDensity.current.density
+    LaunchedEffect(game.city) {
+        val city = game.city
+        val sound = TownSound(city)
+        val frame = TownSound.Frame()
+        var surveyed = -1
+        var lastSurvey = TimeSource.Monotonic.markNow()
+        var last = TimeSource.Monotonic.markNow()
+        val seeds = kotlin.random.Random(city.seed)
+        try {
+            while (true) {
+                delay(SOUND_EVERY_MS)
+                val dt = last.elapsedNow().inWholeMilliseconds / 1000f
+                last = TimeSource.Monotonic.markNow()
+                if (game.revision != surveyed && (surveyed < 0 || lastSurvey.elapsedNow().inWholeMilliseconds >= SURVEY_EVERY_MS)) {
+                    surveyed = game.revision
+                    lastSurvey = TimeSource.Monotonic.markNow()
+                    sound.survey()
+                }
+                val view = Size(viewBox[0], viewBox[1])
+                if (view.width <= 0f) continue
+                val topLeft = camera.screenToTile(Offset.Zero, view)
+                val bottomRight = camera.screenToTile(Offset(view.width, view.height), view)
+                val tileDp = camera.tilePx * dpPerPx
+                val closeness = (ln(tileDp / FAR_TILE_DP) / ln(NEAR_TILE_DP / FAR_TILE_DP)).coerceIn(0f, 1f)
+                val listener = TownSound.Listener(
+                    camera.centreX, camera.centreY, (bottomRight.x - topLeft.x) / 2f, (bottomRight.y - topLeft.y) / 2f, closeness,
+                )
+                val kind = when {
+                    city.year < Balance.STEAM_TRAINS_UNTIL -> 0f
+                    city.year < ELECTRIC_TRAINS_FROM -> 1f
+                    else -> 2f
+                }
+                val trains = trainSounds(city.trainRoutes, map.width, weatherTime, graphics.trains, kind)
+                sound.frame(listener, hourNow, dt, trains, frame)
+                AudioEngine.scene(frame.count, frame.keys, frame.recipes, frame.flags, frame.params)
+                for (shot in frame.shots) AudioEngine.event(shot.recipe, shot.params, shot.delay, seeds.nextInt())
+            }
+        } finally {
+            AudioEngine.scene(0, IntArray(0), IntArray(0), IntArray(0), FloatArray(0))
+        }
+    }
+
     // Bakes what the last frame asked for, in its order. Where baking shares the
     // screen's thread it stops for a frame whenever it has used its share.
     LaunchedEffect(renderer) {
@@ -191,6 +246,8 @@ fun MapView(
     ) {
         redraw // Drawn again when a chunk the screen was waiting on has been baked.
         game.revision // and when the city changes.
+        viewBox[0] = size.width
+        viewBox[1] = size.height
         drawRect(page)
         if (renderer == null) return@Canvas
         game.takeChanges { i -> renderer.changed(i % map.width, i / map.width) }
@@ -294,3 +351,14 @@ private suspend fun AwaitPointerEventScope.gesture(
 /** Each notch of the wheel zooms by this much. */
 private const val WHEEL_STEP = 1.15f
 private const val WHEEL_MOST = 3f
+
+/** How often the town's sound is worked out, and how often what makes it is looked over again at most. */
+private const val SOUND_EVERY_MS = 100L
+private const val SURVEY_EVERY_MS = 2000L
+
+/** Tile sizes, in dp, that count as far out and right in for the town's sound. */
+private const val FAR_TILE_DP = 6f
+private const val NEAR_TILE_DP = 64f
+
+/** From when trains are electric, after diesel. */
+private const val ELECTRIC_TRAINS_FROM = 1995

@@ -4710,6 +4710,12 @@ class City(
 
     /** Last month's riders on each tile of bus route, tram track and tunnel. */
     fun busRiders(i: Int): Int = traffic.lastBusVolume[i]
+
+    /** Last month's cars and trucks on a road tile. */
+    fun roadVolume(i: Int): Int = traffic.lastVolume[i]
+
+    /** Every building, to look over without changing. */
+    val allBuildings: Collection<Building> get() = buildings.values
     fun trolleyRiders(i: Int): Int = traffic.lastTrolleyVolume[i]
     fun tramRiders(i: Int): Int = traffic.lastTramVolume[i]
     fun subwayRiders(i: Int): Int = traffic.lastSubwayVolume[i]
