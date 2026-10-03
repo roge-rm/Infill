@@ -9,9 +9,19 @@ import org.jetbrains.compose.resources.decodeToImageBitmap
 
 /** The tile atlas at 32, 16 and 8 px a tile, in that order. */
 class TileAtlas(val levels: List<ImageBitmap>) {
-    /** The same as ARGB pixels, for baking by hand. Read the first time they're wanted. */
-    val pixels: List<IntArray> by lazy {
-        levels.map { image -> IntArray(image.width * image.height).also { image.readPixels(it) } }
+    /**
+     * The same as ARGB pixels, for baking by hand. Each size is read the first
+     * time it's wanted, so the sizes the zoom never uses take no memory.
+     */
+    val pixels: List<IntArray> = levels.map { image -> LazyPixels(image) }.let { lazies ->
+        object : AbstractList<IntArray>() {
+            override val size = lazies.size
+            override fun get(index: Int): IntArray = lazies[index].value
+        }
+    }
+
+    private class LazyPixels(private val image: ImageBitmap) {
+        val value: IntArray by lazy { IntArray(image.width * image.height).also { image.readPixels(it) } }
     }
 }
 
