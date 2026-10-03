@@ -248,7 +248,7 @@ class TownSound(private val city: City) {
         if (day > 0.2f) {
             val dawn = if (warm && hour in 4.5f..8f) 1f - abs(hour - 6f) / 2f else 0f
             val season = if (warm) 1f else if (month in 2..9) 0.5f else 0.2f
-            place(KEY_BIRDS, Recipes.BIRDS, Source.TREES, TREES_REF, day * season, (0.2f + 0.8f * dawn).coerceIn(0f, 1f))
+            place(KEY_BIRDS, Recipes.BIRDS, Source.TREES, TREES_REF, BIRDS_LEVEL * day * season, (0.2f + 0.8f * dawn).coerceIn(0f, 1f))
         } else if (month in 5..8 && w.temperature >= CRICKETS_WARM) {
             place(KEY_CRICKETS, Recipes.CRICKETS, Source.TREES, TREES_REF, 1f - day)
         }
@@ -364,6 +364,9 @@ class TownSound(private val city: City) {
         private const val WORKS_REF = 80f
         private const val SHOPS_REF = 40f
         private const val TREES_REF = 80f
+
+        /** Birdsong cuts through the rest, so it's kept well under them. */
+        private const val BIRDS_LEVEL = 0.4f
         private const val SEA_REF = 25f
         private const val LAKE_REF = 15f
         private const val HARBOUR_REF = 0.7f
