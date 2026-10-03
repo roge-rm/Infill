@@ -14,7 +14,7 @@ class AgeingTest {
         City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, 1950)
         val m = c.map
         for (y in 0 until 48) for (x in 44..47) m.terrain[m.index(x, y)] = Terrain.WATER
-        c.apply(Action.BuildRoad(Action.roadPath(m, 2, 20, 41, 20, true), RoadType.STREET, pipes = true))
+        c.apply(Action.BuildRoad(Action.roadPath(m, 0, 20, 41, 20, true), RoadType.STREET, pipes = true))
         c.apply(Action.PlaceBuilding(BuildingType.PUMPING_STATION, 42, 18))
         c.apply(Action.BuildPipe(Action.roadPath(m, 42, 20, 41, 20, true), Pipe.WATER))
         c.apply(Action.PlaceZone(2, 21, 40, 22, Zone.RESIDENTIAL, Density.LOW))

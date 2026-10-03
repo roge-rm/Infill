@@ -26,6 +26,8 @@ class EnvironmentTest {
             c.road(20, k, 44, k)
             c.road(k, 20, k, 44)
         }
+        // A road out, for newcomers.
+        c.road(0, 32, 20, 32)
         if (dump) c.apply(Action.PlaceBuilding(BuildingType.DUMP, 33, 33))
         c.apply(Action.PlaceZone(21, 21, 43, 37, Zone.RESIDENTIAL))
         c.apply(Action.PlaceZone(21, 39, 31, 43, Zone.COMMERCIAL))

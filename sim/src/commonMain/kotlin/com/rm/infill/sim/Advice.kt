@@ -11,6 +11,9 @@ enum class AdviceKind {
     /** Not enough water for what the town uses. */
     WATER_SHORT,
 
+    /** No way for newcomers to get in: no road to the edge, station on a line out, port or airport. */
+    NO_WAY_IN,
+
     /** A zone is wanted and there's none of it to grow on. */
     ZONE_MORE,
 

@@ -3921,6 +3921,24 @@ class City(
     var connected = false
         private set
 
+    /**
+     * Whether newcomers can get in, so homes can grow: a road out at the edge
+     * of the map, a station on a line out, a port or an airport. A map with no
+     * land at its edge, all sea, counts as open, since there's no road to build.
+     */
+    fun hasWayIn(): Boolean =
+        connected || !landAtEdge || linkedPorts.isNotEmpty() || airports.isNotEmpty() ||
+            railway.stops.indices.any { railway.buildings[it].type.station && railway.linked(it) }
+
+    /** Homes are zoned and nobody can get in to live in them. Kept up to date, for the advice line between months. */
+    fun needsWayIn(): Boolean = !hasWayIn() && (zoneLots(Zone.RESIDENTIAL).isNotEmpty() || zoneLots(Zone.MIXED).isNotEmpty())
+
+    private val landAtEdge: Boolean by lazy {
+        val m = map
+        (0 until m.width).any { m.terrain[m.index(it, 0)] != Terrain.WATER || m.terrain[m.index(it, m.height - 1)] != Terrain.WATER } ||
+            (0 until m.height).any { m.terrain[m.index(0, it)] != Terrain.WATER || m.terrain[m.index(m.width - 1, it)] != Terrain.WATER }
+    }
+
     private fun networksChanged() {
         networksDirty = true
         shippingDirty = true
@@ -5728,7 +5746,10 @@ class City(
 
     private fun growDay() {
         val left = daysIn(month, year) - day + 1
+        // Homes are filled with newcomers as they grow, and newcomers need a way in.
+        val open = hasWayIn()
         for (zone in 1 until Zone.COUNT) {
+            if (!open && (zone == Zone.RESIDENTIAL.toInt() || zone == Zone.MIXED.toInt())) continue
             var events = 0
             val most = 1 + abs(quota[zone]) / (left * 6)
             while (quota[zone] != 0 && events < most) {
@@ -6773,6 +6794,7 @@ class City(
         if (funds < 0) out += Advice(AdviceKind.DEBT)
         if (s.powerShort > 0 && s.powerDemand > 0 && s.powerShort * 100 / s.powerDemand >= Balance.ADVICE_SHORT) out += Advice(AdviceKind.POWER_SHORT)
         if (s.waterShort > 0 && s.waterUsed > 0 && s.waterShort * 100 / s.waterUsed >= Balance.ADVICE_SHORT) out += Advice(AdviceKind.WATER_SHORT)
+        if (needsWayIn()) out += Advice(AdviceKind.NO_WAY_IN)
         val wanted = listOf(
             Zone.RESIDENTIAL to s.residentialDemand, Zone.COMMERCIAL to s.commercialDemand, Zone.INDUSTRIAL to s.industryDemand,
             Zone.OFFICE to s.officeDemand, Zone.FARMLAND to s.farmDemand,

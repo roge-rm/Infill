@@ -386,6 +386,9 @@
     <string name="advice_debt">Out of money: raise taxes or spend less</string>
     <string name="advice_power_short">Not enough power: build a power station</string>
     <string name="advice_water_short">Not enough water: build a pumping station</string>
+    <string name="advice_no_way_in">No way in: run a road to the edge of the map</string>
+    <!-- Over a new town until play is pressed. -->
+    <string name="paused_hint">Paused: press play to start</string>
     <!-- %1$s is one of advice_homes, advice_shops, advice_works, advice_offices or advice_farms, at the start of the sentence. The six below take them too. -->
     <string name="advice_zone_more">%1$s are wanted: zone more land</string>
     <string name="advice_no_road">%1$s can't grow: no road to their lots</string>

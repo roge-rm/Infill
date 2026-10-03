@@ -404,9 +404,9 @@ fun healthWord(health: Int): String = stringResource(
 
 /** A short message that goes away by itself. If it's about a place, tapping it goes there. */
 @Composable
-fun MessageChip(text: String, onClick: (() -> Unit)?, modifier: Modifier = Modifier) {
+fun MessageChip(text: String, onClick: (() -> Unit)?, modifier: Modifier = Modifier, clickLabel: String? = null) {
     val c = Infill.colors
-    val look = stringResource(Res.string.look_there)
+    val look = clickLabel ?: stringResource(Res.string.look_there)
     // Said out loud when it comes up, for screen readers.
     ChromeBox(modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
         Text(

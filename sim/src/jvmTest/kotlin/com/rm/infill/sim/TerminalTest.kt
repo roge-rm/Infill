@@ -13,7 +13,7 @@ class TerminalTest {
         val m = c.map
         assertTrue(c.apply(Action.BuildRail(Action.roadPath(m, 0, 30, 60, 30, true))).ok)
         assertTrue(c.apply(Action.PlaceBuilding(type, 20, 31)).ok, "$type")
-        assertTrue(c.apply(Action.BuildRoad(Action.roadPath(m, 5, 34, 58, 34, true), RoadType.STREET)).ok)
+        assertTrue(c.apply(Action.BuildRoad(Action.roadPath(m, 0, 34, 58, 34, true), RoadType.STREET)).ok)
         assertTrue(c.apply(Action.PlaceZone(5, 35, 40, 45, Zone.INDUSTRIAL)).ok)
         assertTrue(c.apply(Action.PlaceZone(42, 35, 58, 45, Zone.RESIDENTIAL)).ok)
         assertTrue(c.apply(Action.PlaceBuilding(BuildingType.COAL_PLANT, 50, 48)).ok)

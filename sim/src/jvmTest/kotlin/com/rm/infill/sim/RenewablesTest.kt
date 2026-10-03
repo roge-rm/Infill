@@ -117,7 +117,7 @@ class RenewablesTest {
         val m = c.map
         assertTrue(c.apply(Action.PlaceBuilding(BuildingType.RIVER_TURBINE, 31, 30)).ok)
         assertTrue(c.apply(Action.BuildPowerLine(Action.roadPath(m, 32, 30, 33, 30, true), buried = true)).ok)
-        assertTrue(c.apply(Action.BuildRoad(Action.roadPath(m, 34, 40, 60, 40, true))).ok)
+        assertTrue(c.apply(Action.BuildRoad(Action.roadPath(m, 34, 40, 63, 40, true))).ok)
         assertTrue(c.apply(Action.BuildPowerLine(Action.roadPath(m, 34, 30, 34, 38, false))).ok)
         assertTrue(c.apply(Action.PlaceZone(35, 36, 60, 39, Zone.RESIDENTIAL)).ok)
         repeat(365) { c.tick() }

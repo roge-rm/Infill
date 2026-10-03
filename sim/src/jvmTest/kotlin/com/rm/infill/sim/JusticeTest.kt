@@ -77,6 +77,9 @@ class JusticeTest {
         val m = c.map
         for (y in listOf(10, 20, 30, 40, 50)) assertTrue(c.apply(Action.BuildRoad(Action.roadPath(m, 2, y, 60, y, true))).ok)
         assertTrue(c.apply(Action.BuildRoad(Action.roadPath(m, 31, 10, 31, 50, true))).ok)
+        // A railway out, for newcomers, which leaves the streets as they were.
+        assertTrue(c.apply(Action.BuildRail(Action.roadPath(m, 40, 4, 63, 4, true))).ok)
+        assertTrue(c.apply(Action.PlaceBuilding(BuildingType.STATION, 50, 5)).ok)
         for (y in listOf(10, 20, 30, 40)) {
             assertTrue(c.apply(Action.PlaceZone(2, y + 1, 60, y + 3, Zone.RESIDENTIAL, Density.HIGH)).ok)
             assertTrue(c.apply(Action.PlaceZone(2, y + 7, 60, y + 9, Zone.INDUSTRIAL)).ok)

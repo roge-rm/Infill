@@ -35,7 +35,7 @@ Health comes from doctors, mains water and the sewer, wealth, parks, clean air a
 
 ## Moving in and out
 
-People come when there are jobs to fill and homes to live in, and the town draws newcomers by itself as it grows. A railway station on a line out and an airport bring more. People leave when their homes shrink, burn or flood, or when they're bulldozed with nowhere else to go, and news of that puts newcomers off for a while.
+People come when there are jobs to fill and homes to live in, and the town draws newcomers by itself as it grows. Nobody moves in without a way in: a road to the edge of the map, a station on a line out, a port or an airport. On an island with sea all round, they come by boat. A railway station on a line out and an airport bring more. People leave when their homes shrink, burn or flood, or when they're bulldozed with nowhere else to go, and news of that puts newcomers off for a while.
 
 ## The People window
 

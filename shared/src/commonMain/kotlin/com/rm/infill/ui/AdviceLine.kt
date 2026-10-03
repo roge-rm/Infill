@@ -95,6 +95,7 @@ private fun adviceText(a: Advice): String {
         AdviceKind.DEBT -> stringResource(Res.string.advice_debt)
         AdviceKind.POWER_SHORT -> stringResource(Res.string.advice_power_short)
         AdviceKind.WATER_SHORT -> stringResource(Res.string.advice_water_short)
+        AdviceKind.NO_WAY_IN -> stringResource(Res.string.advice_no_way_in)
         AdviceKind.ZONE_MORE -> stringResource(Res.string.advice_zone_more, zone)
         AdviceKind.NO_ROAD -> stringResource(Res.string.advice_no_road, zone)
         AdviceKind.NO_POWER -> stringResource(Res.string.advice_no_power, zone)
@@ -120,7 +121,7 @@ private fun adviceGlyph(kind: AdviceKind): Glyph = when (kind) {
     AdviceKind.POWER_SHORT, AdviceKind.NO_POWER -> Glyph.Bolt
     AdviceKind.WATER_SHORT, AdviceKind.NO_WATER, AdviceKind.NO_SEWER -> Glyph.Drop
     AdviceKind.ZONE_MORE -> Glyph.Zone
-    AdviceKind.NO_ROAD -> Glyph.Road
+    AdviceKind.NO_ROAD, AdviceKind.NO_WAY_IN -> Glyph.Road
     AdviceKind.NO_STAFF -> Glyph.Cap
     AdviceKind.UNAPPEALING -> Glyph.Warn
     AdviceKind.GARBAGE -> Glyph.Bin

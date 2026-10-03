@@ -29,6 +29,8 @@ class DisasterTest {
             c.road(20, k, 44, k)
             c.road(k, 20, k, 44)
         }
+        // A road out, for newcomers.
+        c.road(0, 32, 20, 32)
         c.apply(Action.PlaceZone(21, 21, 43, 37, Zone.RESIDENTIAL))
         c.apply(Action.PlaceZone(21, 39, 31, 43, Zone.COMMERCIAL))
         c.apply(Action.PlaceZone(33, 39, 43, 43, Zone.INDUSTRIAL))

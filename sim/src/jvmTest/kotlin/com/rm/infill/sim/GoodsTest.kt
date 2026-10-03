@@ -168,6 +168,13 @@ class GoodsTest {
             val c = city()
             // A road to the edge, or one that stops short of it.
             if (edge) c.road(0, 30, 63, 30) else c.road(4, 30, 59, 30)
+            // Without the road, people still come by train, but the train brings no goods.
+            if (!edge) {
+                c.everything = true
+                c.apply(Action.BuildRail(Action.roadPath(c.map, 0, 40, 12, 40, true)))
+                c.apply(Action.PlaceBuilding(BuildingType.STATION, 6, 41))
+                c.everything = false
+            }
             c.apply(Action.PlaceZone(6, 27, 57, 29, Zone.RESIDENTIAL))
             c.apply(Action.PlaceZone(6, 31, 30, 32, Zone.COMMERCIAL))
             c.apply(Action.PlaceZone(32, 31, 57, 32, Zone.INDUSTRIAL))

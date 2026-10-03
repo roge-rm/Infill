@@ -1,5 +1,7 @@
 package com.rm.infill
 
+import com.rm.infill.sim.AdviceKind
+import com.rm.infill.sim.Advice
 import com.rm.infill.ui.listText
 import com.rm.infill.ui.tileSummary
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -100,6 +102,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import com.rm.infill.map.MapGestures
 import com.rm.infill.res.Res
+import com.rm.infill.res.paused_hint
+import com.rm.infill.res.play
 import com.rm.infill.res.cursor_far_down
 import com.rm.infill.res.cursor_far_left
 import com.rm.infill.res.cursor_far_right
@@ -1341,7 +1345,15 @@ private fun GameScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 game.revision
-                AdviceLine(city.advice, { x, y -> camera.centreOn(x, y) })
+                // A new town waits, paused, until play is pressed; this says so, and starts it.
+                if (paused && city.stats.population == 0) {
+                    MessageChip(stringResource(Res.string.paused_hint), { paused = false }, clickLabel = stringResource(Res.string.play))
+                }
+                // No way in shows the moment it's so and goes the moment a road's out, without waiting for the month to end.
+                val advice = city.advice.filter { it.kind != AdviceKind.NO_WAY_IN }.let { rest ->
+                    if (city.needsWayIn()) listOf(Advice(AdviceKind.NO_WAY_IN)) + rest else rest
+                }
+                AdviceLine(advice, { x, y -> camera.centreOn(x, y) })
                 message?.let { m ->
                     MessageChip(
                         when {
