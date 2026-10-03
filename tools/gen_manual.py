@@ -83,7 +83,7 @@ PHONE_ONLY = {
 }
 
 DESKTOP_SENTENCES = {
-    "On a narrow phone the strip is two lines, and undo and redo sit in it.":
+    "On a phone held upright the strip is two lines, round the camera, and undo and redo sit in it.":
         "In a narrow window the strip is two lines, and undo and redo sit in it.",
     "With a tool picked, one finger builds and two fingers move and zoom the map.":
         "With a tool picked, the left mouse button builds.",

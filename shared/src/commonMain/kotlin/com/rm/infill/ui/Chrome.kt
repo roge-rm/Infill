@@ -180,7 +180,7 @@ fun StatusStrip(
         DemandBars(st.residentialDemand, st.commercialDemand, st.industryDemand, st.officeDemand, st.farmDemand, mixed, st.population + st.jobs, Modifier.padding(end = 4.dp))
     }
     ChromeBox(modifier) {
-        // On a narrow screen the readings go on a second line under the buttons.
+        // On an upright phone the readings go on a second line under the buttons.
         if (twoLines) {
             Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (cameras.isEmpty()) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(gap)) { buttons() }
@@ -191,7 +191,7 @@ fun StatusStrip(
                     horizontalArrangement = Arrangement.spacedBy(gap),
                 ) {
                     readings()
-                    // Undo and redo live up here on a narrow phone, so the toolbar keeps its labels.
+                    // Undo and redo live up here on an upright phone, so the toolbar keeps its labels.
                     HistoryButton(false, game.canUndo, 32.dp, onUndo)
                     HistoryButton(true, game.canRedo, 32.dp, onRedo)
                 }

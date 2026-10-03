@@ -14,7 +14,7 @@ Along the top, from the left:
 - The population. Tap it for the People window.
 - The demand bars, one for each zone.
 
-On a narrow phone the strip is two lines, and undo and redo sit in it.
+On a phone held upright the strip is two lines, round the camera, and undo and redo sit in it.
 
 Under the strip is the advice line, and under that, news as it happens: a fire, a burst main, a new era. Tap either one to go to the place.
 

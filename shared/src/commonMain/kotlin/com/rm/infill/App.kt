@@ -1300,15 +1300,22 @@ private fun GameScreen(
             val gap = if (layout.compact) 6.dp else 10.dp
             val sideTools = layout.large || layout.shape == ScreenShape.Wide
             val compactTools = layout.compact || layout.short || layout.narrow
-            val twoLines = layout.narrow && layout.shape == ScreenShape.Tall
+            // Every upright phone: one line can't hold the buttons and the readings without crowding them.
+            val twoLines = layout.shape == ScreenShape.Tall && !layout.large
             // A phone on its side hasn't the height for undo and redo down the rail, so they go along the top.
             val historyOnTop = twoLines || (sideTools && layout.short)
             // On an upright phone with its camera in the top edge, the strip goes up round it: if each camera is small
             // enough to leave room for the buttons, and short enough to stay within the strip's first row.
             val windowPx = with(LocalDensity.current) { maxWidth.toPx() }
             val rowPx = with(LocalDensity.current) { CAMERA_ROW.dp.toPx() }
-            val cameras = cameraCutouts().filter { it.top <= 0f && it.height > 0f }.let { top ->
-                if (twoLines && top.isNotEmpty() && top.all { it.width <= windowPx * CAMERA_SHARE && it.bottom <= rowPx }) top.map { it.left..it.right } else emptyList()
+            val deepestPx = with(LocalDensity.current) { (CAMERA_ROW + CAMERA_DEEPER).dp.toPx() }
+            val topCameras = cameraCutouts().filter { it.top <= 0f && it.height > 0f }
+            val cameras = topCameras.let { top ->
+                if (twoLines && top.isNotEmpty() && top.all { it.width <= windowPx * CAMERA_SHARE && it.bottom <= deepestPx }) top.map { it.left..it.right } else emptyList()
+            }
+            // A camera deeper than the first row takes the strip down with it, so it still sits level with the row.
+            val cameraDrop = with(LocalDensity.current) {
+                if (cameras.isEmpty()) 0.dp else ((topCameras.maxOf { it.bottom } - rowPx).coerceAtLeast(0f)).toDp()
             }
             StatusStrip(
                 game, onMenu, paused, { paused = !paused }, speed, { speed = (speed + 1) % SPEEDS.size },
@@ -1322,7 +1329,7 @@ private fun GameScreen(
                         .align(Alignment.TopCenter)
                         .onSizeChanged { stripSize = it }
                         .windowInsetsPadding(safe.only(WindowInsetsSides.Horizontal))
-                        .padding(start = gap, end = gap, top = CAMERA_GAP.dp)
+                        .padding(start = gap, end = gap, top = CAMERA_GAP.dp + cameraDrop)
                         .fillMaxWidth()
                 } else {
                     Modifier
@@ -1610,6 +1617,9 @@ private const val MAX_DAYS_PER_FRAME = 4
  */
 private const val CAMERA_GAP = 6
 private const val CAMERA_ROW = 54
+
+/** How much deeper than the first row a camera can be, in dp, with the strip moved down to meet it. */
+private const val CAMERA_DEEPER = 24
 private const val CAMERA_SHARE = 0.3f
 
 /** How long a message stays. */

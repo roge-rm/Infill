@@ -66,7 +66,7 @@ object Manual {
             ManualBlock(ManualKind.Bullet, "The money, red when the town's in debt. Tap it for the budget.", "The money, red when the town's in debt. Click it for the budget."),
             ManualBlock(ManualKind.Bullet, "The population. Tap it for the People window.", "The population. Click it for the People window."),
             ManualBlock(ManualKind.Bullet, "The demand bars, one for each zone."),
-            ManualBlock(ManualKind.Para, "On a narrow phone the strip is two lines, and undo and redo sit in it.", "In a narrow window the strip is two lines, and undo and redo sit in it."),
+            ManualBlock(ManualKind.Para, "On a phone held upright the strip is two lines, round the camera, and undo and redo sit in it.", "In a narrow window the strip is two lines, and undo and redo sit in it."),
             ManualBlock(ManualKind.Para, "Under the strip is the advice line, and under that, news as it happens: a fire, a burst main, a new era. Tap either one to go to the place.", "Under the strip is the advice line, and under that, news as it happens: a fire, a burst main, a new era. Click either one to go to the place."),
             ManualBlock(ManualKind.Heading, "Tools"),
             ManualBlock(ManualKind.Para, "The toolbar has six buttons: **Inspect**, **Bulldoze**, **Zones**, **Transport**, **Utilities** and **Services**. Then undo and redo."),
