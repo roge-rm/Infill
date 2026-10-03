@@ -24,3 +24,10 @@ local.properties
 
 # Python caches from running the tools.
 __pycache__/
+
+# Music masters (FLAC), kept out of the repo. tools/encode_music.sh makes the
+# game's music from them.
+/music/
+
+# The stand-in music, until Dan's own pieces take its place.
+/shared/src/commonMain/composeResources/files/music/

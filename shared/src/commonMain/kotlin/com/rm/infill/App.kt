@@ -230,6 +230,7 @@ import kotlin.math.max
 import com.rm.infill.ui.screenLayout
 import com.rm.infill.ui.theme.InfillTheme
 import com.rm.infill.audio.AudioEngine
+import com.rm.infill.audio.Music
 import com.rm.infill.audio.Sounds
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -349,13 +350,21 @@ private fun Screens(settings: Settings) {
 
     // Put away or hidden: the game saves itself and goes quiet.
     val current by rememberUpdatedState(game)
+    val music = remember { Music() }
     LaunchedEffect(Unit) {
         platform.onHidden {
             current?.let { platform.writeSave(AUTOSAVE, SaveGame.write(it.city)) }
             AudioEngine.pause(true)
+            music.pause(true)
         }
-        platform.onShown { AudioEngine.pause(false) }
+        platform.onShown {
+            AudioEngine.pause(false)
+            music.pause(false)
+        }
     }
+
+    // The town's era's music, while there's a town.
+    LaunchedEffect(Unit) { music.run({ current?.city?.era }, { settings.busGains[3] }) }
 
     // The sound: started once, off the main thread since opening the output
     // can take a while, with more voices on a device that can take them.
