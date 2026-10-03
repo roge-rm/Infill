@@ -92,9 +92,9 @@ internal fun DrawScope.drawNeighbours(neighbours: Array<Border?>, map: CityMap, 
  * size; [under] shows through where it's see-through, as the ground under a tree.
  */
 private fun average(atlas: TileAtlas, index: Int, under: Int? = null): Int {
-    val level = atlas.levels.size - 1
-    val src = atlas.pixels[level]
-    val width = atlas.levels[level].width
+    val level = atlas.levels - 1
+    val src = atlas.pixels(level, index / Atlas.PER_LOOK)
+    val width = atlas.width(level)
     val r = index * 5
     val sx = Atlas.rects[r] shr level
     val sy = Atlas.rects[r + 1] shr level

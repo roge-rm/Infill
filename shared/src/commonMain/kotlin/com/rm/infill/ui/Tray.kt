@@ -322,7 +322,7 @@ private fun DrawScope.drawChoice(atlas: TileAtlas?, icon: ChoiceIcon, textColour
         if (icon.backTo != null) drawRoundRect(Brush.linearGradient(listOf(back, icon.backTo), Offset.Zero, Offset(size.width, size.height)), cornerRadius = corner)
         else drawRoundRect(back, cornerRadius = corner)
     }
-    val image = atlas?.levels?.firstOrNull()
+    val image = atlas?.icons
     if (image != null && icon.sprites.isNotEmpty()) {
         // All the sprites at one scale, set by the biggest, centred.
         var most = 1

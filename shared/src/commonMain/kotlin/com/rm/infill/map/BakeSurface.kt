@@ -40,8 +40,16 @@ internal expect fun newSurface(atlas: TileAtlas, level: Int, size: Int): BakeSur
 /** Pixels in an IntArray, turned into a bitmap at the end. Safe on any thread. */
 internal class PixelSurface(atlas: TileAtlas, private val level: Int, private val size: Int) : BakeSurface {
     private val out = IntArray(size * size)
-    private val src = atlas.pixels[level]
-    private val srcWidth = atlas.levels[level].width
+    private val atlas = atlas
+    private val srcWidth = atlas.width(level)
+
+    /** Each look's pixels, taken from the atlas the first time this surface draws in it. */
+    private val looks = arrayOfNulls<IntArray>(Atlas.LOOKS)
+
+    private fun source(index: Int): IntArray {
+        val look = index / Atlas.PER_LOOK
+        return looks[look] ?: atlas.pixels(level, look).also { looks[look] = it }
+    }
     private var mask: BooleanArray? = null
     private var shadowKeep = 256
 
@@ -52,6 +60,7 @@ internal class PixelSurface(atlas: TileAtlas, private val level: Int, private va
         val w = Atlas.rects[r + 2] shr level
         val h = Atlas.rects[r + 3] shr level
         val top = dy - (Atlas.rects[r + 4] shr level)
+        val src = source(index)
         val x0 = max(0, dx)
         val x1 = min(size, dx + w)
         if (x0 >= x1) return
@@ -70,6 +79,7 @@ internal class PixelSurface(atlas: TileAtlas, private val level: Int, private va
         val w = Atlas.rects[r + 2] shr level
         val h = Atlas.rects[r + 3] shr level
         val top = dy - (Atlas.rects[r + 4] shr level)
+        val src = source(index)
         for (row in 0 until h) {
             val y = top + row
             if (y < 0 || y >= size) continue

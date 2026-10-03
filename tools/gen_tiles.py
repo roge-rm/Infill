@@ -5982,18 +5982,26 @@ def main():
     flat = [s for look in looks for s in look]
     for name, img, lift, _ in flat:
         assert img.width % GRID == 0 and img.height % GRID == 0 and lift % GRID == 0, name
-    pos, size = pack([s[1].size for s in flat])
-    atlas = Image.new("RGBA", size, (0, 0, 0, 0))
-    for (name, img, _, _), p in zip(flat, pos):
-        atlas.paste(img, p)
+    # A sheet for each look, so the game only holds the looks it's showing. Every
+    # look has the same sprites at the same sizes, so they all sit in the same places.
+    sizes = [s[1].size for s in looks[0]]
+    for look in looks:
+        assert [s[1].size for s in look] == sizes, "the looks differ in size"
+    pos, size = pack(sizes)
     OUT_PNG.mkdir(parents=True, exist_ok=True)
-    atlas.save(OUT_PNG / "atlas_32.png", optimize=True)
-    # Averaged down with alpha taken into account, so edges don't go dark.
-    premul = atlas.convert("RGBa")
-    premul.reduce(2).convert("RGBA").save(OUT_PNG / "atlas_16.png", optimize=True)
-    premul.reduce(4).convert("RGBA").save(OUT_PNG / "atlas_8.png", optimize=True)
-    write_kotlin(names, flat, pos, size)
-    print(f"{len(flat)} sprites, {len(names)} a look, atlas {size[0]}x{size[1]}")
+    for old in OUT_PNG.glob("atlas_*.png"):
+        old.unlink()
+    for name, look in zip(LOOKS, looks):
+        atlas = Image.new("RGBA", size, (0, 0, 0, 0))
+        for (_, img, _, _), p in zip(look, pos):
+            atlas.paste(img, p)
+        atlas.save(OUT_PNG / f"atlas_32_{name}.png", optimize=True)
+        # Averaged down with alpha taken into account, so edges don't go dark.
+        premul = atlas.convert("RGBa")
+        premul.reduce(2).convert("RGBA").save(OUT_PNG / f"atlas_16_{name}.png", optimize=True)
+        premul.reduce(4).convert("RGBA").save(OUT_PNG / f"atlas_8_{name}.png", optimize=True)
+    write_kotlin(names, flat, pos * len(LOOKS), size)
+    print(f"{len(flat)} sprites, {len(names)} a look, {len(LOOKS)} sheets of {size[0]}x{size[1]}")
 
 
 def write_kotlin(names, flat, pos, size):
@@ -6036,7 +6044,7 @@ def write_kotlin(names, flat, pos, size):
 package com.rm.infill.map
 
 /**
- * Where each sprite is in the atlases (files/atlas_32.png, _16 and _8) and what
+ * Where each sprite is in the atlases (files/atlas_32_<look>.png, _16_ and _8_) and what
  * casts a shadow. A sprite's number is its place in a look plus the look times
  * [PER_LOOK]. Shores, corners and medians go north, east, south, west. A
  * road's number adds its neighbours that are road: north 1, east 2, south 4,
