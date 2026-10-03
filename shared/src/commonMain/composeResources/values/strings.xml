@@ -622,9 +622,6 @@
         <item quantity="one">%1$s person</item>
         <item quantity="other">%1$s people</item>
     </plurals>
-    <string name="jobs_label">Jobs</string>
-    <string name="income">Income a month</string>
-    <string name="upkeep">Upkeep a month</string>
 
     <string name="pause">Pause</string>
     <string name="play">Play</string>
@@ -638,8 +635,6 @@
     <string name="money">$%1$s</string>
     <string name="money_owed">−$%1$s</string>
     <string name="population">Population</string>
-    <string name="funds">Funds</string>
-    <string name="year">Year</string>
 
     <string-array name="month_short">
         <item>Jan</item>

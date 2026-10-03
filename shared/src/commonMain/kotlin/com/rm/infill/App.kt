@@ -229,7 +229,6 @@ import com.rm.infill.ui.RegionScreen
 import com.rm.infill.ui.RegionRow
 import com.rm.infill.sim.Region
 import com.rm.infill.sim.CityEvent
-import com.rm.infill.ui.CityPanel
 import com.rm.infill.ui.KeyAction
 import com.rm.infill.ui.KeyInput
 import com.rm.infill.ui.Pad
@@ -1367,8 +1366,7 @@ private fun GameScreen(
                         .fillMaxWidth()
                 } else {
                     Modifier
-                        // Centred, but to the left on a large screen, leaving room for the city panel on the right.
-                        .align(if (layout.large) Alignment.TopStart else Alignment.TopCenter)
+                        .align(Alignment.TopCenter)
                         .onSizeChanged { stripSize = it }
                         .windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                         .padding(gap)
@@ -1411,8 +1409,7 @@ private fun GameScreen(
                     )
                 }
             }
-            // Down the side away from the camera, or the side the player picked. With no camera on either side,
-            // a large screen keeps them left of the city panel and a phone puts them on the right.
+            // Down the side away from the camera, or the side the player picked; on the right with no camera on either side.
             val cutout = WindowInsets.displayCutout
             val dir = LocalLayoutDirection.current
             val px = LocalDensity.current
@@ -1422,7 +1419,7 @@ private fun GameScreen(
                 ToolSide.Auto -> when {
                     cutout.getLeft(px, dir) > 0 -> true
                     cutout.getRight(px, dir) > 0 -> false
-                    else -> !layout.large
+                    else -> true
                 }
             }
             if (sideTools) {
@@ -1558,23 +1555,6 @@ private fun GameScreen(
                     ToolBar(tool.group, ::pickGroup, game.canUndo, game.canRedo, ::undo, ::redo, vertical = false, compact = compactTools, modifier = trayWidth, withHistory = !historyOnTop, focus = toolsFocus)
                 }
             }
-            if (layout.large) {
-                // Beside the top strip, or under it when the two don't fit across.
-                val density = LocalDensity.current
-                val stripWidth = with(density) { stripSize.width.toDp() }
-                val under = stripWidth + PANEL_WIDTH.dp + gap > maxWidth
-                CityPanel(
-                    game,
-                    Modifier
-                        .align(Alignment.TopEnd)
-                        .then(
-                            if (under) Modifier.padding(top = with(density) { stripSize.height.toDp() })
-                                .windowInsetsPadding(safe.only(WindowInsetsSides.End)).padding(horizontal = gap)
-                            else Modifier.windowInsetsPadding(safe.only(WindowInsetsSides.Top + WindowInsetsSides.End)).padding(gap),
-                        )
-                        .width(PANEL_WIDTH.dp),
-                )
-            }
             if (budgetOpen) BudgetWindow(game) { budgetOpen = false }
             if (linesOpen) LinesWindow(game) { linesOpen = false }
             if (districtsOpen) DistrictsWindow(game) { districtsOpen = false }
@@ -1610,7 +1590,6 @@ private const val START_TILE_DP = 24f
 private const val KEY_PAN_DP = 600f
 private const val KEY_ZOOM = 1.5f
 
-private const val PANEL_WIDTH = 240
 
 /** The widest the toolbar and its tray go along the bottom. */
 private const val TRAY_WIDTH = 520

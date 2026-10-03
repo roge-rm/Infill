@@ -65,13 +65,9 @@ import com.rm.infill.res.date
 import com.rm.infill.res.money_owed
 import androidx.compose.ui.graphics.Color
 import com.rm.infill.res.demand
-import com.rm.infill.res.income
-import com.rm.infill.res.jobs_label
 import com.rm.infill.res.speed
 import com.rm.infill.res.overlay
 import com.rm.infill.res.menu
-import com.rm.infill.res.upkeep
-import com.rm.infill.res.funds
 import com.rm.infill.res.money
 import com.rm.infill.res.month_short
 import com.rm.infill.res.pause
@@ -80,7 +76,6 @@ import com.rm.infill.res.play
 import com.rm.infill.res.population
 import com.rm.infill.res.redo
 import com.rm.infill.res.undo
-import com.rm.infill.res.year
 import com.rm.infill.GameState
 import com.rm.infill.sim.Balance
 import com.rm.infill.sim.Zone
@@ -495,37 +490,6 @@ private fun SquareButton(
             .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { content(if (selected) c.onAccent else c.text) }
-}
-
-/** The city at a glance, down the side on a tablet. */
-@Composable
-fun CityPanel(game: GameState, modifier: Modifier = Modifier) {
-    game.revision
-    val city = game.city
-    val s = city.stats
-    ChromeBox(modifier) {
-        Column(Modifier.fillMaxWidth().padding(12.dp)) {
-            StatGrid(
-                listOf(
-                    StatItem(Glyph.Person, stringResource(Res.string.population), groupThousands(s.population.toLong())),
-                    StatItem(Glyph.Briefcase, stringResource(Res.string.jobs_label), groupThousands(s.jobs.toLong())),
-                    StatItem(Glyph.Coins, stringResource(Res.string.funds), moneyText(city.funds)),
-                    StatItem(Glyph.Calendar, stringResource(Res.string.year), city.year.toString()),
-                    StatItem(Glyph.Coin, stringResource(Res.string.income), moneyText(s.income)),
-                    StatItem(Glyph.Wrench, stringResource(Res.string.upkeep), moneyText(s.upkeep)),
-                ),
-            )
-        }
-    }
-}
-
-@Composable
-private fun PanelLine(name: String, value: String) {
-    val c = Infill.colors
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(name, color = c.textDim, fontSize = 14.sp)
-        Text(value, color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-    }
 }
 
 /** An amount of money as $20,000, or −$861 when it's owed. */
