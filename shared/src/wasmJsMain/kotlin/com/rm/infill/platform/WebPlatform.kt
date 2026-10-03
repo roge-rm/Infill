@@ -32,6 +32,8 @@ object WebPlatform : Platform {
     /** Browsers give the wheel in pixels, about a hundred a notch. */
     override val scrollPerNotch = 100f
 
+    override val onDesktop = true
+
     override fun onHidden(action: () -> Unit) {
         document.addEventListener("visibilitychange", { if (pageHidden()) action() })
     }

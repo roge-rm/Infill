@@ -23,6 +23,12 @@ interface Platform {
     /** How much a mouse wheel scrolls for one notch: a notch on Android, pixels in a browser. */
     val scrollPerNotch: Float get() = 1f
 
+    /** Played with a mouse and keyboard, for the help's wording: a click for a tap. */
+    val onDesktop: Boolean get() = false
+
+    /** Whether the keys for looking at seasons, hours, weather and fires work: only in a debug build. */
+    val devKeys: Boolean get() = false
+
     /** Called when the app goes into the background or the page is hidden. */
     fun onHidden(action: () -> Unit)
 

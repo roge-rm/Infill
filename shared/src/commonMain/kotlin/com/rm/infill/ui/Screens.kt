@@ -161,6 +161,7 @@ fun StartScreen(
         BigButton(stringResource(Res.string.new_city), primary = lastSave == null, onClick = onNew)
         BigButton(stringResource(Res.string.load), onClick = onLoad)
         BigButton(stringResource(Res.string.settings), onClick = onSettings)
+        LocalHelp.current?.let { help -> BigButton(stringResource(Res.string.help)) { help(null) } }
     }
 }
 
@@ -419,6 +420,7 @@ fun MenuWindow(
             BigButton(stringResource(Res.string.load), glyph = Glyph.List, onClick = onLoad)
             BigButton(stringResource(Res.string.new_city), glyph = Glyph.Plus, onClick = onNew)
             BigButton(stringResource(Res.string.settings), glyph = Glyph.Auto, onClick = onSettings)
+            LocalHelp.current?.let { help -> BigButton(stringResource(Res.string.help), glyph = Glyph.Book) { help(null) } }
             BigButton(stringResource(Res.string.main_screen), glyph = Glyph.Building, onClick = onMain)
         }
     }
@@ -489,7 +491,7 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
             TrayTab(SettingsTab.Game, stringResource(Res.string.settings_game), Glyph.Warn),
             TrayTab(SettingsTab.Keys, stringResource(Res.string.keys), Glyph.List),
         )
-        Window(Res.string.settings, onClose, Glyph.Auto, top = {
+        Window(Res.string.settings, onClose, Glyph.Auto, help = "Settings and sound", top = {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (t in tabs) TabButton(t, t.key == tab, stacked = false, Modifier.weight(1f)) { tab = t.key as SettingsTab }
             }

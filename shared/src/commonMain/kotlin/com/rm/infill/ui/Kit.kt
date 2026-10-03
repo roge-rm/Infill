@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.rm.infill.map.TileAtlas
 import com.rm.infill.res.Res
 import com.rm.infill.res.close
+import com.rm.infill.res.help
 import com.rm.infill.res.tap_again
 import com.rm.infill.ui.theme.Infill
 import org.jetbrains.compose.resources.stringResource
@@ -99,6 +100,18 @@ fun CloseButton(onClose: () -> Unit) {
             .semantics { contentDescription = label }.clickable(role = Role.Button, onClick = onClose),
         contentAlignment = Alignment.Center,
     ) { GlyphIcon(Glyph.Remove, c.textDim, Modifier.size(14.dp)) }
+}
+
+/** Opens the manual at what a window is about. */
+@Composable
+fun HelpButton(onClick: () -> Unit) {
+    val c = Infill.colors
+    val label = stringResource(Res.string.help)
+    Box(
+        Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(c.button)
+            .semantics { contentDescription = label }.clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { GlyphIcon(Glyph.Book, c.textDim, Modifier.size(17.dp)) }
 }
 
 /** A word about how it is, in its tone's colour. */

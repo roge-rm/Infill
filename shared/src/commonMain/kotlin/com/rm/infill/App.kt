@@ -19,6 +19,8 @@ import com.rm.infill.res.event_tunnel_flooded
 import com.rm.infill.res.label_bridge_kind
 import com.rm.infill.platform.AUTOSAVE
 import com.rm.infill.platform.BackButton
+import com.rm.infill.ui.LocalHelp
+import com.rm.infill.ui.HelpWindow
 import com.rm.infill.platform.Settings
 import com.rm.infill.platform.ThemeChoice
 import androidx.compose.foundation.layout.displayCutout
@@ -247,13 +249,24 @@ fun App() {
     InfillTheme(dark) {
         // The size setting scales everything drawn in dp and sp at once.
         val base = LocalDensity.current
-        CompositionLocalProvider(LocalDensity provides Density(base.density * settings.uiScale, base.fontScale)) {
+        // The help opens over everything, at a section or the contents, from wherever asks for it.
+        var help by remember { mutableStateOf<HelpAt?>(null) }
+        CompositionLocalProvider(
+            LocalDensity provides Density(base.density * settings.uiScale, base.fontScale),
+            LocalHelp provides { section -> help = HelpAt(section) },
+        ) {
             Screens(settings)
+            help?.let { h ->
+                key(h) { HelpWindow({ help = null }, h.section) }
+            }
         }
     }
 }
 
 private enum class Screen { Start, New, Game, Region }
+
+/** The help opened at [section], or at the contents; a new one each time so it starts again. */
+private class HelpAt(val section: String?)
 
 @Composable
 private fun Screens(settings: Settings) {

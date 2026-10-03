@@ -60,6 +60,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -243,12 +244,20 @@ import org.jetbrains.compose.resources.stringResource
  * cutout and scrolls if the screen is short.
  */
 @Composable
-fun Window(title: StringResource, onClose: () -> Unit, glyph: Glyph? = null, top: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) {
-    WindowFrame(stringResource(title), onClose, glyph, top, content)
+fun Window(
+    title: StringResource, onClose: () -> Unit, glyph: Glyph? = null, top: (@Composable () -> Unit)? = null,
+    /** The manual's section about this window, for a button that opens it. */
+    help: String? = null,
+    content: @Composable () -> Unit,
+) {
+    WindowFrame(stringResource(title), onClose, glyph, top, help, content)
 }
 
+/** Opens the help at a section of the manual, or at its contents for null. Null where there's no help to open. */
+val LocalHelp = staticCompositionLocalOf<((String?) -> Unit)?> { null }
+
 @Composable
-fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, top: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) {
+fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, top: (@Composable () -> Unit)? = null, help: String? = null, content: @Composable () -> Unit) {
     val c = Infill.colors
     Box(
         Modifier
@@ -272,6 +281,8 @@ fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, top: (
                         }
                     }
                     Text(title, color = c.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val openHelp = LocalHelp.current
+                    if (help != null && openHelp != null) HelpButton { openHelp(help) }
                     CloseButton(onClose)
                 }
                 // What stays put above the part that scrolls, such as tabs.
@@ -289,7 +300,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
     game.revision
     val city = game.city
     val s = city.stats
-    Window(Res.string.budget, onClose, Glyph.Coins) {
+    Window(Res.string.budget, onClose, Glyph.Coins, help = "Money") {
         Section(stringResource(Res.string.taxes), Glyph.Coin) {
             Stepper(ZoneMark(com.rm.infill.sim.Zone.RESIDENTIAL), stringResource(Res.string.tax_residential), city.residentialTax, 1) { game.setTaxes(r = (city.residentialTax + it).coerceIn(0, 20)) }
             Stepper(ZoneMark(com.rm.infill.sim.Zone.COMMERCIAL), stringResource(Res.string.tax_commercial), city.commercialTax, 1) { game.setTaxes(c = (city.commercialTax + it).coerceIn(0, 20)) }
@@ -492,7 +503,7 @@ fun GraphsWindow(game: GameState, onClose: () -> Unit) {
     game.revision
     val history = game.city.history
     var series by remember { mutableStateOf(Series.Population) }
-    Window(Res.string.graphs, onClose, Glyph.Arrows) {
+    Window(Res.string.graphs, onClose, Glyph.Arrows, help = "People") {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // Two rows of four, so they fit an upright phone.
             for (row in SERIES.chunked(4)) {
@@ -590,7 +601,7 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
     game.revision
     val s = game.city.stats
     fun n(v: Int) = groupThousands(v.toLong())
-    Window(Res.string.people, onClose, Glyph.Person) {
+    Window(Res.string.people, onClose, Glyph.Person, help = "People") {
         StatGrid(
             listOfNotNull(
                 StatItem(Glyph.Person, stringResource(Res.string.population), n(s.population)),
@@ -901,7 +912,7 @@ fun LinesWindow(game: GameState, onClose: () -> Unit) {
     val c = Infill.colors
     game.revision
     val city = game.city
-    Window(Res.string.lines, onClose, Glyph.Route) {
+    Window(Res.string.lines, onClose, Glyph.Route, help = "Transit and rail") {
         if (city.lines.isEmpty()) Text(stringResource(Res.string.no_lines), color = c.textDim, fontSize = 14.sp)
         var buses = 0
         var trams = 0
@@ -943,7 +954,7 @@ fun DistrictsWindow(game: GameState, onClose: () -> Unit) {
     val c = Infill.colors
     game.revision
     val city = game.city
-    Window(Res.string.districts, onClose, Glyph.District) {
+    Window(Res.string.districts, onClose, Glyph.District, help = "Districts") {
         if (city.districts.isEmpty()) Text(stringResource(Res.string.no_districts), color = c.textDim, fontSize = 14.sp)
         for (d in city.districts) {
             fun set(change: (com.rm.infill.sim.District) -> Unit) {

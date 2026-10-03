@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -258,7 +259,7 @@ enum class Glyph {
     Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
     Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance, Sack, Glass, Hat,
     Person, Briefcase, Wrench, Calendar, Snow, Gavel, Tag, Check, Warn, Building, Cable, Phone, Mast,
-    Anchor, Ship, Suitcase, Bridge, Plane, Speaker,
+    Anchor, Ship, Suitcase, Bridge, Plane, Speaker, Book,
 }
 
 /** The drawing for [tool]. */
@@ -519,6 +520,19 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
             for (k in 0 until 4) drawRect(c.copy(alpha = 0.35f), Offset((4 + k * 4.5f) * u, 8 * u), Size(3.2f * u, 4 * u))
             drawCircle(c, 2.4f * u, Offset(7 * u, 19 * u))
             drawCircle(c, 2.4f * u, Offset(17 * u, 19 * u))
+        }
+        Glyph.Book -> {
+            // An open book: two pages from the spine.
+            val left = Path().apply {
+                moveTo(12 * u, 7 * u); quadraticTo(8 * u, 4.5f * u, 3 * u, 5 * u); lineTo(3 * u, 18 * u)
+                quadraticTo(8 * u, 17.5f * u, 12 * u, 20 * u); close()
+            }
+            val right = Path().apply {
+                moveTo(12 * u, 7 * u); quadraticTo(16 * u, 4.5f * u, 21 * u, 5 * u); lineTo(21 * u, 18 * u)
+                quadraticTo(16 * u, 17.5f * u, 12 * u, 20 * u); close()
+            }
+            drawPath(left, c, style = Stroke(1.8f * u, join = StrokeJoin.Round))
+            drawPath(right, c, style = Stroke(1.8f * u, join = StrokeJoin.Round))
         }
         Glyph.Speaker -> {
             // A speaker and two waves coming off it.
