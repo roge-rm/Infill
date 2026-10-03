@@ -492,6 +492,8 @@
     <string name="ui_size">Size of controls and text</string>
     <string name="keys">Keys</string>
     <string name="press_a_key">Press a key</string>
+    <string name="press_a_button">Press a button</string>
+    <string name="controller">Controller</string>
     <string name="reset_keys">Put the keys back</string>
     <string name="key_pan_up">Move up</string>
     <string name="key_pan_down">Move down</string>
@@ -505,6 +507,7 @@
     <string name="key_cursor_left">Cursor left</string>
     <string name="key_cursor_right">Cursor right</string>
     <string name="key_use">Use the tool</string>
+    <string name="key_tools">Go to the tools</string>
     <string name="key_prev_choice">Previous choice</string>
     <string name="key_next_choice">Next choice</string>
     <string name="key_prev_tab">Previous tab</string>

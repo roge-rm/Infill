@@ -28,4 +28,4 @@ The sound stops when you leave the app and picks up when you come back.
 
 ## Keys
 
-Each action and its keys. Tap one and press a key to change it. **Put the keys back** goes back to the defaults.
+Each action and its keys. Tap one and press a key to change it. Once a controller has been used, its buttons show beside the keys and change the same way. **Put the keys back** goes back to the defaults for both.

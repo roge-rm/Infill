@@ -49,6 +49,9 @@ enum class KeyAction(val held: Boolean = false, val dev: Boolean = false) {
     NextChoice,
     PrevTab,
     NextTab,
+    /** Takes the focus from the map to the tool buttons, for a controller. */
+    Tools,
+    Menu,
     Budget,
     Graphs,
     People,
@@ -145,8 +148,11 @@ class KeyInput(
     var bindings: Map<Key, KeyAction> = DefaultKeys,
     private val chords: Map<KeyChord, KeyAction> = DefaultChords,
 ) {
-    /** Keys that are down and what they did, so a key's release matches its press even if Shift came up first. */
-    private val down = mutableMapOf<Key, KeyAction>()
+    /**
+     * Keys and controller buttons that are down and what they did, so a key's
+     * release matches its press even if Shift came up first.
+     */
+    private val down = mutableMapOf<Any, KeyAction>()
     val held = mutableSetOf<KeyAction>()
 
     /** Goes up by one whenever [held] changes, so the UI can follow it. */
@@ -169,6 +175,21 @@ class KeyInput(
                 val action = down.remove(event.key) ?: return false
                 if (held.remove(action)) heldVersion++
             }
+        }
+        return true
+    }
+
+    /** A controller's button, as [onKey] takes a key. Says whether the button does anything. */
+    fun onPad(button: PadButton, pressed: Boolean, pad: Map<PadButton, KeyAction>, onPress: (KeyAction) -> Unit): Boolean {
+        if (pressed) {
+            if (button in down) return true
+            val action = pad[button] ?: return false
+            down[button] = action
+            if (action.held && held.add(action)) heldVersion++
+            onPress(action)
+        } else {
+            val action = down.remove(button) ?: return false
+            if (held.remove(action)) heldVersion++
         }
         return true
     }
@@ -200,6 +221,6 @@ private val KEY_NAMES: Map<Key, String> = buildMap {
     put(Key.Spacebar, "Space"); put(Key.Escape, "Esc"); put(Key.Enter, "Enter"); put(Key.Tab, "Tab")
     put(Key.Backspace, "Backspace"); put(Key.Delete, "Delete")
     put(Key.Minus, "-"); put(Key.Equals, "="); put(Key.Plus, "+"); put(Key.Comma, ","); put(Key.Period, ".")
-    put(Key.LeftBracket, "["); put(Key.RightBracket, "]"); put(Key.Slash, "/"); put(Key.Semicolon, ";")
+    put(Key.LeftBracket, "["); put(Key.RightBracket, "]"); put(Key.Slash, "/"); put(Key.Semicolon, ";"); put(Key.Backslash, "\\")
     put(Key.NumPadAdd, "Num +"); put(Key.NumPadSubtract, "Num -"); put(Key.NumPadEnter, "Num Enter")
 }

@@ -191,6 +191,8 @@ import com.rm.infill.sim.Weather
 import com.rm.infill.map.Sky
 import com.rm.infill.map.rememberTileAtlas
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.runtime.snapshotFlow
 import com.rm.infill.sim.City
 import com.rm.infill.ui.RegionScreen
 import com.rm.infill.ui.RegionRow
@@ -199,6 +201,17 @@ import com.rm.infill.sim.CityEvent
 import com.rm.infill.ui.CityPanel
 import com.rm.infill.ui.KeyAction
 import com.rm.infill.ui.KeyInput
+import com.rm.infill.ui.Pad
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.DisposableEffect
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import com.rm.infill.ui.PadButton
+import com.rm.infill.ui.PadListener
 import com.rm.infill.ui.ScreenShape
 import com.rm.infill.ui.StatusStrip
 import com.rm.infill.ui.Tool
@@ -271,6 +284,7 @@ fun App() {
             LocalHelp provides { section -> help = HelpAt(section) },
             LocalKeyboardPlay provides keyboardPlay,
         ) {
+            PadMoves(settings) { keyboardPlay = true }
             Box(
                 Modifier.fillMaxSize()
                     .onPreviewKeyEvent { e ->
@@ -295,6 +309,64 @@ fun App() {
         }
     }
 }
+
+/**
+ * A controller away from the map: the ways move from button to button, held
+ * ones again and again, Use presses and Back does what Esc does. [onUse] is
+ * called on every button and stick, since the controller is in play.
+ */
+@Composable
+private fun PadMoves(settings: Settings, onUse: () -> Unit) {
+    val focusManager = LocalFocusManager.current
+    val inputMode = LocalInputModeManager.current
+    val scope = rememberCoroutineScope()
+    var repeating by remember { mutableStateOf<Job?>(null) }
+    val use = rememberUpdatedState(onUse)
+    DisposableEffect(Unit) {
+        Pad.onUse = {
+            use.value()
+            inputMode.requestInputMode(InputMode.Keyboard)
+        }
+        onDispose { Pad.onUse = {} }
+    }
+    fun step(way: FocusDirection) {
+        // With nothing focused yet, the first press finds something.
+        if (!focusManager.moveFocus(way)) focusManager.moveFocus(FocusDirection.Next)
+    }
+    PadListener { b, pressed ->
+        val action = settings.pad[b]
+        val way = when {
+            b == PadButton.StickUp || action == KeyAction.CursorUp -> FocusDirection.Up
+            b == PadButton.StickDown || action == KeyAction.CursorDown -> FocusDirection.Down
+            b == PadButton.StickLeft || action == KeyAction.CursorLeft -> FocusDirection.Left
+            b == PadButton.StickRight || action == KeyAction.CursorRight -> FocusDirection.Right
+            else -> null
+        }
+        if (way != null) {
+            repeating?.cancel()
+            repeating = if (!pressed) null else scope.launch {
+                step(way)
+                delay(PAD_REPEAT_DELAY)
+                while (true) {
+                    step(way)
+                    delay(PAD_REPEAT_EVERY)
+                }
+            }
+            return@PadListener true
+        }
+        if (!pressed) return@PadListener false
+        when (action) {
+            KeyAction.Use -> Pad.pressFocused()
+            KeyAction.Back -> Escape.press()
+            else -> return@PadListener false
+        }
+        true
+    }
+}
+
+/** A way held on the controller moves again after this long, then this often, in milliseconds. */
+private const val PAD_REPEAT_DELAY = 400L
+private const val PAD_REPEAT_EVERY = 120L
 
 private enum class Screen { Start, New, Game, Region }
 
@@ -604,6 +676,11 @@ private fun GameScreen(
         val keys = remember { KeyInput() }
         keys.bindings = settings.keys
         val focus = remember { FocusRequester() }
+        // The tool button that's chosen, which a controller's Y takes the focus to.
+        val toolsFocus = remember { FocusRequester() }
+        var mapFocused by remember { mutableStateOf(false) }
+        // A button, a tray or a window over the map has the focus.
+        var overFocused by remember { mutableStateOf(false) }
         var viewSize by remember { mutableStateOf(Size.Zero) }
         val atlas = rememberTileAtlas()
 
@@ -845,9 +922,13 @@ private fun GameScreen(
 
         // Esc and the back button: let go of a drag, close what's open, put the tool down, then the menu.
         fun back() {
+            // From the tool buttons or a tray, back to the map and no further.
+            val fromTools = overFocused
             // The keys come back to the map from wherever they were.
             runCatching { focus.requestFocus() }
             when {
+                fromTools && drag == null && inspected == null && !choosingOverlay && !budgetOpen && !graphsOpen && !peopleOpen &&
+                    !linesOpen && !districtsOpen && eraShown == null -> {}
                 budgetOpen || graphsOpen || peopleOpen || linesOpen || districtsOpen || eraShown != null -> {
                     budgetOpen = false; graphsOpen = false; peopleOpen = false; linesOpen = false; districtsOpen = false; eraShown = null
                 }
@@ -997,10 +1078,109 @@ private fun GameScreen(
                 }
             }
         }
+        /** What a key or a controller's button does on the map. */
+        fun doAction(action: KeyAction) {
+            if (action.dev && !platform.devKeys) return
+        when (action) {
+            KeyAction.CursorUp -> moveCursor(0, -1)
+            KeyAction.CursorDown -> moveCursor(0, 1)
+            KeyAction.CursorLeft -> moveCursor(-1, 0)
+            KeyAction.CursorRight -> moveCursor(1, 0)
+            KeyAction.Use -> useAtCursor()
+            KeyAction.ToolPhone -> pick(Tool.Phone)
+            KeyAction.ToolPorts -> pick(Tool.Port)
+            KeyAction.ToolAir -> pick(Tool.Air)
+            KeyAction.PrevChoice -> stepKind(-1)
+            KeyAction.NextChoice -> stepKind(1)
+            KeyAction.PrevTab -> stepTab(-1)
+            KeyAction.NextTab -> stepTab(1)
+            KeyAction.ToolInspect -> pick(Tool.Inspect)
+            KeyAction.ToolBulldoze -> pick(Tool.Bulldoze)
+            KeyAction.ToolRoad -> pick(Tool.Road)
+            KeyAction.ToolRail -> pick(Tool.Rail)
+            KeyAction.ToolWater -> pick(Tool.Water)
+            KeyAction.ToolZone -> pick(Tool.Zone)
+            KeyAction.ToolPower -> pick(Tool.Power)
+            KeyAction.ToolServices -> pick(Tool.Services)
+            KeyAction.ToolTransit -> pick(Tool.Transit)
+            KeyAction.ToolTraffic -> pick(Tool.Traffic)
+            KeyAction.ToolDistricts -> if (city.allowsDistricts()) pick(Tool.Districts)
+            KeyAction.Budget -> budgetOpen = !budgetOpen
+            KeyAction.Graphs -> graphsOpen = !graphsOpen
+            KeyAction.People -> peopleOpen = !peopleOpen
+            KeyAction.NextOverlay -> overlay = Overlay.entries[(overlay.ordinal + 1) % Overlay.entries.size]
+            KeyAction.Speed1 -> { speed = 0; paused = false }
+            KeyAction.Speed2 -> { speed = 1; paused = false }
+            KeyAction.Speed3 -> { speed = 2; paused = false }
+            KeyAction.Pause -> paused = !paused
+            KeyAction.Undo -> undo()
+            KeyAction.Redo -> redo()
+            // Esc lets go of a drag, then closes the inspector, then puts the tool down.
+            KeyAction.Back -> back()
+            KeyAction.Tools -> runCatching { toolsFocus.requestFocus() }
+            KeyAction.Menu -> onMenu()
+            KeyAction.DevSeasonBack -> lookOverride = (look + Atlas.LOOKS - 1) % Atlas.LOOKS
+            KeyAction.DevSeasonNext -> lookOverride = (look + 1) % Atlas.LOOKS
+            KeyAction.DevHourBack -> hourShift -= 24f / Sky.STEPS
+            KeyAction.DevHourNext -> hourShift += 24f / Sky.STEPS
+            KeyAction.DevFire -> inspected?.let { (x, y) -> city.startFireAt(x, y); game.tick(0) }
+            KeyAction.DevWeather -> weatherOverride = if (weatherOverride + 1 >= DEV_WEATHER.size) -1 else weatherOverride + 1
+            KeyAction.DevGraphics -> settings.graphics = GraphicsLevel.entries[(settings.graphics.ordinal + 1) % GraphicsLevel.entries.size]
+            else -> {}
+        }
+        }
+
         // The keys come back to the map whenever a window or panel over it closes, which takes the focus with it.
-        var mapFocused by remember { mutableStateOf(false) }
         val anyOpen = windowOpen || budgetOpen || graphsOpen || peopleOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
         LaunchedEffect(anyOpen) { if (!anyOpen) focus.requestFocus() }
+
+        // A controller's buttons do on the map what they're set to, as keys do. Away from the map the
+        // ways, Use and Back move about the buttons instead, and the rest still work while nothing's open.
+        PadListener { b, pressed ->
+            if (!pressed) return@PadListener keys.onPad(b, false, settings.pad) {}
+            if (!b.bindable) return@PadListener mapFocused
+            val free = !windowOpen && !anyOpen
+            if (!mapFocused && !overFocused && free) runCatching { focus.requestFocus() }
+            else if (!mapFocused) {
+                val action = settings.pad[b]
+                val moving = action == KeyAction.Use || action == KeyAction.Back || action in CURSOR_ACTIONS
+                if (action == null || moving || !free) return@PadListener false
+            }
+            keys.onPad(b, true, settings.pad) { doAction(it) }
+        }
+        // The sticks: the left one moves the cursor, quicker the further it's pushed, and the right one pans.
+        LaunchedEffect(Unit) {
+            snapshotFlow { Pad.moving && mapFocused }.collectLatest { on ->
+                if (!on) return@collectLatest
+                var last = withFrameNanos { it }
+                var fx = 0f
+                var fy = 0f
+                while (true) {
+                    val now = withFrameNanos { it }
+                    val seconds = ((now - last) / 1e9f).coerceAtMost(0.1f)
+                    last = now
+                    val r = Pad.right
+                    val step = KEY_PAN_DP * density * seconds
+                    if (r != Offset.Zero) camera.panBy(-r.x * step, -r.y * step)
+                    val l = Pad.left
+                    if (l == Offset.Zero) {
+                        fx = 0f
+                        fy = 0f
+                    } else {
+                        val tiles = maxOf(STICK_TILES, STICK_DP * density / camera.tilePx) * seconds
+                        fx += l.x * tiles
+                        fy += l.y * tiles
+                        val sx = fx.toInt()
+                        val sy = fy.toInt()
+                        if (sx != 0 || sy != 0) {
+                            fx -= sx
+                            fy -= sy
+                            moveCursor(sx, sy)
+                        }
+                    }
+                }
+            }
+        }
 
         // Panels draw buildings in their own art.
         CompositionLocalProvider(LocalAtlas provides atlas) {
@@ -1010,6 +1190,7 @@ private fun GameScreen(
                 .focusRequester(focus)
                 .onFocusChanged {
                     mapFocused = it.isFocused
+                    overFocused = it.hasFocus && !it.isFocused
                     if (!it.hasFocus) keys.releaseAll()
                 }
                 .focusable()
@@ -1017,52 +1198,7 @@ private fun GameScreen(
                     // With a button, a tray or a window focused, Tab, Enter and the arrows are theirs.
                     if (!mapFocused) return@onPreviewKeyEvent false
                     keys.onKey(event) { action ->
-                        if (action.dev && !platform.devKeys) return@onKey
-                        when (action) {
-                            KeyAction.CursorUp -> moveCursor(0, -1)
-                            KeyAction.CursorDown -> moveCursor(0, 1)
-                            KeyAction.CursorLeft -> moveCursor(-1, 0)
-                            KeyAction.CursorRight -> moveCursor(1, 0)
-                            KeyAction.Use -> useAtCursor()
-                            KeyAction.ToolPhone -> pick(Tool.Phone)
-                            KeyAction.ToolPorts -> pick(Tool.Port)
-                            KeyAction.ToolAir -> pick(Tool.Air)
-                            KeyAction.PrevChoice -> stepKind(-1)
-                            KeyAction.NextChoice -> stepKind(1)
-                            KeyAction.PrevTab -> stepTab(-1)
-                            KeyAction.NextTab -> stepTab(1)
-                            KeyAction.ToolInspect -> pick(Tool.Inspect)
-                            KeyAction.ToolBulldoze -> pick(Tool.Bulldoze)
-                            KeyAction.ToolRoad -> pick(Tool.Road)
-                            KeyAction.ToolRail -> pick(Tool.Rail)
-                            KeyAction.ToolWater -> pick(Tool.Water)
-                            KeyAction.ToolZone -> pick(Tool.Zone)
-                            KeyAction.ToolPower -> pick(Tool.Power)
-                            KeyAction.ToolServices -> pick(Tool.Services)
-                            KeyAction.ToolTransit -> pick(Tool.Transit)
-                            KeyAction.ToolTraffic -> pick(Tool.Traffic)
-                            KeyAction.ToolDistricts -> if (city.allowsDistricts()) pick(Tool.Districts)
-                            KeyAction.Budget -> budgetOpen = !budgetOpen
-                            KeyAction.Graphs -> graphsOpen = !graphsOpen
-                            KeyAction.People -> peopleOpen = !peopleOpen
-                            KeyAction.NextOverlay -> overlay = Overlay.entries[(overlay.ordinal + 1) % Overlay.entries.size]
-                            KeyAction.Speed1 -> { speed = 0; paused = false }
-                            KeyAction.Speed2 -> { speed = 1; paused = false }
-                            KeyAction.Speed3 -> { speed = 2; paused = false }
-                            KeyAction.Pause -> paused = !paused
-                            KeyAction.Undo -> undo()
-                            KeyAction.Redo -> redo()
-                            // Esc lets go of a drag, then closes the inspector, then puts the tool down.
-                            KeyAction.Back -> back()
-                            KeyAction.DevSeasonBack -> lookOverride = (look + Atlas.LOOKS - 1) % Atlas.LOOKS
-                            KeyAction.DevSeasonNext -> lookOverride = (look + 1) % Atlas.LOOKS
-                            KeyAction.DevHourBack -> hourShift -= 24f / Sky.STEPS
-                            KeyAction.DevHourNext -> hourShift += 24f / Sky.STEPS
-                            KeyAction.DevFire -> inspected?.let { (x, y) -> city.startFireAt(x, y); game.tick(0) }
-                            KeyAction.DevWeather -> weatherOverride = if (weatherOverride + 1 >= DEV_WEATHER.size) -1 else weatherOverride + 1
-                            KeyAction.DevGraphics -> settings.graphics = GraphicsLevel.entries[(settings.graphics.ordinal + 1) % GraphicsLevel.entries.size]
-                            else -> {}
-                        }
+                        doAction(action)
                     }
                 },
         ) {
@@ -1170,6 +1306,7 @@ private fun GameScreen(
                         .windowInsetsPadding(safe.only(if (toolsRight) WindowInsetsSides.End else WindowInsetsSides.Start))
                         .padding(gap),
                     withHistory = !historyOnTop,
+                    focus = toolsFocus,
                 )
             }
             // Along the bottom: what's being inspected, the chosen tool's choices, and on an upright phone the tools.
@@ -1291,7 +1428,7 @@ private fun GameScreen(
                     }
                 }
                 if (!sideTools) {
-                    ToolBar(tool.group, ::pickGroup, game.canUndo, game.canRedo, ::undo, ::redo, vertical = false, compact = compactTools, modifier = trayWidth, withHistory = !historyOnTop)
+                    ToolBar(tool.group, ::pickGroup, game.canUndo, game.canRedo, ::undo, ::redo, vertical = false, compact = compactTools, modifier = trayWidth, withHistory = !historyOnTop, focus = toolsFocus)
                 }
             }
             if (layout.large) {
@@ -1323,6 +1460,12 @@ private fun GameScreen(
 }
 
 /** A tile on screen, in dp: the whole range, and where a new city starts. */
+/** The left stick pushed all the way moves the cursor this many tiles a second, or this far on the screen when zoomed out. */
+private const val STICK_TILES = 8f
+private const val STICK_DP = 500f
+
+private val CURSOR_ACTIONS = setOf(KeyAction.CursorUp, KeyAction.CursorDown, KeyAction.CursorLeft, KeyAction.CursorRight)
+
 /** Tiles the keyboard's cursor keeps from the edge of the view, and how its keys repeat: after a moment, then this often. */
 private const val CURSOR_MARGIN = 3f
 private const val CURSOR_DELAY = 0.35f

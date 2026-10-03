@@ -8,7 +8,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.key.Key
 import com.rm.infill.map.GraphicsLevel
 import com.rm.infill.ui.DefaultKeys
+import com.rm.infill.ui.DefaultPad
 import com.rm.infill.ui.KeyAction
+import com.rm.infill.ui.PadButton
 
 enum class ThemeChoice { Auto, Light, Dark }
 
@@ -119,6 +121,31 @@ class Settings(private val store: Platform) {
         keysState = DefaultKeys
         store.setSetting(KEYS, null)
         store.setSetting(KNOWN, null)
+        padState = DefaultPad
+        store.setSetting(PAD, null)
+    }
+
+    private var padState by mutableStateOf(loadPad())
+
+    /** Which controller button does what. */
+    val pad: Map<PadButton, KeyAction> get() = padState
+
+    /** Makes [button] the button for [action], in place of the one it had, and takes it from whatever had it. */
+    fun bindPad(action: KeyAction, button: PadButton) {
+        if (!button.bindable) return
+        padState = padState.filter { (b, a) -> b != button && a != action } + (button to action)
+        store.setSetting(PAD, padState.entries.joinToString(";") { "${it.key.name}=${it.value.name}" })
+    }
+
+    private fun loadPad(): Map<PadButton, KeyAction> {
+        val saved = store.setting(PAD) ?: return DefaultPad
+        val out = LinkedHashMap<PadButton, KeyAction>()
+        for (pair in saved.split(';')) {
+            val (button, name) = pair.split('=').takeIf { it.size == 2 } ?: continue
+            val b = PadButton.entries.firstOrNull { it.name == button && it.bindable } ?: continue
+            out[b] = KeyAction.entries.firstOrNull { it.name == name } ?: continue
+        }
+        return out
     }
 
     private fun loadKeys(): Map<Key, KeyAction> {
@@ -172,6 +199,7 @@ class Settings(private val store: Platform) {
         private const val DISASTERS = "disasters"
         private const val TOOL_SIDE = "tool_side"
         private const val KEYS = "keys"
+        private const val PAD = "pad"
         private val VOLUMES = listOf("volume_master", "volume_town", "volume_effects", "volume_music")
         private val DEFAULT_VOLUMES = listOf(80, 80, 70, 60)
 

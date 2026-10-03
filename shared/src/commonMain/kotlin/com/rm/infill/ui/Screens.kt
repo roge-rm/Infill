@@ -1,5 +1,8 @@
 package com.rm.infill.ui
 
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import com.rm.infill.res.climate_dry
 import com.rm.infill.res.climate_coastal
 import com.rm.infill.res.climate_northern
@@ -452,6 +455,7 @@ private val ACTION_NAMES: Map<KeyAction, StringResource> = mapOf(
     KeyAction.ToolPhone to Res.string.tool_phone,
     KeyAction.ToolPorts to Res.string.tool_port,
     KeyAction.ToolAir to Res.string.tool_air,
+    KeyAction.Tools to Res.string.key_tools,
     KeyAction.PrevChoice to Res.string.key_prev_choice,
     KeyAction.NextChoice to Res.string.key_next_choice,
     KeyAction.PrevTab to Res.string.key_prev_tab,
@@ -462,6 +466,7 @@ private val ACTION_NAMES: Map<KeyAction, StringResource> = mapOf(
     KeyAction.People to Res.string.people,
     KeyAction.NextOverlay to Res.string.overlay,
     KeyAction.Back to Res.string.key_back,
+    KeyAction.Menu to Res.string.menu,
 )
 
 @Composable
@@ -473,6 +478,9 @@ private fun SettingHead(title: StringResource, glyph: Glyph) {
     }
 }
 
+/** How wide the controller's column is in the keys, to fit its longest name. */
+private val PAD_CHIP = 116.dp
+
 /** The settings' tabs. */
 private enum class SettingsTab { Display, Sound, Game, Keys }
 
@@ -482,8 +490,18 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
     val c = Infill.colors
     var tab by remember { mutableStateOf(SettingsTab.Display) }
     var capturing by remember { mutableStateOf<KeyAction?>(null) }
+    // Waiting for a controller's button rather than a key.
+    var capturingPad by remember { mutableStateOf<KeyAction?>(null) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(capturing) { if (capturing != null) focus.requestFocus() }
+    PadListener(enabled = capturingPad != null) { b, pressed ->
+        val action = capturingPad
+        if (pressed && action != null && b.bindable) {
+            settings.bindPad(action, b)
+            capturingPad = null
+        }
+        true
+    }
     Box(
         Modifier
             .focusRequester(focus)
@@ -561,20 +579,43 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
                         }) { settings.disasters = it }
                     }
                     SettingsTab.Keys -> {
+                        // The controller's buttons show once one's been used.
+                        val pad = Pad.seen
+                        @Composable
+                        fun chip(text: String, waiting: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) = Text(
+                            text,
+                            color = if (waiting) c.onAccent else c.text,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (waiting) c.accent else c.button)
+                                .clickable(role = Role.Button, onClick = onClick)
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                        if (pad) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Spacer(Modifier.weight(1f))
+                                Text(stringResource(Res.string.keys), color = c.textDim, fontSize = 12.sp)
+                                Text(stringResource(Res.string.controller), color = c.textDim, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.width(PAD_CHIP))
+                            }
+                        }
                         for ((action, title) in ACTION_NAMES) {
                             val keys = settings.keys.filterValues { it == action }.keys.map { keyName(it) }
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(stringResource(title), color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                                Text(
+                                chip(
                                     if (capturing == action) stringResource(Res.string.press_a_key) else keys.joinToString("  ").ifEmpty { "—" },
-                                    color = if (capturing == action) c.onAccent else c.text,
-                                    fontSize = 14.sp,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (capturing == action) c.accent else c.button)
-                                        .clickable(role = Role.Button) { capturing = if (capturing == action) null else action }
-                                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                                )
+                                    capturing == action,
+                                ) { capturingPad = null; capturing = if (capturing == action) null else action }
+                                if (pad) {
+                                    val button = settings.pad.entries.firstOrNull { it.value == action }?.key
+                                    chip(
+                                        if (capturingPad == action) stringResource(Res.string.press_a_button) else button?.let { padName(it) } ?: "—",
+                                        capturingPad == action,
+                                        Modifier.width(PAD_CHIP),
+                                    ) { capturing = null; capturingPad = if (capturingPad == action) null else action }
+                                }
                             }
                         }
                         BigButton(stringResource(Res.string.reset_keys)) { settings.resetKeys() }

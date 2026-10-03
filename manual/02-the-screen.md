@@ -1,5 +1,5 @@
 # The screen
-> The strip, the tools, the map views, inspecting, undo and the keys.
+> The strip, the tools, the map views, inspecting, undo, the keys and a controller.
 
 ## The strip
 
@@ -62,6 +62,19 @@ The whole game can be played from a keyboard.
 - Ctrl and Z undoes, and Ctrl and Y or Ctrl, Shift and Z redoes.
 
 The keys can be changed in Settings.
+
+## A controller
+
+The game can be played with a controller too.
+
+- The left stick moves the cursor, faster the further it's pushed, and the d-pad moves it a tile at a time. The right stick moves the map, and the triggers zoom.
+- A uses the tool at the cursor, as Enter does, and B goes back, as Esc does.
+- Y goes to the tool buttons. The d-pad or the left stick moves between them, A picks one, and B goes back to the map.
+- X picks Inspect. LB and RB step through the tray's choices, and pressing the sticks in steps through its tabs.
+- Start opens the menu, and Select steps through the map views.
+- In a window, the d-pad or the left stick moves between its buttons, A presses one and B closes it.
+
+The buttons can be changed in Settings.
 
 ## Saving and loading
 

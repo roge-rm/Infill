@@ -53,7 +53,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Saving"),
             ManualBlock(ManualKind.Para, "The town saves itself at the start of every month and when you leave the app, and **Continue** on the first screen picks up from there. **Save** in the menu keeps a copy under the town's name."),
         )),
-        ManualSection("The screen", "The strip, the tools, the map views, inspecting, undo and the keys.", listOf(
+        ManualSection("The screen", "The strip, the tools, the map views, inspecting, undo, the keys and a controller.", listOf(
             ManualBlock(ManualKind.Heading, "The strip"),
             ManualBlock(ManualKind.Para, "Along the top, from the left:"),
             ManualBlock(ManualKind.Bullet, "The menu."),
@@ -94,6 +94,15 @@ object Manual {
             ManualBlock(ManualKind.Bullet, "Esc closes what's open, then puts the tool down, then opens the menu."),
             ManualBlock(ManualKind.Bullet, "Ctrl and Z undoes, and Ctrl and Y or Ctrl, Shift and Z redoes."),
             ManualBlock(ManualKind.Para, "The keys can be changed in Settings."),
+            ManualBlock(ManualKind.Heading, "A controller"),
+            ManualBlock(ManualKind.Para, "The game can be played with a controller too."),
+            ManualBlock(ManualKind.Bullet, "The left stick moves the cursor, faster the further it's pushed, and the d-pad moves it a tile at a time. The right stick moves the map, and the triggers zoom."),
+            ManualBlock(ManualKind.Bullet, "A uses the tool at the cursor, as Enter does, and B goes back, as Esc does."),
+            ManualBlock(ManualKind.Bullet, "Y goes to the tool buttons. The d-pad or the left stick moves between them, A picks one, and B goes back to the map."),
+            ManualBlock(ManualKind.Bullet, "X picks Inspect. LB and RB step through the tray's choices, and pressing the sticks in steps through its tabs."),
+            ManualBlock(ManualKind.Bullet, "Start opens the menu, and Select steps through the map views."),
+            ManualBlock(ManualKind.Bullet, "In a window, the d-pad or the left stick moves between its buttons, A presses one and B closes it."),
+            ManualBlock(ManualKind.Para, "The buttons can be changed in Settings."),
             ManualBlock(ManualKind.Heading, "Saving and loading"),
             ManualBlock(ManualKind.Para, "The town saves itself at the start of each month and whenever you leave the app, in one autosave. **Save** in the menu keeps it under its name, and a save with the same name is replaced. **Load** lists regions first, then towns with the autosave at the top. **Delete** asks for a second tap.", "The town saves itself at the start of each month and whenever you leave the app, in one autosave. **Save** in the menu keeps it under its name, and a save with the same name is replaced. **Load** lists regions first, then towns with the autosave at the top. **Delete** asks for a second click."),
         )),
@@ -503,7 +512,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Game"),
             ManualBlock(ManualKind.Bullet, "**Disasters**: **Off**, **Fewer** or **Normal**."),
             ManualBlock(ManualKind.Heading, "Keys"),
-            ManualBlock(ManualKind.Para, "Each action and its keys. Tap one and press a key to change it. **Put the keys back** goes back to the defaults.", "Each action and its keys. Click one and press a key to change it. **Put the keys back** goes back to the defaults."),
+            ManualBlock(ManualKind.Para, "Each action and its keys. Tap one and press a key to change it. Once a controller has been used, its buttons show beside the keys and change the same way. **Put the keys back** goes back to the defaults for both.", "Each action and its keys. Click one and press a key to change it. Once a controller has been used, its buttons show beside the keys and change the same way. **Put the keys back** goes back to the defaults for both."),
         )),
     )
 }

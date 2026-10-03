@@ -1,5 +1,7 @@
 package com.rm.infill.ui
 
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.ui.text.TextStyle
@@ -306,9 +308,14 @@ fun ToolBar(
     compact: Boolean,
     modifier: Modifier = Modifier,
     withHistory: Boolean = true,
+    focus: FocusRequester? = null,
 ) {
     val c = Infill.colors
     val side = if (compact) 36.dp else 40.dp
+    // The chosen tool's button takes the focus when asked. Every button has a
+    // requester, so choosing another tool doesn't rebuild a button and lose the focus.
+    val others = remember { FocusRequester() }
+    fun Modifier.chosen(group: ToolGroup) = focusRequester(if (focus != null && group == selected) focus else others)
     val divider = @Composable {
         Box(
             Modifier
@@ -326,7 +333,7 @@ fun ToolBar(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 for (group in ToolGroup.entries) {
-                    ToolButton(group, group == selected, compact, Modifier.width(if (compact) 56.dp else 64.dp)) { onSelect(group) }
+                    ToolButton(group, group == selected, compact, Modifier.width(if (compact) 56.dp else 64.dp).chosen(group)) { onSelect(group) }
                 }
                 if (withHistory) {
                     divider()
@@ -343,7 +350,7 @@ fun ToolBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 for (group in ToolGroup.entries) {
-                    ToolButton(group, group == selected, compact, Modifier.weight(1f)) { onSelect(group) }
+                    ToolButton(group, group == selected, compact, Modifier.weight(1f).chosen(group)) { onSelect(group) }
                 }
                 if (withHistory) {
                     divider()

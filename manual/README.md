@@ -2,7 +2,7 @@
 <!-- contents -->
 
 1. [A first town](01-a-first-town.md) - from an empty map to a town that grows by itself.
-2. [The screen](02-the-screen.md) - the strip, the tools, the map views, inspecting, undo and the keys.
+2. [The screen](02-the-screen.md) - the strip, the tools, the map views, inspecting, undo, the keys and a controller.
 3. [Zones and growth](03-zones-and-growth.md) - what each zone grows, what a lot needs to grow, demand and land value.
 4. [Roads and traffic](04-roads-and-traffic.md) - roads, crossings, bridges and tunnels, and how the town drives on them.
 5. [Transit and rail](05-transit-and-rail.md) - trams, buses, trolleybuses, the subway, and trains.
