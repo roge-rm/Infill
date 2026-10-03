@@ -124,13 +124,16 @@ fun MapView(
     val ships = graphics.trains > 0 && game.city.shipRoutes.isNotEmpty()
     val planes = graphics.trains > 0 && game.city.airTier > 0
     val animate = running && (fires || traffic || trains || ships || planes || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
+    // Worked out through the town's traffic, which the sim changes as it goes: only when the town's free,
+    // keeping the last lot meanwhile.
+    val lastFocus = remember { arrayOfNulls<IntArray>(1) }
     val focusData = remember(overlay, focus, game.revision) {
         when {
             focus < 0 -> null
-            overlay == Overlay.Trips -> game.city.tripsThrough(focus)
-            overlay == Overlay.Reach -> game.city.travelTimes(focus)
+            overlay == Overlay.Trips -> game.tryLocked { game.city.tripsThrough(focus) } ?: lastFocus[0]
+            overlay == Overlay.Reach -> game.tryLocked { game.city.travelTimes(focus) } ?: lastFocus[0]
             else -> null
-        }
+        }.also { lastFocus[0] = it }
     }
     val overlayImage = remember(overlay, focusData, game.revision) {
         overlayImage(overlay, map, { game.city.building(map.building[it])?.people }, { game.city.wearAt(it) }, { game.city.building(map.building[it])?.uncollected == true }, { i ->
@@ -183,7 +186,8 @@ fun MapView(
                 if (game.revision != surveyed && (surveyed < 0 || lastSurvey.elapsedNow().inWholeMilliseconds >= SURVEY_EVERY_MS)) {
                     surveyed = game.revision
                     lastSurvey = TimeSource.Monotonic.markNow()
-                    sound.survey()
+                    // Over the whole town, so only when the sim's not working on it; it's tried again shortly.
+                    if (game.tryLocked { sound.survey() } == null) surveyed = -2
                 }
                 val view = Size(viewBox[0], viewBox[1])
                 if (view.width <= 0f) continue

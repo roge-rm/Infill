@@ -1844,7 +1844,14 @@ class City(
             // Demand's looked at again each week, and each day while a new town waits for its first building.
             newWeek()
         }
+        refreshViews()
     }
+
+    /**
+     * Called between the steps of the turn of the month, so whoever's running
+     * the town can let the screen in for a moment: the month's work is long.
+     */
+    var between: () -> Unit = {}
 
     private fun newMonth() {
         // Undo is for slips of the finger, so it's cleared each month.
@@ -1852,48 +1859,85 @@ class City(
         redoable.clear()
         if (networksDirty) updateNetworks()
         powerCuts()
+        between()
         waterCuts()
+        between()
         updateFoul()
+        between()
         fadeFloodMemory()
+        between()
         updatePollution()
+        between()
         updateEnvironment()
+        between()
         updateGrime()
+        between()
         updateServices()
+        between()
         updateComms()
+        between()
         railFlags()
+        between()
         updatePorts()
+        between()
         updatePathways()
+        between()
         wearOut()
+        between()
         floodTunnels(underWaterOnly = true)
+        between()
         truckWear()
+        between()
         bridgeState()
+        between()
         accidents()
+        between()
         earthquake()
+        between()
         epidemic()
+        between()
         replaceNonconforming()
+        between()
         updatePeople()
+        between()
         fadeUpset()
+        between()
         heatWaveDays = 0
         census()
+        between()
         commute()
+        between()
         updateAirports()
+        between()
         borderNuisance()
+        between()
         tourism()
+        between()
         startTraffic()
+        between()
         trade()
+        between()
         updateCrime()
+        between()
         Effects.landValue(map, { i -> buildings[map.building[i]]?.type }, nearRoad, map.landValue, parksKept()) { i ->
             // People and jobs on the tile, a building's shared over its lots.
             val b = buildings[map.building[i]]
             if (b == null || b.underway > 0) 0 else (b.people?.size ?: b.type.capacity) / (b.type.width * b.type.height)
         }
         startFires()
+        between()
         demand()
+        between()
         money()
+        between()
         carbon()
+        between()
         record()
+        between()
         newEra()
+        between()
         updateAdvice()
+        between()
     }
 
     /**
@@ -3953,11 +3997,11 @@ class City(
      * land at its edge, all sea, counts as open, since there's no road to build.
      */
     fun hasWayIn(): Boolean =
-        connected || !landAtEdge || linkedPorts.isNotEmpty() || airports.isNotEmpty() ||
+        connected || !landAtEdge || linkedPorts.isNotEmpty() || airportsNow.isNotEmpty() ||
             railway.stops.indices.any { railway.buildings[it].type.station && railway.linked(it) }
 
     /** Homes are zoned and nobody can get in to live in them. Kept up to date, for the advice line between months. */
-    fun needsWayIn(): Boolean = !hasWayIn() && (zoneLots(Zone.RESIDENTIAL).isNotEmpty() || zoneLots(Zone.MIXED).isNotEmpty())
+    fun needsWayIn(): Boolean = !wayInNow && (zoneLots(Zone.RESIDENTIAL).isNotEmpty() || zoneLots(Zone.MIXED).isNotEmpty())
 
     private val landAtEdge: Boolean by lazy {
         val m = map
@@ -4349,8 +4393,25 @@ class City(
 
     private val airports get() = buildings.values.filter { it.type.airport && it.underway == 0 && it.outage == 0 && accessOf(it) >= 0 && working(it) }
 
+    /**
+     * The working airports as of the last day or change, for the screen, which
+     * reads the town while it's being worked on and mustn't go through its buildings.
+     */
+    var airportsNow: List<Building> = emptyList()
+        private set
+
+    /** Brings what the screen reads in place of the town's own lists up to date: after each day and each change. */
+    fun refreshViews() {
+        airportsNow = airports
+        wayInNow = hasWayIn()
+    }
+
+    /** Whether newcomers can get in, as of the last day or change; see [hasWayIn]. */
+    var wayInNow = false
+        private set
+
     /** The airports with planes coming and going, for drawing them. */
-    fun airportsShown(): List<Building> = airports
+    fun airportsShown(): List<Building> = airportsNow
 
     /** The biggest working airport a road reaches, by [BuildingType.airTier], 0 for none. */
     var airTier = 0
@@ -6807,7 +6868,7 @@ class City(
         // Office work grows with the town and with the century.
         val perHundred = Balance.OFFICES_1900 + (Balance.OFFICES_2000 - Balance.OFFICES_1900) * (years / 100.0).coerceIn(0.0, 1.0)
         val offices = Balance.OFFICE_BASE + s.population * perHundred / 100.0
-        val airOffices = airports.sumOf { Balance.AIR_OFFICES[it.type.airTier] * fit(it) / 100 }.toDouble()
+        val airOffices = airportsNow.sumOf { Balance.AIR_OFFICES[it.type.airTier] * fit(it) / 100 }.toDouble()
         // The shops answer what people spend, more the better off they are.
         val spendingJobs = s.spending / Balance.RESIDENTS_PER_SHOP_JOB.toDouble()
         val settlers = (Balance.SETTLERS + Balance.SETTLERS_PER_RESIDENT * s.population) * (if (railPassengers) Balance.RAIL_SETTLERS else 1.0) * Balance.AIR_SETTLERS[airTier] *

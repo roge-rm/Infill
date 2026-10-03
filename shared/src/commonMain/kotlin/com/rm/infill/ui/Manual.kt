@@ -112,6 +112,7 @@ object Manual {
             ManualBlock(ManualKind.Bullet, "A keyboard or a controller works alongside it."),
             ManualBlock(ManualKind.Heading, "Saving and loading"),
             ManualBlock(ManualKind.Para, "The town saves itself at the start of each month and whenever you leave the app, in one autosave. **Save** in the menu keeps it under its name, and a save with the same name is replaced. **Load** lists regions first, then towns with the autosave at the top. **Delete** asks for a second tap.", "The town saves itself at the start of each month and whenever you leave the app, in one autosave. **Save** in the menu keeps it under its name, and a save with the same name is replaced. **Load** lists regions first, then towns with the autosave at the top. **Delete** asks for a second click."),
+            ManualBlock(ManualKind.Para, "To bring a town over from another device on Android, copy its `.infill` file into `Android/data/com.rm.infill/files/import` on the phone. It shows up in **Load** the next time the list opens."),
         )),
         ManualSection("zones-and-growth", "Zones and growth", "What each zone grows, what a lot needs to grow, demand and land value.", listOf(
             ManualBlock(ManualKind.Para, "You don't build homes, shops or works yourself. You zone land for them and the town builds what it wants there, when it wants it."),

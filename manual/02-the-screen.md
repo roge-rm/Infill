@@ -87,3 +87,5 @@ With TalkBack or another screen reader, the buttons, windows and figures are all
 ## Saving and loading
 
 The town saves itself at the start of each month and whenever you leave the app, in one autosave. **Save** in the menu keeps it under its name, and a save with the same name is replaced. **Load** lists regions first, then towns with the autosave at the top. **Delete** asks for a second tap.
+
+To bring a town over from another device on Android, copy its `.infill` file into `Android/data/com.rm.infill/files/import` on the phone. It shows up in **Load** the next time the list opens.

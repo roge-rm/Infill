@@ -1,5 +1,6 @@
 package com.rm.infill
 
+import com.rm.infill.platform.simDispatcher
 import com.rm.infill.sim.AdviceKind
 import com.rm.infill.sim.Advice
 import com.rm.infill.ui.listText
@@ -452,12 +453,13 @@ private fun Screens(settings: Settings) {
     fun readRegion(file: String): Region? = platform.readSave(file)?.let { runCatching { Region.read(it) }.getOrNull() }
 
     /** A town in a region is saved in its own file too, and noted in the region for its neighbours and the region's map. */
-    fun saveToRegion(city: City) {
+    fun saveToRegion(game: GameState) {
+        val city = game.city
         val file = city.region ?: return
         val r = (if (regionFile == file) region else null) ?: readRegion(file) ?: return
         val townFile = r.townFile(file, city.square)
-        platform.writeSave(townFile, SaveGame.write(city))
-        r.record(city, townFile)
+        platform.writeSave(townFile, game.saveBytes())
+        game.locked { r.record(city, townFile) }
         platform.writeSave(file, r.write())
         region = r
         regionFile = file
@@ -465,8 +467,29 @@ private fun Screens(settings: Settings) {
 
     fun autosave() {
         game?.let {
-            platform.writeSave(AUTOSAVE, SaveGame.write(it.city))
-            saveToRegion(it.city)
+            platform.writeSave(AUTOSAVE, it.saveBytes())
+            saveToRegion(it)
+        }
+    }
+
+    /** The autosave at the turn of each month, written out on the sim's thread so the screen doesn't stop for it. */
+    suspend fun autosaveAway() {
+        val g = game ?: return
+        val file = g.city.region
+        val r = if (file == null) null else (if (regionFile == file) region else null) ?: readRegion(file)
+        withContext(simDispatcher) {
+            val bytes = g.saveBytes()
+            platform.writeSave(AUTOSAVE, bytes)
+            if (file != null && r != null) {
+                val townFile = r.townFile(file, g.city.square)
+                platform.writeSave(townFile, bytes)
+                g.locked { r.record(g.city, townFile) }
+                platform.writeSave(file, r.write())
+            }
+        }
+        if (file != null && r != null) {
+            region = r
+            regionFile = file
         }
     }
 
@@ -521,7 +544,7 @@ private fun Screens(settings: Settings) {
     val music = remember { Music() }
     LaunchedEffect(Unit) {
         platform.onHidden {
-            current?.let { platform.writeSave(AUTOSAVE, SaveGame.write(it.city)) }
+            current?.let { platform.writeSave(AUTOSAVE, it.saveBytes()) }
             AudioEngine.pause(true)
             music.pause(true)
         }
@@ -581,7 +604,8 @@ private fun Screens(settings: Settings) {
                 onFound = { square, name ->
                     val file = regionFile ?: return@RegionScreen
                     val city = r.found(square, name, file)
-                    saveToRegion(city)
+                    // Not playing yet, so nothing else has it: a state of its own just for the save.
+                    saveToRegion(GameState(city))
                     savesChanged++
                     play(city)
                 },
@@ -592,7 +616,7 @@ private fun Screens(settings: Settings) {
             key(g) {
                 GameScreen(
                     g, settings, notice, windowOpen = menuOpen || loadOpen || settingsOpen,
-                    onMenu = { menuOpen = true }, onNewMonth = { autosave() },
+                    onMenu = { menuOpen = true }, onNewMonth = { autosaveAway() },
                 )
             }
         }
@@ -602,8 +626,8 @@ private fun Screens(settings: Settings) {
             onSave = {
                 game?.let {
                     // A town in a region is kept in the region; one on its own under its name.
-                    if (it.city.region != null) saveToRegion(it.city)
-                    else platform.writeSave(saveFileName(it.city.name), SaveGame.write(it.city))
+                    if (it.city.region != null) saveToRegion(it)
+                    else platform.writeSave(saveFileName(it.city.name), it.saveBytes())
                     notice.value = Message(Res.string.saved, name = it.city.name)
                     savesChanged++
                 }
@@ -660,7 +684,7 @@ private fun GameScreen(
     notice: MutableState<Message?>,
     windowOpen: Boolean,
     onMenu: () -> Unit,
-    onNewMonth: () -> Unit,
+    onNewMonth: suspend () -> Unit,
 ) {
     run {
         val city = game.city
@@ -812,6 +836,8 @@ private fun GameScreen(
         LaunchedEffect(paused, speed) {
             if (paused) return@LaunchedEffect
             var last = withFrameNanos { it }
+            var owed = 0
+            var working: Job? = null
             while (true) {
                 val now = withFrameNanos { it }
                 val monthDays = City.daysIn(city.month, city.year)
@@ -820,9 +846,14 @@ private fun GameScreen(
                 val days = min(progress.toInt(), MAX_DAYS_PER_FRAME)
                 progress = if (progress.toInt() > MAX_DAYS_PER_FRAME) 0f else progress - days
                 dayProgress = progress
-                val monthBefore = city.month
-                game.tick(days, ::showEvent)
-                if (city.month != monthBefore) onNewMonth()
+                // The days are worked out on the sim's own thread; the screen carries on meanwhile, and
+                // what comes due while it's busy goes with the next lot.
+                owed = min(owed + days, MAX_DAYS_OWED)
+                if (owed > 0 && working?.isActive != true) {
+                    val lot = owed
+                    owed = 0
+                    working = launch { if (game.advance(lot, ::showEvent)) onNewMonth() }
+                }
             }
         }
 
@@ -836,7 +867,7 @@ private fun GameScreen(
         // What the drag would do, worked out again as it moves.
         val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, phoneKind, portKind, bridgeKind, tunnelling, airKind, game.revision) {
             drag?.let { d ->
-                d.action(tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind)?.let { Preview(it, city.plan(it), d.x1, d.y1) }
+                d.action(tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind)?.let { Preview(it, game.plan(it), d.x1, d.y1) }
             }
         }
         val costText = preview?.let {
@@ -1168,7 +1199,7 @@ private fun GameScreen(
             KeyAction.DevSeasonNext -> lookOverride = (look + 1) % Atlas.LOOKS
             KeyAction.DevHourBack -> hourShift -= 24f / Sky.STEPS
             KeyAction.DevHourNext -> hourShift += 24f / Sky.STEPS
-            KeyAction.DevFire -> inspected?.let { (x, y) -> city.startFireAt(x, y); game.tick(0) }
+            KeyAction.DevFire -> inspected?.let { (x, y) -> game.locked { city.startFireAt(x, y) } }
             KeyAction.DevWeather -> weatherOverride = if (weatherOverride + 1 >= DEV_WEATHER.size) -1 else weatherOverride + 1
             KeyAction.DevGraphics -> settings.graphics = GraphicsLevel.entries[(settings.graphics.ordinal + 1) % GraphicsLevel.entries.size]
             else -> {}
@@ -1616,6 +1647,9 @@ private val DEV_WEATHER = listOf(
 private const val SECONDS_PER_MONTH = 600.0
 private val SPEEDS = doubleArrayOf(0.5, 1.0, 4.0, 10.0)
 private const val MAX_DAYS_PER_FRAME = 4
+
+/** The most days kept waiting while the sim works out a long day, such as the turn of the month. */
+private const val MAX_DAYS_OWED = 31
 
 /**
  * Round a camera in the top edge: the gap above the strip, the deepest a

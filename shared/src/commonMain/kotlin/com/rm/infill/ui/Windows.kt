@@ -570,7 +570,7 @@ fun DemandWindow(game: GameState, onClose: () -> Unit) {
                     StatItem(Glyph.Briefcase, stringResource(Res.string.jobs_spare), n(s.vacant)),
                     StatItem(Glyph.Tag, stringResource(Res.string.empty_homes), n(s.emptyHomes)),
                     StatItem(Glyph.Arrows, stringResource(Res.string.moved_in), n(s.movedIn)),
-                    StatItem(Glyph.Road, stringResource(Res.string.way_in), stringResource(if (city.hasWayIn()) Res.string.way_in_open else Res.string.way_in_none), tone = if (city.hasWayIn()) Tone.Good else Tone.Bad),
+                    StatItem(Glyph.Road, stringResource(Res.string.way_in), stringResource(if (city.wayInNow) Res.string.way_in_open else Res.string.way_in_none), tone = if (city.wayInNow) Tone.Good else Tone.Bad),
                     if (s.commutersOut > 0) StatItem(Glyph.Arrows, stringResource(Res.string.commuting_out), n(s.commutersOut)) else null,
                     if (s.commutersIn > 0) StatItem(Glyph.Arrows, stringResource(Res.string.commuting_in), n(s.commutersIn)) else null,
                 ),

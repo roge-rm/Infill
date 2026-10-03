@@ -14,8 +14,32 @@ class AndroidPlatform(context: Context) : Platform {
 
     override val devKeys = context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
 
-    override fun saves(): List<String> =
-        dir.listFiles().orEmpty().filter { it.name.endsWith(EXT) }.map { it.name.removeSuffix(EXT) }
+    /**
+     * Saves dropped into the app's own folder on the device's storage
+     * (Android/data/com.rm.infill/files/import), say from another phone or a
+     * computer, are taken in when the saves are next listed. One with the name
+     * of a save already here comes in under a new name.
+     */
+    private val importDir: File? = context.getExternalFilesDir("import")
+
+    private fun takeImports() {
+        val files = importDir?.listFiles().orEmpty().filter { it.isFile && it.name.endsWith(EXT) }
+        for (f in files) {
+            val base = f.name.removeSuffix(EXT)
+            var name = base
+            var n = 2
+            while (File(dir, name + EXT).exists()) name = "$base-${n++}"
+            runCatching {
+                f.copyTo(File(dir, name + EXT))
+                f.delete()
+            }
+        }
+    }
+
+    override fun saves(): List<String> {
+        takeImports()
+        return dir.listFiles().orEmpty().filter { it.name.endsWith(EXT) }.map { it.name.removeSuffix(EXT) }
+    }
 
     override fun readSave(name: String): ByteArray? = File(dir, name + EXT).takeIf { it.exists() }?.readBytes()
 
