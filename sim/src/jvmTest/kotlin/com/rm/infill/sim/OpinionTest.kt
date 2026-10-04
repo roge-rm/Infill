@@ -127,6 +127,58 @@ class OpinionTest {
         assertFalse(c.residentialTax > Balance.CAPPED_TAX)
     }
 
+    private fun City.offer(g: Grant?) = City::class.java.getDeclaredField("grant").apply { isAccessible = true }.set(this, g)
+
+    /** A town grown to 1904, just before the November election. */
+    private fun electionEve(): City {
+        val c = town(years = 1, year = 1903)
+        c.elections = true
+        while (c.month != City.ELECTION_MONTH - 1) c.tick()
+        return c
+    }
+
+    @Test
+    fun aPaidGrantPleasesAndCountsAtThePolls() {
+        val c = electionEve()
+        c.offer(Grant(GrantKind.HIGHWAYS, 12_345L, 0, c.monthNow + 36))
+        // Short of winning on approval alone, and the grant tips it.
+        c.approval = Balance.ELECTION_WIN - Balance.GRANT_VOTE + 1
+        c.takeEvents { }
+        c.runMonths(1)
+        val told = ArrayList<EventKind>()
+        c.takeEvents { told += it.kind }
+        assertTrue(EventKind.GrantPaid in told)
+        assertTrue(EventKind.ElectionWon in told, "$told")
+        assertEquals(0, c.grantsThisTerm)
+    }
+
+    @Test
+    fun aLostElectionLetsTheGrantGo() {
+        val c = electionEve()
+        c.offer(Grant(GrantKind.HIGHWAYS, 12_345L, 1_000_000, c.monthNow + 36))
+        c.approval = 10
+        c.takeEvents { }
+        c.runMonths(1)
+        val told = ArrayList<EventKind>()
+        c.takeEvents { told += it.kind }
+        assertTrue(EventKind.ElectionLost in told)
+        assertTrue(EventKind.GrantLapsed in told)
+        assertNull(c.grant)
+    }
+
+    @Test
+    fun aReturnedCouncilIsOfferedAGrantAtOnce() {
+        val c = town(years = 1, year = 1951)
+        c.elections = true
+        // Past every grant of the Township era, into the highways' years, on the eve of the 1952 vote.
+        while (c.month != City.ELECTION_MONTH - 1) c.tick()
+        c.offer(null)
+        City::class.java.getDeclaredField("grantsOffered").apply { isAccessible = true }.setInt(c, 0)
+        c.approval = 90
+        c.runMonths(2)
+        assertEquals(GrantKind.HIGHWAYS, c.grant?.kind)
+    }
+
     @Test
     fun opinionIsSaved() {
         val c = town()

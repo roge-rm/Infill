@@ -43,6 +43,7 @@ import com.rm.infill.res.grant_noun_transit
 import com.rm.infill.res.grant_resilience
 import com.rm.infill.res.grant_sewers
 import com.rm.infill.res.grant_transit
+import com.rm.infill.res.grants_this_term
 import com.rm.infill.res.hold_elections
 import com.rm.infill.res.month_short
 import com.rm.infill.res.next_election
@@ -174,6 +175,7 @@ fun OpinionWindow(game: GameState, onGo: (Int, Int) -> Unit, onClose: () -> Unit
                 Text(stringResource(Res.string.hold_elections), color = if (on) c.onAccent else c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 if (on) Text(stringResource(Res.string.next_election, city.nextElection()), color = c.onAccent, fontSize = 12.sp, maxLines = 1)
             }
+            if (on && city.grantsThisTerm > 0) Text(stringResource(Res.string.grants_this_term, city.grantsThisTerm), color = c.textDim, fontSize = 13.sp)
             if (city.taxCapUntil > city.monthNow) {
                 Text(stringResource(Res.string.taxes_capped, city.maxTax(), date(city.taxCapUntil)), color = c.warn, fontSize = 13.sp)
             }

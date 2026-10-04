@@ -1257,6 +1257,9 @@ object Balance {
 
     /** Elections every four years in November: the council's returned at this approval; otherwise taxes are capped for a term. */
     const val ELECTION_WIN = 45
+    /** A grant paid or lapsed moves approval this much, and each paid in a council's term adds this to its vote. */
+    const val GRANT_APPROVAL_CHANGE = 3
+    const val GRANT_VOTE = 5
     const val ELECTION_YEARS = 4
     const val CAPPED_TAX = 9
     const val RATING_DROP_MONTHS = 3

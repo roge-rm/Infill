@@ -668,11 +668,11 @@ object Manual {
             ManualBlock(ManualKind.Bullet, "**Highways**, 1950 to 1975: once 30 more tiles of highway are built."),
             ManualBlock(ManualKind.Bullet, "**Transit**, 1970 to 2000: once more trips are made other than by car."),
             ManualBlock(ManualKind.Bullet, "**Storm drains**, from 2010: once 60 more tiles of storm drain are laid."),
-            ManualBlock(ManualKind.Para, "A grant is six months of the town's income, and the goal has to be met within three years. **Opinion** shows the one on offer and how far along the town is."),
+            ManualBlock(ManualKind.Para, "A grant is six months of the town's income, and the goal has to be met within three years. **Opinion** shows the one on offer and how far along the town is. A grant paid raises approval a little, and one let lapse lowers it."),
             ManualBlock(ManualKind.Heading, "Protests"),
             ManualBlock(ManualKind.Para, "From the Renewal era on, clearing a heritage building or six or more homes' lots at once brings people out to protest, and approval drops. If approval is already under 40, the protesters stop the works and it can't go ahead."),
             ManualBlock(ManualKind.Heading, "Elections"),
-            ManualBlock(ManualKind.Para, "Turn on **Hold elections** in **Opinion** for an election every four years, in November. At 45 or more the council is returned. Below that it's voted out, and taxes are capped at 9% for four years. Nothing else changes."),
+            ManualBlock(ManualKind.Para, "Turn on **Hold elections** in **Opinion** for an election every four years, in November. Each grant paid since the last election adds 5 to the vote. At 45 or more the council is returned, and higher government offers it the next grant of the era straight away. Below that it's voted out: taxes are capped at 9% for four years, and the new council lets any grant on offer go. Nothing else changes."),
         )),
         ManualSection("settings-and-sound", "Settings and sound", "The settings, and what you hear.", listOf(
             ManualBlock(ManualKind.Para, "**Settings** is on the first screen and in the menu. Settings are kept on this phone and change as you go.", "**Settings** is on the first screen and in the menu. Settings are kept in this browser and change as you go."),

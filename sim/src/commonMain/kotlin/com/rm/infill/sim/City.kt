@@ -7813,6 +7813,11 @@ class City(
         private set
     private var grantsOffered = 0
 
+    /** Grants paid since the last election, which count at the next; and a council just returned, which gets the next grant offered. */
+    var grantsThisTerm = 0
+        private set
+    private var mandate = false
+
     /** Whether the town holds elections, and the month a lost one's cap on taxes lifts. */
     var elections = false
     var taxCapUntil = 0
@@ -7840,10 +7845,18 @@ class City(
         petitionsMonth(dice)
         grantMonth(dice)
         if (elections && month == ELECTION_MONTH && year % Balance.ELECTION_YEARS == 0 && stats.population > 0) {
-            if (approval >= Balance.ELECTION_WIN) events += CityEvent(EventKind.ElectionWon, -1, -1, null, count = approval)
-            else {
+            // The grants the council brought in count for it.
+            val vote = approval + grantsThisTerm * Balance.GRANT_VOTE
+            grantsThisTerm = 0
+            if (vote >= Balance.ELECTION_WIN) {
+                events += CityEvent(EventKind.ElectionWon, -1, -1, null, count = vote)
+                mandate = true
+            } else {
                 taxCapUntil = monthNow + Balance.ELECTION_YEARS * 12
-                events += CityEvent(EventKind.ElectionLost, -1, -1, null, count = approval)
+                events += CityEvent(EventKind.ElectionLost, -1, -1, null, count = vote)
+                // The new council lets the grant on offer go.
+                grant?.let { events += CityEvent(EventKind.GrantLapsed, -1, -1, null, count = it.kind.ordinal) }
+                grant = null
             }
         }
         val most = maxTax()
@@ -7998,17 +8011,22 @@ class City(
             when {
                 grantFigure(g.kind) >= g.goal -> {
                     funds += g.amount
+                    approval = min(100, approval + Balance.GRANT_APPROVAL_CHANGE)
+                    grantsThisTerm++
                     events += CityEvent(EventKind.GrantPaid, -1, -1, null, count = g.kind.ordinal)
                     grant = null
                 }
                 monthNow >= g.until -> {
+                    approval = max(0, approval - Balance.GRANT_APPROVAL_CHANGE)
                     events += CityEvent(EventKind.GrantLapsed, -1, -1, null, count = g.kind.ordinal)
                     grant = null
                 }
             }
             return
         }
-        if (approval < Balance.GRANT_APPROVAL || stats.population == 0 || dice.nextInt(Balance.GRANT_ODDS) != 0) return
+        // A council just returned gets the next one at once; otherwise it's offered now and then.
+        if (approval < Balance.GRANT_APPROVAL || stats.population == 0 || !mandate && dice.nextInt(Balance.GRANT_ODDS) != 0) return
+        mandate = false
         val kind = GrantKind.entries.firstOrNull { year in it.from until it.until && grantsOffered and (1 shl it.ordinal) == 0 } ?: return
         val now = grantFigure(kind)
         val goal = when (kind) {
@@ -8385,6 +8403,8 @@ class City(
         w.int(g?.kind?.ordinal ?: -1)
         if (g != null) { w.long(g.amount); w.int(g.goal); w.int(g.until) }
         w.int(grantsOffered); w.bool(elections); w.int(taxCapUntil)
+        // Since version 43: grants paid this term, and a fresh mandate.
+        w.int(grantsThisTerm); w.bool(mandate)
     }
 
     companion object {
@@ -8742,6 +8762,7 @@ class City(
                         val kind = r.int()
                         if (kind >= 0) c.grant = Grant(GrantKind.entries[kind], r.long(), r.int(), r.int())
                         c.grantsOffered = r.int(); c.elections = r.bool(); c.taxCapUntil = r.int()
+                        if (version >= 43) { c.grantsThisTerm = r.int(); c.mandate = r.bool() }
                     }
                 } else {
                     // An older town: what it already has isn't news, nor the size it's already reached.

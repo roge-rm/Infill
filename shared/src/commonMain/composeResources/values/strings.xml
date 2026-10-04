@@ -1465,6 +1465,7 @@
     <string name="elections">Elections</string>
     <string name="hold_elections">Hold elections</string>
     <string name="next_election">Next in November %1$d</string>
+    <string name="grants_this_term">Grants paid this term: %1$d</string>
     <string name="taxes_capped">Taxes capped at %1$d% until %2$s</string>
     <string name="district_mood">Mood %1$d, unhappiest about %2$s</string>
     <string name="protest">Protesters are stopping the works</string>
