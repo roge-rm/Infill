@@ -20,6 +20,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.rm.infill.res.action_keep_in
+import com.rm.infill.res.action_link_out
+import com.rm.infill.res.pill_kept_in
+import com.rm.infill.res.pill_leads_out
 import com.rm.infill.res.label_hall_saves
 import com.rm.infill.res.label_leisure
 import com.rm.infill.res.leisure_value
@@ -481,6 +485,13 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
     if (map.brownfield[i].toInt() != 0) pills += PillItem(Glyph.Smoke, stringResource(Res.string.brownfield), Tone.Bad)
     if (map.streetTrees[i].toInt() != 0) pills += PillItem(Glyph.Tree, stringResource(Res.string.street_trees), Tone.Good)
     if (map.lane[i].toInt() != 0) pills += PillItem(Glyph.Diamond, stringResource(Res.string.inspect_bus_lane), Tone.Plain)
+    // A road at the edge of the map: whether it leads out of town, and the choice to change it.
+    if (road != null && map.atEdge(i)) {
+        val out = map.leadsOut(i)
+        pills += PillItem(Glyph.Road, stringResource(if (out) Res.string.pill_leads_out else Res.string.pill_kept_in), Tone.Plain)
+        val link = Action.LinkOut(i, !out)
+        actions += ActionItem(Glyph.Road, stringResource(if (out) Res.string.action_keep_in else Res.string.action_link_out), confirm = out) { onAction(link) }
+    }
 
     // A bridge: how long, whether ships get by, whether trucks may cross, and whether it's open.
     val bridged = map.bridged(i)

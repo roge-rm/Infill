@@ -60,16 +60,18 @@ class CivicTest {
 
     @Test
     fun aJuniorHighTakesTheYoungerTeens() {
-        fun highSchool(junior: Boolean): Int {
+        fun teens(junior: Boolean): Int {
             val c = town(1935)
             if (junior) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.JUNIOR_HIGH, 30, 35)).ok)
             c.months(14)
             if (junior) assertTrue(c.buildingAt(30, 35)!!.served > 0, "the junior high took ${c.buildingAt(30, 35)!!.served}")
-            return c.buildingAt(20, 35)!!.served
+            // Of the teens, the share at school of either kind.
+            val homes = c.homesNow()
+            return homes.sumOf { it.highSchooling } / maxOf(1, homes.size)
         }
-        val with = highSchool(true)
-        val without = highSchool(false)
-        assertTrue(with < without, "high school with a junior high $with, without $without")
+        val with = teens(true)
+        val without = teens(false)
+        assertTrue(with > without, "teens schooled with a junior high $with, without $without")
     }
 
     @Test
@@ -78,8 +80,11 @@ class CivicTest {
             val c = town(1925)
             if (kindergarten) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.KINDERGARTEN, 16, 35)).ok)
             c.months(30)
-            val homes = c.homesNow()
-            return homes.sumOf { it.schooling } / maxOf(1, homes.size)
+            if (kindergarten) assertTrue(c.buildingAt(16, 35)!!.served > 0, "the kindergarten took ${c.buildingAt(16, 35)!!.served}")
+            // The homes it reaches, in tenths of a point.
+            val near = (0 until c.map.size).mapNotNull { c.building(c.map.building[it]) }.distinct()
+                .filter { b -> b.people?.let { it.size > 0 } == true && kotlin.math.abs(b.x - 16) + kotlin.math.abs(b.y - 35) <= Balance.KINDERGARTEN_REACH }
+            return near.sumOf { it.people!!.schooling } * 10 / maxOf(1, near.size)
         }
         val with = schooling(true)
         val without = schooling(false)
@@ -117,22 +122,31 @@ class CivicTest {
 
     @Test
     fun aPublicHealthOfficeHoldsAnEpidemicBack() {
-        fun died(office: Boolean): Int {
+        // The share of homes in a hundred an epidemic strikes, by their health falling sharply in a month.
+        fun struck(office: Boolean): Int {
             val c = town(1925)
             c.disasterLevel = 0
             if (office) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.PUBLIC_HEALTH_OFFICE, 44, 35)).ok)
             c.months(24)
-            c.startEpidemic(4, 90)
-            var died = 0
-            repeat(4) {
-                c.months(1)
-                died += c.stats.deaths
+            var hit = 0
+            var homes = 0
+            repeat(3) {
+                c.startEpidemic(4, 90)
+                repeat(4) {
+                    val before = c.homesNow().associateWith { it.health }
+                    c.months(1)
+                    for ((h, was) in before) {
+                        homes++
+                        if (was - h.health >= Balance.EPIDEMIC_HEALTH / 2) hit++
+                    }
+                }
+                c.months(8)
             }
-            return died
+            return hit * 100 / maxOf(1, homes)
         }
-        val with = died(true)
-        val without = died(false)
-        assertTrue(with < without, "died with a health office $with, without $without")
+        val with = struck(true)
+        val without = struck(false)
+        assertTrue(with < without, "struck with a health office $with in 100, without $without")
     }
 
     @Test

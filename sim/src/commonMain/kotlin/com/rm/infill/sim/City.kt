@@ -553,6 +553,9 @@ class City(
                     cost += Prices.REMOVE_TUNNEL
                 }
             }
+            is Action.LinkOut -> if (m.inside(action.i % m.width, action.i / m.width) && m.road[action.i] != Road.NONE && m.atEdge(action.i) &&
+                (m.unlinked[action.i].toInt() == 0) != action.out
+            ) changes += action.i
             is Action.SetBridge -> {
                 // The whole bridge each tile's on, a toll booth at each one that gets a toll.
                 bridges()
@@ -1230,6 +1233,8 @@ class City(
                         m.bridge[i] = (layout.bridges[k] or (m.bridge[i].toInt() and (Bridge.SHUT or Bridge.TOLL))).toByte()
                     }
                     if (roadCost(action.type, layout, k) != NO_CHANGE) {
+                        // A road new at the edge leads out, or stays in, as the player chose.
+                        if (m.road[i] == Road.NONE && m.atEdge(i)) m.unlinked[i] = if (action.link) 0 else 1
                         m.road[i] = action.type.id
                         m.roadHeading[i] = layout.headings[k]
                         m.zone[i] = Zone.NONE
@@ -1478,6 +1483,7 @@ class City(
                     clearBroken(i, Broken.LOW)
                 }
             }
+            is Action.LinkOut -> for (i in plan.changes) m.unlinked[i] = if (action.out) 0 else 1
             is Action.SetBridge -> {
                 for (i in plan.changes) {
                     if (action.shut != null && m.rail[i] != Rail.NONE) railChanged = true
@@ -3934,6 +3940,9 @@ class City(
 
     private fun near(list: List<Building>, x: Int, y: Int, reach: Int) = list.any { abs(it.x - x) + abs(it.y - y) <= reach }
 
+    /** The part of an arrest left over from last month. */
+    private var arrestCarry = 0L
+
     /**
      * Percent of last month's arrests that stuck: heard in court and the
      * guilty held their time. Low, and crime grows and rackets feed.
@@ -3997,7 +4006,10 @@ class City(
         val s = stats
         s.offences = (offences / 255 / Balance.OFFENCE_SHARE).toInt()
         val per = 255L * Balance.OFFENCE_SHARE * 100
-        val arrests = ((caught * Balance.ARREST_SHARE + per / 2) / per).toInt()
+        // What's left over of an arrest carries to next month, so a small town's few offences still lead to one.
+        val owed = caught * Balance.ARREST_SHARE + arrestCarry
+        val arrests = (owed / per).toInt()
+        arrestCarry = owed % per
         s.arrests = arrests
         // What each place can hear and hold, as its funding, staff and age allow.
         val places = buildings.values.filter { it.type.justice && it.underway == 0 }.sortedBy { it.id }
@@ -4306,7 +4318,7 @@ class City(
             if (m.road[i] == Road.NONE) continue
             val x = i % m.width
             val y = i / m.width
-            if (x == 0 || y == 0 || x == m.width - 1 || y == m.height - 1) connected = true
+            if (m.leadsOut(i)) connected = true
             // No lot is reached from a highway or its ramps.
             val here = RoadType.of(m.road[i])
             if (here?.limited == true || here?.ramp == true) continue
@@ -6791,7 +6803,7 @@ class City(
                 val i = Border.tile(map, edge, k)
                 val road = RoadType.of(map.road[i])
                 val carries = when {
-                    road != null && b.road[k] != Road.NONE -> road.capacity * Balance.COMMUTERS_PER_CAPACITY / 100
+                    road != null && b.road[k] != Road.NONE && map.leadsOut(i) -> road.capacity * Balance.COMMUTERS_PER_CAPACITY / 100
                     map.rail[i] != Rail.NONE && b.rail[k] != Rail.NONE -> Balance.RAIL_LINK_COMMUTERS
                     else -> 0
                 }
@@ -7057,6 +7069,9 @@ class City(
             }
         }
     }
+
+    /** Whether [action] would lay new road at the edge of the map, so the player's asked whether it leads out. */
+    fun reachesEdge(action: Action.BuildRoad): Boolean = !action.tunnel && plan(action).changes.any { map.atEdge(it) && map.road[it] == Road.NONE }
 
     /** Which edge tile [i] is on: north, east, south or west, or -1 inside the map. */
     private fun edgeOf(i: Int): Int {
@@ -7382,7 +7397,14 @@ class City(
         grown.fill(0)
         if (s.wasteCollected < Balance.ADVICE_GARBAGE) {
             val b = buildings.values.firstOrNull { it.uncollected }
-            out += Advice(AdviceKind.GARBAGE, x = b?.x ?: -1, y = b?.y ?: -1)
+            // With room in the dumps, it's that they're out of reach.
+            val far = s.dumpRoom > s.waste * Balance.ADVICE_DUMP_MONTHS
+            out += Advice(if (far) AdviceKind.GARBAGE_FAR else AdviceKind.GARBAGE, x = b?.x ?: -1, y = b?.y ?: -1)
+        }
+        // Flooded last month, with nowhere for the storm drains to take the water.
+        if (s.floodCost > 0 && buildings.values.none { it.type == BuildingType.STORM_OUTFALL || it.type == BuildingType.STORM_POND }) {
+            val i = (0 until map.size).firstOrNull { map.building[it] != 0 && (map.floodMemory[it].toInt() and 0xff) >= Balance.FLOODED }
+            out += Advice(AdviceKind.FLOODING, x = i?.let { it % map.width } ?: -1, y = i?.let { it / map.width } ?: -1)
         }
         advice = out
     }
@@ -7591,9 +7613,11 @@ class City(
         s.roadUpkeep = (roads + lines * Balance.LINE_UPKEEP + highLines * Balance.HIGH_LINE_UPKEEP + cables + junctions).roundToLong()
         s.railUpkeep = (track + stations * Balance.STATION_UPKEEP + yards * Balance.YARD_UPKEEP + terminals * Balance.TERMINAL_UPKEEP).roundToLong()
         s.powerUpkeep = plants.roundToLong()
-        s.policeUpkeep = ((police * Balance.POLICE_UPKEEP + policeExtra) * policeFunding / 100).roundToLong()
-        s.fireUpkeep = ((fire * Balance.FIRE_UPKEEP + fireExtra) * fireFunding / 100).roundToLong()
-        s.parkUpkeep = (parks * Balance.PARK_UPKEEP * parkFunding / 100).roundToLong()
+        // The town's staff are paid more as wages rise through the century.
+        val wages = Balance.wages(year) / 100.0
+        s.policeUpkeep = ((police * Balance.POLICE_UPKEEP + policeExtra) * policeFunding / 100 * wages).roundToLong()
+        s.fireUpkeep = ((fire * Balance.FIRE_UPKEEP + fireExtra) * fireFunding / 100 * wages).roundToLong()
+        s.parkUpkeep = (parks * Balance.PARK_UPKEEP * parkFunding / 100 * wages).roundToLong()
         // Rides from stops with free fares bring in nothing.
         s.fareIncome = (max(0, traffic.boardings() - traffic.lastFreeBoardings) * Balance.FARE).roundToLong()
         // Dues on the loads through the ports, and on visitors off the ships.
@@ -7659,15 +7683,16 @@ class City(
         for (i in 0 until map.size) lanes += map.lane[i]
         s.transitUpkeep = (tramTiles * Balance.TRAM_TRACK_UPKEEP + wires * Balance.WIRE_UPKEEP + tunnels * Balance.TUNNEL_UPKEEP + stops * Balance.STOP_UPKEEP +
             transitWorks + vehicles + lanes * Balance.LANE_UPKEEP).roundToLong()
-        s.floodCost = floodBill
+        // Help comes in after a big flood: the town pays at most a month's income for it.
+        s.floodCost = min(floodBill, max(Balance.FLOOD_BILL_LEAST, s.income * Balance.FLOOD_BILL_MOST / 100))
         floodBill = 0
         s.repairCost = repairBill
         repairBill = 0
         s.disasterCost = disasterBill
         disasterBill = 0
-        s.schoolUpkeep = (schools * schoolFunding / 100).roundToLong()
-        s.healthUpkeep = (care * healthFunding / 100).roundToLong()
-        s.civicUpkeep = civic.roundToLong()
+        s.schoolUpkeep = (schools * schoolFunding / 100 * wages).roundToLong()
+        s.healthUpkeep = (care * healthFunding / 100 * wages).roundToLong()
+        s.civicUpkeep = (civic * wages).roundToLong()
         s.upkeep = s.civicUpkeep + s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost + s.phoneUpkeep + s.portUpkeep + s.neighbourCost + s.ordinanceCost
         funds += s.income - s.upkeep
     }
@@ -7937,6 +7962,8 @@ class City(
         w.long(s.ordinanceCost); w.long(s.ordinanceIncome)
         // Since version 38: the civic buildings' upkeep.
         w.long(s.civicUpkeep)
+        // Since version 39: the edge roads kept in town.
+        w.layer(map.unlinked)
     }
 
     companion object {
@@ -8259,6 +8286,7 @@ class City(
                     c.stats.ordinanceCost = r.long(); c.stats.ordinanceIncome = r.long()
                 }
                 if (version >= 38) c.stats.civicUpkeep = r.long()
+                if (version >= 39) r.layer(c.map.unlinked)
                 c.updateNetworks()
                 c.markContainerTrains()
                 c.updateAirports()

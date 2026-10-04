@@ -38,7 +38,9 @@ Rain that falls on roofs and paving runs off. Parks, woods and grass soak most o
 - Without them, sewers take some of it and overflow foul into the water.
 - **Embankment** keeps a river in its banks.
 
-What isn't taken away floods the streets in a downpour. Flooded shops and works close, deep water closes roads and can knock buildings down a rung, and it leaves mud and a clean-up bill. Homes on wells or septic tanks can get sick after a flood. People remember where it flooded, and the land is worth less for a while.
+What isn't taken away floods the streets in a downpour. Flooded shops and works close, deep water closes roads and can knock buildings down a rung, and it leaves mud and a clean-up bill, never more than a month's income. Homes on wells or septic tanks can get sick after a flood. People remember where it flooded, and the land is worth less for a while.
+
+After a flood with nowhere for storm drains to go, the advice line says so.
 
 A river rises with rain and snowmelt, more when the ground is soaked, and spills over its banks when it's high. The **Runoff** view shows where the rain goes.
 
@@ -54,4 +56,4 @@ Each person makes some garbage every month, more as the years go by until 2000, 
 - **Landfill gas plant** (1985) makes 3 MW beside a dump or landfill that's at least a tenth full.
 - **Biogas plant** (2005) makes 5 MW near sewage works, a treatment plant or a compost yard.
 
-Each one serves the town within 60 tiles. Garbage that isn't taken away piles up in yards, makes the place grimy and unhealthy, and puts people off.
+Each one serves the town within 60 tiles. Garbage that isn't taken away piles up in yards, makes the place grimy and unhealthy, and puts people off. When the dumps have room but are too far off, the advice line says to build a transfer station or a dump nearer.

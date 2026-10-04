@@ -7,6 +7,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.rm.infill.res.edge_link_no
+import com.rm.infill.res.edge_link_yes
+import com.rm.infill.res.edge_link_what
+import com.rm.infill.res.edge_link_title
 import com.rm.infill.res.upkeep_civic
 import com.rm.infill.res.ordinances
 import com.rm.infill.res.law_from
@@ -1140,6 +1144,21 @@ fun LineDraftBar(stops: Int, tram: Boolean, onClear: () -> Unit, onMake: () -> U
             )
             if (stops > 0) TextButton(stringResource(Res.string.clear), false, onClear)
             if (stops >= 2) TextButton(stringResource(Res.string.make_line), true, onMake)
+        }
+    }
+}
+
+/** Asks whether a road reaching the edge of the map leads out of town, or stays in it. */
+@Composable
+fun EdgeLinkWindow(onLink: () -> Unit, onKeep: () -> Unit, onClose: () -> Unit) {
+    val c = Infill.colors
+    Window(Res.string.edge_link_title, onClose, Glyph.Road) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(stringResource(Res.string.edge_link_what), color = c.textDim, fontSize = 14.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(stringResource(Res.string.edge_link_yes), true, onLink)
+                TextButton(stringResource(Res.string.edge_link_no), false, onKeep)
+            }
         }
     }
 }

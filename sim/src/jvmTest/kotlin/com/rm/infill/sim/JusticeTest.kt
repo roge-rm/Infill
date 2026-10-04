@@ -124,7 +124,7 @@ class JusticeTest {
         }
         val s = c.stats
         assertTrue(s.offences > 0)
-        assertTrue(arrests > 0, "no arrests")
+        assertTrue(arrests > 0, "no arrests: ${s.offences} offences, ${s.population} people, crime ${(0 until c.map.size).maxOf { c.map.crime[it].toInt() and 0xff }} at most")
         assertTrue(s.cells > 0)
         assertEquals(100, c.justice)
     }

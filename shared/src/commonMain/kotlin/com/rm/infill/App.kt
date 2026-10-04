@@ -3,6 +3,7 @@ package com.rm.infill
 import com.rm.infill.platform.simDispatcher
 import com.rm.infill.sim.AdviceKind
 import com.rm.infill.sim.Advice
+import com.rm.infill.ui.EdgeLinkWindow
 import com.rm.infill.ui.OrdinancesWindow
 import com.rm.infill.ui.ordinanceName
 import com.rm.infill.ui.listText
@@ -741,6 +742,8 @@ private fun GameScreen(
         var stripSize by remember { mutableStateOf(IntSize.Zero) }
         var budgetOpen by remember { mutableStateOf(false) }
         var ordinancesOpen by remember { mutableStateOf(false) }
+        // A road reaching the edge of the map, waiting on whether it leads out of town.
+        var edgeAsk by remember { mutableStateOf<Action.BuildRoad?>(null) }
         var graphsOpen by remember { mutableStateOf(false) }
         var peopleOpen by remember { mutableStateOf(false) }
         var demandOpen by remember { mutableStateOf(false) }
@@ -1017,10 +1020,10 @@ private fun GameScreen(
             // The keys come back to the map from wherever they were.
             runCatching { focus.requestFocus() }
             when {
-                fromTools && drag == null && inspected == null && !choosingOverlay && !budgetOpen && !ordinancesOpen && !graphsOpen && !peopleOpen && !demandOpen &&
+                fromTools && drag == null && inspected == null && !choosingOverlay && !budgetOpen && !ordinancesOpen && edgeAsk == null && !graphsOpen && !peopleOpen && !demandOpen &&
                     !linesOpen && !districtsOpen && eraShown == null -> {}
-                budgetOpen || ordinancesOpen || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null -> {
-                    budgetOpen = false; ordinancesOpen = false; graphsOpen = false; peopleOpen = false; demandOpen = false; linesOpen = false; districtsOpen = false; eraShown = null
+                budgetOpen || ordinancesOpen || edgeAsk != null || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null -> {
+                    budgetOpen = false; ordinancesOpen = false; edgeAsk = null; graphsOpen = false; peopleOpen = false; demandOpen = false; linesOpen = false; districtsOpen = false; eraShown = null
                 }
                 drag != null -> drag = null
                 choosingOverlay -> choosingOverlay = false
@@ -1038,6 +1041,23 @@ private fun GameScreen(
             junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind, city::newest,
         )
 
+        /** Does [action] and tells how it went. */
+        fun applyAction(action: Action) {
+            val made = action is Action.PaintDistrict && action.id == NEW_DISTRICT
+            val plan = game.apply(action)
+            tell(plan.problem)
+            // Heard where it is on screen, more or less.
+            val x = if (plan.changes.isEmpty()) camera.centreX else plan.changes.sumOf { it % city.map.width }.toFloat() / plan.changes.size
+            val across = viewSize.width / camera.tilePx / 2f
+            Sounds.action(action, plan, city, if (across > 0f) (x - camera.centreX) / across else 0f)
+            // What it did, such as people forced out by a clearing, is told at once.
+            game.takeEvents(::showEvent)
+            // Out of the way once something's built, to see it.
+            if (plan.ok) trayFolded = true
+            // Once made, go on painting into the new district.
+            if (made && plan.ok) city.districts.lastOrNull()?.let { districtChoice = it.id }
+        }
+
         /** Lets go of the drag: does what it's for. */
         fun toolUp() {
             val d = drag
@@ -1048,22 +1068,13 @@ private fun GameScreen(
                 val kind = if (transitKind.line == 2) Stop.TRAM else Stop.BUS
                 if (city.map.stop[i].toInt() and kind != 0 && lineDraft.lastOrNull() != i) lineDraft = lineDraft + i
             }
-            val action = d?.let(::actionOf)
-            if (action != null) {
-                val made = action is Action.PaintDistrict && action.id == NEW_DISTRICT
-                val plan = game.apply(action)
-                tell(plan.problem)
-                // Heard where it is on screen, more or less.
-                val x = if (plan.changes.isEmpty()) camera.centreX else plan.changes.sumOf { it % city.map.width }.toFloat() / plan.changes.size
-                val across = viewSize.width / camera.tilePx / 2f
-                Sounds.action(action, plan, city, if (across > 0f) (x - camera.centreX) / across else 0f)
-                // What it did, such as people forced out by a clearing, is told at once.
-                game.takeEvents(::showEvent)
-                // Out of the way once something's built, to see it.
-                if (plan.ok) trayFolded = true
-                // Once made, go on painting into the new district.
-                if (made && plan.ok) city.districts.lastOrNull()?.let { districtChoice = it.id }
+            val action = d?.let(::actionOf) ?: return
+            // A new road out to the edge of the map: ask first whether it leads out of town.
+            if (action is Action.BuildRoad && game.plan(action).ok && city.reachesEdge(action)) {
+                edgeAsk = action
+                return
             }
+            applyAction(action)
         }
 
         val gestures = MapGestures(
@@ -1225,7 +1236,7 @@ private fun GameScreen(
         }
 
         // The keys come back to the map whenever a window or panel over it closes, which takes the focus with it.
-        val anyOpen = windowOpen || budgetOpen || ordinancesOpen || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
+        val anyOpen = windowOpen || budgetOpen || ordinancesOpen || edgeAsk != null || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
         LaunchedEffect(anyOpen) { if (!anyOpen) focus.requestFocus() }
 
         // A controller's buttons do on the map what they're set to, as keys do. Away from the map the
@@ -1582,6 +1593,13 @@ private fun GameScreen(
             }
             if (budgetOpen) BudgetWindow(game, { budgetOpen = false }) { budgetOpen = false; ordinancesOpen = true }
             if (ordinancesOpen) OrdinancesWindow(game) { ordinancesOpen = false }
+            edgeAsk?.let { road ->
+                EdgeLinkWindow(
+                    onLink = { edgeAsk = null; applyAction(road.copy(link = true)) },
+                    onKeep = { edgeAsk = null; applyAction(road.copy(link = false)) },
+                    onClose = { edgeAsk = null },
+                )
+            }
             if (linesOpen) LinesWindow(game) { linesOpen = false }
             if (districtsOpen) DistrictsWindow(game) { districtsOpen = false }
             if (graphsOpen) GraphsWindow(game) { graphsOpen = false }

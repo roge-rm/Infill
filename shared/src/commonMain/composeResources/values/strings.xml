@@ -432,6 +432,18 @@
     <string name="advice_unappealing">%1$s can't grow: nobody wants to build there</string>
     <string name="advice_leisure">%1$s can't grow: too little to do nearby, build parks and leisure</string>
     <string name="advice_garbage">Garbage is piling up: build a dump</string>
+    <string name="advice_garbage_far">Garbage is piling up far from the dumps: build a transfer station or a dump nearer</string>
+    <!-- Asked when a new road reaches the edge of the map. -->
+    <string name="edge_link_title">Link to the outside?</string>
+    <string name="edge_link_what">This road reaches the edge of the map. Linked, newcomers, trade and commuters come and go along it.</string>
+    <string name="edge_link_yes">Link it</string>
+    <string name="edge_link_no">Keep it in town</string>
+    <!-- Inspecting a road at the edge of the map. -->
+    <string name="pill_leads_out">Leads out of town</string>
+    <string name="pill_kept_in">Kept in town</string>
+    <string name="action_link_out">Link to the outside</string>
+    <string name="action_keep_in">Keep in town</string>
+    <string name="advice_flooding">Flooding: run storm drains to a storm outfall or pond</string>
     <string name="advice_homes">Homes</string>
     <string name="advice_shops">Shops</string>
     <string name="advice_works">Works</string>

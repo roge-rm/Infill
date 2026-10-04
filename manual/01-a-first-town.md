@@ -13,7 +13,7 @@ On the first screen, **New city** makes a new town. Pick a name, a map number an
 
 ## The first streets
 
-1. Tap **Transport**, then **Road**, and drag a street in from the edge of the map. A road reaching the edge is how people and goods get in and out.
+1. Tap **Transport**, then **Road**, and drag a street in from the edge of the map. A road reaching the edge is how people and goods get in and out: when it asks, choose **Link it**.
 2. Tap **Zones**, pick **Residential** and drag a block along the street. Lots grow up to three tiles from a road.
 3. Zone some **Commercial** and **Industrial** too. Homes need jobs, and shops need people.
 4. Press play.

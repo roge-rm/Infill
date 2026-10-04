@@ -946,11 +946,8 @@ internal class Traffic(private val map: CityMap) {
         return Junction.wait(control, road.capacity, max(lastVolume[b], volume[b])) * directed / 100
     }
 
-    private fun edge(a: Int): Boolean {
-        val x = a % map.width
-        val y = a / map.width
-        return x == 0 || y == 0 || x == map.width - 1 || y == map.height - 1
-    }
+    /** Whether road tile [a] leads out of town. */
+    private fun edge(a: Int): Boolean = map.leadsOut(a)
 
     // A binary heap of tiles by distance, ties by tile, so the search always goes the same way.
     private fun push(node: Int, key: Int) {

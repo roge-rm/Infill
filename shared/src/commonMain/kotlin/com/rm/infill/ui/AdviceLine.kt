@@ -28,6 +28,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rm.infill.res.advice_garbage_far
+import com.rm.infill.res.advice_flooding
 import com.rm.infill.res.advice_leisure
 import com.rm.infill.res.*
 import com.rm.infill.sim.Advice
@@ -106,6 +108,8 @@ internal fun adviceText(a: Advice): String {
         AdviceKind.UNAPPEALING -> stringResource(Res.string.advice_unappealing, zone)
         AdviceKind.LEISURE -> stringResource(Res.string.advice_leisure, zone)
         AdviceKind.GARBAGE -> stringResource(Res.string.advice_garbage)
+        AdviceKind.GARBAGE_FAR -> stringResource(Res.string.advice_garbage_far)
+        AdviceKind.FLOODING -> stringResource(Res.string.advice_flooding)
     }
 }
 
@@ -127,7 +131,8 @@ internal fun adviceGlyph(kind: AdviceKind): Glyph = when (kind) {
     AdviceKind.NO_STAFF -> Glyph.Cap
     AdviceKind.UNAPPEALING -> Glyph.Warn
     AdviceKind.LEISURE -> Glyph.Tree
-    AdviceKind.GARBAGE -> Glyph.Bin
+    AdviceKind.GARBAGE, AdviceKind.GARBAGE_FAR -> Glyph.Bin
+    AdviceKind.FLOODING -> Glyph.Rain
 }
 
 /** How long each piece of advice shows before the next. */

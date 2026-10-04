@@ -11,7 +11,7 @@ Tap a square to pick it. An empty one has **Found a town here**, and a town has 
 
 ## Borders
 
-Past each edge with a town beyond it, a strip of the neighbour shows: its land, roads, track, lines and mains. A green dot on the border marks a link, a place where your road or track meets theirs on the same tile. Only links carry anything, so line your roads, track, lines and mains up with your neighbours'.
+Past each edge with a town beyond it, a strip of the neighbour shows: its land, roads, track, lines and mains. A green dot on the border marks a link, a place where your road or track meets theirs on the same tile. A road kept in town makes no link. Only links carry anything, so line your roads, track, lines and mains up with your neighbours'.
 
 ## What crosses
 

@@ -96,8 +96,8 @@ class Player(private val c: City, private val withRail: Boolean, private val not
     fun start() {
         // Land kept back: one block in nine for services, as a planner would.
         for (i in 1 until n - 1) for (j in 1 until n - 1) if (i % 3 == 1 && j % 3 == 1 && j != centre && j != centre - 1) use[i][j] = Use.CIVIC
-        // And two out east for plants, dumps and works.
-        for (j in listOf(centre - 3, centre + 2)) if (j in 1 until n - 1) use[n - 2][j] = Use.UTILITY
+        // And five out east for plants and dumps, for the town's whole life.
+        for (j in listOf(centre - 5, centre - 3, centre + 2, centre + 4, centre + 6)) if (j in 1 until n - 1) use[n - 2][j] = Use.UTILITY
         // The main street, edge to edge: the way in.
         road(Action.roadPath(m, 0, mainY, m.width - 1, mainY, true))
         if (withRail) {
@@ -153,8 +153,15 @@ class Player(private val c: City, private val withRail: Boolean, private val not
         val wantSewer = AdviceKind.NO_SEWER in kinds || goals.any { it.kind == GoalKind.OnSewer && !it.met } || s.population > 4000
         if (wantSewer) sewer()
         if (AdviceKind.GARBAGE in kinds) place(if (c.allows(BuildingType.INCINERATOR) && s.population > 20000) BuildingType.INCINERATOR else BuildingType.DUMP, utility = true)
+        c.advice.firstOrNull { it.kind == AdviceKind.GARBAGE_FAR }?.let { a ->
+            val near = if (a.x >= 0) a.x / S to a.y / S else null
+            if (weeks % 8 == 0) place(if (c.allows(BuildingType.TRANSFER_STATION)) BuildingType.TRANSFER_STATION else BuildingType.DUMP, near = near)
+        }
         if (AdviceKind.UNAPPEALING in kinds && weeks % 12 == 0) parks()
         services()
+        leisure(AdviceKind.LEISURE in kinds)
+        civic()
+        laws(kinds)
         keepUp()
         phones()
         zoneOnDemand()
@@ -386,7 +393,9 @@ class Player(private val c: City, private val withRail: Boolean, private val not
     }
 
     /** Somewhere for [type]: in a civic block (or a utility block for the dirty ones), opening a new one if they're full. */
-    private fun place(type: BuildingType, utility: Boolean = false, near: Pair<Int, Int>? = null): Boolean {
+    private fun place(first: BuildingType, utility: Boolean = false, near: Pair<Int, Int>? = null): Boolean {
+        // The newest kind of it the town can build.
+        val type = c.newest(first)
         if (!c.allows(type) || weeks < (failed[type] ?: 0)) return false
         if (placeAt(type, utility, near)) return true
         failed[type] = weeks + 13
@@ -450,7 +459,8 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             else -> BuildingType.COAL_PLANT
         }
         if (powerUp && weeks % 8 != 0) return
-        if (!place(type, utility = true)) return
+        // Out east if there's room, else in any block kept back.
+        if (!place(type, utility = true) && !place(type)) return
         if (!powerUp) {
             powerUp = true
             note("power: lines along ${segments.size} streets")
@@ -573,7 +583,7 @@ class Player(private val c: City, private val withRail: Boolean, private val not
 
     private fun sources() = count(BuildingType.PUMPING_STATION) + count(BuildingType.WELL_FIELD)
 
-    private fun count(type: BuildingType) = c.allBuildings.count { it.type == type }
+    private fun count(type: BuildingType) = c.allBuildings.count { it.type.root == type.root }
 
     private fun services() {
         val s = c.stats
@@ -598,7 +608,7 @@ class Player(private val c: City, private val withRail: Boolean, private val not
 
     /** Puts a [build] by the first zoned block that no [types] reach, one a month. */
     private fun cover(types: List<BuildingType>, reach: Int, build: BuildingType, homesOnly: Boolean = false) {
-        val have = c.allBuildings.filter { it.type in types }.map { it.x + it.type.width / 2 to it.y + it.type.height / 2 }
+        val have = c.allBuildings.filter { it.type.root in types }.map { it.x + it.type.width / 2 to it.y + it.type.height / 2 }
         var gap: Pair<Int, Int>? = null
         var best = Int.MAX_VALUE
         for (i in 1 until n - 1) for (j in 1 until n - 1) {
@@ -614,6 +624,55 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             }
         }
         gap?.let { place(build, near = it) }
+    }
+
+    /** Leisure near the homes: green space, sport and culture, each where none reaches, and the big draws as the town grows. */
+    private fun leisure(wanted: Boolean) {
+        val pop = c.stats.population
+        if (pop < 1000 || weeks % 4 != 0) return
+        val reach = if (wanted) 0 else -2
+        val green = listOf(BuildingType.PLAYGROUND, BuildingType.POCKET_PARK, BuildingType.TOWN_SQUARE, BuildingType.FORMAL_GARDEN, BuildingType.CITY_PARK)
+        cover(green, 6 + reach, if (c.allows(BuildingType.POCKET_PARK)) BuildingType.POCKET_PARK else BuildingType.PLAYGROUND, homesOnly = true)
+        if (pop > 2500) cover(listOf(BuildingType.SPORTS_GROUND, BuildingType.REC_CENTRE, BuildingType.PUBLIC_BATHS), 8 + reach,
+            if (c.allows(BuildingType.REC_CENTRE) && pop > 15000) BuildingType.REC_CENTRE else BuildingType.SPORTS_GROUND, homesOnly = true)
+        if (pop > 4000) cover(listOf(BuildingType.VARIETY_THEATRE, BuildingType.MUSEUM, BuildingType.ART_GALLERY, BuildingType.BANDSTAND, BuildingType.OPERA_HOUSE), 10 + reach,
+            if (pop > 8000) BuildingType.VARIETY_THEATRE else BuildingType.BANDSTAND, homesOnly = true)
+        if (weeks % 26 != 0) return
+        if (count(BuildingType.CITY_PARK) * 20_000 < pop - 8_000) place(BuildingType.CITY_PARK)
+        if (pop > 15_000 && count(BuildingType.MUSEUM) == 0) place(BuildingType.MUSEUM)
+        if (pop > 25_000 && count(BuildingType.PUBLIC_BATHS) * 25_000 < pop) place(BuildingType.PUBLIC_BATHS)
+        if (pop > 40_000 && count(BuildingType.STADIUM) == 0) place(BuildingType.STADIUM)
+    }
+
+    /** A town hall once the town has laws worth saving on, and a post office per so many people. */
+    private fun civic() {
+        val pop = c.stats.population
+        if (weeks % 26 != 0) return
+        if (pop > 3000 && count(BuildingType.TOWN_HALL) == 0) place(BuildingType.TOWN_HALL)
+        if (pop > 5000 && count(BuildingType.POST_OFFICE) * 15_000 < pop) place(BuildingType.POST_OFFICE)
+    }
+
+    /** The laws a careful player passes once they can, and drops when the money's gone. */
+    private fun laws(kinds: Set<AdviceKind>) {
+        if (weeks % 13 != 0) return
+        val s = c.stats
+        val want = listOf(
+            Ordinance.BUILDING_CODE, Ordinance.PUBLIC_HEALTH_ACT, Ordinance.LIQUOR_LICENCES, Ordinance.TENEMENT_ACT, Ordinance.SCHOOL_MEALS,
+            Ordinance.FLUORIDATION, Ordinance.DOG_LICENCES, Ordinance.PARKING_METERS, Ordinance.SPEED_LIMITS, Ordinance.CLEAN_AIR_ACT,
+            Ordinance.BOTTLE_DEPOSIT, Ordinance.ENERGY_CODE, Ordinance.CURBSIDE_RECYCLING, Ordinance.HEAT_PLAN, Ordinance.SMOKING_BAN,
+        )
+        if (AdviceKind.DEBT in kinds || c.funds < 0) {
+            Ordinance.entries.filter { c.passed(it) && it.perThousand > 0 }.maxByOrNull { it.perThousand }?.let {
+                c.setOrdinance(it, false)
+                note("repealed $it to save money")
+            }
+            return
+        }
+        if (s.income - s.upkeep < 0 || c.funds < 20_000) return
+        want.firstOrNull { !c.passed(it) && c.allows(it) }?.let {
+            c.setOrdinance(it, true)
+            if (c.passed(it)) note("passed $it")
+        }
     }
 
     private fun parks() {
@@ -634,10 +693,17 @@ class Player(private val c: City, private val withRail: Boolean, private val not
         }
     }
 
-    /** Widens the main street and the cross street through the middle. */
+    private var widened = 0
+
+    /** Widens the main street and the cross street through the middle, then a street further out each time. */
     private fun upgradeRoads() {
         val type = listOf(RoadType.AVENUE, RoadType.STREET).firstOrNull { c.allows(it) } ?: return
-        for (tiles in listOf(Action.roadPath(m, 0, mainY, m.width - 1, mainY, true), Action.roadPath(m, centre * S, S, centre * S, m.height - S, false))) {
+        val k = widened++
+        val off = (k / 2 + 1) / 2 * (if (k / 2 % 2 == 0) 1 else -1) * 2 * S
+        val lines = if (k == 0) listOf(Action.roadPath(m, 0, mainY, m.width - 1, mainY, true), Action.roadPath(m, centre * S, S, centre * S, m.height - S, false))
+        else if (k % 2 == 0) listOf(Action.roadPath(m, 0, (mainY + off).coerceIn(S, m.height - S), m.width - 1, (mainY + off).coerceIn(S, m.height - S), true))
+        else listOf(Action.roadPath(m, (centre * S + off).coerceIn(S, m.width - S), S, (centre * S + off).coerceIn(S, m.width - S), m.height - S, false))
+        for (tiles in lines) {
             val built = tiles.filter { m.road[it] != Road.NONE }.toIntArray()
             if (built.isEmpty()) continue
             act("upgrade to $type", Action.BuildRoad(built, type, pipes = mainsUp))
@@ -790,13 +856,13 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             c.funds, s.income, s.upkeep, s.residentialDemand, s.commercialDemand, s.industryDemand, s.farmDemand, s.officeDemand,
             c.residentialTax, s.emptyHomes, s.health, s.onMains, s.onSewer, s.powered,
             blocks[Zone.RESIDENTIAL.toInt()], blocks[Zone.COMMERCIAL.toInt()], blocks[Zone.INDUSTRIAL.toInt()], blocks[Zone.FARMLAND.toInt()], blocks[Zone.OFFICE.toInt()],
-            c.buildingCount, "\"$advice\"", "\"$next\"",
+            c.buildingCount, s.leisure, avg(m.crime, Zone.RESIDENTIAL), Ordinance.entries.count { c.passed(it) }, "\"$advice\"", "\"$next\"",
         ).joinToString(",")
     }
 
     companion object {
         const val S = 8
         const val HEADER = "year,era,population,shopJobs,industryJobs,farmJobs,officeJobs,workers,funds,income,upkeep," +
-            "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,advice,goals"
+            "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,leisure,homeCrime,laws,advice,goals"
     }
 }

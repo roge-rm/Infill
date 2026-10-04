@@ -92,6 +92,19 @@ class CityMap(val width: Int, val height: Int) {
     /** Days a bridge tile stays shut by the weather, or [Balance.SHUT_UNSAFE] while it's too worn to cross. */
     val bridgeShut = ByteArray(size)
 
+    /** 1 on a road at the edge of the map that the player has kept in town: it doesn't lead out. */
+    val unlinked = ByteArray(size)
+
+    /** Whether tile [i] is on the edge of the map. */
+    fun atEdge(i: Int): Boolean {
+        val x = i % width
+        val y = i / width
+        return x == 0 || y == 0 || x == width - 1 || y == height - 1
+    }
+
+    /** Whether the road on tile [i] leads out of town: at the edge, and not kept in. */
+    fun leadsOut(i: Int): Boolean = road[i] != Road.NONE && atEdge(i) && unlinked[i].toInt() == 0
+
     /** The kind of bridge on tile [i], if a road or track crosses water there: null for a plain one. */
     fun bridgeKind(i: Int): BridgeKind? = BridgeKind.of(bridge[i].toInt() and Bridge.KIND)
 
@@ -218,7 +231,7 @@ class CityMap(val width: Int, val height: Int) {
     fun duct(i: Int): Boolean = phone[i].toInt() != 0 && (buried[i].toInt() and BURIED_PHONE) != 0
 
     /** The phone line on a tile, and when it went up, packed for undo. */
-    fun tileUtil(i: Int): Long = (((density[i].toLong() shr 2) and 0x1) shl 45) or ((lowLaid[i].toLong() and 0xfff) shl 33) or ((portal[i].toLong() and 0x7) shl 30) or
+    fun tileUtil(i: Int): Long = ((unlinked[i].toLong() and 0x1) shl 46) or (((density[i].toLong() shr 2) and 0x1) shl 45) or ((lowLaid[i].toLong() and 0xfff) shl 33) or ((portal[i].toLong() and 0x7) shl 30) or
         ((lowRail[i].toLong() and 0x1) shl 29) or ((lowHeading[i].toLong() and 0x7) shl 26) or ((lowRoad[i].toLong() and 0xf) shl 22) or
         ((bridge[i].toLong() and 0xff) shl 14) or ((phone[i].toLong() and 0x3) shl 12) or (phoneLaid[i].toLong() and 0xfff)
 
@@ -233,6 +246,7 @@ class CityMap(val width: Int, val height: Int) {
         lowLaid[i] = ((v shr 33) and 0xfff).toShort()
         // Density's third bit, for tower and rural, which [tileState] has no room for.
         density[i] = ((density[i].toInt() and 0x3) or (((v shr 45) and 0x1).toInt() shl 2)).toByte()
+        unlinked[i] = ((v shr 46) and 0x1).toByte()
     }
 
     /** Which lines on a tile run underground: [BURIED_POWER], [BURIED_PHONE]. */

@@ -345,7 +345,9 @@ object Balance {
     // of the theft and vice where justice fails feeds them a month (one part in this), how much they fade a
     // month anyway and with a fully staffed police headquarters, and how much they put businesses off.
     const val THEFT_POLICE = 60
-    const val VICE_POLICE = 40
+    const val VICE_POLICE = 55
+    /** Vice for the square root of the people within three tiles, in tenths. */
+    const val VICE_PEOPLE = 12
     const val SHOP_THEFT = 12
     const val NIGHTLIFE = 12
     const val RACKETS_YEAR = 1920
@@ -625,6 +627,8 @@ object Balance {
     const val ADVICE_DEMAND = 20
     const val ADVICE_SAMPLE = 60
     const val ADVICE_GARBAGE = 80
+    /** Dumps with room for this many months of the town's garbage have room enough. */
+    const val ADVICE_DUMP_MONTHS = 6
 
     /**
      * Commuters a month a link over the border carries: for a road, this
@@ -896,6 +900,9 @@ object Balance {
     const val CLEANUP_BUILDING = 10L
     const val CLEANUP_ROAD = 3L
     const val CLEANUP_TRACK = 4L
+    /** The most a month's flood clean-up costs the town, in percent of the month's income, and never less than this. */
+    const val FLOOD_BILL_MOST = 100L
+    const val FLOOD_BILL_LEAST = 500L
     const val MUD = 40
     const val STIGMA_FADE = 3
     const val STIGMA_VALUE = 6
@@ -1194,7 +1201,17 @@ object Balance {
     const val AUTO_LIGHTS = 70
     // Traffic flow: the flow at which shops and offices are neither helped nor hurt, and at most how much;
     // fumes from crawling traffic, in percent more at most, and more for each second spent waiting at a crossing.
-    const val FLOW_PAR = 85
+    const val FLOW_PAR = 65
+
+    /**
+     * What the town pays its staff in [year], in percent of 1900: police, fire,
+     * parks, schools, health and the town hall cost more as wages rise.
+     */
+    fun wages(year: Int): Int = when {
+        year <= 1900 -> 100
+        year >= 2000 -> 200
+        else -> 100 + (year - 1900)
+    }
     // Green against pollution: what each tile of park or woods within reach takes off, a street tree half that,
     // in percent, and at most; how much of what crosses a belt of park or woods gets through; scrubbers on a
     // coal or oil station, from when, what they cost and keep, and the share of smoke they let out.
@@ -1223,7 +1240,7 @@ object Balance {
     /** The highest rung of industry a district with no heavy industry lets in. */
     const val LIGHT_INDUSTRY = 2
     /** The flow the Renewal era asks for. */
-    const val RENEWAL_FLOW = 75
+    const val RENEWAL_FLOW = 65
     const val FLOW_APPEAL = 8
     const val IDLE_MOST = 60
     const val IDLE_PER_WAIT = 2

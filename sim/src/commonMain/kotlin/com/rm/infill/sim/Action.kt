@@ -13,10 +13,16 @@ sealed interface Action {
      */
     data class BuildRoad(
         val tiles: IntArray, val type: RoadType = RoadType.DIRT, val pipes: Boolean = false, val bridge: BridgeKind? = null, val tunnel: Boolean = false,
+        /** Where it's new at the edge of the map: whether it leads out of town, or stays in. */
+        val link: Boolean = true,
     ) : Action {
-        override fun equals(other: Any?) = other is BuildRoad && type == other.type && pipes == other.pipes && bridge == other.bridge && tunnel == other.tunnel && tiles.contentEquals(other.tiles)
-        override fun hashCode() = (((tiles.contentHashCode() * 31 + type.hashCode()) * 2 + (if (pipes) 1 else 0)) * 8 + (bridge?.id ?: 0)) * 2 + if (tunnel) 1 else 0
+        override fun equals(other: Any?) = other is BuildRoad && type == other.type && pipes == other.pipes && bridge == other.bridge && tunnel == other.tunnel &&
+            link == other.link && tiles.contentEquals(other.tiles)
+        override fun hashCode() = ((((tiles.contentHashCode() * 31 + type.hashCode()) * 2 + (if (pipes) 1 else 0)) * 8 + (bridge?.id ?: 0)) * 2 + if (tunnel) 1 else 0) * 2 + if (link) 1 else 0
     }
+
+    /** Has the road on edge tile [i] lead out of town, or keeps it in, by [out]. */
+    data class LinkOut(val i: Int, val out: Boolean) : Action
 
     /** Takes out the road and rail tunnels from [x0], [y0] to [x1], [y1], portals and all. */
     data class RemoveTunnel(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action

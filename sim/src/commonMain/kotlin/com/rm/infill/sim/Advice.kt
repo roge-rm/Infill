@@ -30,6 +30,12 @@ enum class AdviceKind {
 
     /** Garbage isn't being taken away. */
     GARBAGE,
+
+    /** Garbage isn't being taken away though the dumps have room: they're too far off. */
+    GARBAGE_FAR,
+
+    /** The town's flooded and its storm drains, if any, lead nowhere: no outfall or pond. */
+    FLOODING,
 }
 
 /** One piece of advice: what, which zone it's about if any, and a place to look at (-1 if none). */

@@ -194,7 +194,7 @@ internal object Effects {
             // The young with games and a club to go to steal less.
             val sport = min(100, map.leisureSport[i].toInt() and 0xff)
             theft = theft * (100 - Balance.LEISURE_THEFT * sport / 100) / 100
-            var vice = people.around(x, y, 3) / 6 + min(Balance.NIGHTLIFE, nearShops / 30)
+            var vice = kotlin.math.sqrt(people.around(x, y, 3).toDouble()).toInt() * Balance.VICE_PEOPLE / 10 + min(Balance.NIGHTLIFE, nearShops / 30)
             vice = vice * (255 * 100 - police * Balance.VICE_POLICE) / (255 * 100)
             theft = theft.coerceIn(0, 255) * slack / 100 * theftShare / 100
             vice = vice.coerceIn(0, 255) * slack / 100 * viceShare / 100

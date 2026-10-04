@@ -62,7 +62,7 @@ internal fun DrawScope.drawNeighbours(neighbours: Array<Border?>, map: CityMap, 
                 if (b.road[k] != Road.NONE) bar(ROAD, 0.6f)
                 // Where this town's road or track meets it at the border: a link, marked on the line.
                 val mine = Border.tile(map, edge, k.coerceIn(0, (if (across) map.width else map.height) - 1))
-                val linked = (b.road[k] != Road.NONE && map.road[mine] != Road.NONE) || (b.rail[k] != Rail.NONE && map.rail[mine] != Rail.NONE)
+                val linked = (b.road[k] != Road.NONE && map.leadsOut(mine)) || (b.rail[k] != Rail.NONE && map.rail[mine] != Rail.NONE)
                 if (linked && d == 0) {
                     val r = t * 0.22f
                     val c = when (edge) {

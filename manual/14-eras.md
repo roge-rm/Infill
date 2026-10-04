@@ -23,7 +23,7 @@ Towers, highways and interchanges, gas power, the airport, the freight terminal,
 
 ## Renewal, from 1970
 
-Needs 25,000 people, high-density shops or offices, a high school, and traffic flowing at 75% or better.
+Needs 25,000 people, high-density shops or offices, a high school, and traffic flowing at 65% or better.
 
 Nuclear power, river turbines, treatment plants, recycling, the international airport, phone masts and plastic pipes. The care home and the fire and rescue hall (1975), the medical centre (1980) and the community police office (1995).
 

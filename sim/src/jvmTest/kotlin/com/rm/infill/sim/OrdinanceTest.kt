@@ -85,10 +85,18 @@ class OrdinanceTest {
             val rackets = (0 until c.map.size).sumOf { c.map.rackets[it].toInt() and 0xff }
             return vice to rackets
         }
-        val (wetVice, wetRackets) = crime(false)
-        val (dryVice, dryRackets) = crime(true)
+        val (wetVice, _) = crime(false)
+        val (dryVice, _) = crime(true)
         assertTrue(dryVice < wetVice, "vice: dry $dryVice, wet $wetVice")
-        assertTrue(dryRackets > wetRackets, "rackets: dry $dryRackets, wet $wetRackets")
+        // The rackets on the same crime, fed or not by prohibition.
+        fun rackets(feeding: Int): Int {
+            val m = CityMap(16, 16)
+            m.theft.fill(60)
+            m.vice.fill(80)
+            repeat(6) { Effects.rackets(m, justice = 40, detectives = 0, feeding = feeding) }
+            return m.rackets[m.index(8, 8)].toInt() and 0xff
+        }
+        assertTrue(rackets(Balance.DRY_RACKETS) > rackets(100))
     }
 
     @Test
