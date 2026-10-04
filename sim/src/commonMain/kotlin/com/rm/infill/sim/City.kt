@@ -7019,9 +7019,8 @@ class City(
             k += step
             val b = buildings[map.building[i]]
             if (b != null && (b.underway > 0 || b.type.zone != zone)) return null
-            // A full lot that's grown as far as it's let is fine.
-            if (b != null && b.type.next.isEmpty()) continue
-            val reason = whyNot(b, i, zone) ?: return null
+            // A lot that's grown as far as it's let is full: with enough of those, more land is wanted.
+            val reason = if (b != null && b.type.next.isEmpty()) AdviceKind.ZONE_MORE else whyNot(b, i, zone) ?: return null
             counts[reason.ordinal]++
             if (where[reason.ordinal] < 0) where[reason.ordinal] = i
         }
@@ -7030,15 +7029,19 @@ class City(
         return Advice(AdviceKind.entries[worst], zone, where[worst] % map.width, where[worst] / map.width)
     }
 
-    /** Why nothing can go up next on lot [i] of [zone] in place of [b], or null if something can. */
+    /**
+     * Why nothing can go up next on lot [i] of [zone] in place of [b], or null
+     * if something can: [AdviceKind.ZONE_MORE] when it's as built up as its
+     * density and the year allow.
+     */
     private fun whyNot(b: Building?, i: Int, zone: Byte): AdviceKind? {
         if (!nearRoad[i]) return AdviceKind.NO_ROAD
         if (choices(b, i, zone, attraction(i, zone)).isNotEmpty()) return null
         val rung = (if (b == null) BuildingType.rung(zone, 1) else b.type.next).filter { it.year <= year }
-        if (rung.isEmpty()) return null
+        if (rung.isEmpty()) return AdviceKind.ZONE_MORE
         // The easiest it could be: the first that the lot's density allows.
         val height = heightAt(i)
-        val t = rung.firstOrNull { Density.rank(it.density) <= Density.rank(height) && (it.density == Density.RURAL) == (height == Density.RURAL) } ?: return null
+        val t = rung.firstOrNull { Density.rank(it.density) <= Density.rank(height) && (it.density == Density.RURAL) == (height == Density.RURAL) } ?: return AdviceKind.ZONE_MORE
         return when {
             t.needsPower && !map.powered[i] -> AdviceKind.NO_POWER
             t.needsWater && !map.watered[i] -> AdviceKind.NO_WATER

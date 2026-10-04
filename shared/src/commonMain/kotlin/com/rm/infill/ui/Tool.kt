@@ -394,8 +394,8 @@ enum class WaterGroup(val title: StringResource) {
 
 /** The tabs [this] shows in; taking pipes up is in all of them. */
 val WaterKind.groups: List<WaterGroup> get() = when (this) {
-    WaterKind.Main, WaterKind.Wood, WaterKind.Pump, WaterKind.Wells, WaterKind.Tower, WaterKind.Treatment -> listOf(WaterGroup.Supply)
-    WaterKind.Sewer, WaterKind.Outfall, WaterKind.Works -> listOf(WaterGroup.Sewers)
+    WaterKind.Main, WaterKind.Wood, WaterKind.Pump, WaterKind.Wells, WaterKind.Tower -> listOf(WaterGroup.Supply)
+    WaterKind.Sewer, WaterKind.Outfall, WaterKind.Works, WaterKind.Treatment -> listOf(WaterGroup.Sewers)
     WaterKind.Drain, WaterKind.Pond, WaterKind.StormOutfall, WaterKind.Bank -> listOf(WaterGroup.Storm)
     WaterKind.Remove -> WaterGroup.entries
 }
