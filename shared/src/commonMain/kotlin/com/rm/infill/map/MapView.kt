@@ -121,15 +121,15 @@ fun MapView(
     var travelTime by remember { mutableFloatStateOf(0f) }
     val paceNow by rememberUpdatedState(pace)
     val fires = game.city.burningNow > 0
-    // How hard each building with stacks is going, looked over every couple of seconds while the town's free.
+    // How hard each building with stacks is going, and where people sleep rough, looked over every couple of seconds while the town's free.
     var plumes by remember(game.city) { mutableStateOf<Map<Int, Int>>(emptyMap()) }
+    var rough by remember(game.city) { mutableStateOf(IntArray(0)) }
     LaunchedEffect(game.city, graphics.plumes) {
-        if (graphics.plumes == 0) {
-            plumes = emptyMap()
-            return@LaunchedEffect
-        }
         while (true) {
-            game.tryLocked { plumesOf(game.city) }?.let { plumes = it }
+            game.tryLocked {
+                plumes = if (graphics.plumes > 0) plumesOf(game.city) else emptyMap()
+                rough = roughSpots(game.city)
+            }
             delay(SURVEY_EVERY_MS)
         }
     }
@@ -346,6 +346,7 @@ fun MapView(
             drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped)
             drawTransit(map, camera, travelTime, game.city.lineStates())
         }
+        drawRough(rough, map.width, camera)
         drawPlumes(renderer, map, camera, plumes, weather, weatherTime, graphics.plumes)
         if (fires) drawFires(map, camera, weather, weatherTime)
         drawWeather(weather, camera, clouds, travelTime, weatherTime, sun.strength, graphics)

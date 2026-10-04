@@ -214,6 +214,7 @@ internal object BuildingSprites {
                 BuildingType.CITY_HALL -> Atlas.CITY_HALL to Atlas.CITY_HALL_COUNT
                 BuildingType.CIVIC_CENTRE -> Atlas.CIVIC_CENTRE to Atlas.CIVIC_CENTRE_COUNT
                 BuildingType.POST_OFFICE -> Atlas.POST_OFFICE to Atlas.POST_OFFICE_COUNT
+                BuildingType.SHELTER -> Atlas.SHELTER to Atlas.SHELTER_COUNT
                 BuildingType.CEMETERY -> Atlas.CEMETERY to Atlas.CEMETERY_COUNT
                 BuildingType.MEMORIAL_GARDEN -> Atlas.MEMORIAL_GARDEN to Atlas.MEMORIAL_GARDEN_COUNT
                 BuildingType.FOUNTAIN -> Atlas.FOUNTAIN to Atlas.FOUNTAIN_COUNT

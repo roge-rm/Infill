@@ -381,6 +381,7 @@ enum class BuildingType(
     CITY_HALL(Zone.NONE, 0, 40, width = 2, height = 2, year = 1925, life = 80),
     CIVIC_CENTRE(Zone.NONE, 0, 60, width = 2, height = 2, year = 1970, life = 60),
     POST_OFFICE(Zone.NONE, 0, 10, width = 2, height = 1, life = 60),
+    SHELTER(Zone.NONE, 0, 6, life = 60),
     CEMETERY(Zone.NONE, 0, 2, width = 3, height = 3),
     MEMORIAL_GARDEN(Zone.NONE, 0, 2, width = 3, height = 3, year = 1970),
     FOUNTAIN(Zone.NONE, 0, 0),
@@ -649,7 +650,7 @@ class Building(val id: Int, var type: BuildingType, val x: Int, val y: Int, val 
     /** Days left of a breakdown, for the works the city runs: it does nothing until it's mended. */
     var outage = 0
 
-    /** For a dump, what's in it, in kilograms. */
+    /** For a dump, what's in it, in kilograms; for a mine or well, the months it's worked its seam. */
     var fill = 0
 
     /** Last month nobody took its garbage away. */

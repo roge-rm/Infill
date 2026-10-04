@@ -80,8 +80,10 @@ Zoning over a building with a different zone leaves it standing, marked as not f
 
 Bulldozing costs $15 a tile, plus what the owners are owed: more for homes and businesses on dear land, a quarter for empty homes, and double for heritage buildings. The people living there move to empty homes, and anyone left over leaves town. The jobs are lost, and the neighbours are upset for a while, which puts homes nearby off.
 
-From 1960, works and mines that close leave brownfield behind, and nothing grows there until it's cleaned up.
+From 1960, works and mines that close leave brownfield behind, and nothing grows there until it's cleaned up. Bulldoze it to clean it up.
 
 ## Farmland
 
 Farmland grows what's under it: a mine on iron ore or coal, an oil well on oil, a woodlot in trees, and a farm on open land. A farm off good soil grows half as much. The **Land** view shows what's in the ground.
+
+Mines and wells work their seams out: three years for each tile of seam under and around them. Then they close, their jobs go, and they leave brownfield and no seam behind. Bulldoze brownfield to clean it up.

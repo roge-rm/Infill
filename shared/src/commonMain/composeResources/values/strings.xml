@@ -1478,6 +1478,24 @@
     <string name="event_grant_lapsed">The grant toward %1$s has lapsed</string>
     <string name="event_election_won">The council is returned</string>
     <string name="event_election_lost">The council is voted out, and taxes are capped for four years</string>
+    <!-- Living people and land -->
+    <string name="plant_trees">Plant trees</string>
+    <string name="shelter">Shelter</string>
+    <string name="topic_housing">Housing</string>
+    <string name="law_social_housing">Social housing</string>
+    <string name="law_social_housing_what">Homes the town lets to the poor: they aren\'t priced out of dear neighbourhoods.</string>
+    <string name="event_epidemic_cholera">Cholera is going round</string>
+    <string name="event_epidemic_consumption">Consumption is spreading in the crowded homes</string>
+    <string name="event_epidemic_influenza">Influenza is going round</string>
+    <string name="event_antibiotics">Antibiotics come in: fewer die of infections</string>
+    <string name="event_vaccines">Vaccines come in: fewer children die, and outbreaks are rarer</string>
+    <string name="event_drought">A drought: the wells and pumps give less</string>
+    <string name="event_storm_surge">A storm surge floods the shore</string>
+    <string name="event_worked_out">Worked out and closed: %1$s</string>
+    <string name="rough_sleepers">Sleeping rough</string>
+    <string name="sheltered">In shelters</string>
+    <string name="priced_out">Priced out</string>
+    <string name="advice_rough_sleepers">People are sleeping rough: build a shelter</string>
     <string name="town_after_pattern">%1$s %2$s</string>
     <string name="town_before_pattern">%1$s %2$s</string>
 </resources>

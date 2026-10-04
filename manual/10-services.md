@@ -75,10 +75,11 @@ Schooling builds up over years. Children who grow up schooled become the workers
 
 - **Town hall** is the seat of the town's government, and there can only be one. Its clerks cut what the ordinances cost by 10%. **City hall** (1925) cuts it by 15%, and **Civic centre** (1970) by 20%. Its inspect card shows what it saves.
 - **Post office** makes the shops and offices around it more wanted.
+- **Shelter** takes in 40 people sleeping rough.
 - **Cemetery** is green space with rows of stones. **Memorial garden** (1970) is greener, with more to enjoy.
 - **Fountain**, **Clock tower** and **War memorial** (1920) give the homes around them a little culture, like a bandstand.
 
-The town hall and the post office are paid for out of their own budget, shown as **Civic buildings** under upkeep. The rest are kept with the parks.
+The town hall, the post office and shelters are paid for out of their own budget, shown as **Civic buildings** under upkeep. The rest are kept with the parks.
 
 Parks, sport and culture are under **Leisure** (see Leisure and parks).
 

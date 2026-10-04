@@ -62,7 +62,7 @@ object Sounds {
             is Action.BuildPipe, is Action.BuildPowerLine, is Action.BuildPhoneLine, is Action.BuildWire, is Action.BuildBank,
             is Action.BuildLane, is Action.PlaceStop -> play(Recipes.CLUNK, 0.6f, gain = 0.8f, pan = p)
             is Action.PlaceZone, is Action.PaintDistrict -> chimeTick(p)
-            is Action.PlaceParks, is Action.PlantStreetTrees -> play(Recipes.IMPACT, 0.25f, Materials.EARTH.toFloat(), 0.2f, gain = 0.5f, pan = p)
+            is Action.PlaceParks, is Action.PlantStreetTrees, is Action.PlantTrees -> play(Recipes.IMPACT, 0.25f, Materials.EARTH.toFloat(), 0.2f, gain = 0.5f, pan = p)
             is Action.PlaceBuilding -> {
                 val big = (action.type.width * action.type.height / 16f).coerceIn(0.2f, 1f)
                 play(Recipes.IMPACT, 0.4f + 0.4f * big, (if (city.year < BRICK_UNTIL) Materials.WOOD else Materials.ROCK).toFloat(), big, gain = 0.8f, pan = p)

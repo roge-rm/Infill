@@ -592,6 +592,7 @@ fun phoneChoices(city: City): List<Choice<PhoneKind>> = phoneKindsIn(city).map {
 @Composable
 fun serviceChoices(city: City, group: ServiceGroup): List<Choice<ServiceKind>> = servicesIn(city, group.leisure).filter { it.group == group }.map { k ->
     when {
+        k == ServiceKind.PlantTrees -> Choice(k, stringResource(k.title), ChoiceIcon(intArrayOf(Atlas.FOREST)), perTile(Prices.PLANT_TREES))
         k.type == null -> Choice(k, stringResource(k.title), ChoiceIcon(intArrayOf(Atlas.ROAD_STREET + ACROSS, Atlas.STREET_TREES)), perTile(Prices.STREET_TREE))
         // Green space laid a tile at a time is priced by the tile.
         k.type.painted -> Choice(k, stringResource(k.title), building(k.type), perTile(Prices.of(k.type)))

@@ -39,6 +39,14 @@ import com.rm.infill.res.event_tram_track_broken
 import com.rm.infill.res.event_tunnel_flooded
 import com.rm.infill.res.event_tunnel_shut
 import com.rm.infill.res.event_wire_down
+import com.rm.infill.res.event_epidemic_cholera
+import com.rm.infill.res.event_epidemic_consumption
+import com.rm.infill.res.event_epidemic_influenza
+import com.rm.infill.res.event_antibiotics
+import com.rm.infill.res.event_vaccines
+import com.rm.infill.res.event_drought
+import com.rm.infill.res.event_storm_surge
+import com.rm.infill.res.event_worked_out
 import com.rm.infill.res.event_protest
 import com.rm.infill.res.event_petition
 import com.rm.infill.res.event_petition_met
@@ -49,6 +57,7 @@ import com.rm.infill.res.event_grant_lapsed
 import com.rm.infill.res.event_election_won
 import com.rm.infill.res.event_election_lost
 import com.rm.infill.sim.CityEvent
+import com.rm.infill.sim.Disease
 import com.rm.infill.sim.EventKind
 import com.rm.infill.ui.buildingName
 import com.rm.infill.ui.groupThousands
@@ -107,7 +116,19 @@ internal fun messageOf(e: CityEvent): Message? =
         EventKind.IndustrialAccident -> Message(Res.string.event_industrial_accident, e.type?.let { buildingName(it) }, e.x, e.y)
         EventKind.NuclearAccident -> Message(Res.string.event_nuclear_accident, x = e.x, y = e.y)
         EventKind.Earthquake -> Message(Res.string.event_earthquake, x = e.x, y = e.y)
-        EventKind.Epidemic -> Message(Res.string.event_epidemic)
+        // Which disease, for those since diseases had names.
+        EventKind.Epidemic -> Message(
+            when (e.count) {
+                Disease.CHOLERA.ordinal + 1 -> Res.string.event_epidemic_cholera
+                Disease.CONSUMPTION.ordinal + 1 -> Res.string.event_epidemic_consumption
+                Disease.INFLUENZA.ordinal + 1 -> Res.string.event_epidemic_influenza
+                else -> Res.string.event_epidemic
+            },
+        )
+        EventKind.MedicalAdvance -> Message(if (e.count == 0) Res.string.event_antibiotics else Res.string.event_vaccines)
+        EventKind.Drought -> Message(Res.string.event_drought)
+        EventKind.StormSurge -> Message(Res.string.event_storm_surge, x = e.x, y = e.y)
+        EventKind.WorkedOut -> Message(Res.string.event_worked_out, e.type?.let { buildingName(it) }, e.x, e.y)
         EventKind.EpidemicOver -> Message(Res.string.event_epidemic_over)
         EventKind.EraArrived -> e.era?.let { Message(Res.string.event_era_began, com.rm.infill.ui.eraName(it)) }
         EventKind.FirstBuilt -> Message(Res.string.event_first_built, e.type?.let { buildingName(it) }, e.x, e.y)

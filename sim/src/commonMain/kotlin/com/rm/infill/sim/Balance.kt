@@ -248,6 +248,21 @@ object Balance {
     const val EPIDEMIC_CHILD_DEATHS = 15
     const val EPIDEMIC_ELDERLY_DEATHS = 60
 
+    /**
+     * Medicine: from [ANTIBIOTICS_YEAR] an epidemic kills half as many; from
+     * [VACCINES_YEAR] a child is [VACCINE_CHILDREN] percent as likely to die of
+     * one and outbreaks are [VACCINE_OUTBREAKS] percent as likely. Water is
+     * chlorinated from [CHLORINE_YEAR], and consumption cured from [CURE_YEAR],
+     * each then [RARER] percent as likely to break out.
+     */
+    const val ANTIBIOTICS_YEAR = 1945
+    const val VACCINES_YEAR = 1955
+    const val VACCINE_CHILDREN = 40
+    const val VACCINE_OUTBREAKS = 60
+    const val CHLORINE_YEAR = 1915
+    const val CURE_YEAR = 1947
+    const val RARER = 20
+
     /** How far land round a hydro station goes under its reservoir. */
     const val RESERVOIR_REACH = 2
     const val POLICE_UPKEEP = 40.0
@@ -1260,6 +1275,40 @@ object Balance {
     /** A grant paid or lapsed moves approval this much, and each paid in a council's term adds this to its vote. */
     const val GRANT_APPROVAL_CHANGE = 3
     const val GRANT_VOTE = 5
+
+    /**
+     * Affordability: a poor household on land past [WELL_OFF_FROM] is priced
+     * out about once in [PRICED_OUT_ODDS] months; while the town's short of
+     * homes, [ROUGH_SHARE] percent of those priced or cleared out sleep rough,
+     * and a [ROUGH_LEAVE]th of the rough sleepers leave town each month. A
+     * shelter takes in [SHELTER_PLACES].
+     */
+    const val PRICED_OUT_ODDS = 24
+    const val ROUGH_SHARE = 20
+    const val ROUGH_LEAVE = 8
+    const val SHELTER_PLACES = 40
+    /** The advice line speaks up once at least this many sleep rough, and one in five hundred of the town. */
+    const val ROUGH_ADVICE = 20
+
+    /**
+     * Land: a mine or well works out after [SEAM_MONTHS] for each tile of its
+     * seam under and beside it. A drought builds [DROUGHT_RISE] each warm, dry
+     * spell on parched ground and breaks [DROUGHT_FALL] with rain; it's news at
+     * [DROUGHT_AT], and at its worst cuts what wells and pumps give by
+     * [DROUGHT_CUT] percent. A gale on the coast brings a storm surge
+     * [SURGE_PPM] in a million, more and further as the world warms. Woods
+     * spread onto open land beside them, about once in [TREE_ODDS] tries.
+     */
+    const val SEAM_MONTHS = 36
+    const val DROUGHT_RISE = 2
+    const val DROUGHT_FALL = 25
+    const val DROUGHT_AT = 60
+    const val DROUGHT_CUT = 50
+    const val SURGE_PPM = 200_000
+    const val TREE_ODDS = 24
+
+    /** A household's wealth follows its adults' schooling, a step about once in this many months. */
+    const val MOBILITY_ODDS = 36
     const val ELECTION_YEARS = 4
     const val CAPPED_TAX = 9
     const val RATING_DROP_MONTHS = 3

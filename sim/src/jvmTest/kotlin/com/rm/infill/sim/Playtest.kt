@@ -18,6 +18,12 @@ import kotlin.test.Test
  *   PLAYTEST_OUT=/some/folder ./gradlew :sim:jvmTest --tests '*Playtest*'
  */
 class Playtest {
+    /** The news worth noting in a town's log. */
+    private val NOTED = setOf(
+        EventKind.Epidemic, EventKind.MedicalAdvance, EventKind.Drought, EventKind.StormSurge, EventKind.WorkedOut, EventKind.Protest,
+        EventKind.GrantOffered, EventKind.GrantPaid, EventKind.GrantLapsed, EventKind.RiverFlood,
+    )
+
     private val out = System.getenv("PLAYTEST_OUT")?.let { File(it) }
     private val years = System.getenv("PLAYTEST_YEARS")?.toIntOrNull() ?: 120
     private val only = System.getenv("PLAYTEST_TOWNS")?.split(",")?.toSet()
@@ -30,6 +36,7 @@ class Playtest {
         "river" to { play("river", 23, TerrainOptions(water = 30, trees = 40, river = true)) },
         "rail" to { play("rail", 37, TerrainOptions(water = 10, trees = 30, river = false), rail = true) },
         "hightax" to { play("hightax", 11, TerrainOptions(water = 10, trees = 30, river = false), tax = 10) },
+        "coast" to { play("coast", 53, TerrainOptions(water = 10, trees = 30, river = false, sea = Sea.ONE_SIDE)) },
     )
 
     @Test
@@ -60,6 +67,9 @@ class Playtest {
         while (c.year < end) {
             repeat(Balance.DEMAND_DAYS) { c.tick() }
             p.week()
+            c.takeEvents { e ->
+                if (e.kind in NOTED) log.println("${c.year}-${(c.month + 1).toString().padStart(2, '0')} news ${e.kind} ${e.type ?: ""} ${e.count}")
+            }
             if (c.year in saveIn && c.month >= 6 && saved.add(c.year)) File(dir, "$name-${c.year}.infill").writeBytes(SaveGame.write(c))
             if (c.year != lastYear) {
                 csv.println(p.row())
@@ -163,6 +173,7 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             if (weeks % 8 == 0) place(if (c.allows(BuildingType.TRANSFER_STATION)) BuildingType.TRANSFER_STATION else BuildingType.DUMP, near = near)
         }
         if (AdviceKind.UNAPPEALING in kinds && weeks % 12 == 0) parks()
+        if (AdviceKind.ROUGH_SLEEPERS in kinds && weeks % 8 == 0) place(BuildingType.SHELTER)
         services()
         leisure(AdviceKind.LEISURE in kinds)
         civic()
@@ -862,13 +873,13 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             c.residentialTax, s.emptyHomes, s.health, s.onMains, s.onSewer, s.powered,
             blocks[Zone.RESIDENTIAL.toInt()], blocks[Zone.COMMERCIAL.toInt()], blocks[Zone.INDUSTRIAL.toInt()], blocks[Zone.FARMLAND.toInt()], blocks[Zone.OFFICE.toInt()],
             c.buildingCount, s.leisure, avg(m.crime, Zone.RESIDENTIAL), Ordinance.entries.count { c.passed(it) }, "\"$advice\"", "\"$next\"",
-            c.approval, Opinion.worst(c.era, c.concerns), "\"${c.concerns.joinToString(" ")}\"", c.petitions.size, c.grant?.kind ?: "",
+            c.approval, Opinion.worst(c.era, c.concerns), s.pricedOut, s.roughSleepers, s.sheltered, c.drought, s.births, s.deaths, "\"${c.concerns.joinToString(" ")}\"", c.petitions.size, c.grant?.kind ?: "",
         ).joinToString(",")
     }
 
     companion object {
         const val S = 8
         const val HEADER = "year,era,population,shopJobs,industryJobs,farmJobs,officeJobs,workers,funds,income,upkeep," +
-            "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,leisure,homeCrime,laws,advice,goals,approval,worst,concerns,petitions,grant"
+            "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,leisure,homeCrime,laws,advice,goals,approval,worst,pricedOut,rough,sheltered,drought,births,deaths,concerns,petitions,grant"
     }
 }

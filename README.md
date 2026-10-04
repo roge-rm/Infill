@@ -45,6 +45,8 @@ Dan (rm)
 - Ordinances, from the building code to prohibition and a carbon price, that history brings in and ends
 - Money with teeth: bonds, a credit rating, and an overseer if the debt gets out of hand
 - Public opinion: approval that weighs different things in each era, petitions, grants, protests and elections
+- People who live through the century: a baby boom, smaller households, wealth that follows schooling, the poor priced out of dear land, and cholera, consumption and influenza until medicine comes
+- Land that changes: mines and wells that run out, droughts, storm surges as the seas rise, and woods that spread
 - Districts with their own taxes and rules, and neighbouring towns to trade and commute with
 - Weather, seasons, floods, fires and the odd disaster
 - A chronicle of the town's story, in the papers of each era

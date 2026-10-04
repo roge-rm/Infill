@@ -40,6 +40,7 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
             rect(a.x0, a.y0, a.x1, a.y1, camera, RENEW_FILL, RENEW_EDGE)
             for (i in p.plan.changes) drawRect(RENEW_TILE, at(i), tile)
         }
+        is Action.PlantTrees -> rect(a.x0, a.y0, a.x1, a.y1, camera, PARK_FILL, PARK_EDGE)
         is Action.PlaceParks -> {
             rect(a.x0, a.y0, a.x1, a.y1, camera, PARK_FILL, PARK_EDGE)
             for (i in p.blocked) drawRect(BLOCKED, at(i), tile)

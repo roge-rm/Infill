@@ -8,6 +8,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.rm.infill.res.priced_out
+import com.rm.infill.res.rough_sleepers
+import com.rm.infill.res.sheltered
+import com.rm.infill.res.law_social_housing
+import com.rm.infill.res.law_social_housing_what
+import com.rm.infill.res.topic_housing
 import com.rm.infill.res.graph_all
 import com.rm.infill.res.graph_recent
 import com.rm.infill.res.series_smog
@@ -970,6 +976,9 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onOpinion: () -> Unit, o
                 if (s.shoppingIn > 0) StatItem(Glyph.Crate, stringResource(Res.string.shopping_in), n((s.shoppingIn * com.rm.infill.sim.Balance.RESIDENTS_PER_SHOP_JOB).toInt())) else null,
                 StatItem(Glyph.Lights, stringResource(Res.string.traffic_flow), stringResource(Res.string.percent, s.flow), s.flow / 100f, toneOf(s.flow, 80, 50)),
                 if (s.emptyHomes > 0) StatItem(Glyph.Tag, stringResource(Res.string.empty_homes), n(s.emptyHomes)) else null,
+                if (s.pricedOut > 0) StatItem(Glyph.Coins, stringResource(Res.string.priced_out), n(s.pricedOut)) else null,
+                if (s.roughSleepers > 0) StatItem(Glyph.Person, stringResource(Res.string.rough_sleepers), n(s.roughSleepers), tone = Tone.Bad) else null,
+                if (s.sheltered > 0) StatItem(Glyph.Building, stringResource(Res.string.sheltered), n(s.sheltered)) else null,
             ),
         )
         Actions(listOf(ActionItem(Glyph.Check, stringResource(Res.string.opinion), onClick = onOpinion), ActionItem(Glyph.Arrows, stringResource(Res.string.graphs), onClick = onGraphs)))
@@ -1435,6 +1444,7 @@ fun ordinanceName(o: Ordinance): StringResource = when (o) {
     Ordinance.SUNDAY_CLOSING -> Res.string.law_sunday_closing
     Ordinance.YOUTH_CURFEW -> Res.string.law_youth_curfew
     Ordinance.TENEMENT_ACT -> Res.string.law_tenement_act
+    Ordinance.SOCIAL_HOUSING -> Res.string.law_social_housing
     Ordinance.DAYLIGHT_SAVING -> Res.string.law_daylight_saving
     Ordinance.PROHIBITION -> Res.string.law_prohibition
     Ordinance.SPEED_LIMITS -> Res.string.law_speed_limits
@@ -1464,6 +1474,7 @@ fun ordinanceWhat(o: Ordinance): StringResource = when (o) {
     Ordinance.SUNDAY_CLOSING -> Res.string.law_sunday_closing_what
     Ordinance.YOUTH_CURFEW -> Res.string.law_youth_curfew_what
     Ordinance.TENEMENT_ACT -> Res.string.law_tenement_act_what
+    Ordinance.SOCIAL_HOUSING -> Res.string.law_social_housing_what
     Ordinance.DAYLIGHT_SAVING -> Res.string.law_daylight_saving_what
     Ordinance.PROHIBITION -> Res.string.law_prohibition_what
     Ordinance.SPEED_LIMITS -> Res.string.law_speed_limits_what
@@ -1488,6 +1499,7 @@ fun ordinanceWhat(o: Ordinance): StringResource = when (o) {
 private fun topicName(t: Topic): StringResource = when (t) {
     Topic.SAFETY -> Res.string.topic_safety
     Topic.HEALTH -> Res.string.topic_health
+    Topic.HOUSING -> Res.string.topic_housing
     Topic.MORALS -> Res.string.topic_morals
     Topic.ENVIRONMENT -> Res.string.topic_environment
     Topic.TRAFFIC -> Res.string.topic_traffic
@@ -1499,6 +1511,7 @@ private fun topicName(t: Topic): StringResource = when (t) {
 private fun topicGlyph(t: Topic): Glyph = when (t) {
     Topic.SAFETY -> Glyph.Flame
     Topic.HEALTH -> Glyph.Cross
+    Topic.HOUSING -> Glyph.Building
     Topic.MORALS -> Glyph.Glass
     Topic.ENVIRONMENT -> Glyph.Smoke
     Topic.TRAFFIC -> Glyph.Car

@@ -19,6 +19,7 @@ Sport and culture do as much as the **Parks and leisure** funding and their staf
 
 - **Park** is laid a tile at a time: lawn, paths and trees, with a fountain, bandstand or flower beds.
 - **Street trees** are planted along a road.
+- **Plant trees** plants woods on open land, $8 a tile. Woods spread slowly onto open land beside them by themselves.
 - **Playground** gives children somewhere to play, and a little sport.
 - **Town square** is paved, with a statue and trees, and gives some culture. It becomes a **Plaza** from 1960, with a fountain pool.
 - **Formal garden** has hedges, flower beds and a fountain, and draws visitors.

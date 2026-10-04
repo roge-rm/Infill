@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rm.infill.res.shelter
 import com.rm.infill.res.pulverized_coal
 import com.rm.infill.res.supercritical_coal
 import com.rm.infill.res.large_oil
@@ -527,6 +528,7 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.CITY_HALL -> Res.string.city_hall
     BuildingType.CIVIC_CENTRE -> Res.string.civic_centre
     BuildingType.POST_OFFICE -> Res.string.post_office
+    BuildingType.SHELTER -> Res.string.shelter
     BuildingType.CEMETERY -> Res.string.cemetery
     BuildingType.MEMORIAL_GARDEN -> Res.string.memorial_garden
     BuildingType.FOUNTAIN -> Res.string.fountain

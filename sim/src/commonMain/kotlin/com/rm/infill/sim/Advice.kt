@@ -40,6 +40,9 @@ enum class AdviceKind {
     /** The town's flooded and its storm drains, if any, lead nowhere: no outfall or pond. */
     FLOODING,
 
+    /** People are sleeping rough, more than shelters take in. */
+    ROUGH_SLEEPERS,
+
     /** People think poorly of how the town's run; [Advice.concern] is what they mind most. */
     UNHAPPY,
 }

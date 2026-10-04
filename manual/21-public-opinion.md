@@ -5,7 +5,7 @@
 
 Approval is what the town thinks of how it's run, from 0 to 100. It's under **People**, and **Opinion** there shows what makes it up. It moves a little each month towards what people think now, so a change takes a while to show.
 
-People think about ten things: taxes, jobs, crime, health, power and water, things to do, traffic, clearances, the air and housing. What counts most changes with the era:
+People think about ten things: taxes, jobs, crime, health, power and water, things to do, traffic, clearances, the air and housing. Housing counts those looking for a home and those sleeping rough. What counts most changes with the era:
 
 - **Township**: health, taxes and the services.
 - **Streetcar city**: much the same, with a little traffic and the air.

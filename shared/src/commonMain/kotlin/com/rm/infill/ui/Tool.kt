@@ -1,5 +1,7 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.plant_trees
+import com.rm.infill.res.shelter
 import com.rm.infill.res.hydro_dam
 import com.rm.infill.res.pumped_storage
 import com.rm.infill.res.geothermal
@@ -363,6 +365,7 @@ enum class ServiceKind(val title: StringResource, val type: BuildingType?, val g
     Fireboat(Res.string.fireboat_station, BuildingType.FIREBOAT_STATION, ServiceGroup.Fire),
     Park(Res.string.park, BuildingType.PARK, ServiceGroup.Parks),
     StreetTrees(Res.string.street_trees, null, ServiceGroup.Parks),
+    PlantTrees(Res.string.plant_trees, null, ServiceGroup.Parks),
     Playground(Res.string.playground, BuildingType.PLAYGROUND, ServiceGroup.Parks),
     TownSquare(Res.string.town_square, BuildingType.TOWN_SQUARE, ServiceGroup.Parks),
     FormalGarden(Res.string.formal_garden, BuildingType.FORMAL_GARDEN, ServiceGroup.Parks),
@@ -415,6 +418,7 @@ enum class ServiceKind(val title: StringResource, val type: BuildingType?, val g
     HealthOffice(Res.string.public_health_office, BuildingType.PUBLIC_HEALTH_OFFICE, ServiceGroup.Health),
     TownHall(Res.string.town_hall, BuildingType.TOWN_HALL, ServiceGroup.Civic),
     PostOffice(Res.string.post_office, BuildingType.POST_OFFICE, ServiceGroup.Civic),
+    Shelter(Res.string.shelter, BuildingType.SHELTER, ServiceGroup.Civic),
     Cemetery(Res.string.cemetery, BuildingType.CEMETERY, ServiceGroup.Civic),
     Fountain(Res.string.fountain, BuildingType.FOUNTAIN, ServiceGroup.Civic),
     ClockTower(Res.string.clock_tower, BuildingType.CLOCK_TOWER, ServiceGroup.Civic),
@@ -682,6 +686,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
         Tool.Services, Tool.Leisure -> when {
             // Green space laid a tile at a time.
             service.type?.painted == true -> Action.PlaceParks(x0, y0, x1, y1, newest(service.type))
+            service == ServiceKind.PlantTrees -> Action.PlantTrees(x0, y0, x1, y1)
             service.type == null -> Action.PlantStreetTrees(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             else -> Action.PlaceBuilding(newest(service.type), x1, y1)
         }

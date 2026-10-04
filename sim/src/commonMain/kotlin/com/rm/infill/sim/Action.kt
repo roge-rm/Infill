@@ -161,6 +161,9 @@ sealed interface Action {
      */
     data class PlaceParks(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val kind: BuildingType = BuildingType.PARK) : Action
 
+    /** Woods planted on the open land in the rectangle. */
+    data class PlantTrees(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action
+
     companion object {
         /**
          * The tiles of a road dragged from one tile to another: along one axis and
@@ -211,6 +214,7 @@ object Prices {
     /** A toll booth on a bridge. */
     const val TOLL_BOOTH = 300L
     const val CLEAR_TREES = 5L
+    const val PLANT_TREES = 8L
     const val ZONE = 5L
     const val ZONE_RURAL = 2L
     const val REMOVE_ROAD = 2L

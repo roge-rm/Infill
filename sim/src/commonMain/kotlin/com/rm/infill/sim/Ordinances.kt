@@ -1,7 +1,7 @@
 package com.rm.infill.sim
 
 /** What an ordinance is about, for grouping them in the window. */
-enum class Topic { SAFETY, HEALTH, MORALS, ENVIRONMENT, TRAFFIC, WASTE, ENERGY, CULTURE }
+enum class Topic { SAFETY, HEALTH, HOUSING, MORALS, ENVIRONMENT, TRAFFIC, WASTE, ENERGY, CULTURE }
 
 /**
  * A town-wide law. It can be passed from [from], and history ends it after
@@ -31,6 +31,9 @@ enum class Ordinance(val topic: Topic, val from: Int, val until: Int? = null, va
 
     /** Rules for crowded tenements, so they're no longer unhealthy. */
     TENEMENT_ACT(Topic.HEALTH, 1910, perThousand = 10),
+
+    /** Homes the town owns and lets to the poor: they aren't priced out, however dear the land gets. */
+    SOCIAL_HOUSING(Topic.HOUSING, 1945, perThousand = 30),
 
     /** Clocks forward in summer: a lower evening peak for power. */
     DAYLIGHT_SAVING(Topic.ENERGY, 1918, perThousand = 0),

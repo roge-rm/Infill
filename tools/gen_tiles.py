@@ -7929,6 +7929,43 @@ def post_office(look, v):
     return b
 
 
+def shelter(look, v):
+    """A shelter on one lot: a plain three-storey brick hostel of the old missions with a lamp over its door and a bench by
+    it; or a newer one of pale brick with a glass porch and a bike rack."""
+    b = Building(1, 1, height=3 * STOREY + 6)
+    d = b.d
+    rng = random.Random(15350 + v)
+    paving(b, look, 0, 25, 31, 31)
+    if v == 0:
+        roof, wall = b.box(3, 6, 28, 24, 3 * STOREY)
+        brick(d, wall, c("#7a3e30"))
+        windows(d, wall, 3, sill=STONE, every=5, skip_door=True)
+        gable_ew(d, roof, SHINGLE[2], look)
+        roof_feature(d, roof, ("stack", 19, 1), look)
+    else:
+        roof, wall = b.box(3, 8, 28, 24, 2 * STOREY + 4)
+        d.rectangle(wall, PALE_BRICK)
+        windows(d, wall, 2, glass=GLASS_NEW, every=6, skip_door=True)
+        flat_roof(b.img, roof, look, rng, [("vent", 4, 3)], parapet=c("#8a8a84"))
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    d.rectangle(wall, outline=OUTLINE)
+    if v == 0:
+        # The door, a lamp over it and the sign.
+        d.rectangle([cx - 2, y1 - 6, cx + 2, y1], c("#3a2e26"))
+        d.point((cx, y1 - 8), c("#f2d06a"))
+        d.rectangle([cx - 6, y0 + 1, cx + 6, y0 + 3], c("#2e4a3a"))
+    else:
+        d.rectangle([cx - 4, y1 - 7, cx + 4, y1], GLASS_NEW, OUTLINE)
+        gx, gy = b.ground(4, 27)
+        for k in range(3):
+            d.line([gx + k * 3, gy, gx + k * 3, gy + 3], c("#5a6066"))
+    # A bench by the door.
+    gx, gy = b.ground(cx + 6, 27)
+    d.rectangle([gx, gy, gx + 5, gy + 1], c("#7a5a3a"))
+    return b
+
+
 def headstones(b, look, x0, y0, x1, y1, rng, every=5):
     """Rows of headstones on the grass, some leaning."""
     d = b.d
@@ -8613,7 +8650,7 @@ BUILDINGS = [
     ("zoo", zoo, 4), ("fairground", fairground, 2), ("amusement_park", amusement_park, 2), ("drive_in", drive_in, 2),
     ("aquarium", aquarium, 2), ("convention_centre", convention_centre, 2),
     # Civic buildings, and the rest of schooling, health, police and fire.
-    ("town_hall", town_hall, 3), ("city_hall", city_hall, 2), ("civic_centre", civic_centre, 2), ("post_office", post_office, 2),
+    ("town_hall", town_hall, 3), ("city_hall", city_hall, 2), ("civic_centre", civic_centre, 2), ("post_office", post_office, 2), ("shelter", shelter, 2),
     ("cemetery", cemetery, 3), ("memorial_garden", memorial_garden, 2), ("fountain", fountain, 3), ("clock_tower", clock_tower, 2),
     ("war_memorial", war_memorial, 2), ("kindergarten", kindergarten, 2), ("junior_high", junior_high, 2),
     ("vocational_school", vocational_school, 2), ("central_library", central_library, 2), ("community_college", community_college, 2),

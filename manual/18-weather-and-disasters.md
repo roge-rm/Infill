@@ -19,6 +19,9 @@ The weather matters: wind and sun drive the wind and solar farms, rain fills the
 - **An accident** at a works, mine or power station is a fire that can spread, or a spill that leaves brownfield and fouled water. A power station is out for weeks.
 - **A nuclear accident** clears everything around the plant to brownfield, with a huge bill. The older the plant, the likelier.
 - **An earthquake**, only on maps made with earthquakes, shakes the town about once in 40 years. Old buildings fare worst, pipes burst, roads crack and some buildings catch fire.
-- **An epidemic** goes round now and then, and the flu of 1918 always comes.
+- **An epidemic** of cholera, consumption or influenza goes round now and then, and the flu of 1918 always comes (see People).
+- **A storm surge**, on a map with sea, floods the land along the shore in a gale. Surges come more often, and reach further, as the world warms. **Embankment** along the shore keeps the sea out.
+
+**A drought** comes whatever the setting: a long warm spell with no rain on parched ground. Wells and pumping stations give up to half as much water until it rains.
 
 Fires, floods and things wearing out happen whatever the setting.

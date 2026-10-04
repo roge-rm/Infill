@@ -535,6 +535,12 @@ class City(
                     cost += Prices.of(action.kind)
                 }
             }
+            is Action.PlantTrees -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
+                if (openLand(i)) {
+                    changes += i
+                    cost += Prices.PLANT_TREES
+                }
+            }
             is Action.Bulldoze -> {
                 val seen = HashSet<Int>()
                 forRect(action.x0, action.y0, action.x1, action.y1) { i ->
@@ -1464,6 +1470,10 @@ class City(
                 clearTrees(i)
                 added += addBuilding(action.kind, i % m.width, i / m.width, rng.nextInt(1000))
             }
+            is Action.PlantTrees -> for (i in plan.changes) {
+                m.terrain[i] = Terrain.TREES
+                townChanges += i
+            }
             is Action.Bulldoze -> {
               var forcedOut = 0
               var jobsLost = 0
@@ -1669,6 +1679,11 @@ class City(
     var displaced = 0
         private set
 
+    /** People priced or cleared out of their homes this month, and those sleeping rough, in shelters or not. */
+    private var unhoused = 0
+    var homeless = 0
+        private set
+
     /**
      * What clearing [b] pays its owners: by the places in it and the land's
      * value, a share if it stands empty or isn't finished, twice over for
@@ -1707,14 +1722,16 @@ class City(
             to.wealth = h.wealth
             to.health = h.health
             to.forSale = 0
-            moveOut(h, to, min(h.size, e.type.capacity))
+            val room = Demography.household(e.type.capacity, year)
+            moveOut(h, to, min(h.size, room))
             // Whoever buys the rest of a bigger home.
-            if (to.size < e.type.capacity) arrive(to, e.type.capacity - to.size)
+            if (to.size < room) arrive(to, room - to.size)
             markForSale(e)
         }
         val left = h.size
         departures += left
         displaced += left
+        unhoused += left
         b.people = Household(0, 0, 0, h.wealth)
         return left
     }
@@ -1885,6 +1902,7 @@ class City(
             if (rain + melt >= Balance.DOWNPOUR) rainfall(rain + melt, frozen)
             riseRivers(rain + melt)
             wetGround(rain + melt, frozen, weather.temperature)
+            dryOut(rain + melt, weather.temperature)
             if (river > Balance.BANKFULL) overflowRivers()
             weatherDisasters()
             // The wind, sun, tide and river change what some stations make.
@@ -1963,6 +1981,10 @@ class City(
         earthquake()
         between()
         epidemic()
+        medicine()
+        between()
+        workSeams()
+        spreadWoods()
         between()
         replaceNonconforming()
         between()
@@ -2663,6 +2685,10 @@ class City(
     private var epidemicStrength = 0
     private var hadFlu = false
 
+    /** What the epidemic going round is. */
+    var epidemicKind = Disease.INFLUENZA
+        private set
+
     /** The clean-up after earthquakes, accidents and storms, this month so far. */
     private var disasterBill = 0L
 
@@ -2684,7 +2710,10 @@ class City(
             heatWaveDays += Balance.WEATHER_DAYS
         }
         if (disasterLevel == 0) return
-        if (w.windSpeed >= Weather.GALE) gale()
+        if (w.windSpeed >= Weather.GALE) {
+            gale()
+            stormSurge()
+        }
         if (w.precipitation == Precipitation.Snow && w.intensity >= Balance.BLIZZARD && w.windSpeed >= Balance.BLIZZARD_WIND && snowedIn == 0) {
             val garages = buildings.values.count { it.type == BuildingType.BUS_GARAGE }
             snowedIn = max(1, Balance.BLIZZARD_DAYS - garages)
@@ -2863,27 +2892,46 @@ class City(
         if (disasterLevel == 0 || stats.population < 300) return
         if (year == 1918 && month >= 9 && !hadFlu) {
             hadFlu = true
-            epidemicMonths = 4
-            epidemicStrength = 50
-            events += CityEvent(EventKind.Epidemic, -1, -1, null)
+            startEpidemic(4, 50, Disease.INFLUENZA)
             return
         }
         val crowded = homes.filter { it.type == BuildingType.TENEMENT || it.type == BuildingType.APARTMENTS || it.type == BuildingType.APARTMENT_COURT }
             .sumOf { it.people?.size ?: 0 } * 100 / max(1, stats.population)
         val cared = min(100, stats.cared * 100 / max(1, stats.population))
         val watched = if (healthOffice()) Balance.HEALTH_OFFICE_OUTBREAKS else 100
-        if (!disaster(Balance.EPIDEMIC_PPM * (100 + crowded * 3) / 100 * (100 - cared) / 100 * watched / 100)) return
-        startEpidemic(3 + rng.nextInt(3), 25 + rng.nextInt(21))
+        val vaccinated = if (year >= Balance.VACCINES_YEAR) Balance.VACCINE_OUTBREAKS else 100
+        if (!disaster(Balance.EPIDEMIC_PPM * (100 + crowded * 3) / 100 * (100 - cared) / 100 * watched / 100 * vaccinated / 100)) return
+        // Which it is, by how the town lives: foul water, crowding or bad air, each rarer once it can be stopped.
+        val weights = intArrayOf(
+            (100 - stats.onMains) * (if (year >= Balance.CHLORINE_YEAR) Balance.RARER else 100) / 100,
+            (10 + crowded * 3) * (if (year >= Balance.CURE_YEAR) Balance.RARER else 100) / 100,
+            20 + stats.smog / 4,
+        )
+        var roll = rng.nextInt(max(1, weights.sum()))
+        var kind = Disease.INFLUENZA
+        for (d in Disease.entries) {
+            if (roll < weights[d.ordinal]) { kind = d; break }
+            roll -= weights[d.ordinal]
+        }
+        startEpidemic(3 + rng.nextInt(3), 25 + rng.nextInt(21), kind)
+    }
+
+    /** Antibiotics and vaccines, in the news the year they come. */
+    private fun medicine() {
+        if (month != 0 || stats.population == 0) return
+        if (year == Balance.ANTIBIOTICS_YEAR) events += CityEvent(EventKind.MedicalAdvance, -1, -1, null, count = 0)
+        if (year == Balance.VACCINES_YEAR) events += CityEvent(EventKind.MedicalAdvance, -1, -1, null, count = 1)
     }
 
     /** Whether a public health office is at work: one is enough for the whole town. */
     private fun healthOffice() = buildings.values.any { it.type == BuildingType.PUBLIC_HEALTH_OFFICE && strengthOf(it, healthFunding) > 0 }
 
     /** An epidemic for [months], striking a home in a hundred [strength] times a month at worst. */
-    internal fun startEpidemic(months: Int, strength: Int) {
+    internal fun startEpidemic(months: Int, strength: Int, kind: Disease = Disease.INFLUENZA) {
         epidemicMonths = months
         epidemicStrength = strength
-        events += CityEvent(EventKind.Epidemic, -1, -1, null)
+        epidemicKind = kind
+        events += CityEvent(EventKind.Epidemic, -1, -1, null, count = kind.ordinal + 1)
     }
 
     // ---- eras ----------------------------------------------------------------------
@@ -5381,10 +5429,10 @@ class City(
             for (ty in b.y - 1..b.y + b.type.height) for (tx in b.x - 1..b.x + b.type.width) {
                 if (m.inside(tx, ty) && m.terrain[m.index(tx, ty)] == Terrain.WATER) foul = max(foul, m.foul[m.index(tx, ty)].toInt() and 0xff)
             }
-            Balance.PUMP_SUPPLY * (255 - foul * 7 / 10) / 255
+            Balance.PUMP_SUPPLY * (255 - foul * 7 / 10) / 255 * (100 - drought * Balance.DROUGHT_CUT / 100) / 100
         } else {
             val grime = m.grime[m.index(b.x, b.y)].toInt() and 0xff
-            Balance.WELL_SUPPLY * (255 - grime * 7 / 10) / 255
+            Balance.WELL_SUPPLY * (255 - grime * 7 / 10) / 255 * (100 - drought * Balance.DROUGHT_CUT / 100) / 100
         }
     }
 
@@ -5721,6 +5769,29 @@ class City(
         }
     }
 
+    /** How bad a drought is, 0 to 100, and whether this one's been in the news. */
+    var drought = 0
+        private set
+    private var droughtTold = false
+
+    /** A drought builds through warm spells with no rain on parched ground, and breaks when it rains. */
+    private fun dryOut(water: Int, temperature: Int) {
+        val was = drought
+        drought = when {
+            water > 0 -> max(0, drought - Balance.DROUGHT_FALL)
+            ground == 0 && temperature >= 15 -> min(100, drought + Balance.DROUGHT_RISE)
+            else -> drought
+        }
+        // News once a spell: not again until the ground's had a proper soaking.
+        if (was < Balance.DROUGHT_AT && drought >= Balance.DROUGHT_AT && !droughtTold) {
+            events += CityEvent(EventKind.Drought, -1, -1, null)
+            droughtTold = true
+        }
+        if (drought == 0) droughtTold = false
+        // The water's worked out again each time it changes by a step.
+        if (drought / 10 != was / 10) networksDirty = true
+    }
+
     /** The rivers rise with rain and melt, most when the ground's too soaked to take any in. */
     internal fun riseRivers(water: Int) {
         val share = Balance.RIVER_RISE_DRY + (Balance.RIVER_RISE_SOAKED - Balance.RIVER_RISE_DRY) * ground / 100
@@ -5775,6 +5846,146 @@ class City(
             floodsThisYear++
         }
         afterFlood(reached, sewersOverflowed = false)
+    }
+
+    /**
+     * Water open to the sea: the water reached from the long stretches of the
+     * map's edge. Worked out again when the water changes.
+     */
+    private fun seaTiles(): BooleanArray {
+        val m = map
+        val count = m.terrain.count { it == Terrain.WATER }
+        seaCache?.let { if (count == seaWater) return it }
+        seaWater = count
+        val sea = BooleanArray(m.size)
+        val w = m.width
+        val h = m.height
+        val ring = ArrayList<Int>(2 * (w + h))
+        for (x in 0 until w) ring += m.index(x, 0)
+        for (y in 1 until h) ring += m.index(w - 1, y)
+        for (x in w - 2 downTo 0) ring += m.index(x, h - 1)
+        for (y in h - 2 downTo 1) ring += m.index(0, y)
+        fun wet(i: Int) = m.terrain[i] == Terrain.WATER
+        val begin = ring.indexOfFirst { !wet(it) }.coerceAtLeast(0)
+        val queue = ArrayDeque<Int>()
+        var run = ArrayList<Int>()
+        fun close() {
+            if (run.size >= Balance.SEA_EDGE) for (i in run) if (!sea[i]) { sea[i] = true; queue.addLast(i) }
+            run = ArrayList()
+        }
+        for (k in ring.indices) {
+            val i = ring[(begin + k) % ring.size]
+            if (wet(i)) run += i else close()
+        }
+        close()
+        while (queue.isNotEmpty()) {
+            val i = queue.removeFirst()
+            for (k in 0 until 4) {
+                val nx = i % w + DX[k]
+                val ny = i / w + DY[k]
+                if (!m.inside(nx, ny)) continue
+                val j = m.index(nx, ny)
+                if (!sea[j] && wet(j)) { sea[j] = true; queue.addLast(j) }
+            }
+        }
+        seaCache = sea
+        return sea
+    }
+    private var seaCache: BooleanArray? = null
+    private var seaWater = -1
+
+    /**
+     * A gale on the coast now and then drives the sea over the land beside it:
+     * further, and more often, as the world warms and the seas rise. Banks along
+     * the shore keep it out.
+     */
+    internal fun stormSurge(force: Boolean = false) {
+        val m = map
+        val dice = Rng(seed * 104_729 + monthNow * 31 + day)
+        if (!force && dice.nextInt(1_000_000) >= Balance.SURGE_PPM * (100 + warming * 10) / 100 * disasterLevel / 2) return
+        val sea = seaTiles()
+        if (sea.none { it }) return
+        val reach = 1 + warming / 10
+        val steps = IntArray(m.size) { -1 }
+        val queue = ArrayDeque<Int>()
+        for (i in 0 until m.size) if (sea[i]) { steps[i] = 0; queue.addLast(i) }
+        val reached = ArrayList<Int>()
+        var worst = -1
+        while (queue.isNotEmpty()) {
+            val i = queue.removeFirst()
+            if (steps[i] == reach) continue
+            for (k in 0 until 4) {
+                val nx = i % m.width + DX[k]
+                val ny = i / m.width + DY[k]
+                if (!m.inside(nx, ny)) continue
+                val j = m.index(nx, ny)
+                if (steps[j] >= 0 || m.bank[j].toInt() != 0 || m.terrain[j] == Terrain.WATER) continue
+                steps[j] = steps[i] + 1
+                val level = min(255, Balance.FLOODED + 60 - 30 * (steps[j] - 1))
+                if (level > (m.flood[j].toInt() and 0xff)) {
+                    m.flood[j] = level.toByte()
+                    floodsStanding = true
+                    if (level >= Balance.FLOODED) {
+                        reached += j
+                        if (worst < 0 && m.building[j] != 0) worst = j
+                    }
+                }
+                queue.addLast(j)
+            }
+        }
+        if (reached.isEmpty()) return
+        val at = if (worst >= 0) worst else reached.first()
+        events += CityEvent(EventKind.StormSurge, at % m.width, at / m.width, null)
+        floodsThisYear++
+        afterFlood(reached, sewersOverflowed = false)
+    }
+
+    /** Land with nothing on it or planned for it: no water, road, track, line, zone, building, bank or fouling. */
+    private fun openLand(i: Int): Boolean {
+        val m = map
+        return m.terrain[i] == Terrain.GRASS && m.road[i] == Road.NONE && m.rail[i] == Rail.NONE && m.power[i] == Power.NONE &&
+            m.zone[i] == Zone.NONE && m.building[i] == 0 && m.bank[i].toInt() == 0 && m.brownfield[i].toInt() == 0
+    }
+
+    /** Woods creep out onto open land beside them, slowly. */
+    private fun spreadWoods() {
+        val m = map
+        val dice = Rng(seed * 6_151 + monthNow)
+        repeat(m.size / 40) {
+            val i = dice.nextInt(m.size)
+            if (!openLand(i)) return@repeat
+            var near = 0
+            for (k in 0 until 4) {
+                val nx = i % m.width + DX[k]
+                val ny = i / m.width + DY[k]
+                if (m.inside(nx, ny) && m.terrain[m.index(nx, ny)] == Terrain.TREES) near++
+            }
+            if (near > 0 && dice.nextInt(Balance.TREE_ODDS) == 0) {
+                m.terrain[i] = Terrain.TREES
+                townChanges += i
+            }
+        }
+    }
+
+    /**
+     * Mines and wells work their seams out: when one has, it shuts, its jobs go,
+     * and it leaves fouled land and no seam behind it.
+     */
+    private fun workSeams() {
+        val m = map
+        for (b in buildings.values.toList()) {
+            val t = b.type
+            if ((t != BuildingType.MINE && t != BuildingType.COLLIERY && t != BuildingType.OIL_WELL) || b.underway > 0 || b.closedDays > 0) continue
+            b.fill++
+            var seam = 0
+            forRect(b.x - 1, b.y - 1, b.x + t.width, b.y + t.height) { if (m.resource[it] >= Resource.ORE) seam++ }
+            if (b.fill < max(1, seam) * Balance.SEAM_MONTHS) continue
+            events += CityEvent(EventKind.WorkedOut, b.x, b.y, t, count = t.jobs)
+            forRect(b.x - 1, b.y - 1, b.x + t.width, b.y + t.height) { if (m.resource[it] >= Resource.ORE) m.resource[it] = Resource.NONE }
+            forRect(b.x, b.y, b.x + t.width - 1, b.y + t.height - 1) { m.brownfield[it] = 1; townChanges += it }
+            removeBuilding(b)
+            networksChanged()
+        }
     }
 
     /** The memory of floods fades a little each month. */
@@ -5878,11 +6089,11 @@ class City(
         }
         val h = b.people ?: Household(0, 0, 0, chooseWealth(map.index(b.x, b.y))).also {
             b.people = it
-            arrive(it, b.type.capacity)
+            arrive(it, Demography.household(b.type.capacity, year))
         }
         // An empty home stays empty, whatever its size, until it sells.
         if (h.empty) return
-        val gap = b.type.capacity - h.size
+        val gap = Demography.household(b.type.capacity, year) - h.size
         if (gap > 0) arrive(h, gap) else if (gap < 0) leave(h, -gap, youngFirst = false)
     }
 
@@ -5983,7 +6194,7 @@ class City(
             h.forSale = 0
             h.wealth = chooseWealth(map.index(b.x, b.y))
             h.health = 60
-            arrive(h, b.type.capacity)
+            arrive(h, Demography.household(b.type.capacity, year))
             markForSale(b)
         }
     }
@@ -5992,6 +6203,12 @@ class City(
     private fun flow(count: Int, perThousand: Int): Int {
         val exact = count * perThousand
         return exact / 1000 + if (exact % 1000 > 0 && rng.nextInt(1000) < exact % 1000) 1 else 0
+    }
+
+    /** As [flow], for rates per ten thousand. */
+    private fun flowRare(count: Int, perTenThousand: Int): Int {
+        val exact = count * perTenThousand
+        return exact / 10_000 + if (exact % 10_000 > 0 && rng.nextInt(10_000) < exact % 10_000) 1 else 0
     }
 
     /** A month's move of [value] towards [target]: a [pace]th of the way, at least a step. */
@@ -6057,24 +6274,25 @@ class City(
         var births = 0
         var deaths = 0
         var emptied = 0
+        s.pricedOut = 0
         val pupils = allot(BuildingType.SCHOOL, Balance.SCHOOL_PLACES, Balance.SCHOOL_REACH, schoolFunding, homes) { it.people!!.children }
         // The little ones at kindergarten; the younger teens at a junior high, and the rest at high school.
         val little = allot(BuildingType.KINDERGARTEN, Balance.KINDERGARTEN_PLACES, Balance.KINDERGARTEN_REACH, schoolFunding, homes) { (it.people!!.children + Balance.LITTLE - 1) / Balance.LITTLE }
-        val junior = allot(BuildingType.JUNIOR_HIGH, Balance.JUNIOR_PLACES, Balance.JUNIOR_REACH, schoolFunding, homes) { (it.people!!.children / Balance.TEENS + 1) / 2 }
-        val teens = allot(BuildingType.HIGH_SCHOOL, Balance.HIGH_SCHOOL_PLACES, Balance.HIGH_SCHOOL_REACH, schoolFunding, homes) { it.people!!.children / Balance.TEENS - (junior[it.id] ?: 0) }
+        val junior = allot(BuildingType.JUNIOR_HIGH, Balance.JUNIOR_PLACES, Balance.JUNIOR_REACH, schoolFunding, homes) { (teensIn(it) + 1) / 2 }
+        val teens = allot(BuildingType.HIGH_SCHOOL, Balance.HIGH_SCHOOL_PLACES, Balance.HIGH_SCHOOL_REACH, schoolFunding, homes) { teensIn(it) - (junior[it.id] ?: 0) }
         for ((id, n) in junior) teens[id] = (teens[id] ?: 0) + n
         // A trade for those who'd leave school with none.
-        val trades = allot(BuildingType.VOCATIONAL_SCHOOL, Balance.VOCATIONAL_PLACES, Balance.VOCATIONAL_REACH, schoolFunding, homes) { it.people!!.children / Balance.TEENS }
+        val trades = allot(BuildingType.VOCATIONAL_SCHOOL, Balance.VOCATIONAL_PLACES, Balance.VOCATIONAL_REACH, schoolFunding, homes) { teensIn(it) }
         val clinic = allot(BuildingType.CLINIC, Balance.CLINIC_CARES, Balance.CLINIC_REACH, healthFunding, homes) { it.people!!.size }
         val hospital = allot(BuildingType.HOSPITAL, Balance.HOSPITAL_CARES, Balance.HOSPITAL_REACH, healthFunding, homes) { it.people!!.size - (clinic[it.id] ?: 0) }
         val nursing = allot(BuildingType.NURSING_HOME, Balance.NURSING_PLACES, Balance.NURSING_REACH, healthFunding, homes) { it.people!!.elderly }
         val cooling = allot(BuildingType.COOLING_CENTRE, Balance.COOLING_PLACES, Balance.COOLING_REACH, healthFunding, homes) { it.people!!.elderly }
-        val college = allot(BuildingType.COLLEGE, Balance.COLLEGE_PLACES, Balance.COLLEGE_REACH, schoolFunding, homes) { it.people!!.children / Balance.TEENS }
+        val college = allot(BuildingType.COLLEGE, Balance.COLLEGE_PLACES, Balance.COLLEGE_REACH, schoolFunding, homes) { teensIn(it) }
         for ((type, places, reach) in listOf(
             Triple(BuildingType.UNIVERSITY, Balance.UNIVERSITY_PLACES, Balance.UNIVERSITY_REACH),
             Triple(BuildingType.COMMUNITY_COLLEGE, Balance.COMMUNITY_COLLEGE_PLACES, Balance.COMMUNITY_COLLEGE_REACH),
         )) {
-            val more = allot(type, places, reach, schoolFunding, homes) { it.people!!.children / Balance.TEENS - (college[it.id] ?: 0) }
+            val more = allot(type, places, reach, schoolFunding, homes) { teensIn(it) - (college[it.id] ?: 0) }
             for ((id, n) in more) college[id] = (college[id] ?: 0) + n
         }
         // Each library by its kind and how well it works: a newer kind teaches more, a dated one less.
@@ -6115,7 +6333,7 @@ class City(
             val atSchool = if (kids == 0) 0 else min(100, (pupils[b.id] ?: 0) * 100 / kids + library + kinder)
             val pace = Balance.SCHOOLING_PACE * (if (has(Ordinance.SCHOOL_MEALS)) Balance.MEALS_SCHOOLING else 100) / 100
             h.schooling = towards(h.schooling, atSchool, pace)
-            val older = kids / Balance.TEENS
+            val older = teensIn(b)
             val atHighSchool = if (older == 0) 0 else min(100, (teens[b.id] ?: 0) * 100 / older + library)
             h.highSchooling = towards(h.highSchooling, atHighSchool, pace)
 
@@ -6148,15 +6366,15 @@ class City(
 
             // Born, growing up, growing old, dying.
             val factor = Demography.healthFactor(h.health)
-            val born = flow(h.adults, Demography.births(year, h.wealth))
+            val born = flowRare(h.adults, Demography.births(year, h.wealth))
             val grown = min(h.children, flow(h.children, Demography.GROWING_UP))
             val aged = min(h.adults, flow(h.adults, Demography.GROWING_OLD))
-            val adultDied = min(h.adults - aged, flow(h.adults, Demography.adultDeaths(year) * factor / 100 * (100 - Balance.AMBULANCE_SAVES * ambulance / 255) / 100))
+            val adultDied = min(h.adults - aged, flowRare(h.adults, Demography.adultDeaths(year) * factor / 100 * (100 - Balance.AMBULANCE_SAVES * ambulance / 255) / 100))
             // Ambulances save some of the grown and old; a nursing home some more of the old in it.
             val saved = 100 - Balance.AMBULANCE_SAVES * ambulance / 255
             val nursed = if (h.elderly == 0) 0 else min(100, (nursing[b.id] ?: 0) * 100 / h.elderly)
-            var elderDied = min(h.elderly, flow(h.elderly, Demography.elderlyDeaths(year) * factor / 100 * saved / 100 * (100 - Balance.NURSING_SAVES * nursed / 100) / 100))
-            var childDied = min(h.children - grown, flow(h.children, Demography.childDeaths(year) * factor / 100 * (if (has(Ordinance.PUBLIC_HEALTH_ACT)) Balance.HEALTH_ACT_CHILDREN else 100) / 100))
+            var elderDied = min(h.elderly, flowRare(h.elderly, Demography.elderlyDeaths(year) * factor / 100 * saved / 100 * (100 - Balance.NURSING_SAVES * nursed / 100) / 100))
+            var childDied = min(h.children - grown, flowRare(h.children, Demography.childDeaths(year) * factor / 100 * (if (has(Ordinance.PUBLIC_HEALTH_ACT)) Balance.HEALTH_ACT_CHILDREN else 100) / 100))
             // A heat wave takes the elderly in the hottest homes, the less so with a doctor, unless disasters are off.
             if (heatWaveDays > 0 && disasterLevel > 0) {
                 val heat = m.heat[i].toInt() and 0xff
@@ -6166,22 +6384,28 @@ class City(
                 elderDied = min(h.elderly, elderDied + flow(h.elderly, heat / 10 * Balance.HEAT_DEATHS * careless / 100 * (100 - cooled) / 100 * disasterLevel / 2 * (if (has(Ordinance.HEAT_PLAN)) Balance.HEAT_PLAN_DEATHS else 100) / 100))
                 if (heat >= Balance.HOT_HOME) h.health = max(5, h.health - Balance.HEAT_HEALTH)
             }
-            // An epidemic strikes a home by how crowded and poorly served it is.
+            // An epidemic strikes a home by how crowded and poorly served it is, and by what it is:
+            // cholera where the water's foul, consumption where people are crowded, influenza in bad air.
             if (epidemicMonths > 0) {
-                val crowd = when (b.type.like) {
-                    BuildingType.TENEMENT, BuildingType.APARTMENTS, BuildingType.APARTMENT_COURT -> 150
-                    BuildingType.ROW_HOUSES -> 120
+                val tenement = b.type.like == BuildingType.TENEMENT || b.type.like == BuildingType.APARTMENTS || b.type.like == BuildingType.APARTMENT_COURT
+                val crowd = when {
+                    tenement -> if (epidemicKind == Disease.CONSUMPTION) 200 else 150
+                    b.type.like == BuildingType.ROW_HOUSES -> if (epidemicKind == Disease.CONSUMPTION) 140 else 120
                     else -> 100
                 }
                 var chance = epidemicStrength * crowd / 100 * (100 - careShare) / 100
-                if (m.watered[i]) chance = chance * 70 / 100
-                if (m.sewered[i]) chance = chance * 70 / 100
+                val clean = if (epidemicKind == Disease.CHOLERA) 30 else if (epidemicKind == Disease.CONSUMPTION) 90 else 100
+                if (m.watered[i]) chance = chance * clean / 100
+                if (m.sewered[i]) chance = chance * clean / 100
+                if (epidemicKind == Disease.INFLUENZA) chance = chance * (100 + (m.pollution[i].toInt() and 0xff) / 4) / 100
                 if (watched) chance = chance * Balance.HEALTH_OFFICE_SPREAD / 100
-                chance = chance * (100 - Balance.SANATORIUM_SPREAD * sanatorium / 100) / 100
+                if (epidemicKind == Disease.CONSUMPTION) chance = chance * (100 - Balance.SANATORIUM_SPREAD * sanatorium / 100) / 100
                 if (rng.nextInt(100) < chance) {
                     h.health = max(5, h.health - Balance.EPIDEMIC_HEALTH)
-                    childDied = min(h.children - grown, childDied + flow(h.children, Balance.EPIDEMIC_CHILD_DEATHS))
-                    elderDied = min(h.elderly, elderDied + flow(h.elderly, Balance.EPIDEMIC_ELDERLY_DEATHS))
+                    val cured = if (year >= Balance.ANTIBIOTICS_YEAR) 50 else 100
+                    val jabbed = if (year >= Balance.VACCINES_YEAR) Balance.VACCINE_CHILDREN else 100
+                    childDied = min(h.children - grown, childDied + flow(h.children, Balance.EPIDEMIC_CHILD_DEATHS * cured / 100 * jabbed / 100))
+                    elderDied = min(h.elderly, elderDied + flow(h.elderly, Balance.EPIDEMIC_ELDERLY_DEATHS * cured / 100))
                 }
             }
             removeAdults(h, aged + adultDied)
@@ -6215,13 +6439,34 @@ class City(
                 continue
             }
 
-            // Kept full.
-            val gap = b.type.capacity - h.size
+            // Priced out: a poor household on land grown too dear for it, unless the rent's held down. A better-off one moves in.
+            if (h.wealth == Wealth.POOR && (m.landValue[i].toInt() and 0xff) >= Balance.WELL_OFF_FROM && districtAt(i)?.rentControl != true &&
+                !has(Ordinance.SOCIAL_HOUSING) && (b.id * 7 + monthNow) % Balance.PRICED_OUT_ODDS == 0
+            ) {
+                departures += h.size
+                unhoused += h.size
+                s.pricedOut += h.size
+                h.children = 0; h.adults = 0; h.elderly = 0
+                h.schooled.fill(0)
+                h.schooling = 0
+                h.highSchooling = 0
+                h.health = 60
+                h.wealth = chooseWealth(i)
+                arrive(h, Demography.household(b.type.capacity, year))
+                continue
+            }
+            // Schooling carries a household up, or down, a step now and then.
+            val earns = earnedWealth(h)
+            if (earns != h.wealth && (b.id * 13 + monthNow) % Balance.MOBILITY_ODDS == 0) h.wealth += if (earns > h.wealth) 1 else -1
+
+            // Kept as full as households are these days.
+            val gap = Demography.household(b.type.capacity, year) - h.size
             if (gap > 0) arrive(h, gap) else if (gap < 0) leave(h, -gap, youngFirst = true)
         }
         s.births = births
         s.deaths = deaths
         s.emptied = emptied
+        roughSleeping()
         s.movedIn = arrivals
         s.movedOut = departures
         arrivals = 0
@@ -6242,6 +6487,36 @@ class City(
         s.schoolPlaces = places
         s.highSchoolPlaces = highPlaces
         s.carePlaces = carePlaces
+    }
+
+    /** The teenagers among a home's children: a share of them, the remainder rounded up in some homes and down in others by the home. */
+    private fun teensIn(b: Building): Int = ((b.people?.children ?: 0) + b.id % Balance.TEENS) / Balance.TEENS
+
+    /** The wealth a household's adults' schooling earns: well off with most educated, poor with most unschooled. */
+    private fun earnedWealth(h: Household): Int {
+        val grown = h.schooled.sum()
+        if (grown == 0) return h.wealth
+        return when {
+            h.schooled[Education.EDUCATED] * 2 > grown -> Wealth.WELL_OFF
+            h.schooled[Education.UNSCHOOLED] * 2 > grown -> Wealth.POOR
+            else -> Wealth.MIDDLE
+        }
+    }
+
+    /**
+     * Some of those priced or cleared out this month end up on the street while
+     * the town's short of homes; each month some move on. Shelters take in
+     * what they have room for.
+     */
+    private fun roughSleeping() {
+        val s = stats
+        if (s.homeSeekers > s.emptyRoom) homeless += unhoused * Balance.ROUGH_SHARE / 100
+        unhoused = 0
+        homeless -= (homeless + Balance.ROUGH_LEAVE - 1) / Balance.ROUGH_LEAVE
+        var places = 0
+        for (b in buildings.values) if (b.type == BuildingType.SHELTER && b.underway == 0 && b.outage == 0) places += Balance.SHELTER_PLACES * condition(b) / 100
+        s.sheltered = min(homeless, places)
+        s.roughSleepers = homeless - s.sheltered
     }
 
     // ---- growth --------------------------------------------------------------
@@ -7465,6 +7740,7 @@ class City(
             val i = (0 until map.size).firstOrNull { map.building[it] != 0 && (map.floodMemory[it].toInt() and 0xff) >= Balance.FLOODED }
             out += Advice(AdviceKind.FLOODING, x = i?.let { it % map.width } ?: -1, y = i?.let { it / map.width } ?: -1)
         }
+        if (s.roughSleepers >= max(Balance.ROUGH_ADVICE, s.population / 500)) out += Advice(AdviceKind.ROUGH_SLEEPERS)
         if (s.population > 0 && approval < Balance.PROTEST_BELOW) out += Advice(AdviceKind.UNHAPPY, concern = Opinion.worst(era, concerns))
         advice = out
     }
@@ -7886,8 +8162,8 @@ class City(
         c[Concern.TRAFFIC.ordinal] = Opinion.traffic(s.flow)
         c[Concern.CLEARANCES.ordinal] = Opinion.clearances(if (homes == 0) 0 else (upset / homes).toInt(), if (s.population == 0) 0 else displaced * 100 / s.population)
         c[Concern.AIR.ordinal] = Opinion.air(s.smog, s.pollution)
-        // Those the empty homes can't take.
-        c[Concern.HOUSING.ordinal] = Opinion.housing(if (s.population == 0) 0 else max(0, s.homeSeekers - s.emptyRoom) * 100 / s.population)
+        // Those the empty homes can't take, and those sleeping rough, each a tenth as many counting as much.
+        c[Concern.HOUSING.ordinal] = Opinion.housing(if (s.population == 0) 0 else (max(0, s.homeSeekers - s.emptyRoom) * 100 + s.roughSleepers * 1000) / s.population)
     }
 
     /** Each concern's score for the people on tile [i]: the town's, with what's around them in place of the town's average. */
@@ -8405,6 +8681,13 @@ class City(
         w.int(grantsOffered); w.bool(elections); w.int(taxCapUntil)
         // Since version 43: grants paid this term, and a fresh mandate.
         w.int(grantsThisTerm); w.bool(mandate)
+        // Since version 44: the homeless and last month's rough sleepers, sheltered and priced out.
+        w.int(homeless); w.int(s.roughSleepers); w.int(s.sheltered); w.int(s.pricedOut)
+        w.int(epidemicKind.ordinal)
+        w.int(drought); w.bool(droughtTold)
+        val seams = buildings.values.filter { it.type == BuildingType.MINE || it.type == BuildingType.COLLIERY || it.type == BuildingType.OIL_WELL }
+        w.count(seams.size)
+        for (b in seams) { w.int(b.id); w.int(b.fill) }
     }
 
     companion object {
@@ -8763,6 +9046,12 @@ class City(
                         if (kind >= 0) c.grant = Grant(GrantKind.entries[kind], r.long(), r.int(), r.int())
                         c.grantsOffered = r.int(); c.elections = r.bool(); c.taxCapUntil = r.int()
                         if (version >= 43) { c.grantsThisTerm = r.int(); c.mandate = r.bool() }
+                        if (version >= 44) {
+                            c.homeless = r.int(); c.stats.roughSleepers = r.int(); c.stats.sheltered = r.int(); c.stats.pricedOut = r.int()
+                            c.epidemicKind = Disease.entries[r.int()]
+                            c.drought = r.int(); c.droughtTold = r.bool()
+                            repeat(r.count()) { val id = r.int(); val worked = r.int(); c.buildings[id]?.fill = worked }
+                        }
                     }
                 } else {
                     // An older town: what it already has isn't news, nor the size it's already reached.
@@ -8897,6 +9186,11 @@ class Stats {
 
     /** People looking for a home, in residents, before the empty homes take any. */
     var homeSeekers = 0
+
+    /** Last month: people priced out of their homes, and the homeless sleeping rough and in shelters. */
+    var pricedOut = 0
+    var roughSleepers = 0
+    var sheltered = 0
 
     /** For the eras' milestones: percent of people on mains water and on the sewer, percent of buildings with power, high density shops and offices, high schools, and percent of the land along the roads built on. */
     var onMains = 0
@@ -9111,7 +9405,7 @@ class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int, va
 }
 
 
-enum class EventKind { FirstBuilt, Milestone, OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut, Protest, Petition, PetitionMet, PetitionLapsed, GrantOffered, GrantPaid, GrantLapsed, ElectionWon, ElectionLost }
+enum class EventKind { FirstBuilt, Milestone, OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut, MedicalAdvance, Drought, StormSurge, WorkedOut, Protest, Petition, PetitionMet, PetitionLapsed, GrantOffered, GrantPaid, GrantLapsed, ElectionWon, ElectionLost }
 
 /** Something that happened, kept in the town's chronicle: [event] in [year] and [month] (0 is January). */
 class Story(val year: Int, val month: Int, val event: CityEvent)

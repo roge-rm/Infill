@@ -120,6 +120,7 @@ object Specs {
         put(BuildingType.CITY_HALL, Spec(5_000, 45.0, draw = 4.0, fund = Fund.CIVIC))
         put(BuildingType.CIVIC_CENTRE, Spec(7_000, 60.0, draw = 4.0, fund = Fund.CIVIC))
         put(BuildingType.POST_OFFICE, Spec(900, 12.0, fund = Fund.CIVIC))
+        put(BuildingType.SHELTER, Spec(500, 10.0, fund = Fund.CIVIC))
         put(BuildingType.CEMETERY, Spec(1_500, 4.0, Green(2, 110, 10, 0), Leisure(green = 10, reach = 4)))
         put(BuildingType.MEMORIAL_GARDEN, Spec(2_000, 6.0, Green(2, 120, 5, 3), Leisure(green = 30, culture = 10, reach = 6)))
         put(BuildingType.FOUNTAIN, Spec(400, 2.0, Green(0, 120, 60, 4), Leisure(green = 10, culture = 20, reach = 4)))

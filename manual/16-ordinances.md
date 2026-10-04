@@ -14,6 +14,7 @@ Each law costs something every month for every thousand people, shown beside it 
 
 - **Public health act** (1900): milk and water inspected, so people are healthier and fewer children die.
 - **Tenement act** (1910): crowded tenements are no longer unhealthy.
+- **Social housing** (1945): the poor aren't priced out of dear neighbourhoods.
 - **School meals** (1940): children learn faster and are healthier.
 - **Fluoridation** (1950): people on mains water are healthier.
 - **Heat plan** (2000): fewer of the old and frail die in a heat wave.

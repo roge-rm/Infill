@@ -36,7 +36,7 @@ Rain that falls on roofs and paving runs off. Parks, woods and grass soak most o
 
 - **Storm drain** pipes take the runoff to a **Storm outfall** or a **Storm pond**.
 - Without them, sewers take some of it and overflow foul into the water.
-- **Embankment** keeps a river in its banks.
+- **Embankment** keeps a river in its banks, and along the shore keeps out a storm surge.
 
 What isn't taken away floods the streets in a downpour. Flooded shops and works close, deep water closes roads and can knock buildings down a rung, and it leaves mud and a clean-up bill, never more than a month's income. Homes on wells or septic tanks can get sick after a flood. People remember where it flooded, and the land is worth less for a while.
 

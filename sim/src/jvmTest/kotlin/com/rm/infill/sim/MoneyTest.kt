@@ -61,8 +61,11 @@ class MoneyTest {
         val c = town()
         c.months(6)
         val rating = c.rating
-        c.setFunds(-1000)
-        c.months(4)
+        // Kept in debt each month, whatever the month brings in.
+        repeat(4) {
+            c.setFunds(-1000)
+            c.months(1)
+        }
         assertTrue(c.rating > rating, "rating $rating to ${c.rating}")
         assertFalse(c.overseen)
         // Past the limit, the overseer has the books: nothing new is built and funding's capped.
