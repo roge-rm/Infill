@@ -128,7 +128,35 @@ class City(
     val history = History()
 
     /** Things that happened that the player should hear about, since the UI last asked. */
-    private val events = ArrayList<CityEvent>()
+    /** What's happened since the UI last asked; each is kept in the [chronicle] as it's told. */
+    private val events = Events()
+
+    /** The news waiting to be told, each kept in the chronicle as it's added. */
+    private inner class Events : Iterable<CityEvent> {
+        private val list = ArrayList<CityEvent>()
+
+        operator fun plusAssign(e: CityEvent) {
+            chronicle += Story(year, month, e)
+            if (chronicle.size > Balance.CHRONICLE_MOST) chronicle.subList(0, chronicle.size - Balance.CHRONICLE_MOST).clear()
+            list += e
+        }
+
+        override fun iterator() = list.iterator()
+
+        fun clear() = list.clear()
+    }
+
+    /** The town's story, oldest first: everything that's happened, as it was told. */
+    val chronicle = ArrayList<Story>()
+
+    /** The kinds of building the town has had one of, by the first of each line, for the news of its first. */
+    private val firsts = BooleanArray(BuildingType.entries.size)
+
+    /** How many of [Balance.MILESTONES] the town's reached. */
+    private var milestone = 0
+
+    /** The map at each era's arrival, for the era's card to show how the town's changed. */
+    val snapshots = ArrayList<Snapshot>()
 
     fun takeEvents(each: (CityEvent) -> Unit) {
         for (e in events) each(e)
@@ -1622,6 +1650,12 @@ class City(
         buildings[b.id] = b
         stamp(b)
         fitHousehold(b)
+        // The town's first of a kind is news.
+        val root = type.like.root
+        if (!firsts[root.ordinal] && !type.painted && type != BuildingType.PARK) {
+            firsts[root.ordinal] = true
+            events += CityEvent(EventKind.FirstBuilt, x, y, root)
+        }
         return b
     }
 
@@ -2923,6 +2957,7 @@ class City(
         val next = era.next ?: return
         if (year < next.year || goals(next).any { !it.met }) return
         era = next
+        snapshots += Snapshot(next, year, Snapshot.of(map, buildings))
         events += CityEvent(EventKind.EraArrived, -1, -1, null, next)
     }
 
@@ -7158,6 +7193,11 @@ class City(
             }
         }
         s.population = residents
+        // A milestone reached.
+        while (milestone < Balance.MILESTONES.size && residents >= Balance.MILESTONES[milestone]) {
+            events += CityEvent(EventKind.Milestone, -1, -1, null, count = Balance.MILESTONES[milestone])
+            milestone++
+        }
         // What only the month's turn needs: who's on the mains, sewer and power, the downtown, and the land built on.
         if (full) {
             var onMains = 0
@@ -7432,6 +7472,19 @@ class City(
         val worst = counts.indices.maxByOrNull { counts[it] } ?: return null
         if (counts[worst] == 0) return null
         return Advice(AdviceKind.entries[worst], zone, where[worst] % map.width, where[worst] / map.width)
+    }
+
+    /**
+     * Why the zoned lot at tile [i] can't grow, or null if it can or isn't a
+     * lot that grows just now: [AdviceKind.ZONE_MORE] for one as built up as
+     * it's let be.
+     */
+    fun whyNotAt(i: Int): AdviceKind? {
+        val zone = map.zone[i]
+        if (zone == Zone.NONE) return null
+        val b = buildings[map.building[i]]
+        if (b != null && (b.underway > 0 || b.type.zone != zone)) return null
+        return if (b != null && b.type.next.isEmpty()) AdviceKind.ZONE_MORE else whyNot(b, i, zone)
     }
 
     /**
@@ -8062,6 +8115,23 @@ class City(
         }
         w.int(rating); w.int(goodMonths); w.bool(overseen)
         w.long(s.bondCost); w.long(s.tradeIncome)
+        // Since version 41: the chronicle, the firsts and milestones, the era snapshots and the years of history.
+        w.count(chronicle.size)
+        for (t in chronicle) {
+            val e = t.event
+            w.int(t.year); w.int(t.month); w.string(e.kind.name); w.int(e.x); w.int(e.y)
+            w.string(e.type?.name ?: ""); w.int(e.era?.ordinal ?: -1); w.int(e.count)
+        }
+        val had = BuildingType.entries.filter { firsts[it.ordinal] }
+        w.count(had.size)
+        for (t in had) w.string(t.name)
+        w.int(milestone)
+        w.count(snapshots.size)
+        for (shot in snapshots) {
+            w.int(shot.era.ordinal); w.int(shot.year); w.int(shot.tiles.size)
+            for (b in shot.tiles) w.byte(b.toInt())
+        }
+        history.writeYears(w)
     }
 
     companion object {
@@ -8096,7 +8166,7 @@ class City(
             s.roadUpkeep = r.long(); s.powerUpkeep = r.long(); s.policeUpkeep = r.long(); s.fireUpkeep = r.long()
             s.parkUpkeep = r.long(); s.upkeep = r.long()
             c.weather.readFrom(r)
-            c.history.readFrom(r, if (version >= 36) Series.entries.size else if (version >= 27) 9 else 8)
+            c.history.readFrom(r, if (version >= 41) Series.entries.size else if (version >= 36) 10 else if (version >= 27) 9 else 8)
             val m = c.map
             for (layer in arrayOf(m.terrain, m.road, m.zone, m.power, m.grime, m.pollution, m.landValue, m.crime, m.policeCover, m.fireCover)) {
                 r.layer(layer)
@@ -8389,6 +8459,33 @@ class City(
                     repeat(r.count()) { c.bonds += Bond(r.long(), r.int(), r.long(), r.int(), r.int()) }
                     c.rating = r.int(); c.goodMonths = r.int(); c.overseen = r.bool()
                     c.stats.bondCost = r.long(); c.stats.tradeIncome = r.long()
+                }
+                if (version >= 41) {
+                    repeat(r.count()) {
+                        val year = r.int()
+                        val month = r.int()
+                        val kindName = r.string()
+                        val kind = EventKind.entries.firstOrNull { it.name == kindName }
+                        val x = r.int()
+                        val y = r.int()
+                        val type = r.string().let { n -> BuildingType.entries.firstOrNull { it.name == n } }
+                        val era = r.int().let { if (it < 0) null else Era.entries.getOrNull(it) }
+                        val count = r.int()
+                        if (kind != null) c.chronicle += Story(year, month, CityEvent(kind, x, y, type, era, count))
+                    }
+                    repeat(r.count()) { r.string().let { n -> BuildingType.entries.firstOrNull { it.name == n }?.let { c.firsts[it.ordinal] = true } } }
+                    c.milestone = r.int()
+                    repeat(r.count()) {
+                        val era = Era.entries[r.int()]
+                        val year = r.int()
+                        val tiles = ByteArray(r.int()) { r.byte().toByte() }
+                        c.snapshots += Snapshot(era, year, tiles)
+                    }
+                    c.history.readYears(r)
+                } else {
+                    // An older town: what it already has isn't news, nor the size it's already reached.
+                    for (b in c.buildings.values) c.firsts[b.type.like.root.ordinal] = true
+                    while (c.milestone < Balance.MILESTONES.size && c.stats.population >= Balance.MILESTONES[c.milestone]) c.milestone++
                 }
                 c.updateNetworks()
                 c.markContainerTrains()
@@ -8723,13 +8820,58 @@ class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int, va
 }
 
 
-enum class EventKind { OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut }
+enum class EventKind { FirstBuilt, Milestone, OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut }
+
+/** Something that happened, kept in the town's chronicle: [event] in [year] and [month] (0 is January). */
+class Story(val year: Int, val month: Int, val event: CityEvent)
+
+/**
+ * The map in [year], as [era] arrived: each tile as one of the [Snapshot]
+ * kinds, for a small picture of the town.
+ */
+class Snapshot(val era: Era, val year: Int, val tiles: ByteArray) {
+    companion object {
+        const val LAND: Byte = 0
+        const val WATER: Byte = 1
+        const val TREES: Byte = 2
+        const val ROAD: Byte = 3
+        const val RAIL: Byte = 4
+        const val HOMES: Byte = 5
+        const val SHOPS: Byte = 6
+        const val WORKS: Byte = 7
+        const val OFFICES: Byte = 8
+        const val FARMS: Byte = 9
+        const val CIVIC: Byte = 10
+        const val GREEN: Byte = 11
+
+        /** [map] as it stands, a kind a tile. */
+        fun of(map: CityMap, buildings: Map<Int, Building>): ByteArray = ByteArray(map.size) { i ->
+            val b = buildings[map.building[i]]
+            when {
+                b != null -> when {
+                    b.type.green || b.type == BuildingType.PARK -> GREEN
+                    b.type.zone == Zone.RESIDENTIAL || b.type.zone == Zone.MIXED -> HOMES
+                    b.type.zone == Zone.COMMERCIAL -> SHOPS
+                    b.type.zone == Zone.INDUSTRIAL -> WORKS
+                    b.type.zone == Zone.OFFICE -> OFFICES
+                    b.type.zone == Zone.FARMLAND -> FARMS
+                    else -> CIVIC
+                }
+                map.road[i] != Road.NONE -> ROAD
+                map.rail[i] != Rail.NONE -> RAIL
+                map.terrain[i] == Terrain.WATER -> WATER
+                map.terrain[i] == Terrain.TREES -> TREES
+                else -> LAND
+            }
+        }
+    }
+}
 
 /** Something that happened at [x], [y], to a building of [type] if it's about one, and how many it touched if that's told. */
 class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType?, val era: Era? = null, val count: Int = 0)
 
 /** What the graphs can show. */
-enum class Series { Population, Jobs, Funds, Income, Upkeep, Crime, Pollution, LandValue, Carbon, Leisure }
+enum class Series { Population, Jobs, Funds, Income, Upkeep, Crime, Pollution, LandValue, Carbon, Leisure, Health, Unemployment, Births, Deaths, Smog }
 
 /** The town month by month, the last [capacity] months of it. */
 class History(val capacity: Int = 240) {
@@ -8745,8 +8887,14 @@ class History(val capacity: Int = 240) {
         val values = longArrayOf(
             s.population.toLong(), s.jobs.toLong(), city.funds, s.income, s.upkeep,
             s.crime.toLong(), s.pollution.toLong(), s.landValue.toLong(), s.carbon, s.leisure.toLong(),
+            s.health.toLong(), s.unemployment.toLong(), s.births.toLong(), s.deaths.toLong(), s.smog.toLong(),
         )
         for (k in values.indices) data[k][next] = values[k]
+        // Each December the year's kept for good, for the long view back to the start.
+        if (city.month == 11) {
+            yearly += values
+            yearOf += city.year
+        }
         years[next] = city.year
         months[next] = city.month
         next = (next + 1) % capacity
@@ -8777,6 +8925,35 @@ class History(val capacity: Int = 240) {
             for (k in data.indices) data[k][next] = values[k]
             next = (next + 1) % capacity
             count++
+        }
+    }
+
+    /** Each year's December, oldest first, for as long as the town's been going. */
+    private val yearly = ArrayList<LongArray>()
+    private val yearOf = ArrayList<Int>()
+
+    /** How many years are kept. */
+    val yearsKept: Int get() = yearly.size
+
+    /** [series] at each year's end, oldest first, and the years. */
+    fun yearValues(series: Series): LongArray = LongArray(yearly.size) { yearly[it].getOrElse(series.ordinal) { 0L } }
+    fun yearAt(k: Int): Int = yearOf[k]
+
+    internal fun writeYears(w: SaveWriter) {
+        w.count(yearly.size)
+        for (k in yearly.indices) {
+            w.int(yearOf[k])
+            w.count(yearly[k].size)
+            for (v in yearly[k]) w.long(v)
+        }
+    }
+
+    internal fun readYears(r: SaveReader) {
+        yearly.clear()
+        yearOf.clear()
+        repeat(r.count()) {
+            yearOf += r.int()
+            yearly += LongArray(r.count()) { r.long() }
         }
     }
 

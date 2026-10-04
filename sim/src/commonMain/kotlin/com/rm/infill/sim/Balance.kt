@@ -1215,6 +1215,12 @@ object Balance {
     const val BOND_MOST = 25L
     const val TRADE_RATE = 1.0
 
+    /** The most stories the chronicle keeps, the oldest going first. */
+    const val CHRONICLE_MOST = 4000
+
+    /** The sizes of town that are news when reached. */
+    val MILESTONES = intArrayOf(1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000)
+
     /**
      * Prices in [year] in percent of 1900's, for showing money in the dollars
      * of the day: up through the wars, down in the thirties, and up fast

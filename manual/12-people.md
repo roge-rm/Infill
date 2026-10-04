@@ -39,4 +39,4 @@ People come when there are jobs to fill and homes to live in, and the town draws
 
 ## The People window
 
-Tap the population for the People window: the population, health, how many are out of work, the commute and how well traffic flows, then the ages, wealth, births, deaths and moves last month, how people get to work, workers and jobs by schooling, school places and care, phones, the climate, visitors and justice. **Graphs** opens the town's history over the last twenty years.
+Tap the population for the People window: the population, health, how many are out of work, the commute and how well traffic flows, then the ages, wealth, births, deaths and moves last month, how people get to work, workers and jobs by schooling, school places and care, phones, the climate, visitors and justice. **Graphs** opens the town's history (see The town's story).

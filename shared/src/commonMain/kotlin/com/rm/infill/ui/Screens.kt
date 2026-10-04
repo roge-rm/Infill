@@ -10,6 +10,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import com.rm.infill.res.chronicle
 import com.rm.infill.res.money_of_1900
 import com.rm.infill.res.money_of_the_day
 import com.rm.infill.res.money_shown
@@ -475,6 +476,7 @@ private val ACTION_NAMES: Map<KeyAction, StringResource> = mapOf(
     KeyAction.ToolAir to Res.string.tool_air,
     KeyAction.ToolLeisure to Res.string.tool_leisure,
     KeyAction.Ordinances to Res.string.ordinances,
+    KeyAction.Chronicle to Res.string.chronicle,
     KeyAction.Tools to Res.string.key_tools,
     KeyAction.PrevChoice to Res.string.key_prev_choice,
     KeyAction.NextChoice to Res.string.key_next_choice,

@@ -78,6 +78,8 @@ import com.rm.infill.res.label_port_loads
 import com.rm.infill.res.pill_no_sea_route
 import com.rm.infill.res.pill_open_sea
 import com.rm.infill.res.*
+import com.rm.infill.sim.AdviceKind
+import com.rm.infill.sim.Advice
 import com.rm.infill.sim.Needs
 import com.rm.infill.sim.Need
 import com.rm.infill.sim.Bridge
@@ -206,6 +208,8 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     val pills = ArrayList<PillItem>()
     val stats = ArrayList<StatItem>()
     val actions = ArrayList<ActionItem>()
+    // A zoned lot that can't grow: why, as the advice would say it.
+    city.whyNotAt(i)?.takeIf { it != AdviceKind.ZONE_MORE }?.let { pills += PillItem(Glyph.Zone, adviceText(Advice(it, map.zone[i])), Tone.Warn) }
 
     // The line under the name: when it was built, how big, how dense, and the district.
     val subtitle = listOfNotNull(
@@ -428,6 +432,8 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
     val pills = ArrayList<PillItem>()
     val stats = ArrayList<StatItem>()
     val actions = ArrayList<ActionItem>()
+    // A zoned lot that can't grow: why, as the advice would say it.
+    city.whyNotAt(i)?.takeIf { it != AdviceKind.ZONE_MORE }?.let { pills += PillItem(Glyph.Zone, adviceText(Advice(it, map.zone[i])), Tone.Warn) }
     fun wear(laid: Int, life: Int) = Ageing.wear(city.monthNow - laid, life)
     @Composable
     fun wearStat(glyph: Glyph, name: String, laid: Int, life: Int): StatItem {

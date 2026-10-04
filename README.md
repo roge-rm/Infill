@@ -5,7 +5,7 @@ It also runs in a web browser.
 
 You start with a small town in 1900 and a few simple tools, and as the years go by the town and everything that keeps it running gets deeper. New things arrive in eras, and parts of your town get redone as they do: wells give way to water mains, streetcars to cars and back to transit, low houses to something denser.
 
-It's at 0.8.5 and very playable, but not finished. Let me know what works and what doesn't, or open an issue here.
+It's at 0.11 and very playable, but not finished. Let me know what works and what doesn't, or open an issue here.
 
 Made with Claude Opus 5.5.
 
@@ -30,17 +30,23 @@ Dan (rm)
 
 ## What's in it
 
-- Zones for homes, shops, offices, works and farms, at three densities, with lots that fill in over time
+- Zones for homes, shops, offices, works and farms, from rural lots to towers, with lots that fill in over time
+- Five eras from 1900 on, each with its own buildings, and older kinds of building that date until you bring them up to date
 - Roads from dirt tracks to boulevards, junctions with stop signs, lights and roundabouts, and traffic you can watch and fix
 - Rail, trams, buses, trolleybuses and a subway, with lines you plan stop by stop
-- Power from coal to nuclear, lines on poles or underground, and the load on each
+- Power stations from coal to small modular reactors, wind, sun and storage, each with newer kinds as the years go by
 - Water mains, sewers and storm drains that age and need relaying
+- Garbage from the town dump to recycling, compost and waste-to-energy
 - Telephone exchanges, then fibre and masts
 - Goods made from what's in the ground, sold in town or sent away
-- Police, fire, schools, health, parks and waste, each with buildings that age and staff the town has to find
+- Police, fire, schools, health and civic buildings, each with buildings that age and staff the town has to find
+- Parks, sport and culture, which every home wants nearby, and fashions that come and go
 - Crime of different kinds, with courts and jails to deal with it
-- Districts with their own taxes and rules
+- Ordinances, from the building code to prohibition and a carbon price, that history brings in and ends
+- Money with teeth: bonds, a credit rating, and an overseer if the debt gets out of hand
+- Districts with their own taxes and rules, and neighbouring towns to trade and commute with
 - Weather, seasons, floods, fires and the odd disaster
+- A chronicle of the town's story, in the papers of each era
 - Map views for nearly all of it
 
 ## Building

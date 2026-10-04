@@ -437,6 +437,32 @@
     <string name="money_shown">Money</string>
     <string name="money_of_1900">In 1900 dollars</string>
     <string name="money_of_the_day">In dollars of the day</string>
+    <!-- Graphs: more of the town over time, and how far back. -->
+    <string name="series_health">Health</string>
+    <string name="series_unemployment">Out of work</string>
+    <string name="series_births">Births</string>
+    <string name="series_deaths">Deaths</string>
+    <string name="series_smog">Smog</string>
+    <string name="graph_recent">Last 20 years</string>
+    <string name="graph_all">Since %1$d</string>
+    <!-- Map views: why lots aren't growing, upset over clearings, empty homes, and heritage. -->
+    <string name="overlay_growth">Why not growing</string>
+    <string name="overlay_upset">Upset</string>
+    <string name="overlay_vacant">Empty homes</string>
+    <string name="overlay_heritage">Heritage</string>
+    <!-- The chronicle: the town's news kept month by month, under the paper of its day. -->
+    <string name="chronicle">Chronicle</string>
+    <string name="chronicle_headlines">Headlines</string>
+    <string name="chronicle_all">Everything</string>
+    <string name="chronicle_empty">Nothing yet</string>
+    <string name="paper_gazette">The %1$s Gazette</string>
+    <string name="paper_star">%1$s Daily Star</string>
+    <string name="paper_feed">%1$s now</string>
+    <string name="era_then_and_now">Then and now</string>
+    <!-- News: a new era begins; the town's first of a kind of building; the town reaches a size. -->
+    <string name="event_era_began">The %1$s era begins</string>
+    <string name="event_first_built">First in town: %1$s</string>
+    <string name="event_milestone">The town reaches %1$s people</string>
     <!-- Bonds and debt. A bond's line: what it raised, the year, what it costs a month, and the year it's paid off. -->
     <string name="bonds">Bonds</string>
     <string name="bonds_none">No bonds</string>

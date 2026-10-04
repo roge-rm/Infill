@@ -3,6 +3,7 @@ package com.rm.infill
 import com.rm.infill.platform.simDispatcher
 import com.rm.infill.sim.AdviceKind
 import com.rm.infill.sim.Advice
+import com.rm.infill.ui.ChronicleWindow
 import com.rm.infill.ui.EdgeLinkWindow
 import com.rm.infill.sim.Balance
 import com.rm.infill.ui.LocalPriceIndex
@@ -750,6 +751,7 @@ private fun GameScreen(
         var stripSize by remember { mutableStateOf(IntSize.Zero) }
         var budgetOpen by remember { mutableStateOf(false) }
         var ordinancesOpen by remember { mutableStateOf(false) }
+        var chronicleOpen by remember { mutableStateOf(false) }
         // A road reaching the edge of the map, waiting on whether it leads out of town.
         var edgeAsk by remember { mutableStateOf<Action.BuildRoad?>(null) }
         var graphsOpen by remember { mutableStateOf(false) }
@@ -816,44 +818,7 @@ private fun GameScreen(
                 paused = true
                 return
             }
-            message = when (e.kind) {
-                // History ends a law, or brings one the town can pass.
-                EventKind.OrdinanceEnded -> Message(Res.string.event_ordinance_ended, ordinanceName(com.rm.infill.sim.Ordinance.entries[e.count]))
-                EventKind.OrdinanceAvailable -> Message(Res.string.event_ordinance_available, ordinanceName(com.rm.infill.sim.Ordinance.entries[e.count]))
-                EventKind.OverseerIn -> Message(Res.string.event_overseer_in)
-                EventKind.OverseerOut -> Message(Res.string.event_overseer_out)
-                EventKind.RatingDown -> Message(Res.string.event_rating_down, name = com.rm.infill.sim.Bonds.RATINGS[e.count])
-                EventKind.RatingUp -> Message(Res.string.event_rating_up, name = com.rm.infill.sim.Bonds.RATINGS[e.count])
-                EventKind.FireStarted -> Message(Res.string.event_fire, e.type?.let { buildingName(it) }, e.x, e.y)
-                EventKind.BuildingLost -> Message(Res.string.event_lost, e.type?.let { buildingName(it) }, e.x, e.y)
-                EventKind.FireSaved -> Message(Res.string.event_saved, e.type?.let { buildingName(it) }, e.x, e.y)
-                EventKind.FireDamaged -> Message(Res.string.event_fire_damage, e.type?.let { buildingName(it) }, e.x, e.y)
-                EventKind.ForcedOut -> Message(null, x = e.x, y = e.y, counted = Res.plurals.event_forced_out, count = e.count)
-                EventKind.JobsLost -> Message(null, x = e.x, y = e.y, counted = Res.plurals.event_jobs_lost, count = e.count)
-                EventKind.Flooding -> Message(Res.string.event_flooding, x = e.x, y = e.y)
-                EventKind.RiverFlood -> Message(Res.string.event_river_flood, x = e.x, y = e.y)
-                EventKind.Sickness -> Message(Res.string.event_sickness, x = e.x, y = e.y)
-                EventKind.MainBurst -> Message(Res.string.event_main_burst, x = e.x, y = e.y)
-                EventKind.SewerCollapsed -> Message(Res.string.event_sewer_collapsed, x = e.x, y = e.y)
-                EventKind.TrackBroken -> Message(Res.string.event_track_broken, x = e.x, y = e.y)
-                EventKind.BrokeDown -> Message(Res.string.event_broke_down, e.type?.let { buildingName(it) }, e.x, e.y)
-                EventKind.TramTrackBroken -> Message(Res.string.event_tram_track_broken, x = e.x, y = e.y)
-                EventKind.WireDown -> Message(Res.string.event_wire_down, x = e.x, y = e.y)
-                EventKind.TunnelShut -> Message(Res.string.event_tunnel_shut, x = e.x, y = e.y)
-                EventKind.TunnelFlooded -> Message(Res.string.event_tunnel_flooded, x = e.x, y = e.y)
-                EventKind.BridgeShut -> Message(Res.string.event_bridge_shut, x = e.x, y = e.y)
-                EventKind.Smog -> Message(Res.string.event_smog)
-                EventKind.DumpFull -> Message(Res.string.event_dump_full, x = e.x, y = e.y)
-                EventKind.Gale -> Message(Res.string.event_gale, x = e.x, y = e.y)
-                EventKind.Blizzard -> Message(Res.string.event_blizzard)
-                EventKind.HeatWave -> Message(Res.string.event_heat_wave)
-                EventKind.IndustrialAccident -> Message(Res.string.event_industrial_accident, e.type?.let { buildingName(it) }, e.x, e.y)
-                EventKind.NuclearAccident -> Message(Res.string.event_nuclear_accident, x = e.x, y = e.y)
-                EventKind.Earthquake -> Message(Res.string.event_earthquake, x = e.x, y = e.y)
-                EventKind.Epidemic -> Message(Res.string.event_epidemic)
-                EventKind.EpidemicOver -> Message(Res.string.event_epidemic_over)
-                EventKind.EraArrived -> null
-            }
+            message = messageOf(e)
         }
 
         // Time runs at the chosen speed while the game isn't paused, a few days a frame at most.
@@ -1034,10 +999,10 @@ private fun GameScreen(
             // The keys come back to the map from wherever they were.
             runCatching { focus.requestFocus() }
             when {
-                fromTools && drag == null && inspected == null && !choosingOverlay && !budgetOpen && !ordinancesOpen && edgeAsk == null && !graphsOpen && !peopleOpen && !demandOpen &&
+                fromTools && drag == null && inspected == null && !choosingOverlay && !budgetOpen && !ordinancesOpen && !chronicleOpen && edgeAsk == null && !graphsOpen && !peopleOpen && !demandOpen &&
                     !linesOpen && !districtsOpen && eraShown == null -> {}
-                budgetOpen || ordinancesOpen || edgeAsk != null || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null -> {
-                    budgetOpen = false; ordinancesOpen = false; edgeAsk = null; graphsOpen = false; peopleOpen = false; demandOpen = false; linesOpen = false; districtsOpen = false; eraShown = null
+                budgetOpen || ordinancesOpen || chronicleOpen || edgeAsk != null || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null -> {
+                    budgetOpen = false; ordinancesOpen = false; chronicleOpen = false; edgeAsk = null; graphsOpen = false; peopleOpen = false; demandOpen = false; linesOpen = false; districtsOpen = false; eraShown = null
                 }
                 drag != null -> drag = null
                 choosingOverlay -> choosingOverlay = false
@@ -1223,6 +1188,7 @@ private fun GameScreen(
             KeyAction.ToolDistricts -> if (city.allowsDistricts()) pick(Tool.Districts)
             KeyAction.Budget -> budgetOpen = !budgetOpen
             KeyAction.Ordinances -> ordinancesOpen = !ordinancesOpen
+            KeyAction.Chronicle -> chronicleOpen = !chronicleOpen
             KeyAction.Graphs -> graphsOpen = !graphsOpen
             KeyAction.People -> peopleOpen = !peopleOpen
             KeyAction.Demand -> demandOpen = !demandOpen
@@ -1250,7 +1216,7 @@ private fun GameScreen(
         }
 
         // The keys come back to the map whenever a window or panel over it closes, which takes the focus with it.
-        val anyOpen = windowOpen || budgetOpen || ordinancesOpen || edgeAsk != null || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
+        val anyOpen = windowOpen || budgetOpen || ordinancesOpen || chronicleOpen || edgeAsk != null || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
         LaunchedEffect(anyOpen) { if (!anyOpen) focus.requestFocus() }
 
         // A controller's buttons do on the map what they're set to, as keys do. Away from the map the
@@ -1442,13 +1408,7 @@ private fun GameScreen(
                 AdviceLine(advice, { x, y -> camera.centreOn(x, y) })
                 message?.let { m ->
                     MessageChip(
-                        when {
-                            m.counted != null -> pluralStringResource(m.counted, m.count, groupThousands(m.count.toLong()))
-                            m.text == null -> ""
-                            m.arg != null -> stringResource(m.text, stringResource(m.arg))
-                            m.name != null -> stringResource(m.text, m.name)
-                            else -> stringResource(m.text)
-                        },
+                        messageText(m),
                         if (m.x >= 0) ({ camera.centreOn(m.x, m.y) }) else null,
                     )
                 }
@@ -1617,7 +1577,8 @@ private fun GameScreen(
             if (linesOpen) LinesWindow(game) { linesOpen = false }
             if (districtsOpen) DistrictsWindow(game) { districtsOpen = false }
             if (graphsOpen) GraphsWindow(game) { graphsOpen = false }
-            eraShown?.let { EraWindow(game, it) { eraShown = null } }
+            eraShown?.let { EraWindow(game, it, { eraShown = null; chronicleOpen = true }) { eraShown = null } }
+            if (chronicleOpen) ChronicleWindow(game, { x, y -> chronicleOpen = false; camera.centreOn(x, y) }) { chronicleOpen = false }
             if (peopleOpen) PeopleWindow(game, { peopleOpen = false; graphsOpen = true }) { peopleOpen = false }
             if (demandOpen) DemandWindow(game) { demandOpen = false }
         }
@@ -1656,17 +1617,6 @@ private const val TRAY_WIDTH = 520
 private const val INSPECT_SHARE = 0.4f
 
 /** A message for the top of the screen, with a building's name in it and a tile to go to if it's about a place. */
-private data class Message(
-    /** Null when it's [counted] instead. */
-    val text: StringResource?,
-    val arg: StringResource? = null,
-    val x: Int = -1,
-    val y: Int = -1,
-    val name: String? = null,
-    /** Said with a count instead, as the language says that many. */
-    val counted: PluralStringResource? = null,
-    val count: Int = 0,
-)
 
 /** Weather the W key steps through while the looks are being made: clear, cloudy, rain, snow, fog. */
 private val DEV_WEATHER = listOf(

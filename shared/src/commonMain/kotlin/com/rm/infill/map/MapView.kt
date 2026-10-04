@@ -149,7 +149,26 @@ fun MapView(
                 b.type.station || b.type.port -> 200
                 else -> -1
             }
-        }, leisureAt = { game.city.leisureAt(it) }) {
+        }, leisureAt = { game.city.leisureAt(it) }, growthAt = { i ->
+            // Under the town's lock, as it looks at the buildings the sim may be changing.
+            // A lot built as far as it's let isn't held back, so it shows nothing.
+            if (map.zone[i] == Zone.NONE) -1
+            else game.tryLocked {
+                when (game.city.whyNotAt(i)) {
+                    null -> 0
+                    com.rm.infill.sim.AdviceKind.ZONE_MORE -> -1
+                    else -> 255
+                }
+            } ?: -1
+        }, heritageAt = { i ->
+            val b = game.city.building(map.building[i])
+            when {
+                b == null || b.type.zone == Zone.NONE -> -1
+                game.city.isHeritage(b) -> 255
+                b.type.heritage -> 60
+                else -> -1
+            }
+        }) {
             game.city.tramRiders(it) + game.city.busRiders(it) + game.city.trolleyRiders(it) + game.city.subwayRiders(it)
         }
     }

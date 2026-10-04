@@ -6,6 +6,10 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import com.rm.infill.res.overlay_heritage
+import com.rm.infill.res.overlay_vacant
+import com.rm.infill.res.overlay_upset
+import com.rm.infill.res.overlay_growth
 import com.rm.infill.res.overlay_leisure
 import com.rm.infill.res.overlay_carbon
 import com.rm.infill.res.overlay_noise
@@ -99,6 +103,14 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Reach(Res.string.overlay_reach, Color(0xFF3FA85A), Color(0xFFD8302F)),
     /** The leisure within reach, parks, sport and culture weighed by what people want in the year: grey with none to green with plenty. */
     Leisure(Res.string.overlay_leisure, Color(0xFFB8B4A8), Color(0xFF2F9A4A)),
+    /** Each zoned lot: green where it can grow, red where something holds it back. */
+    Growth(Res.string.overlay_growth, Color(0xFF3FA85A), Color(0xFFD8302F)),
+    /** Where the town's been clearing homes, and people are upset about it. */
+    Upset(Res.string.overlay_upset, Color(0x00C0392B), Color(0xFFC0392B)),
+    /** Homes standing empty. */
+    Vacant(Res.string.overlay_vacant, Color(0x00D8A030), Color(0xFFD8A030)),
+    /** Buildings old and handsome enough to be heritage, and those getting there. */
+    Heritage(Res.string.overlay_heritage, Color(0x408A6A4A), Color(0xFF8A4A2A)),
 }
 
 /** The crime views run up to the worst on the map, though never past this far. */
@@ -120,6 +132,10 @@ private fun crimeLayer(overlay: Overlay, map: CityMap): ByteArray? = when (overl
 internal fun overlayImage(
     overlay: Overlay, map: CityMap, homeAt: (Int) -> Household?, wearAt: (Int) -> Int, uncollectedAt: (Int) -> Boolean,
     localAt: (Int) -> Int, waitAt: (Int) -> Int, focus: IntArray?, loadAt: (Int) -> Int, visitorAt: (Int) -> Int = { -1 }, leisureAt: (Int) -> Int = { 0 },
+    /** For a zoned lot: 0 when it can grow, 255 when it can't, -1 for anything else. */
+    growthAt: (Int) -> Int = { -1 },
+    /** For a building: 255 when it's heritage, less as an old one gets nearer, -1 for anything else. */
+    heritageAt: (Int) -> Int = { -1 },
     ridersAt: (Int) -> Int,
 ): ImageBitmap? {
     if (overlay == Overlay.None) return null
@@ -135,6 +151,10 @@ internal fun overlayImage(
         val v: Int = when (overlay) {
             Overlay.LandValue -> map.landValue[i].toInt() and 0xff
             Overlay.Leisure -> leisureAt(i) * 255 / 100
+            Overlay.Growth -> growthAt(i).takeIf { it >= 0 } ?: continue
+            Overlay.Upset -> map.upset[i].toInt() and 0xff
+            Overlay.Vacant -> (homeAt(i) ?: continue).let { if (it.empty) 255 else 0 }
+            Overlay.Heritage -> heritageAt(i).takeIf { it >= 0 } ?: continue
             Overlay.Pollution -> map.pollution[i].toInt() and 0xff
             Overlay.Crime -> (map.crime[i].toInt() and 0xff) * 255 / worst
             Overlay.Police -> map.policeCover[i].toInt() and 0xff
@@ -237,7 +257,7 @@ internal fun overlayImage(
             overlay == Overlay.Railway || overlay == Overlay.Water || overlay == Overlay.Runoff ||
             overlay == Overlay.Schooling || overlay == Overlay.Health || overlay == Overlay.Wealth || overlay == Overlay.Age ||
             overlay == Overlay.Heat || overlay == Overlay.Garbage || overlay == Overlay.Goods || overlay == Overlay.Junctions || overlay == Overlay.Reach || overlay == Overlay.LineLoad || overlay == Overlay.Visitors ||
-            overlay == Overlay.Leisure
+            overlay == Overlay.Leisure || overlay == Overlay.Growth || overlay == Overlay.Vacant
         if (!everywhere && v == 0) continue
         pixels[i] = mix(overlay.low, overlay.high, v / 255f)
     }

@@ -1,5 +1,6 @@
 package com.rm.infill.ui
 
+import androidx.compose.ui.text.drawText
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -7,6 +8,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.rm.infill.res.graph_all
+import com.rm.infill.res.graph_recent
+import com.rm.infill.res.series_smog
+import com.rm.infill.res.series_deaths
+import com.rm.infill.res.series_births
+import com.rm.infill.res.series_unemployment
+import com.rm.infill.res.series_health
+import com.rm.infill.res.chronicle
+import com.rm.infill.res.era_then_and_now
 import com.rm.infill.res.next_month
 import com.rm.infill.res.income_trade
 import com.rm.infill.res.sell_bond
@@ -123,6 +133,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.text.style.TextOverflow
 
+import com.rm.infill.sim.EventKind
 import com.rm.infill.sim.Bonds
 import com.rm.infill.sim.Topic
 import com.rm.infill.sim.Ordinance
@@ -797,6 +808,11 @@ private val SERIES = listOf(
     Triple(Series.LandValue, Res.string.series_land_value, Glyph.Mountain),
     Triple(Series.Carbon, Res.string.series_carbon, Glyph.Smoke),
     Triple(Series.Leisure, Res.string.series_leisure, Glyph.Tree),
+    Triple(Series.Health, Res.string.series_health, Glyph.Cross),
+    Triple(Series.Unemployment, Res.string.series_unemployment, Glyph.Briefcase),
+    Triple(Series.Births, Res.string.series_births, Glyph.Plus),
+    Triple(Series.Deaths, Res.string.series_deaths, Glyph.Hourglass),
+    Triple(Series.Smog, Res.string.series_smog, Glyph.Smoke),
 )
 
 /** The town over the years, one thing at a time. */
@@ -806,8 +822,15 @@ fun GraphsWindow(game: GameState, onClose: () -> Unit) {
     game.revision
     val history = game.city.history
     var series by remember { mutableStateOf(Series.Population) }
-    Window(Res.string.graphs, onClose, Glyph.Arrows, help = "people") {
+    // The last twenty years month by month, or every year since the start.
+    var allYears by remember { mutableStateOf(false) }
+    Window(Res.string.graphs, onClose, Glyph.Arrows, help = "the-towns-story") {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (history.yearsKept >= 2) {
+                Chips(listOf(false, true), allYears, {
+                    if (it) stringResource(Res.string.graph_all, history.yearAt(0)) else stringResource(Res.string.graph_recent)
+                }) { allYears = it }
+            }
             // Two rows of four, so they fit an upright phone.
             for (row in SERIES.chunked(4)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -828,23 +851,38 @@ fun GraphsWindow(game: GameState, onClose: () -> Unit) {
                     }
                 }
             }
+            val yearly = allYears && history.yearsKept >= 2
             if (history.count < 2) {
                 Text(stringResource(Res.string.no_history), color = c.textDim, fontSize = 14.sp)
             } else {
-                val values = history.values(series)
+                val values = if (yearly) history.yearValues(series) else history.values(series)
                 val months = stringArrayResource(Res.array.month_short)
-                val (y0, m0) = history.dateOf(0)
-                val (y1, m1) = history.dateOf(history.count - 1)
+                // Where each point falls, in months since 1900, for the eras' lines.
+                val at = if (yearly) LongArray(values.size) { history.yearAt(it) * 12L + 11 }
+                else LongArray(values.size) { history.dateOf(it).let { (y, m) -> y * 12L + m } }
                 val top = values.max()
                 val money = series == Series.Funds || series == Series.Income || series == Series.Upkeep
                 Row(Modifier.fillMaxWidth()) {
                     Text(shownText(top, money), color = c.textDim, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     Text(shownText(values.last(), money), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
-                LineChart(values, c.accent, c.chromeEdge, Modifier.fillMaxWidth().height(180.dp))
+                // Each era's arrival on the chart, with its name.
+                val eras = game.city.chronicle.filter { it.event.kind == EventKind.EraArrived }.mapNotNull { t ->
+                    val month = t.year * 12L + t.month
+                    if (month <= at.first() || month > at.last()) null
+                    else ((month - at.first()).toFloat() / (at.last() - at.first())) to stringResource(eraName(t.event.era ?: return@mapNotNull null))
+                }
+                LineChart(values, c.accent, c.chromeEdge, Modifier.fillMaxWidth().height(180.dp), eras, c.textDim)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(stringResource(Res.string.date, months.getOrElse(m0) { "" }, y0), color = c.textDim, fontSize = 12.sp)
-                    Text(stringResource(Res.string.date, months.getOrElse(m1) { "" }, y1), color = c.textDim, fontSize = 12.sp)
+                    if (yearly) {
+                        Text(history.yearAt(0).toString(), color = c.textDim, fontSize = 12.sp)
+                        Text(history.yearAt(history.yearsKept - 1).toString(), color = c.textDim, fontSize = 12.sp)
+                    } else {
+                        val (y0, m0) = history.dateOf(0)
+                        val (y1, m1) = history.dateOf(history.count - 1)
+                        Text(stringResource(Res.string.date, months.getOrElse(m0) { "" }, y0), color = c.textDim, fontSize = 12.sp)
+                        Text(stringResource(Res.string.date, months.getOrElse(m1) { "" }, y1), color = c.textDim, fontSize = 12.sp)
+                    }
                 }
             }
         }
@@ -854,10 +892,16 @@ fun GraphsWindow(game: GameState, onClose: () -> Unit) {
 @Composable
 private fun shownText(v: Long, money: Boolean) = if (money) moneyText(v) else groupThousands(v)
 
-/** A line over time from zero up to the highest value, with a soft fill under it. */
+/** A line over time from zero up to the highest value, with a soft fill under it, and [marks] across it: a share of the way and a name. */
 @Composable
-private fun LineChart(values: LongArray, line: Color, grid: Color, modifier: Modifier) {
+private fun LineChart(values: LongArray, line: Color, grid: Color, modifier: Modifier, marks: List<Pair<Float, String>> = emptyList(), markColour: Color = grid) {
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
     Canvas(modifier) {
+        for ((share, name) in marks) {
+            val x = size.width * share
+            drawLine(markColour, Offset(x, 0f), Offset(x, size.height), 1.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
+            drawText(measurer, name, Offset(x + 3.dp.toPx(), 2.dp.toPx()), androidx.compose.ui.text.TextStyle(color = markColour, fontSize = 10.sp))
+        }
         val top = maxOf(1L, values.max()).toFloat()
         val bottom = minOf(0L, values.min()).toFloat()
         val span = top - bottom
@@ -1065,12 +1109,29 @@ private fun eraLine(era: Era): StringResource = when (era) {
  * how far the town is towards each thing the next one needs.
  */
 @Composable
-fun EraWindow(game: GameState, era: Era, onClose: () -> Unit) {
+fun EraWindow(game: GameState, era: Era, onChronicle: () -> Unit, onClose: () -> Unit) {
     val c = Infill.colors
     game.revision
     val city = game.city
     Window(eraName(era), onClose, Glyph.Calendar, help = "eras") {
         Text(stringResource(eraLine(era)), color = c.text, fontSize = 15.sp)
+        // The town as the era began, beside how it was when the one before it did.
+        val shots = city.snapshots
+        val now = shots.lastOrNull { it.era == era }
+        val then = now?.let { n -> shots.getOrNull(shots.indexOf(n) - 1) }
+        if (now != null) {
+            Section(stringResource(Res.string.era_then_and_now), Glyph.Calendar) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    for (shot in listOfNotNull(then, now)) {
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TownPicture(shot.tiles, city.map.width, Modifier.fillMaxWidth())
+                            Text(shot.year.toString(), color = c.textDim, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+        TextButton(stringResource(Res.string.chronicle), false, onChronicle)
         // What it brings: in the township, only what comes after the start.
         fun brought(year: Int, of: Era = Era.of(year)) = of == era && (era != Era.TOWNSHIP || year > Era.TOWNSHIP.year)
         val brings = buildList {
