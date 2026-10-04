@@ -10,6 +10,9 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import com.rm.infill.res.money_of_1900
+import com.rm.infill.res.money_of_the_day
+import com.rm.infill.res.money_shown
 import com.rm.infill.res.ordinances
 import com.rm.infill.res.tool_leisure
 import com.rm.infill.res.climate_dry
@@ -607,6 +610,10 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
                         Chips(listOf(0, 1, 2), settings.disasters, {
                             stringResource(listOf(Res.string.disasters_off, Res.string.disasters_fewer, Res.string.disasters_normal)[it])
                         }) { settings.disasters = it }
+                        SettingHead(Res.string.money_shown, Glyph.Coins)
+                        Chips(listOf(false, true), settings.dayDollars, {
+                            stringResource(if (it) Res.string.money_of_the_day else Res.string.money_of_1900)
+                        }) { settings.dayDollars = it }
                     }
                     SettingsTab.Keys -> {
                         // The controller's buttons show once one's been used.

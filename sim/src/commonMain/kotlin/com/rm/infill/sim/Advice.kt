@@ -5,6 +5,9 @@ enum class AdviceKind {
     /** Money's run out. */
     DEBT,
 
+    /** So far into debt the overseer has the books: nothing new can be built until it's paid. */
+    OVERSEEN,
+
     /** Not enough power for what the town draws. */
     POWER_SHORT,
 

@@ -28,6 +28,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rm.infill.res.advice_overseen
 import com.rm.infill.res.advice_garbage_far
 import com.rm.infill.res.advice_flooding
 import com.rm.infill.res.advice_leisure
@@ -96,6 +97,7 @@ internal fun adviceText(a: Advice): String {
     val zone = zoneNoun(a.zone)?.let { stringResource(it) } ?: ""
     return when (a.kind) {
         AdviceKind.DEBT -> stringResource(Res.string.advice_debt)
+        AdviceKind.OVERSEEN -> stringResource(Res.string.advice_overseen)
         AdviceKind.POWER_SHORT -> stringResource(Res.string.advice_power_short)
         AdviceKind.WATER_SHORT -> stringResource(Res.string.advice_water_short)
         AdviceKind.NO_WAY_IN -> stringResource(Res.string.advice_no_way_in)
@@ -123,7 +125,7 @@ private fun zoneNoun(zone: Byte): StringResource? = when (zone) {
 }
 
 internal fun adviceGlyph(kind: AdviceKind): Glyph = when (kind) {
-    AdviceKind.DEBT -> Glyph.Coins
+    AdviceKind.DEBT, AdviceKind.OVERSEEN -> Glyph.Coins
     AdviceKind.POWER_SHORT, AdviceKind.NO_POWER -> Glyph.Bolt
     AdviceKind.WATER_SHORT, AdviceKind.NO_WATER, AdviceKind.NO_SEWER -> Glyph.Drop
     AdviceKind.ZONE_MORE -> Glyph.Zone

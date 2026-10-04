@@ -1203,6 +1203,31 @@ object Balance {
     // fumes from crawling traffic, in percent more at most, and more for each second spent waiting at a crossing.
     const val FLOW_PAR = 65
 
+    // Money with teeth. The overseer comes in when debt passes this many months of income, or this much
+    // at least, and caps funding at this, in percent. A rating falls a step for every so many months in
+    // debt and rises one for so many in the black. Bonds' payments a month can come to this share of
+    // income, in percent. Business rates on each load the works send away.
+    const val DEBT_MONTHS = 6L
+    const val DEBT_FLOOR = 20_000L
+    const val OVERSEER_FUNDING = 80
+    const val RATING_DROP_MONTHS = 3
+    const val RATING_RISE_MONTHS = 24
+    const val BOND_MOST = 25L
+    const val TRADE_RATE = 1.0
+
+    /**
+     * Prices in [year] in percent of 1900's, for showing money in the dollars
+     * of the day: up through the wars, down in the thirties, and up fast
+     * through the seventies. The sim itself keeps to 1900's dollars.
+     */
+    fun priceIndex(year: Int): Int {
+        val years = intArrayOf(1900, 1913, 1920, 1933, 1945, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020, 2030)
+        val index = intArrayOf(100, 115, 230, 150, 210, 280, 340, 450, 950, 1500, 1950, 2500, 2900, 3600)
+        if (year <= years.first()) return index.first()
+        for (k in 1 until years.size) if (year <= years[k]) return index[k - 1] + (index[k] - index[k - 1]) * (year - years[k - 1]) / (years[k] - years[k - 1])
+        return index.last()
+    }
+
     /**
      * What the town pays its staff in [year], in percent of 1900: police, fire,
      * parks, schools, health and the town hall cost more as wages rise.

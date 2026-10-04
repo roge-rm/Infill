@@ -80,6 +80,16 @@ class Settings(private val store: Platform) {
             store.setSetting(DISASTERS, v.toString())
         }
 
+    private var dayDollarsState by mutableStateOf(store.setting(DAY_DOLLARS) == "1")
+
+    /** Money shown in the dollars of the game's year rather than 1900's. */
+    var dayDollars: Boolean
+        get() = dayDollarsState
+        set(v) {
+            dayDollarsState = v
+            store.setSetting(DAY_DOLLARS, if (v) "1" else null)
+        }
+
     private var volumesState by mutableStateOf(
         IntArray(VOLUMES.size) { k -> store.setting(VOLUMES[k])?.toIntOrNull()?.coerceIn(0, 100) ?: DEFAULT_VOLUMES[k] }.toList(),
     )
@@ -216,6 +226,7 @@ class Settings(private val store: Platform) {
         val LANGUAGES = linkedMapOf("en" to "English")
         private const val SCALE = "ui_scale"
         private const val DISASTERS = "disasters"
+        private const val DAY_DOLLARS = "day_dollars"
         private const val TOOL_SIDE = "tool_side"
         private const val KEYS = "keys"
         private const val PAD = "pad"

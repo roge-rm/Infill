@@ -140,7 +140,7 @@ class ServicesTest {
     fun theBooksAddUp() {
         val c = town(police = true, fire = true, parks = true).also { it.run(4) }
         val s = c.stats
-        assertEquals(s.residentialIncome + s.commercialIncome + s.industrialIncome, s.income)
+        assertEquals(s.residentialIncome + s.commercialIncome + s.industrialIncome + s.tradeIncome, s.income)
         assertEquals(s.roadUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep, s.upkeep)
         assertTrue(s.policeUpkeep > 0 && s.fireUpkeep > 0 && s.parkUpkeep > 0)
         val before = s.residentialIncome

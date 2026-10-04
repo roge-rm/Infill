@@ -24,6 +24,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -493,10 +494,15 @@ private fun SquareButton(
     ) { content(if (selected) c.onAccent else c.text) }
 }
 
-/** An amount of money as $20,000, or −$861 when it's owed. */
+/** What money's shown at, in percent of the sim's 1900 dollars: more for the dollars of the day. */
+val LocalPriceIndex = compositionLocalOf { 100 }
+
+/** An amount of money as $20,000, or −$861 when it's owed, in the dollars shown. */
 @Composable
-fun moneyText(amount: Long): String =
-    if (amount < 0) stringResource(Res.string.money_owed, groupThousands(-amount)) else stringResource(Res.string.money, groupThousands(amount))
+fun moneyText(amount: Long): String {
+    val shown = amount * LocalPriceIndex.current / 100
+    return if (shown < 0) stringResource(Res.string.money_owed, groupThousands(-shown)) else stringResource(Res.string.money, groupThousands(shown))
+}
 
 /**
  * How numbers are written in the language being shown: the mark between

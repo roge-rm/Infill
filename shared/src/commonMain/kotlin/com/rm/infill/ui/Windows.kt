@@ -7,6 +7,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.rm.infill.res.next_month
+import com.rm.infill.res.income_trade
+import com.rm.infill.res.sell_bond
+import com.rm.infill.res.bond_line
+import com.rm.infill.res.bonds_none
+import com.rm.infill.res.bond_rating
+import com.rm.infill.res.overseer_note
+import com.rm.infill.res.bonds
 import com.rm.infill.res.edge_link_no
 import com.rm.infill.res.edge_link_yes
 import com.rm.infill.res.edge_link_what
@@ -115,6 +123,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.text.style.TextOverflow
 
+import com.rm.infill.sim.Bonds
 import com.rm.infill.sim.Topic
 import com.rm.infill.sim.Ordinance
 import com.rm.infill.sim.Density
@@ -443,6 +452,22 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit, onOrdinances: () -> Unit 
             Stepper(ZoneMark(com.rm.infill.sim.Zone.COMMERCIAL), stringResource(Res.string.tax_commercial), city.commercialTax, 1) { game.setTaxes(c = (city.commercialTax + it).coerceIn(0, 20)) }
             Stepper(ZoneMark(com.rm.infill.sim.Zone.INDUSTRIAL), stringResource(Res.string.tax_industrial), city.industrialTax, 1) { game.setTaxes(i = (city.industrialTax + it).coerceIn(0, 20)) }
         }
+        Section(stringResource(Res.string.bonds), Glyph.Coins) {
+            if (city.overseen) Text(stringResource(Res.string.overseer_note), color = c.bad, fontSize = 13.sp)
+            Text(stringResource(Res.string.bond_rating, Bonds.RATINGS[city.rating]), color = c.text, fontSize = 14.sp)
+            if (city.bonds.isEmpty()) Text(stringResource(Res.string.bonds_none), color = c.textDim, fontSize = 13.sp)
+            for (b in city.bonds) {
+                Text(
+                    stringResource(Res.string.bond_line, moneyText(b.raised), b.year, moneyText(b.payment), city.year + (b.monthsLeft + 11) / 12),
+                    color = c.textDim, fontSize = 13.sp,
+                )
+            }
+            val rate = Bonds.rate(city.year, city.rating)
+            val percent = "${rate / 100}.${(rate % 100).toString().padStart(2, '0')}"
+            for (years in listOf(1, 3)) if (city.canSellBond(years)) {
+                TextButton(stringResource(Res.string.sell_bond, moneyText(city.bondSize(years)), percent), false) { game.sellBond(years) }
+            }
+        }
         Section(stringResource(Res.string.ordinances), Glyph.Gavel) {
             val inForce = Ordinance.entries.count { city.has(it) }
             Text(
@@ -473,6 +498,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit, onOrdinances: () -> Unit 
                 if (s.duesIncome + s.tollIncome > 0) Triple(Glyph.Anchor, Res.string.income_dues, s.duesIncome + s.tollIncome) else null,
                 if (s.ordinanceIncome > 0) Triple(Glyph.Gavel, Res.string.ordinance_cost, s.ordinanceIncome) else null,
                 if (s.neighbourIncome > 0) Triple(Glyph.Arrows, Res.string.income_next_door, s.neighbourIncome) else null,
+                if (s.tradeIncome > 0) Triple(Glyph.Crate, Res.string.income_trade, s.tradeIncome) else null,
             )
             val upkeep = listOfNotNull(
                 Triple(Glyph.Road, Res.string.upkeep_roads, s.roadUpkeep),
@@ -494,6 +520,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit, onOrdinances: () -> Unit 
                 if (s.neighbourCost > 0) Triple(Glyph.Arrows, Res.string.upkeep_next_door, s.neighbourCost) else null,
                 if (s.ordinanceCost > 0) Triple(Glyph.Gavel, Res.string.ordinance_cost, s.ordinanceCost) else null,
                 if (s.civicUpkeep > 0) Triple(Glyph.Civic, Res.string.upkeep_civic, s.civicUpkeep) else null,
+                if (s.bondCost > 0) Triple(Glyph.Coins, Res.string.bonds, s.bondCost) else null,
             )
             // Every bar against the biggest, in or out.
             val most = maxOf(1L, (income + upkeep).maxOf { it.third })
@@ -506,6 +533,8 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit, onOrdinances: () -> Unit 
                 Text(stringResource(Res.string.net), color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 Text(moneyText(net), color = if (net < 0) c.bad else c.good, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
+            val next = city.nextMonth()
+            Text(stringResource(Res.string.next_month, moneyText(next)), color = c.textDim, fontSize = 13.sp)
         }
         @Composable
         fun mw(kw: Long) = stringResource(Res.string.megawatts, groupThousands((kw + 500) / 1000))

@@ -433,6 +433,27 @@
     <string name="advice_leisure">%1$s can't grow: too little to do nearby, build parks and leisure</string>
     <string name="advice_garbage">Garbage is piling up: build a dump</string>
     <string name="advice_garbage_far">Garbage is piling up far from the dumps: build a transfer station or a dump nearer</string>
+    <!-- Settings: the dollars money's shown in. -->
+    <string name="money_shown">Money</string>
+    <string name="money_of_1900">In 1900 dollars</string>
+    <string name="money_of_the_day">In dollars of the day</string>
+    <!-- Bonds and debt. A bond's line: what it raised, the year, what it costs a month, and the year it's paid off. -->
+    <string name="bonds">Bonds</string>
+    <string name="bonds_none">No bonds</string>
+    <string name="bond_rating">Credit rating: %1$s</string>
+    <string name="bond_line">%1$s raised in %2$d: %3$s a month until %4$d</string>
+    <!-- The amount, and the interest a year, such as 4.50. -->
+    <string name="sell_bond">Sell a bond of %1$s at %2$s%</string>
+    <string name="overseer_note">The overseer has the books: nothing new can be built until the town\'s out of debt</string>
+    <string name="overseen">The overseer won\'t allow it while the town\'s in debt</string>
+    <string name="advice_overseen">The overseer has the books: pay off the debt to build again</string>
+    <string name="event_overseer_in">So deep in debt, an overseer has taken over the town\'s books</string>
+    <string name="event_overseer_out">Out of debt: the overseer has gone</string>
+    <string name="event_rating_down">The town\'s credit rating fell to %1$s</string>
+    <string name="event_rating_up">The town\'s credit rating rose to %1$s</string>
+    <string name="income_trade">Business rates on trade</string>
+    <!-- Under the budget: about what next month comes to. -->
+    <string name="next_month">Next month, about %1$s</string>
     <!-- Asked when a new road reaches the edge of the map. -->
     <string name="edge_link_title">Link to the outside?</string>
     <string name="edge_link_what">This road reaches the edge of the map. Linked, newcomers, trade and commuters come and go along it.</string>

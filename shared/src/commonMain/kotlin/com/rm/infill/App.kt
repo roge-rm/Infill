@@ -4,6 +4,9 @@ import com.rm.infill.platform.simDispatcher
 import com.rm.infill.sim.AdviceKind
 import com.rm.infill.sim.Advice
 import com.rm.infill.ui.EdgeLinkWindow
+import com.rm.infill.sim.Balance
+import com.rm.infill.ui.LocalPriceIndex
+import com.rm.infill.ui.moneyText
 import com.rm.infill.ui.OrdinancesWindow
 import com.rm.infill.ui.ordinanceName
 import com.rm.infill.ui.listText
@@ -24,6 +27,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.unit.Density
 import com.rm.infill.ui.airChoices
 import com.rm.infill.ui.AirKind
+import com.rm.infill.res.overseen
+import com.rm.infill.res.event_rating_up
+import com.rm.infill.res.event_rating_down
+import com.rm.infill.res.event_overseer_out
+import com.rm.infill.res.event_overseer_in
 import com.rm.infill.res.only_one
 import com.rm.infill.res.event_ordinance_ended
 import com.rm.infill.res.event_ordinance_available
@@ -812,6 +820,10 @@ private fun GameScreen(
                 // History ends a law, or brings one the town can pass.
                 EventKind.OrdinanceEnded -> Message(Res.string.event_ordinance_ended, ordinanceName(com.rm.infill.sim.Ordinance.entries[e.count]))
                 EventKind.OrdinanceAvailable -> Message(Res.string.event_ordinance_available, ordinanceName(com.rm.infill.sim.Ordinance.entries[e.count]))
+                EventKind.OverseerIn -> Message(Res.string.event_overseer_in)
+                EventKind.OverseerOut -> Message(Res.string.event_overseer_out)
+                EventKind.RatingDown -> Message(Res.string.event_rating_down, name = com.rm.infill.sim.Bonds.RATINGS[e.count])
+                EventKind.RatingUp -> Message(Res.string.event_rating_up, name = com.rm.infill.sim.Bonds.RATINGS[e.count])
                 EventKind.FireStarted -> Message(Res.string.event_fire, e.type?.let { buildingName(it) }, e.x, e.y)
                 EventKind.BuildingLost -> Message(Res.string.event_lost, e.type?.let { buildingName(it) }, e.x, e.y)
                 EventKind.FireSaved -> Message(Res.string.event_saved, e.type?.let { buildingName(it) }, e.x, e.y)
@@ -891,7 +903,8 @@ private fun GameScreen(
             else if (it.plan.problem == Problem.NoSeaRoute) stringResource(Res.string.no_sea_route)
             else if (it.plan.problem == Problem.CutsOffPort) stringResource(Res.string.cuts_off_port)
             else if (it.plan.problem == Problem.OnlyOne) stringResource(Res.string.only_one)
-            else stringResource(Res.string.money, groupThousands(it.plan.cost))
+            else if (it.plan.problem == Problem.Overseen) stringResource(Res.string.overseen)
+            else moneyText(it.plan.cost)
         } ?: ""
 
         /** Steps the tool's kind on by [by], round to the start after the last: the next road, zone, service and so on. */
@@ -998,6 +1011,7 @@ private fun GameScreen(
                 Problem.NoSeaRoute -> Message(Res.string.no_sea_route)
                 Problem.CutsOffPort -> Message(Res.string.cuts_off_port)
                 Problem.OnlyOne -> Message(Res.string.only_one)
+                Problem.Overseen -> Message(Res.string.overseen)
                 else -> message
             }
         }
@@ -1312,7 +1326,7 @@ private fun GameScreen(
             (if (drag != null) listOf(CustomAccessibilityAction(letGo) { drag = null; true }) else emptyList())
 
         // Panels draw buildings in their own art.
-        CompositionLocalProvider(LocalAtlas provides atlas) {
+        CompositionLocalProvider(LocalAtlas provides atlas, LocalPriceIndex provides if (settings.dayDollars) Balance.priceIndex(city.year) else 100) {
         BoxWithConstraints(
             Modifier
                 .fillMaxSize()

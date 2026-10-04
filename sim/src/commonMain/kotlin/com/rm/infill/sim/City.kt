@@ -595,6 +595,7 @@ class City(
                 m.subway[m.index(action.x, action.y)].toInt() == 0 -> Problem.NeedsTunnel
             changes.isEmpty() -> Problem.NothingToDo
             noRoute -> Problem.NoRoute
+            overseen && cost > 0 && action !is Action.Bulldoze && action !is Action.RenewArea -> Problem.Overseen
             cost > funds -> Problem.NotEnoughMoney
             else -> null
         }
@@ -7381,7 +7382,8 @@ class City(
     internal fun updateAdvice() {
         val s = stats
         val out = ArrayList<Advice>()
-        if (funds < 0) out += Advice(AdviceKind.DEBT)
+        if (overseen) out += Advice(AdviceKind.OVERSEEN)
+        else if (funds < 0) out += Advice(AdviceKind.DEBT)
         if (s.powerShort > 0 && s.powerDemand > 0 && s.powerShort * 100 / s.powerDemand >= Balance.ADVICE_SHORT) out += Advice(AdviceKind.POWER_SHORT)
         if (s.waterShort > 0 && s.waterUsed > 0 && s.waterShort * 100 / s.waterUsed >= Balance.ADVICE_SHORT) out += Advice(AdviceKind.WATER_SHORT)
         if (needsWayIn()) out += Advice(AdviceKind.NO_WAY_IN)
@@ -7635,7 +7637,10 @@ class City(
         s.neighbourCost = (s.powerIn / 1000.0 * Balance.POWER_PRICE + s.waterIn / 100.0 * Balance.WATER_PRICE + s.garbageOut * Balance.DUMP_FEE).roundToLong()
         s.ordinanceIncome = ordinanceIncome()
         s.ordinanceCost = ordinanceCost()
-        s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.officeIncome + s.fareIncome + s.duesIncome + s.tollIncome + s.neighbourIncome + s.ordinanceIncome
+        // Business rates on what the town's works send away.
+        s.tradeIncome = (s.goodsExported.sum() * Balance.TRADE_RATE).roundToLong()
+        s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.officeIncome + s.fareIncome + s.duesIncome + s.tollIncome + s.neighbourIncome + s.ordinanceIncome +
+            s.tradeIncome
         var tramTiles = 0
         var wires = 0
         var tunnels = 0
@@ -7693,8 +7698,94 @@ class City(
         s.schoolUpkeep = (schools * schoolFunding / 100 * wages).roundToLong()
         s.healthUpkeep = (care * healthFunding / 100 * wages).roundToLong()
         s.civicUpkeep = (civic * wages).roundToLong()
-        s.upkeep = s.civicUpkeep + s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost + s.phoneUpkeep + s.portUpkeep + s.neighbourCost + s.ordinanceCost
+        // What's owed on the bonds this month.
+        s.bondCost = bonds.sumOf { it.payment }
+        for (b in bonds) b.monthsLeft--
+        bonds.removeAll { it.monthsLeft <= 0 }
+        s.upkeep = s.bondCost + s.civicUpkeep + s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost + s.phoneUpkeep + s.portUpkeep + s.neighbourCost + s.ordinanceCost
         funds += s.income - s.upkeep
+        finances()
+    }
+
+    /** The town's bonds, oldest first. */
+    val bonds = ArrayList<Bond>()
+
+    /** The town's credit rating, an index into [Bonds.RATINGS]: 0 is the best. */
+    var rating = Bonds.START_RATING
+        private set
+
+    /** Months in the black in a row, towards a better rating. */
+    private var goodMonths = 0
+
+    /** Whether the town's so deep in debt an outside overseer has its books: nothing new is built, and funding's capped. */
+    var overseen = false
+        private set
+
+    /** How far into debt the town can go before the overseer comes in. */
+    fun debtLimit(): Long = maxOf(Balance.DEBT_FLOOR, stats.income * Balance.DEBT_MONTHS)
+
+    /** The most a service can be funded, in percent: less with the overseer in. */
+    fun fundingCap(): Int = if (overseen) Balance.OVERSEER_FUNDING else 100
+
+    /**
+     * The month's end for the town's credit: a step down the ratings for a
+     * month in debt, a step back up for a long enough run in the black, and
+     * the overseer in when the debt's past the limit, out once it's paid.
+     */
+    private fun finances() {
+        if (funds < 0) {
+            goodMonths = 0
+            if (rating < Bonds.RATINGS.size - 1 && monthNow % Balance.RATING_DROP_MONTHS == 0) {
+                rating++
+                events += CityEvent(EventKind.RatingDown, -1, -1, null, count = rating)
+            }
+        } else if (++goodMonths >= Balance.RATING_RISE_MONTHS && rating > 0) {
+            goodMonths = 0
+            rating--
+            events += CityEvent(EventKind.RatingUp, -1, -1, null, count = rating)
+        }
+        if (!overseen && funds < -debtLimit()) {
+            overseen = true
+            rating = Bonds.RATINGS.size - 1
+            policeFunding = min(policeFunding, Balance.OVERSEER_FUNDING)
+            fireFunding = min(fireFunding, Balance.OVERSEER_FUNDING)
+            parkFunding = min(parkFunding, Balance.OVERSEER_FUNDING)
+            schoolFunding = min(schoolFunding, Balance.OVERSEER_FUNDING)
+            healthFunding = min(healthFunding, Balance.OVERSEER_FUNDING)
+            events += CityEvent(EventKind.OverseerIn, -1, -1, null)
+        } else if (overseen && funds >= 0) {
+            overseen = false
+            events += CityEvent(EventKind.OverseerOut, -1, -1, null)
+        }
+    }
+
+    /** About what next month comes to: the last three months' net, less what bonds sold since then add. */
+    fun nextMonth(): Long {
+        val income = history.values(Series.Income)
+        val upkeep = history.values(Series.Upkeep)
+        val n = minOf(3, income.size)
+        val net = if (n == 0) stats.income - stats.upkeep else (income.size - n until income.size).sumOf { income[it] - upkeep[it] } / n
+        return net - (bonds.sumOf { it.payment } - stats.bondCost)
+    }
+
+    /** What a bond of [years] of income would raise now, rounded to a thousand. */
+    fun bondSize(years: Int): Long = maxOf(1000L, stats.income * 12 * years / 1000 * 1000)
+
+    /** Whether the town can sell a bond: no overseer in, a rating above the bottom, and room for the payment in a quarter of its income. */
+    fun canSellBond(years: Int): Boolean {
+        if (overseen || rating >= Bonds.RATINGS.size - 1 || stats.income <= 0) return false
+        val more = Bonds.payment(bondSize(years), Bonds.rate(year, rating), Bonds.TERM_YEARS * 12)
+        return (bonds.sumOf { it.payment } + more) * 100 <= stats.income * Balance.BOND_MOST
+    }
+
+    /** Sells a bond of [years] of income: the money now, paid back with interest each month for [Bonds.TERM_YEARS]. */
+    fun sellBond(years: Int): Boolean {
+        if (!canSellBond(years)) return false
+        val amount = bondSize(years)
+        val rate = Bonds.rate(year, rating)
+        bonds += Bond(amount, rate, Bonds.payment(amount, rate, Bonds.TERM_YEARS * 12), Bonds.TERM_YEARS * 12, year)
+        funds += amount
+        return true
     }
 
     /** This month's numbers into the history. */
@@ -7964,6 +8055,13 @@ class City(
         w.long(s.civicUpkeep)
         // Since version 39: the edge roads kept in town.
         w.layer(map.unlinked)
+        // Since version 40: the bonds, the rating and the overseer, and what bonds and trade came to.
+        w.count(bonds.size)
+        for (b in bonds) {
+            w.long(b.raised); w.int(b.rate); w.long(b.payment); w.int(b.monthsLeft); w.int(b.year)
+        }
+        w.int(rating); w.int(goodMonths); w.bool(overseen)
+        w.long(s.bondCost); w.long(s.tradeIncome)
     }
 
     companion object {
@@ -8287,6 +8385,11 @@ class City(
                 }
                 if (version >= 38) c.stats.civicUpkeep = r.long()
                 if (version >= 39) r.layer(c.map.unlinked)
+                if (version >= 40) {
+                    repeat(r.count()) { c.bonds += Bond(r.long(), r.int(), r.long(), r.int(), r.int()) }
+                    c.rating = r.int(); c.goodMonths = r.int(); c.overseen = r.bool()
+                    c.stats.bondCost = r.long(); c.stats.tradeIncome = r.long()
+                }
                 c.updateNetworks()
                 c.markContainerTrains()
                 c.updateAirports()
@@ -8366,6 +8469,8 @@ class Stats {
     /** What the ordinances in force cost and brought in last month. */
     var ordinanceCost = 0L
     var civicUpkeep = 0L
+    var bondCost = 0L
+    var tradeIncome = 0L
     var ordinanceIncome = 0L
 
     /** The people by age, adults' schooling and wealth. */
@@ -8618,7 +8723,7 @@ class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int, va
 }
 
 
-enum class EventKind { OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut }
+enum class EventKind { OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut }
 
 /** Something that happened at [x], [y], to a building of [type] if it's about one, and how many it touched if that's told. */
 class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType?, val era: Era? = null, val count: Int = 0)

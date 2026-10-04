@@ -146,6 +146,9 @@ class GameState(val city: City) {
     /** Passes or repeals a town-wide law. */
     fun setOrdinance(o: com.rm.infill.sim.Ordinance, on: Boolean) = setting { city.setOrdinance(o, on) }
 
+    /** Sells a bond of [years] of income, if the town can. */
+    fun sellBond(years: Int) = setting { city.sellBond(years) }
+
     /** Tax rates in percent; any left out stay as they are. */
     fun setTaxes(r: Int = city.residentialTax, c: Int = city.commercialTax, i: Int = city.industrialTax) = setting {
         city.residentialTax = r
@@ -159,11 +162,13 @@ class GameState(val city: City) {
         schools: Int = city.schoolFunding, health: Int = city.healthFunding, relief: Int = city.reliefFunding,
     ) = setting {
         city.reliefFunding = relief
-        city.policeFunding = police
-        city.fireFunding = fire
-        city.parkFunding = parks
-        city.schoolFunding = schools
-        city.healthFunding = health
+        // No more than the overseer allows, if it's in.
+        val cap = city.fundingCap()
+        city.policeFunding = police.coerceAtMost(cap)
+        city.fireFunding = fire.coerceAtMost(cap)
+        city.parkFunding = parks.coerceAtMost(cap)
+        city.schoolFunding = schools.coerceAtMost(cap)
+        city.healthFunding = health.coerceAtMost(cap)
     }
 
     /** Hands over the tiles changed since the last call, as map indices; none this frame if the sim has the town. */

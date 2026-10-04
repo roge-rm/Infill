@@ -13,7 +13,7 @@
 10. [Services](10-services.md) - police and justice, fire, health, schools, civic buildings and waste, and how their cover works.
 11. [Leisure and parks](11-leisure-and-parks.md) - what people want to do near home, and the parks, sport and culture that give it.
 12. [People](12-people.md) - households, ages, schooling, wealth, work, health and getting about.
-13. [Money](13-money.md) - taxes, income, upkeep and the budget.
+13. [Money](13-money.md) - taxes, income, upkeep, bonds, debt and the budget.
 14. [Eras](14-eras.md) - the six eras, what each needs and what each brings.
 15. [Districts](15-districts.md) - painting districts, their taxes, height limits and policies.
 16. [Ordinances](16-ordinances.md) - town-wide laws: what each does, what it costs, and the years history gives it.
