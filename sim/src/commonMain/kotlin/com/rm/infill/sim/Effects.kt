@@ -74,6 +74,8 @@ internal object Effects {
         map: CityMap, buildingTypes: (Int) -> BuildingType?, nearRoad: BooleanArray, out: ByteArray,
         /** How well the parks are kept, in percent: they add less to the land around them when they're let go. */
         parksKept: Int = 100,
+        /** How much of the noise of traffic and planes is heard, in percent: less with speed limits and a noise bylaw. */
+        noise: Int = 100,
         activity: (Int) -> Int = { 0 },
     ) {
         val w = map.width
@@ -146,14 +148,14 @@ internal object Effects {
             // Buyers remember floods.
             v -= (map.floodMemory[i].toInt() and 0xff) / Balance.STIGMA_VALUE
             // The noise of busy roads, trains and yards, and a station within a walk.
-            v -= min(20, traffic.around(x, y, 1) / 48)
+            v -= min(20, traffic.around(x, y, 1) / 48) * noise / 100
             if (stations != null && track != null && yards != null) {
                 if (stations.around(x, y, 5) > 0) v += 12
                 if (track.around(x, y, 1) > 0) v -= 6
                 if (yards.around(x, y, 2) > 0 && buildingTypes(i)?.zone != Zone.INDUSTRIAL) v -= 10
             }
             // Under the planes.
-            if (buildingTypes(i)?.zone != Zone.INDUSTRIAL) v -= map.noise[i].toInt() and 0xff
+            if (buildingTypes(i)?.zone != Zone.INDUSTRIAL) v -= (map.noise[i].toInt() and 0xff) * noise / 100
             out[i] = v.coerceIn(0, 255).toByte()
         }
     }
@@ -166,7 +168,11 @@ internal object Effects {
      * with half the rackets already there, and more where [justice], the
      * percent of arrests that stick, is low. Empty land has none.
      */
-    fun crime(map: CityMap, residents: (Int) -> Int, shops: (Int) -> Int, occupied: (Int) -> Boolean, unemployment: Int, justice: Int) {
+    fun crime(
+        map: CityMap, residents: (Int) -> Int, shops: (Int) -> Int, occupied: (Int) -> Boolean, unemployment: Int, justice: Int,
+        /** Theft and vice in percent of what they'd be, for the ordinances that cut or feed them. */
+        theftShare: Int = 100, viceShare: Int = 100,
+    ) {
         val w = map.width
         val h = map.height
         val people = SummedArea(w, h, residents)
@@ -190,8 +196,8 @@ internal object Effects {
             theft = theft * (100 - Balance.LEISURE_THEFT * sport / 100) / 100
             var vice = people.around(x, y, 3) / 6 + min(Balance.NIGHTLIFE, nearShops / 30)
             vice = vice * (255 * 100 - police * Balance.VICE_POLICE) / (255 * 100)
-            theft = theft.coerceIn(0, 255) * slack / 100
-            vice = vice.coerceIn(0, 255) * slack / 100
+            theft = theft.coerceIn(0, 255) * slack / 100 * theftShare / 100
+            vice = vice.coerceIn(0, 255) * slack / 100 * viceShare / 100
             map.theft[i] = theft.coerceIn(0, 255).toByte()
             map.vice[i] = vice.coerceIn(0, 255).toByte()
             map.crime[i] = (theft + vice + (map.rackets[i].toInt() and 0xff) / 2).coerceIn(0, 255).toByte()
@@ -203,13 +209,13 @@ internal object Effects {
      * justice fails and the police are thin, spread a little to the
      * neighbours, and fade, the faster with [detectives] on them.
      */
-    fun rackets(map: CityMap, justice: Int, detectives: Int) {
+    fun rackets(map: CityMap, justice: Int, detectives: Int, feeding: Int = 100) {
         val w = map.width
         val h = map.height
         val unpunished = 150 - justice.coerceIn(0, 100)
         val grown = IntArray(map.size)
         for (i in 0 until map.size) {
-            val feed = ((map.theft[i].toInt() and 0xff) + (map.vice[i].toInt() and 0xff)) * unpunished / 100 / Balance.RACKETS_GROW
+            val feed = ((map.theft[i].toInt() and 0xff) + (map.vice[i].toInt() and 0xff)) * unpunished / 100 / Balance.RACKETS_GROW * feeding / 100
             val police = (map.policeCover[i].toInt() and 0xff) / 20
             grown[i] = ((map.rackets[i].toInt() and 0xff) + feed - police - Balance.RACKETS_FADE - detectives).coerceIn(0, 255)
         }

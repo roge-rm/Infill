@@ -668,6 +668,61 @@ object Balance {
     const val CULTURE_SHOPS_MOST = 5
     const val CULTURE_OFFICES = 40
     const val CULTURE_OFFICES_MOST = 3
+
+    /**
+     * Ordinances (see [Ordinance]): what the paying ones bring in, in cents
+     * a month: licence fees for each shop job, fines and dog licences for
+     * each person, meters for each shop and office job, the congestion
+     * charge for each person, and the carbon price for each tonne.
+     */
+    const val LIQUOR_FEE = 40
+    const val LATE_FEE = 30
+    const val FINES = 1
+    const val METERS = 20
+    const val DOG_FEE = 5
+    const val CONGESTION_FEE = 3
+    const val CARBON_FEE = 10
+
+    /** What the ordinances do, in percent of what would be: see where each is read. */
+    const val CODE_FIRES = 70
+    const val CODE_SPREAD = 80
+    const val HEALTH_ACT = 3
+    const val HEALTH_ACT_CHILDREN = 90
+    const val SMOKE_ABATED = 85
+    const val SMOKE_ABATEMENT_APPEAL = 3
+    const val LICENSED_VICE = 90
+    const val SUNDAY_VICE = 85
+    const val SUNDAY_APPEAL = 4
+    const val CURFEW_THEFT = 90
+    const val CURFEW_APPEAL = 2
+    const val DAYLIGHT_PEAK = 97
+    const val DRY_VICE = 70
+    const val DRY_RACKETS = 160
+    const val SPEED_NOISE = 85
+    const val METER_DRIVERS = 97
+    const val MEALS_SCHOOLING = 120
+    const val MEALS_HEALTH = 3
+    const val FLUORIDE_HEALTH = 2
+    const val DOG_PARKS = 110
+    const val QUIET_NOISE = 80
+    const val QUIET_APPEAL = 2
+    const val CLEAN_AIR_FUMES = 75
+    const val CLEAN_AIR_FUEL = 110
+    const val DEPOSIT_WASTE = 92
+    const val ART_CULTURE = 115
+    const val ART_DRAW = 105
+    const val PROTECTED_TREES = 3
+    const val ENERGY_CODE_DRAW = 92
+    const val CURBSIDE_RECYCLED = 150
+    const val LATE_APPEAL = 4
+    const val LATE_CULTURE = 110
+    const val LATE_VICE = 110
+    const val HEAT_PLAN_DEATHS = 70
+    const val SMOKING_HEALTH = 3
+    const val SMOKING_APPEAL = 1
+    const val CHARGE_DRIVERS = 92
+    const val CHARGE_APPEAL = 2
+    const val CARBON_FUEL = 125
     const val HERITAGE_DRAW = 4.0
     const val ROAD_VISITORS = 30
     const val ROAD_VISITORS_BY_CAR = 150

@@ -3,6 +3,8 @@ package com.rm.infill
 import com.rm.infill.platform.simDispatcher
 import com.rm.infill.sim.AdviceKind
 import com.rm.infill.sim.Advice
+import com.rm.infill.ui.OrdinancesWindow
+import com.rm.infill.ui.ordinanceName
 import com.rm.infill.ui.listText
 import com.rm.infill.ui.tileSummary
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -21,6 +23,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.unit.Density
 import com.rm.infill.ui.airChoices
 import com.rm.infill.ui.AirKind
+import com.rm.infill.res.event_ordinance_ended
+import com.rm.infill.res.event_ordinance_available
 import com.rm.infill.res.dig_tunnel
 import com.rm.infill.ui.railKindsIn
 import com.rm.infill.ui.bridgeName
@@ -735,6 +739,7 @@ private fun GameScreen(
         var viewTab by remember { mutableStateOf(ViewGroup.Town) }
         var stripSize by remember { mutableStateOf(IntSize.Zero) }
         var budgetOpen by remember { mutableStateOf(false) }
+        var ordinancesOpen by remember { mutableStateOf(false) }
         var graphsOpen by remember { mutableStateOf(false) }
         var peopleOpen by remember { mutableStateOf(false) }
         var demandOpen by remember { mutableStateOf(false) }
@@ -800,6 +805,9 @@ private fun GameScreen(
                 return
             }
             message = when (e.kind) {
+                // History ends a law, or brings one the town can pass.
+                EventKind.OrdinanceEnded -> Message(Res.string.event_ordinance_ended, ordinanceName(com.rm.infill.sim.Ordinance.entries[e.count]))
+                EventKind.OrdinanceAvailable -> Message(Res.string.event_ordinance_available, ordinanceName(com.rm.infill.sim.Ordinance.entries[e.count]))
                 EventKind.FireStarted -> Message(Res.string.event_fire, e.type?.let { buildingName(it) }, e.x, e.y)
                 EventKind.BuildingLost -> Message(Res.string.event_lost, e.type?.let { buildingName(it) }, e.x, e.y)
                 EventKind.FireSaved -> Message(Res.string.event_saved, e.type?.let { buildingName(it) }, e.x, e.y)
@@ -1006,10 +1014,10 @@ private fun GameScreen(
             // The keys come back to the map from wherever they were.
             runCatching { focus.requestFocus() }
             when {
-                fromTools && drag == null && inspected == null && !choosingOverlay && !budgetOpen && !graphsOpen && !peopleOpen && !demandOpen &&
+                fromTools && drag == null && inspected == null && !choosingOverlay && !budgetOpen && !ordinancesOpen && !graphsOpen && !peopleOpen && !demandOpen &&
                     !linesOpen && !districtsOpen && eraShown == null -> {}
-                budgetOpen || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null -> {
-                    budgetOpen = false; graphsOpen = false; peopleOpen = false; demandOpen = false; linesOpen = false; districtsOpen = false; eraShown = null
+                budgetOpen || ordinancesOpen || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null -> {
+                    budgetOpen = false; ordinancesOpen = false; graphsOpen = false; peopleOpen = false; demandOpen = false; linesOpen = false; districtsOpen = false; eraShown = null
                 }
                 drag != null -> drag = null
                 choosingOverlay -> choosingOverlay = false
@@ -1186,6 +1194,7 @@ private fun GameScreen(
             KeyAction.ToolTraffic -> pick(Tool.Traffic)
             KeyAction.ToolDistricts -> if (city.allowsDistricts()) pick(Tool.Districts)
             KeyAction.Budget -> budgetOpen = !budgetOpen
+            KeyAction.Ordinances -> ordinancesOpen = !ordinancesOpen
             KeyAction.Graphs -> graphsOpen = !graphsOpen
             KeyAction.People -> peopleOpen = !peopleOpen
             KeyAction.Demand -> demandOpen = !demandOpen
@@ -1213,7 +1222,7 @@ private fun GameScreen(
         }
 
         // The keys come back to the map whenever a window or panel over it closes, which takes the focus with it.
-        val anyOpen = windowOpen || budgetOpen || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
+        val anyOpen = windowOpen || budgetOpen || ordinancesOpen || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
         LaunchedEffect(anyOpen) { if (!anyOpen) focus.requestFocus() }
 
         // A controller's buttons do on the map what they're set to, as keys do. Away from the map the
@@ -1568,7 +1577,8 @@ private fun GameScreen(
                     ToolBar(tool.group, ::pickGroup, game.canUndo, game.canRedo, ::undo, ::redo, vertical = false, compact = compactTools, modifier = trayWidth, withHistory = !historyOnTop, focus = toolsFocus)
                 }
             }
-            if (budgetOpen) BudgetWindow(game) { budgetOpen = false }
+            if (budgetOpen) BudgetWindow(game, { budgetOpen = false }) { budgetOpen = false; ordinancesOpen = true }
+            if (ordinancesOpen) OrdinancesWindow(game) { ordinancesOpen = false }
             if (linesOpen) LinesWindow(game) { linesOpen = false }
             if (districtsOpen) DistrictsWindow(game) { districtsOpen = false }
             if (graphsOpen) GraphsWindow(game) { graphsOpen = false }

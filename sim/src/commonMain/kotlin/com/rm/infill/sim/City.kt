@@ -1874,6 +1874,7 @@ class City(
         undoable.clear()
         redoable.clear()
         if (networksDirty) updateNetworks()
+        ordinanceYears()
         powerCuts()
         between()
         waterCuts()
@@ -1937,7 +1938,8 @@ class City(
         between()
         updateCrime()
         between()
-        Effects.landValue(map, { i -> buildings[map.building[i]]?.type }, nearRoad, map.landValue, parksKept()) { i ->
+        val heard = 100 * (if (has(Ordinance.SPEED_LIMITS)) Balance.SPEED_NOISE else 100) / 100 * (if (has(Ordinance.NOISE_BYLAW)) Balance.QUIET_NOISE else 100) / 100
+        Effects.landValue(map, { i -> buildings[map.building[i]]?.type }, nearRoad, map.landValue, parksKept(), heard) { i ->
             // People and jobs on the tile, a building's shared over its lots.
             val b = buildings[map.building[i]]
             if (b == null || b.underway > 0) 0 else (b.people?.size ?: b.type.capacity) / (b.type.width * b.type.height)
@@ -2433,7 +2435,9 @@ class City(
     fun flowAt(i: Int): Int = flow()[i]
 
     /** Kilograms of garbage each person makes a month, by era; a job half as much. */
-    private fun wastePerPerson(): Int = when {
+    private fun wastePerPerson(): Int = wasteByYear() * (if (has(Ordinance.BOTTLE_DEPOSIT)) Balance.DEPOSIT_WASTE else 100) / 100
+
+    private fun wasteByYear(): Int = when {
         year < 1950 -> 15 + (year - 1900).coerceAtLeast(0) / 5
         year < 1970 -> 25 + (year - 1950) * 3 / 4
         year < 2000 -> 40 + (year - 1970) / 6
@@ -2519,7 +2523,7 @@ class City(
             made += waste
             // Some to recycling first.
             recyclers.firstOrNull { near(it, b) && (recycled[it.id] ?: 0) < Balance.RECYCLING_TAKES }?.let { r0 ->
-                val take = min(waste * Balance.RECYCLED / 100, Balance.RECYCLING_TAKES - (recycled[r0.id] ?: 0))
+                val take = min(waste * Balance.RECYCLED / 100 * (if (has(Ordinance.CURBSIDE_RECYCLING)) Balance.CURBSIDE_RECYCLED else 100) / 100, Balance.RECYCLING_TAKES - (recycled[r0.id] ?: 0))
                 recycled[r0.id] = (recycled[r0.id] ?: 0) + take
                 waste -= take
                 taken += take
@@ -2898,6 +2902,59 @@ class City(
     /** Whether districts can be drawn in this era: from the streetcar age, once the town's past a village. */
     fun allowsDistricts() = everything || era >= Era.STREETCAR
 
+    /** The ordinances in force. See [Ordinance]. */
+    private val ordinances = BooleanArray(Ordinance.entries.size)
+
+    /** Whether [o] is in force. Liquor licences lapse while prohibition is. */
+    fun has(o: Ordinance): Boolean =
+        ordinances[o.ordinal] && (o != Ordinance.LIQUOR_LICENCES || !ordinances[Ordinance.PROHIBITION.ordinal])
+
+    /** Whether [o] is passed, whatever else is: for the window's switches. */
+    fun passed(o: Ordinance): Boolean = ordinances[o.ordinal]
+
+    /** Whether the town can pass [o] now: its years have come, and the town's in their era. */
+    fun allows(o: Ordinance): Boolean = everything || o.inYear(year) && era >= Era.of(o.from)
+
+    /** Passes [o], if the town can, or repeals it. */
+    fun setOrdinance(o: Ordinance, on: Boolean) {
+        if (on && !allows(o)) return
+        ordinances[o.ordinal] = on
+    }
+
+    /** What the ordinances in force cost a month, by the town's people. */
+    fun ordinanceCost(): Long = Ordinance.entries.filter { has(it) }.sumOf { it.cost(stats.population) }
+
+    /**
+     * What the ordinances in force bring in a month: licence fees from the
+     * shops, fines, meters, dog licences, the congestion charge and the
+     * price on carbon.
+     */
+    fun ordinanceIncome(): Long {
+        val s = stats
+        var cents = 0L
+        if (has(Ordinance.LIQUOR_LICENCES)) cents += s.shopJobs.toLong() * Balance.LIQUOR_FEE
+        if (has(Ordinance.LATE_LICENCES)) cents += s.shopJobs.toLong() * Balance.LATE_FEE
+        if (has(Ordinance.SPEED_LIMITS)) cents += s.population.toLong() * Balance.FINES
+        if (has(Ordinance.PARKING_METERS)) cents += (s.shopJobs + s.officeJobs).toLong() * Balance.METERS
+        if (has(Ordinance.DOG_LICENCES)) cents += s.population.toLong() * Balance.DOG_FEE
+        if (has(Ordinance.CONGESTION_CHARGE)) cents += s.population.toLong() * Balance.CONGESTION_FEE
+        if (has(Ordinance.CARBON_PRICE)) cents += s.carbon * Balance.CARBON_FEE
+        return cents / 100
+    }
+
+    /** History ends the laws whose years are over, and tells of those whose years have come. */
+    private fun ordinanceYears() {
+        for (o in Ordinance.entries) {
+            if (ordinances[o.ordinal] && !everything && !o.inYear(year)) {
+                ordinances[o.ordinal] = false
+                events += CityEvent(EventKind.OrdinanceEnded, -1, -1, null, count = o.ordinal)
+            }
+            if (month == 0 && year == o.from && o.from > Era.TOWNSHIP.year && !everything) {
+                events += CityEvent(EventKind.OrdinanceAvailable, -1, -1, null, count = o.ordinal)
+            }
+        }
+    }
+
     /** Whether [zone] can be zoned in this era: homes over shops from the streetcar age. */
     /** Mixed use and offices come with the Streetcar era; the rest are there from the start. */
     fun allowsZone(zone: Byte) = everything || zone != Zone.MIXED && zone != Zone.OFFICE || era >= Era.STREETCAR
@@ -3103,12 +3160,16 @@ class City(
     }
 
     /** What a station's fuel costs a month: coal and fuel oil, the town's own cheaper than what's brought in; the others by output. */
+    /** What the clean air act and a carbon price add to the cost of fuel, in percent. */
+    private fun fuelLaws(): Int =
+        100 * (if (has(Ordinance.CLEAN_AIR_ACT)) Balance.CLEAN_AIR_FUEL else 100) / 100 * (if (has(Ordinance.CARBON_PRICE)) Balance.CARBON_FUEL else 100) / 100
+
     internal fun fuelCost(b: Building): Double {
-        val (g, per) = burns(b) ?: return Generation.fuel(b.type) * stationOutput(b) / 1_000_000.0
+        val (g, per) = burns(b) ?: return Generation.fuel(b.type) * stationOutput(b) / 1_000_000.0 * fuelLaws() / 100.0
         val loads = stationOutput(b) / 1_000_000.0 * per
         // Coal and oil come cheaper by ship.
         val markup = if (seaTier > 0) Balance.PORT_IMPORT_MARKUP else Balance.IMPORT_MARKUP
-        return loads * g.price * (b.local + (100 - b.local) * markup) / 100.0
+        return loads * g.price * (b.local + (100 - b.local) * markup) / 100.0 * fuelLaws() / 100.0
     }
 
     /**
@@ -3281,7 +3342,8 @@ class City(
                 Zone.RESIDENTIAL -> {
                     val wealth = b.people?.wealth ?: Wealth.MIDDLE
                     // Where parking's limited, fewer drive.
-                    val share = Cars.share(year, wealth) * (if (districtAt(node)?.parking == true || districtAt(map.index(b.x, b.y))?.parking == true) 100 - Balance.PARKING_CUT else 100) / 100
+                    val share = Cars.share(year, wealth) * (if (districtAt(node)?.parking == true || districtAt(map.index(b.x, b.y))?.parking == true) 100 - Balance.PARKING_CUT else 100) / 100 *
+                        (if (has(Ordinance.PARKING_METERS)) Balance.METER_DRIVERS else 100) / 100 * (if (has(Ordinance.CONGESTION_CHARGE)) Balance.CHARGE_DRIVERS else 100) / 100
                     // From 2000, some educated workers with good internet work from home.
                     val stayHome = workFromHome(b)
                     wfh += stayHome
@@ -3451,6 +3513,13 @@ class City(
                     if (l.culture > 0) culture[i] += l.culture * share / 100
                 }
             }
+        }
+        // Dog licences and art make the parks and culture count for more.
+        val greenShare = if (has(Ordinance.DOG_LICENCES)) Balance.DOG_PARKS else 100
+        val cultureShare = 100 * (if (has(Ordinance.PERCENT_FOR_ART)) Balance.ART_CULTURE else 100) / 100 * (if (has(Ordinance.LATE_LICENCES)) Balance.LATE_CULTURE else 100) / 100
+        for (i in 0 until m.size) {
+            green[i] = green[i] * greenShare / 100
+            culture[i] = culture[i] * cultureShare / 100
         }
         for (i in 0 until m.size) {
             m.leisureGreen[i] = min(255, green[i]).toByte()
@@ -3819,16 +3888,29 @@ class City(
         if (year >= Balance.RACKETS_YEAR) {
             // Detectives at headquarters work the whole town; a second headquarters adds nothing.
             val hq = buildings.values.filter { it.type == BuildingType.POLICE_HQ }.maxOfOrNull { strengthOf(it, policeFunding) } ?: 0
-            Effects.rackets(map, justice, Balance.DETECTIVES * hq / 100)
+            Effects.rackets(map, justice, Balance.DETECTIVES * hq / 100, if (has(Ordinance.PROHIBITION)) Balance.DRY_RACKETS else 100)
         } else {
             map.rackets.fill(0)
         }
         Effects.crime(
             map, { i -> buildings[map.building[i]]?.people?.size ?: 0 },
             { i -> buildings[map.building[i]]?.type?.let { t -> if (t.zone == Zone.COMMERCIAL) t.capacity / (t.width * t.height) else 0 } ?: 0 },
-            { i -> map.building[i] != 0 }, stats.unemployment, justice,
+            { i -> map.building[i] != 0 }, stats.unemployment, justice, theftShare(), viceShare(),
         )
         courts()
+    }
+
+    /** Theft in percent of what it would be: a curfew keeps the young off the streets. */
+    private fun theftShare(): Int = if (has(Ordinance.YOUTH_CURFEW)) Balance.CURFEW_THEFT else 100
+
+    /** Vice in percent of what it would be, by the laws on drink and opening hours. */
+    private fun viceShare(): Int {
+        var v = 100
+        if (has(Ordinance.LIQUOR_LICENCES)) v = v * Balance.LICENSED_VICE / 100
+        if (has(Ordinance.SUNDAY_CLOSING)) v = v * Balance.SUNDAY_VICE / 100
+        if (has(Ordinance.PROHIBITION)) v = v * Balance.DRY_VICE / 100
+        if (has(Ordinance.LATE_LICENCES)) v = v * Balance.LATE_VICE / 100
+        return v
     }
 
     /**
@@ -4012,7 +4094,7 @@ class City(
                 b.type.heritage -> Balance.SOLID_FIRE
                 else -> 100
             }
-            val chance = base * era / 100 * built / 100
+            val chance = base * era / 100 * built / 100 * (if (has(Ordinance.BUILDING_CODE)) Balance.CODE_FIRES else 100) / 100
             val cover = map.fireCover[map.index(b.x, b.y)].toInt() and 0xff
             if (rng.nextInt(10_000) < chance * (255 - cover * 85 / 100) / 255) ignite(b)
         }
@@ -4075,7 +4157,7 @@ class City(
             val cover = if (Density.rank(b.type.density) >= Density.rank(Density.HIGH)) min(fire, max(map.ladderCover[i].toInt() and 0xff, fire / 3)) else fire
             // A covered fire burns out twice as fast.
             b.burning -= if (cover >= Balance.FIRE_SAVED) 2 else 1
-            if (rng.nextInt(100) < Balance.FIRE_SPREAD && cover < 160) {
+            if (rng.nextInt(100) < Balance.FIRE_SPREAD * (if (has(Ordinance.BUILDING_CODE)) Balance.CODE_SPREAD else 100) / 100 && cover < 160) {
                 val k = rng.nextInt(4)
                 val next = buildings[neighbour(b, k)]
                 if (next != null && next.burning == 0 && next.type.zone != Zone.NONE) ignite(next)
@@ -4605,6 +4687,7 @@ class City(
             if (isHeritage(b)) draw += Balance.HERITAGE_DRAW
         }
         // Fewer come in hard times, or to a town known for its crime.
+        if (has(Ordinance.PERCENT_FOR_ART)) draw = draw * Balance.ART_DRAW / 100.0
         draw = draw * Tourism.share(year) / 100.0 * Economy.market(year, month) / 100.0 * (100 - min(50, s.crime * 50 / 128)) / 100.0
         val ways = IntArray(Tourism.MODES)
         if (connected) ways[Tourism.ROAD] = Balance.ROAD_VISITORS + Balance.ROAD_VISITORS_BY_CAR * Cars.share(year, Wealth.MIDDLE) / 100
@@ -4732,7 +4815,8 @@ class City(
         val traction = buildings.values.count { it.type == BuildingType.TRAM_DEPOT || it.type == BuildingType.SUBWAY_STATION || it.type == BuildingType.BUS_GARAGE }
         val tractionEach = if (traction == 0) 0 else traffic.electricRiders() * Balance.TRACTION_W / traction
         // A heat wave in the air-conditioned years pushes the peak up.
-        val peak = Electricity.peak(year, month, climate, warming) + if (heatWaveDays > 0 && year >= 1960) Balance.HEAT_WAVE_PEAK else 0
+        val peak = (Electricity.peak(year, month, climate, warming) + if (heatWaveDays > 0 && year >= 1960) Balance.HEAT_WAVE_PEAK else 0) *
+            (if (has(Ordinance.DAYLIGHT_SAVING)) Balance.DAYLIGHT_PEAK else 100) / 100 * (if (has(Ordinance.ENERGY_CODE)) Balance.ENERGY_CODE_DRAW else 100) / 100
         batteryCharge = charge(perPerson, tractionEach)
         grid.update(
             buildings.values, { b -> draw(b, perPerson, tractionEach) }, { b -> available(b) }, peak,
@@ -5851,10 +5935,11 @@ class City(
             val library = Balance.LIBRARY_SCHOOLING * min(libraries.around(b.x, b.y, Balance.LIBRARY_REACH), Balance.LIBRARY_MOST) / 100 *
                 strength(BuildingType.LIBRARY, schoolFunding) / 100
             val atSchool = if (kids == 0) 0 else min(100, (pupils[b.id] ?: 0) * 100 / kids + library)
-            h.schooling = towards(h.schooling, atSchool, Balance.SCHOOLING_PACE)
+            val pace = Balance.SCHOOLING_PACE * (if (has(Ordinance.SCHOOL_MEALS)) Balance.MEALS_SCHOOLING else 100) / 100
+            h.schooling = towards(h.schooling, atSchool, pace)
             val older = kids / Balance.TEENS
             val atHighSchool = if (older == 0) 0 else min(100, (teens[b.id] ?: 0) * 100 / older + library)
-            h.highSchooling = towards(h.highSchooling, atHighSchool, Balance.SCHOOLING_PACE)
+            h.highSchooling = towards(h.highSchooling, atHighSchool, pace)
 
             // Health, towards what the place gives it.
             val careShare = if (h.size == 0) 0 else min(100, ((clinic[b.id] ?: 0) + (hospital[b.id] ?: 0)) * 100 / h.size)
@@ -5867,7 +5952,12 @@ class City(
             val ambulance = m.ambulanceCover[i].toInt() and 0xff
             target += Balance.AMBULANCE_HEALTH * ambulance / 255
             target -= (m.pollution[i].toInt() and 0xff) / Balance.POLLUTION_HEALTH + m.grimeLevel(i) * Balance.GRIME_HEALTH
-            if (b.type == BuildingType.TENEMENT) target -= Balance.CROWDING_HEALTH
+            if (b.type == BuildingType.TENEMENT && !has(Ordinance.TENEMENT_ACT)) target -= Balance.CROWDING_HEALTH
+            // Laws for the public's health.
+            if (has(Ordinance.PUBLIC_HEALTH_ACT)) target += Balance.HEALTH_ACT
+            if (has(Ordinance.SCHOOL_MEALS) && h.children > 0) target += Balance.MEALS_HEALTH
+            if (has(Ordinance.FLUORIDATION) && m.watered[i]) target += Balance.FLUORIDE_HEALTH
+            if (has(Ordinance.SMOKING_BAN)) target += Balance.SMOKING_HEALTH
             // Smog, fouled land or a dump next door, and garbage nobody takes.
             target -= stats.smog / Balance.SMOG_HEALTH
             if (fouled != null && fouled.around(b.x, b.y, 2) > 0) target -= Balance.CONTAMINATED_HEALTH
@@ -5885,14 +5975,14 @@ class City(
             val saved = 100 - Balance.AMBULANCE_SAVES * ambulance / 255
             val nursed = if (h.elderly == 0) 0 else min(100, (nursing[b.id] ?: 0) * 100 / h.elderly)
             var elderDied = min(h.elderly, flow(h.elderly, Demography.elderlyDeaths(year) * factor / 100 * saved / 100 * (100 - Balance.NURSING_SAVES * nursed / 100) / 100))
-            var childDied = min(h.children - grown, flow(h.children, Demography.childDeaths(year) * factor / 100))
+            var childDied = min(h.children - grown, flow(h.children, Demography.childDeaths(year) * factor / 100 * (if (has(Ordinance.PUBLIC_HEALTH_ACT)) Balance.HEALTH_ACT_CHILDREN else 100) / 100))
             // A heat wave takes the elderly in the hottest homes, the less so with a doctor, unless disasters are off.
             if (heatWaveDays > 0 && disasterLevel > 0) {
                 val heat = m.heat[i].toInt() and 0xff
                 val careless = 100 - careShare
                 // A cooling centre nearby takes in the old and frail.
                 val cooled = if (h.elderly == 0) 0 else min(100, (cooling[b.id] ?: 0) * 100 / h.elderly) * Balance.COOLING_SAVES / 100
-                elderDied = min(h.elderly, elderDied + flow(h.elderly, heat / 10 * Balance.HEAT_DEATHS * careless / 100 * (100 - cooled) / 100 * disasterLevel / 2))
+                elderDied = min(h.elderly, elderDied + flow(h.elderly, heat / 10 * Balance.HEAT_DEATHS * careless / 100 * (100 - cooled) / 100 * disasterLevel / 2 * (if (has(Ordinance.HEAT_PLAN)) Balance.HEAT_PLAN_DEATHS else 100) / 100))
                 if (heat >= Balance.HOT_HOME) h.health = max(5, h.health - Balance.HEAT_HEALTH)
             }
             // An epidemic strikes a home by how crowded and poorly served it is.
@@ -6369,6 +6459,13 @@ class City(
                 if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
                 // A theatre or a cinema brings people out to the shops round it.
                 score += min(Balance.CULTURE_SHOPS_MOST, (m.leisureCulture[i].toInt() and 0xff) / Balance.CULTURE_SHOPS)
+                // Laws on opening hours, noise, smoking and driving in.
+                if (has(Ordinance.SUNDAY_CLOSING)) score -= Balance.SUNDAY_APPEAL
+                if (has(Ordinance.YOUTH_CURFEW)) score -= Balance.CURFEW_APPEAL
+                if (has(Ordinance.NOISE_BYLAW)) score -= Balance.QUIET_APPEAL
+                if (has(Ordinance.LATE_LICENCES)) score += Balance.LATE_APPEAL
+                if (has(Ordinance.SMOKING_BAN)) score -= Balance.SMOKING_APPEAL
+                if (has(Ordinance.CONGESTION_CHARGE)) score -= Balance.CHARGE_APPEAL
             }
             Zone.OFFICE -> {
                 // Dear land in the busy middle of town, close to the shops, clean and safe.
@@ -6388,6 +6485,7 @@ class City(
                 var water = false
                 around(x, y, 3) { j, _ -> if (m.terrain[j] == Terrain.WATER) water = true }
                 score += 50 + (if (water) 5 else 0) - crime / 8 - shakedown
+                if (has(Ordinance.SMOKE_ABATEMENT)) score -= Balance.SMOKE_ABATEMENT_APPEAL
                 score += amenity(comms >= Phone.SERVICE_PHONE, Balance.PHONE_APPEAL, 1910, 1950, Balance.PHONE_NEEDED)
                 if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
                 if (nearTerminal[i]) score += Balance.TERMINAL_APPEAL
@@ -6444,7 +6542,7 @@ class City(
 
     /** How much a tile soaks up pollution: 2 for woods, 1 for street trees, a green space's own soak, more as planted woodland grows. */
     private fun greenWeight(i: Int): Int {
-        if (map.terrain[i] == Terrain.TREES) return 2
+        if (map.terrain[i] == Terrain.TREES) return if (has(Ordinance.TREE_PROTECTION)) Balance.PROTECTED_TREES else 2
         greenOn(i)?.let { (b, g) -> return g.soak * grown(b, g) / 100 }
         return if (map.streetTrees[i].toInt() != 0) 1 else 0
     }
@@ -6496,10 +6594,13 @@ class City(
             } else if (Generation.fumes(b.type) > 0 && b.outage == 0) {
                 val load = (stationOutput(b).toLong() * 100 / Generation.capacity(b.type)).toInt()
                 // Scrubbers let out only some of it.
-                Generation.fumes(b.type) * maxOf(Balance.IDLE_FUMES, load) / 100 * (if (b.scrubbed) Balance.SCRUBBED_SHARE else 100) / 100
+                Generation.fumes(b.type) * maxOf(Balance.IDLE_FUMES, load) / 100 * (if (b.scrubbed) Balance.SCRUBBED_SHARE else 100) / 100 *
+                    (if (has(Ordinance.CLEAN_AIR_ACT)) Balance.CLEAN_AIR_FUMES else 100) / 100
             } else if ((b.type.zone == Zone.INDUSTRIAL || b.type.zone == Zone.FARMLAND) && districtAt(m.index(b.x, b.y))?.cleanWorks == true) {
                 // Works under a pollution limit give off less.
                 b.type.pollution * Balance.CLEAN_WORKS_SHARE / 100
+            } else if (b.type.zone == Zone.INDUSTRIAL && has(Ordinance.SMOKE_ABATEMENT)) {
+                b.type.pollution * Balance.SMOKE_ABATED / 100
             } else b.type.pollution
             if (p == 0 || b.underway > 0) continue
             val cx = b.x + b.type.width / 2
@@ -7386,7 +7487,9 @@ class City(
         // Power, water and dump room sold to the neighbours, and bought from them.
         s.neighbourIncome = (s.powerOut / 1000.0 * Balance.POWER_PRICE + s.waterOut / 100.0 * Balance.WATER_PRICE + s.garbageIn * Balance.DUMP_FEE).roundToLong()
         s.neighbourCost = (s.powerIn / 1000.0 * Balance.POWER_PRICE + s.waterIn / 100.0 * Balance.WATER_PRICE + s.garbageOut * Balance.DUMP_FEE).roundToLong()
-        s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.officeIncome + s.fareIncome + s.duesIncome + s.tollIncome + s.neighbourIncome
+        s.ordinanceIncome = ordinanceIncome()
+        s.ordinanceCost = ordinanceCost()
+        s.income = s.residentialIncome + s.commercialIncome + s.industrialIncome + s.officeIncome + s.fareIncome + s.duesIncome + s.tollIncome + s.neighbourIncome + s.ordinanceIncome
         var tramTiles = 0
         var wires = 0
         var tunnels = 0
@@ -7435,7 +7538,7 @@ class City(
         disasterBill = 0
         s.schoolUpkeep = (schools * schoolFunding / 100).roundToLong()
         s.healthUpkeep = (care * healthFunding / 100).roundToLong()
-        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost + s.phoneUpkeep + s.portUpkeep + s.neighbourCost
+        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost + s.phoneUpkeep + s.portUpkeep + s.neighbourCost + s.ordinanceCost
         funds += s.income - s.upkeep
     }
 
@@ -7697,6 +7800,11 @@ class City(
         for (v in intArrayOf(spare.power, short.power, spare.water, short.water, spare.garbage, short.garbage)) w.int(v)
         // Since version 36: leisure.
         w.int(s.leisure)
+        // Since version 37: the ordinances in force, by name, and what they cost and brought in.
+        val passed = Ordinance.entries.filter { ordinances[it.ordinal] }
+        w.count(passed.size)
+        for (o in passed) w.string(o.name)
+        w.long(s.ordinanceCost); w.long(s.ordinanceIncome)
     }
 
     companion object {
@@ -8011,6 +8119,13 @@ class City(
                     c.spare.power = r.int(); c.short.power = r.int(); c.spare.water = r.int(); c.short.water = r.int(); c.spare.garbage = r.int(); c.short.garbage = r.int()
                 }
                 if (version >= 36) c.stats.leisure = r.int()
+                if (version >= 37) {
+                    repeat(r.count()) {
+                        val name = r.string()
+                        Ordinance.entries.firstOrNull { it.name == name }?.let { c.ordinances[it.ordinal] = true }
+                    }
+                    c.stats.ordinanceCost = r.long(); c.stats.ordinanceIncome = r.long()
+                }
                 c.updateNetworks()
                 c.markContainerTrains()
                 c.updateAirports()
@@ -8086,6 +8201,10 @@ class Stats {
 
     /** The leisure the town's people have near home, on average, 0 to 100 (see [City.leisureAt]). */
     var leisure = 0
+
+    /** What the ordinances in force cost and brought in last month. */
+    var ordinanceCost = 0L
+    var ordinanceIncome = 0L
 
     /** The people by age, adults' schooling and wealth. */
     var children = 0
@@ -8337,7 +8456,7 @@ class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int, va
 }
 
 
-enum class EventKind { ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut }
+enum class EventKind { OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut }
 
 /** Something that happened at [x], [y], to a building of [type] if it's about one, and how many it touched if that's told. */
 class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType?, val era: Era? = null, val count: Int = 0)

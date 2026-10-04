@@ -7,6 +7,73 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.rm.infill.res.ordinances
+import com.rm.infill.res.law_from
+import com.rm.infill.res.law_cost
+import com.rm.infill.res.law_free
+import com.rm.infill.res.ordinances_summary
+import com.rm.infill.res.ordinances_none
+import com.rm.infill.res.ordinance_cost
+import com.rm.infill.res.topic_safety
+import com.rm.infill.res.topic_health
+import com.rm.infill.res.topic_morals
+import com.rm.infill.res.topic_environment
+import com.rm.infill.res.topic_traffic
+import com.rm.infill.res.topic_waste
+import com.rm.infill.res.topic_energy
+import com.rm.infill.res.topic_culture
+import com.rm.infill.res.law_building_code
+import com.rm.infill.res.law_public_health_act
+import com.rm.infill.res.law_smoke_abatement
+import com.rm.infill.res.law_liquor_licences
+import com.rm.infill.res.law_sunday_closing
+import com.rm.infill.res.law_youth_curfew
+import com.rm.infill.res.law_tenement_act
+import com.rm.infill.res.law_daylight_saving
+import com.rm.infill.res.law_prohibition
+import com.rm.infill.res.law_speed_limits
+import com.rm.infill.res.law_parking_meters
+import com.rm.infill.res.law_school_meals
+import com.rm.infill.res.law_fluoridation
+import com.rm.infill.res.law_dog_licences
+import com.rm.infill.res.law_noise_bylaw
+import com.rm.infill.res.law_clean_air_act
+import com.rm.infill.res.law_bottle_deposit
+import com.rm.infill.res.law_percent_for_art
+import com.rm.infill.res.law_tree_protection
+import com.rm.infill.res.law_energy_code
+import com.rm.infill.res.law_curbside_recycling
+import com.rm.infill.res.law_late_licences
+import com.rm.infill.res.law_heat_plan
+import com.rm.infill.res.law_smoking_ban
+import com.rm.infill.res.law_congestion_charge
+import com.rm.infill.res.law_carbon_price
+import com.rm.infill.res.law_building_code_what
+import com.rm.infill.res.law_public_health_act_what
+import com.rm.infill.res.law_smoke_abatement_what
+import com.rm.infill.res.law_liquor_licences_what
+import com.rm.infill.res.law_sunday_closing_what
+import com.rm.infill.res.law_youth_curfew_what
+import com.rm.infill.res.law_tenement_act_what
+import com.rm.infill.res.law_daylight_saving_what
+import com.rm.infill.res.law_prohibition_what
+import com.rm.infill.res.law_speed_limits_what
+import com.rm.infill.res.law_parking_meters_what
+import com.rm.infill.res.law_school_meals_what
+import com.rm.infill.res.law_fluoridation_what
+import com.rm.infill.res.law_dog_licences_what
+import com.rm.infill.res.law_noise_bylaw_what
+import com.rm.infill.res.law_clean_air_act_what
+import com.rm.infill.res.law_bottle_deposit_what
+import com.rm.infill.res.law_percent_for_art_what
+import com.rm.infill.res.law_tree_protection_what
+import com.rm.infill.res.law_energy_code_what
+import com.rm.infill.res.law_curbside_recycling_what
+import com.rm.infill.res.law_late_licences_what
+import com.rm.infill.res.law_heat_plan_what
+import com.rm.infill.res.law_smoking_ban_what
+import com.rm.infill.res.law_congestion_charge_what
+import com.rm.infill.res.law_carbon_price_what
 import com.rm.infill.res.parks_and_leisure
 import com.rm.infill.res.label_leisure
 import com.rm.infill.res.leisure_value
@@ -43,6 +110,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.text.style.TextOverflow
 
+import com.rm.infill.sim.Topic
+import com.rm.infill.sim.Ordinance
 import com.rm.infill.sim.Density
 import org.jetbrains.compose.resources.pluralStringResource
 import com.rm.infill.sim.Action
@@ -358,7 +427,7 @@ fun WindowFrame(title: String, onClose: () -> Unit, glyph: Glyph? = null, top: (
 
 /** Taxes, what each service gets, last month's money in and out, and the power and garbage. */
 @Composable
-fun BudgetWindow(game: GameState, onClose: () -> Unit) {
+fun BudgetWindow(game: GameState, onClose: () -> Unit, onOrdinances: () -> Unit = {}) {
     val c = Infill.colors
     game.revision
     val city = game.city
@@ -368,6 +437,15 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
             Stepper(ZoneMark(com.rm.infill.sim.Zone.RESIDENTIAL), stringResource(Res.string.tax_residential), city.residentialTax, 1) { game.setTaxes(r = (city.residentialTax + it).coerceIn(0, 20)) }
             Stepper(ZoneMark(com.rm.infill.sim.Zone.COMMERCIAL), stringResource(Res.string.tax_commercial), city.commercialTax, 1) { game.setTaxes(c = (city.commercialTax + it).coerceIn(0, 20)) }
             Stepper(ZoneMark(com.rm.infill.sim.Zone.INDUSTRIAL), stringResource(Res.string.tax_industrial), city.industrialTax, 1) { game.setTaxes(i = (city.industrialTax + it).coerceIn(0, 20)) }
+        }
+        Section(stringResource(Res.string.ordinances), Glyph.Gavel) {
+            val inForce = Ordinance.entries.count { city.has(it) }
+            Text(
+                if (inForce == 0) stringResource(Res.string.ordinances_none)
+                else stringResource(Res.string.ordinances_summary, inForce, moneyText(city.ordinanceCost()), moneyText(city.ordinanceIncome())),
+                color = c.textDim, fontSize = 13.sp,
+            )
+            TextButton(stringResource(Res.string.ordinances), false, onOrdinances)
         }
         Section(stringResource(Res.string.funding), Glyph.Civic) {
             Stepper(GlyphMark(Glyph.Star), stringResource(Res.string.police_station), city.policeFunding, 10) { game.setFunding(police = (city.policeFunding + it).coerceIn(0, 100)) }
@@ -388,6 +466,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
                 if (s.officeIncome > 0) Triple(Glyph.Briefcase, Res.string.income_offices, s.officeIncome) else null,
                 if (s.fareIncome > 0) Triple(Glyph.Bus, Res.string.income_fares, s.fareIncome) else null,
                 if (s.duesIncome + s.tollIncome > 0) Triple(Glyph.Anchor, Res.string.income_dues, s.duesIncome + s.tollIncome) else null,
+                if (s.ordinanceIncome > 0) Triple(Glyph.Gavel, Res.string.ordinance_cost, s.ordinanceIncome) else null,
                 if (s.neighbourIncome > 0) Triple(Glyph.Arrows, Res.string.income_next_door, s.neighbourIncome) else null,
             )
             val upkeep = listOfNotNull(
@@ -408,6 +487,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
                 if (s.phoneUpkeep > 0) Triple(Glyph.Phone, Res.string.upkeep_phone, s.phoneUpkeep) else null,
                 if (s.portUpkeep > 0) Triple(Glyph.Anchor, Res.string.upkeep_ports, s.portUpkeep) else null,
                 if (s.neighbourCost > 0) Triple(Glyph.Arrows, Res.string.upkeep_next_door, s.neighbourCost) else null,
+                if (s.ordinanceCost > 0) Triple(Glyph.Gavel, Res.string.ordinance_cost, s.ordinanceCost) else null,
             )
             // Every bar against the biggest, in or out.
             val most = maxOf(1L, (income + upkeep).maxOf { it.third })
@@ -1223,3 +1303,135 @@ private fun PolicyTile(glyph: Glyph, label: String, on: Boolean, modifier: Modif
 
 /** As many buttons as a window could have, to stop at the last one going round. */
 private const val MAX_TABS = 400
+
+
+/** A town-wide law's name and what it does. */
+fun ordinanceName(o: Ordinance): StringResource = when (o) {
+    Ordinance.BUILDING_CODE -> Res.string.law_building_code
+    Ordinance.PUBLIC_HEALTH_ACT -> Res.string.law_public_health_act
+    Ordinance.SMOKE_ABATEMENT -> Res.string.law_smoke_abatement
+    Ordinance.LIQUOR_LICENCES -> Res.string.law_liquor_licences
+    Ordinance.SUNDAY_CLOSING -> Res.string.law_sunday_closing
+    Ordinance.YOUTH_CURFEW -> Res.string.law_youth_curfew
+    Ordinance.TENEMENT_ACT -> Res.string.law_tenement_act
+    Ordinance.DAYLIGHT_SAVING -> Res.string.law_daylight_saving
+    Ordinance.PROHIBITION -> Res.string.law_prohibition
+    Ordinance.SPEED_LIMITS -> Res.string.law_speed_limits
+    Ordinance.PARKING_METERS -> Res.string.law_parking_meters
+    Ordinance.SCHOOL_MEALS -> Res.string.law_school_meals
+    Ordinance.FLUORIDATION -> Res.string.law_fluoridation
+    Ordinance.DOG_LICENCES -> Res.string.law_dog_licences
+    Ordinance.NOISE_BYLAW -> Res.string.law_noise_bylaw
+    Ordinance.CLEAN_AIR_ACT -> Res.string.law_clean_air_act
+    Ordinance.BOTTLE_DEPOSIT -> Res.string.law_bottle_deposit
+    Ordinance.PERCENT_FOR_ART -> Res.string.law_percent_for_art
+    Ordinance.TREE_PROTECTION -> Res.string.law_tree_protection
+    Ordinance.ENERGY_CODE -> Res.string.law_energy_code
+    Ordinance.CURBSIDE_RECYCLING -> Res.string.law_curbside_recycling
+    Ordinance.LATE_LICENCES -> Res.string.law_late_licences
+    Ordinance.HEAT_PLAN -> Res.string.law_heat_plan
+    Ordinance.SMOKING_BAN -> Res.string.law_smoking_ban
+    Ordinance.CONGESTION_CHARGE -> Res.string.law_congestion_charge
+    Ordinance.CARBON_PRICE -> Res.string.law_carbon_price
+}
+
+fun ordinanceWhat(o: Ordinance): StringResource = when (o) {
+    Ordinance.BUILDING_CODE -> Res.string.law_building_code_what
+    Ordinance.PUBLIC_HEALTH_ACT -> Res.string.law_public_health_act_what
+    Ordinance.SMOKE_ABATEMENT -> Res.string.law_smoke_abatement_what
+    Ordinance.LIQUOR_LICENCES -> Res.string.law_liquor_licences_what
+    Ordinance.SUNDAY_CLOSING -> Res.string.law_sunday_closing_what
+    Ordinance.YOUTH_CURFEW -> Res.string.law_youth_curfew_what
+    Ordinance.TENEMENT_ACT -> Res.string.law_tenement_act_what
+    Ordinance.DAYLIGHT_SAVING -> Res.string.law_daylight_saving_what
+    Ordinance.PROHIBITION -> Res.string.law_prohibition_what
+    Ordinance.SPEED_LIMITS -> Res.string.law_speed_limits_what
+    Ordinance.PARKING_METERS -> Res.string.law_parking_meters_what
+    Ordinance.SCHOOL_MEALS -> Res.string.law_school_meals_what
+    Ordinance.FLUORIDATION -> Res.string.law_fluoridation_what
+    Ordinance.DOG_LICENCES -> Res.string.law_dog_licences_what
+    Ordinance.NOISE_BYLAW -> Res.string.law_noise_bylaw_what
+    Ordinance.CLEAN_AIR_ACT -> Res.string.law_clean_air_act_what
+    Ordinance.BOTTLE_DEPOSIT -> Res.string.law_bottle_deposit_what
+    Ordinance.PERCENT_FOR_ART -> Res.string.law_percent_for_art_what
+    Ordinance.TREE_PROTECTION -> Res.string.law_tree_protection_what
+    Ordinance.ENERGY_CODE -> Res.string.law_energy_code_what
+    Ordinance.CURBSIDE_RECYCLING -> Res.string.law_curbside_recycling_what
+    Ordinance.LATE_LICENCES -> Res.string.law_late_licences_what
+    Ordinance.HEAT_PLAN -> Res.string.law_heat_plan_what
+    Ordinance.SMOKING_BAN -> Res.string.law_smoking_ban_what
+    Ordinance.CONGESTION_CHARGE -> Res.string.law_congestion_charge_what
+    Ordinance.CARBON_PRICE -> Res.string.law_carbon_price_what
+}
+
+private fun topicName(t: Topic): StringResource = when (t) {
+    Topic.SAFETY -> Res.string.topic_safety
+    Topic.HEALTH -> Res.string.topic_health
+    Topic.MORALS -> Res.string.topic_morals
+    Topic.ENVIRONMENT -> Res.string.topic_environment
+    Topic.TRAFFIC -> Res.string.topic_traffic
+    Topic.WASTE -> Res.string.topic_waste
+    Topic.ENERGY -> Res.string.topic_energy
+    Topic.CULTURE -> Res.string.topic_culture
+}
+
+private fun topicGlyph(t: Topic): Glyph = when (t) {
+    Topic.SAFETY -> Glyph.Flame
+    Topic.HEALTH -> Glyph.Cross
+    Topic.MORALS -> Glyph.Glass
+    Topic.ENVIRONMENT -> Glyph.Smoke
+    Topic.TRAFFIC -> Glyph.Car
+    Topic.WASTE -> Glyph.Bin
+    Topic.ENERGY -> Glyph.Bolt
+    Topic.CULTURE -> Glyph.Tree
+}
+
+/**
+ * The town's laws, by topic: each with what it does and what it costs a
+ * month at the town's size now. Those whose years haven't come say when
+ * they will; those history has ended are gone.
+ */
+@Composable
+fun OrdinancesWindow(game: GameState, onClose: () -> Unit) {
+    val c = Infill.colors
+    game.revision
+    val city = game.city
+    Window(Res.string.ordinances, onClose, Glyph.Gavel, help = "ordinances") {
+        for (t in Topic.entries) {
+            val laws = Ordinance.entries.filter { it.topic == t && (it.until == null || city.year <= it.until!!) }
+            if (laws.isEmpty()) continue
+            Section(stringResource(topicName(t)), topicGlyph(t)) {
+                for (o in laws) {
+                    val can = city.allows(o)
+                    val on = city.passed(o)
+                    val cost = o.cost(city.stats.population)
+                    val label = stringResource(ordinanceName(o))
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (on) c.accent else c.button)
+                            .semantics(mergeDescendants = true) {}
+                            .toggleable(value = on, enabled = can || on, role = Role.Switch) { game.setOrdinance(o, it) }
+                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(label, color = if (on) c.onAccent else if (can) c.text else c.textDim, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(ordinanceWhat(o)), color = if (on) c.onAccent else c.textDim, fontSize = 12.sp)
+                        }
+                        Text(
+                            when {
+                                !can && !on -> stringResource(Res.string.law_from, o.from)
+                                cost == 0L -> stringResource(Res.string.law_free)
+                                else -> stringResource(Res.string.law_cost, moneyText(cost))
+                            },
+                            color = if (on) c.onAccent else c.textDim, fontSize = 12.sp, maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

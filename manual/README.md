@@ -16,9 +16,10 @@
 13. [Money](13-money.md) - taxes, income, upkeep and the budget.
 14. [Eras](14-eras.md) - the six eras, what each needs and what each brings.
 15. [Districts](15-districts.md) - painting districts, their taxes, height limits and policies.
-16. [The environment](16-the-environment.md) - pollution, grime, smog, noise, heat and carbon.
-17. [Weather and disasters](17-weather-and-disasters.md) - climates, seasons, rain and snow, and what can go wrong.
-18. [Regions](18-regions.md) - towns side by side, and what crosses between them.
-19. [Settings and sound](19-settings-and-sound.md) - the settings, and what you hear.
+16. [Ordinances](16-ordinances.md) - town-wide laws: what each does, what it costs, and the years history gives it.
+17. [The environment](17-the-environment.md) - pollution, grime, smog, noise, heat and carbon.
+18. [Weather and disasters](18-weather-and-disasters.md) - climates, seasons, rain and snow, and what can go wrong.
+19. [Regions](19-regions.md) - towns side by side, and what crosses between them.
+20. [Settings and sound](20-settings-and-sound.md) - the settings, and what you hear.
 
 <!-- /contents -->

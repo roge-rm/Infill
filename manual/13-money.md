@@ -22,10 +22,11 @@ Besides taxes, the town earns:
 - **Fares** on trams, buses, trolleybuses and the subway.
 - **Dues and tolls**: port dues, landing fees, air cargo and bridge tolls.
 - **Sold next door**: power, water and dump room sold to neighbouring towns.
+- **Ordinances** that pay: licence fees, fines, meters, dog licences, the congestion charge and the price on carbon.
 
 ## Upkeep
 
-Everything you build costs something every month, in rows in the budget: roads and lines, railways, water and drains, power stations, each service, repairs, transit, garbage and street trees, telephones, ports, flood clean-up and disaster clean-up, and anything bought from next door.
+Everything you build costs something every month, in rows in the budget: roads and lines, railways, water and drains, power stations, each service, repairs, transit, garbage and street trees, telephones, ports, flood clean-up and disaster clean-up, anything bought from next door, and the ordinances in force.
 
 **Last month** in the budget shows each row as a bar, money in above and out below, and the net.
 

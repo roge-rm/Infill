@@ -143,6 +143,9 @@ class GameState(val city: City) {
 
     fun setTollRate(cents: Int) = setting { city.setTollRate(cents) }
 
+    /** Passes or repeals a town-wide law. */
+    fun setOrdinance(o: com.rm.infill.sim.Ordinance, on: Boolean) = setting { city.setOrdinance(o, on) }
+
     /** Tax rates in percent; any left out stay as they are. */
     fun setTaxes(r: Int = city.residentialTax, c: Int = city.commercialTax, i: Int = city.industrialTax) = setting {
         city.residentialTax = r
