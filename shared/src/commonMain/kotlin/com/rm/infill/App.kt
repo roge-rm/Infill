@@ -727,6 +727,7 @@ private fun GameScreen(
         var trayFolded by remember { mutableStateOf(false) }
         val lastTool = remember { mutableStateMapOf<ToolGroup, Tool>() }
         val lastService = remember { mutableStateMapOf<ServiceGroup, ServiceKind>() }
+        var leisureKind by remember { mutableStateOf(ServiceKind.Park) }
         val lastTransit = remember { mutableStateMapOf<TransitGroup, TransitKind>() }
         val lastWater = remember { mutableStateMapOf<WaterGroup, WaterKind>() }
         var transitTab by remember { mutableStateOf(TransitGroup.Trams) }
@@ -864,9 +865,9 @@ private fun GameScreen(
         }
 
         // What the drag would do, worked out again as it moves.
-        val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, phoneKind, portKind, bridgeKind, tunnelling, airKind, game.revision) {
+        val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, leisureKind, roadKind, roadPipes, railKind, waterKind, transitKind, phoneKind, portKind, bridgeKind, tunnelling, airKind, game.revision) {
             drag?.let { d ->
-                d.action(tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind, city::newest)?.let { Preview(it, game.plan(it), d.x1, d.y1) }
+                d.action(tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, if (tool == Tool.Leisure) leisureKind else serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind, city::newest)?.let { Preview(it, game.plan(it), d.x1, d.y1) }
             }
         }
         val costText = preview?.let {
@@ -897,6 +898,7 @@ private fun GameScreen(
                     lineDraft = emptyList()
                 }
                 Tool.Services -> serviceKind = step(servicesIn(city), serviceKind)
+                Tool.Leisure -> leisureKind = step(servicesIn(city, leisure = true), leisureKind)
                 Tool.Phone -> phoneKind = step(phoneKindsIn(city), phoneKind)
                 Tool.Port -> portKind = step(portKindsIn(city), portKind)
                 Tool.Air -> airKind = step(airKindsIn(city), airKind)
@@ -938,11 +940,14 @@ private fun GameScreen(
         /** Steps through the tray's tabs by [by], round to the first after the last. */
         fun stepTab(by: Int) {
             // The services' tabs are kinds of service.
-            if (tool == Tool.Services) {
-                val groups = servicesIn(city).map { it.group }.distinct()
+            if (tool == Tool.Services || tool == Tool.Leisure) {
+                val leisure = tool == Tool.Leisure
+                val now = if (leisure) leisureKind else serviceKind
+                val groups = servicesIn(city, leisure).map { it.group }.distinct()
                 if (groups.size < 2) return
-                val g = groups[((groups.indexOf(serviceKind.group) + by) % groups.size + groups.size) % groups.size]
-                serviceKind = lastService[g] ?: servicesIn(city).first { it.group == g }
+                val g = groups[((groups.indexOf(now.group) + by) % groups.size + groups.size) % groups.size]
+                val next = lastService[g] ?: servicesIn(city, leisure).first { it.group == g }
+                if (leisure) leisureKind = next else serviceKind = next
                 return
             }
             val tabs = toolTabKeys(tool, city)
@@ -1018,7 +1023,7 @@ private fun GameScreen(
         BackButton(enabled = !windowOpen) { back() }
 
         fun actionOf(d: ToolDrag) = d.action(
-            tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map,
+            tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, if (tool == Tool.Leisure) leisureKind else serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map,
             junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind, city::newest,
         )
 
@@ -1176,6 +1181,7 @@ private fun GameScreen(
             KeyAction.ToolZone -> pick(Tool.Zone)
             KeyAction.ToolPower -> pick(Tool.Power)
             KeyAction.ToolServices -> pick(Tool.Services)
+            KeyAction.ToolLeisure -> pick(Tool.Leisure)
             KeyAction.ToolTransit -> pick(Tool.Transit)
             KeyAction.ToolTraffic -> pick(Tool.Traffic)
             KeyAction.ToolDistricts -> if (city.allowsDistricts()) pick(Tool.Districts)
@@ -1548,6 +1554,12 @@ private fun GameScreen(
                             atlas, serviceChoices(city, serviceKind.group), serviceKind, { serviceKind = it; lastService[it.group] = it },
                             trayFolded, fold, trayWidth, serviceTabs(city), serviceKind.group,
                             { g -> if (g is ServiceGroup) serviceKind = lastService[g] ?: servicesIn(city).first { it.group == g } },
+                        )
+                        // Parks, sport and culture, the same way.
+                        Tool.Leisure -> ChoiceTray(
+                            atlas, serviceChoices(city, leisureKind.group), leisureKind, { leisureKind = it; lastService[it.group] = it },
+                            trayFolded, fold, trayWidth, serviceTabs(city, leisure = true), leisureKind.group,
+                            { g -> if (g is ServiceGroup) leisureKind = lastService[g] ?: servicesIn(city, leisure = true).first { it.group == g } },
                         )
                         Tool.Bulldoze -> ChoiceTray(atlas, bulldozeChoices(), bulldozeKind, { bulldozeKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
                     }

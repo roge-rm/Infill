@@ -25,6 +25,19 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rm.infill.res.playground
+import com.rm.infill.res.town_square
+import com.rm.infill.res.plaza
+import com.rm.infill.res.formal_garden
+import com.rm.infill.res.city_park
+import com.rm.infill.res.allotments
+import com.rm.infill.res.community_garden
+import com.rm.infill.res.pocket_park
+import com.rm.infill.res.urban_woodland
+import com.rm.infill.res.botanical_garden
+import com.rm.infill.res.wetland_reserve
+import com.rm.infill.res.greenway
+import com.rm.infill.res.dog_park
 import com.rm.infill.res.elementary_school
 import com.rm.infill.res.community_school
 import com.rm.infill.res.composite_high
@@ -412,6 +425,19 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.NURSING_HOME -> Res.string.nursing_home
     BuildingType.COOLING_CENTRE -> Res.string.cooling_centre
     BuildingType.LIBRARY -> Res.string.library
+    BuildingType.PLAYGROUND -> Res.string.playground
+    BuildingType.TOWN_SQUARE -> Res.string.town_square
+    BuildingType.PLAZA -> Res.string.plaza
+    BuildingType.FORMAL_GARDEN -> Res.string.formal_garden
+    BuildingType.CITY_PARK -> Res.string.city_park
+    BuildingType.ALLOTMENTS -> Res.string.allotments
+    BuildingType.COMMUNITY_GARDEN -> Res.string.community_garden
+    BuildingType.POCKET_PARK -> Res.string.pocket_park
+    BuildingType.URBAN_WOODLAND -> Res.string.urban_woodland
+    BuildingType.BOTANICAL_GARDEN -> Res.string.botanical_garden
+    BuildingType.WETLAND_RESERVE -> Res.string.wetland_reserve
+    BuildingType.GREENWAY -> Res.string.greenway
+    BuildingType.DOG_PARK -> Res.string.dog_park
     BuildingType.ELEMENTARY_SCHOOL -> Res.string.elementary_school
     BuildingType.COMMUNITY_SCHOOL -> Res.string.community_school
     BuildingType.COMPOSITE_HIGH -> Res.string.composite_high

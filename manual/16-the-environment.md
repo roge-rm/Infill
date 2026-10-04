@@ -5,7 +5,7 @@
 
 Works, mines, power stations, freight yards, ports, airports and traffic all pollute, spreading a few tiles around them. Bigger works pollute more. Cars put out the most fumes from the 1920s to the 1970s and less after, and slow traffic and long waits at crossings put out more.
 
-Pollution lowers land value and health. Parks, woods and street trees soak up some of it, and a belt of park or woods between a works and the homes keeps most of it away. The **Pollution limit on works** district policy and scrubbers on power stations cut it at the source.
+Pollution lowers land value and health. Parks, woods, green space and street trees soak up some of it, planted woodland most of all, and a belt of green between a works and the homes keeps most of it away. The **Pollution limit on works** district policy and scrubbers on power stations cut it at the source.
 
 Where pollution sits for long, grime builds up in the ground and is slow to go. Grime makes people unwell and spoils wells.
 

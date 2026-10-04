@@ -273,6 +273,7 @@ fun toolGlyph(tool: Tool): Glyph = when (tool) {
     Tool.Zone -> Glyph.Zone
     Tool.Power -> Glyph.Bolt
     Tool.Services -> Glyph.Civic
+    Tool.Leisure -> Glyph.Tree
     Tool.Transit -> Glyph.Tram
     Tool.Traffic -> Glyph.Lights
     Tool.Port -> Glyph.Anchor
@@ -287,6 +288,8 @@ fun serviceGlyph(group: ServiceGroup): Glyph = when (group) {
     ServiceGroup.Health -> Glyph.Cross
     ServiceGroup.Schools -> Glyph.Cap
     ServiceGroup.Parks -> Glyph.Tree
+    ServiceGroup.Sport -> Glyph.Target
+    ServiceGroup.Culture -> Glyph.Book
     ServiceGroup.Waste -> Glyph.Bin
 }
 

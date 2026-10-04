@@ -28,6 +28,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rm.infill.res.advice_leisure
 import com.rm.infill.res.*
 import com.rm.infill.sim.Advice
 import com.rm.infill.sim.AdviceKind
@@ -103,6 +104,7 @@ internal fun adviceText(a: Advice): String {
         AdviceKind.NO_SEWER -> stringResource(Res.string.advice_no_sewer, zone)
         AdviceKind.NO_STAFF -> stringResource(Res.string.advice_no_staff, zone)
         AdviceKind.UNAPPEALING -> stringResource(Res.string.advice_unappealing, zone)
+        AdviceKind.LEISURE -> stringResource(Res.string.advice_leisure, zone)
         AdviceKind.GARBAGE -> stringResource(Res.string.advice_garbage)
     }
 }
@@ -124,6 +126,7 @@ internal fun adviceGlyph(kind: AdviceKind): Glyph = when (kind) {
     AdviceKind.NO_ROAD, AdviceKind.NO_WAY_IN -> Glyph.Road
     AdviceKind.NO_STAFF -> Glyph.Cap
     AdviceKind.UNAPPEALING -> Glyph.Warn
+    AdviceKind.LEISURE -> Glyph.Tree
     AdviceKind.GARBAGE -> Glyph.Bin
 }
 

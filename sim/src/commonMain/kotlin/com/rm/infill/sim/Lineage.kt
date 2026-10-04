@@ -49,6 +49,8 @@ object Lineage {
         listOf(Kind(NURSING_HOME), Kind(CARE_HOME, 140, 100, 120, 5_000)),
         listOf(Kind(FIRE_STATION), Kind(MOTOR_FIRE_STATION, 100, 130, 111, 3_000), Kind(FIRE_HALL, 100, 140, 122, 4_000)),
         listOf(Kind(POLICE_STATION), Kind(PRECINCT, 100, 125, 112, 3_000), Kind(COMMUNITY_POLICING, 100, 135, 120, 3_500)),
+        listOf(Kind(BuildingType.TOWN_SQUARE), Kind(BuildingType.PLAZA)),
+        listOf(Kind(BuildingType.ALLOTMENTS), Kind(BuildingType.COMMUNITY_GARDEN)),
     )
 
     private val kinds = arrayOfNulls<Kind>(BuildingType.entries.size)

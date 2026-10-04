@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import com.rm.infill.res.overlay_leisure
 import com.rm.infill.res.overlay_carbon
 import com.rm.infill.res.overlay_noise
 import com.rm.infill.res.overlay_visitors
@@ -96,6 +97,8 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Trips(Res.string.overlay_trips, Color(0x80C8B4F0), Color(0xFF5B2FA8)),
     /** From the road being inspected: how long it takes to drive everywhere, green near to red a quarter of an hour away. */
     Reach(Res.string.overlay_reach, Color(0xFF3FA85A), Color(0xFFD8302F)),
+    /** The leisure within reach, parks, sport and culture weighed by what people want in the year: grey with none to green with plenty. */
+    Leisure(Res.string.overlay_leisure, Color(0xFFB8B4A8), Color(0xFF2F9A4A)),
 }
 
 /** The crime views run up to the worst on the map, though never past this far. */
@@ -116,7 +119,8 @@ private fun crimeLayer(overlay: Overlay, map: CityMap): ByteArray? = when (overl
  */
 internal fun overlayImage(
     overlay: Overlay, map: CityMap, homeAt: (Int) -> Household?, wearAt: (Int) -> Int, uncollectedAt: (Int) -> Boolean,
-    localAt: (Int) -> Int, waitAt: (Int) -> Int, focus: IntArray?, loadAt: (Int) -> Int, visitorAt: (Int) -> Int = { -1 }, ridersAt: (Int) -> Int,
+    localAt: (Int) -> Int, waitAt: (Int) -> Int, focus: IntArray?, loadAt: (Int) -> Int, visitorAt: (Int) -> Int = { -1 }, leisureAt: (Int) -> Int = { 0 },
+    ridersAt: (Int) -> Int,
 ): ImageBitmap? {
     if (overlay == Overlay.None) return null
     val most = if (overlay == Overlay.Trips) maxOf(1, focus?.maxOrNull() ?: 1) else 1
@@ -130,6 +134,7 @@ internal fun overlayImage(
         ) continue
         val v: Int = when (overlay) {
             Overlay.LandValue -> map.landValue[i].toInt() and 0xff
+            Overlay.Leisure -> leisureAt(i) * 255 / 100
             Overlay.Pollution -> map.pollution[i].toInt() and 0xff
             Overlay.Crime -> (map.crime[i].toInt() and 0xff) * 255 / worst
             Overlay.Police -> map.policeCover[i].toInt() and 0xff
@@ -231,7 +236,8 @@ internal fun overlayImage(
         val everywhere = overlay == Overlay.LandValue || overlay == Overlay.Power || overlay == Overlay.Traffic ||
             overlay == Overlay.Railway || overlay == Overlay.Water || overlay == Overlay.Runoff ||
             overlay == Overlay.Schooling || overlay == Overlay.Health || overlay == Overlay.Wealth || overlay == Overlay.Age ||
-            overlay == Overlay.Heat || overlay == Overlay.Garbage || overlay == Overlay.Goods || overlay == Overlay.Junctions || overlay == Overlay.Reach || overlay == Overlay.LineLoad || overlay == Overlay.Visitors
+            overlay == Overlay.Heat || overlay == Overlay.Garbage || overlay == Overlay.Goods || overlay == Overlay.Junctions || overlay == Overlay.Reach || overlay == Overlay.LineLoad || overlay == Overlay.Visitors ||
+            overlay == Overlay.Leisure
         if (!everywhere && v == 0) continue
         pixels[i] = mix(overlay.low, overlay.high, v / 255f)
     }

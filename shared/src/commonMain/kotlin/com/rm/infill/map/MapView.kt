@@ -3,6 +3,7 @@ package com.rm.infill.map
 import kotlinx.coroutines.Dispatchers
 import androidx.compose.runtime.produceState
 import com.rm.infill.platform.platform
+import com.rm.infill.sim.Specs
 import com.rm.infill.sim.Balance
 import androidx.compose.ui.platform.LocalDensity
 import kotlin.math.ln
@@ -144,11 +145,11 @@ fun MapView(
             when {
                 b == null -> -1
                 b.type.hotel -> if (b.room == 0) 0 else maxOf(30, b.served * 255 / b.room)
-                b.type == BuildingType.PARK || game.city.isHeritage(b) -> 255
+                b.type == BuildingType.PARK || game.city.isHeritage(b) || (Specs.of(b.type)?.draw ?: 0.0) > 0 -> 255
                 b.type.station || b.type.port -> 200
                 else -> -1
             }
-        }) {
+        }, leisureAt = { game.city.leisureAt(it) }) {
             game.city.tramRiders(it) + game.city.busRiders(it) + game.city.trolleyRiders(it) + game.city.subwayRiders(it)
         }
     }

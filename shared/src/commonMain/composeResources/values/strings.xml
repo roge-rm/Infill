@@ -430,6 +430,7 @@
     <string name="advice_no_sewer">%1$s can't grow: no sewer</string>
     <string name="advice_no_staff">%1$s can't grow: not enough schooled workers</string>
     <string name="advice_unappealing">%1$s can't grow: nobody wants to build there</string>
+    <string name="advice_leisure">%1$s can't grow: too little to do nearby, build parks and leisure</string>
     <string name="advice_garbage">Garbage is piling up: build a dump</string>
     <string name="advice_homes">Homes</string>
     <string name="advice_shops">Shops</string>
@@ -878,8 +879,8 @@
     <string name="action_renew">Renew</string>
     <string name="action_lines">Lines</string>
     <string name="pill_worn">Worn out</string>
-    <!-- A service of an older kind: the newer kind's name and the year it came. -->
-    <string name="pill_newer_kind">Dated: %1$s since %2$d</string>
+    <!-- A service of an older kind: the newer kind's name and the year the town could first build it. -->
+    <string name="pill_newer_kind">Dated: %1$s, built since %2$d</string>
     <string name="pill_no_road">No road</string>
     <string name="pill_short_of_stock">Short of stock</string>
     <string name="label_unemployed">Out of work</string>
@@ -961,6 +962,7 @@
     <string name="label_port_loads">Loads a month</string>
     <string name="label_ships">Ships a month</string>
     <string name="overlay_visitors">Visitors</string>
+    <string name="overlay_leisure">Leisure</string>
     <string name="bridge_cheapest">Cheapest bridge</string>
     <string name="bridge_trestle">Trestle bridge</string>
     <string name="bridge_swing">Swing bridge</string>
@@ -1024,6 +1026,7 @@
     <string name="climate_dry">Dry</string>
     <string name="goal_low_carbon">Carbon down to %1$d kg a person a month</string>
     <string name="series_carbon">Carbon</string>
+    <string name="series_leisure">Leisure</string>
     <string name="label_warming">Warmer than it was</string>
     <string name="value_degrees">%1$s°</string>
     <string name="label_heat_waves">Heat waves last year</string>
@@ -1036,6 +1039,26 @@
     <string name="carbon_heating">Heating</string>
     <string name="overlay_carbon">Carbon</string>
     <string name="cooling_centre">Cooling centre</string>
+    <!-- Green space, under Leisure. -->
+    <string name="playground">Playground</string>
+    <string name="town_square">Town square</string>
+    <string name="plaza">Plaza</string>
+    <string name="formal_garden">Formal garden</string>
+    <string name="city_park">City park</string>
+    <string name="allotments">Allotments</string>
+    <string name="community_garden">Community garden</string>
+    <string name="pocket_park">Pocket park</string>
+    <string name="urban_woodland">Woodland</string>
+    <string name="botanical_garden">Botanical garden</string>
+    <string name="wetland_reserve">Wetland reserve</string>
+    <string name="greenway">Greenway</string>
+    <string name="dog_park">Dog park</string>
+    <string name="tool_leisure">Leisure</string>
+    <string name="label_leisure">Leisure near home</string>
+    <!-- The town's leisure near home, and what people expect in the year, both 0 to 100. -->
+    <string name="leisure_value">%1$d, %2$d expected</string>
+    <string name="leisure_sport">Sport</string>
+    <string name="leisure_culture">Culture</string>
     <!-- Newer kinds of the services, which take the older kinds' place as the years go by. -->
     <string name="elementary_school">Elementary school</string>
     <string name="community_school">Community school</string>

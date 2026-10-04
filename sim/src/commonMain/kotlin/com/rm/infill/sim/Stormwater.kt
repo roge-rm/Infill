@@ -18,7 +18,7 @@ object Stormwater {
         return maxOf(building, shaded, track, if (building < 0 && road < 0 && track < 0) ground else -1)
     }
 
-    private fun building(t: BuildingType): Int = when (t.like) {
+    private fun building(t: BuildingType): Int = Specs.of(t)?.green?.hard ?: when (t.like) {
         BuildingType.COTTAGE -> 40
         BuildingType.HOUSE -> 50
         BuildingType.LARGE_HOUSE -> 60

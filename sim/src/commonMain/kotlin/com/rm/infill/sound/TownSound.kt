@@ -69,7 +69,7 @@ class TownSound(private val city: City) {
                 t.zone == Zone.MIXED -> add(Source.SHOPS, i, t.jobs.toFloat())
                 t.port -> add(Source.HARBOUR, i, 1f)
                 t.airport -> add(Source.AIRPORT, i, t.airTier.toFloat())
-                t == BuildingType.PARK -> add(Source.TREES, i, PARK_TREES)
+                t.green -> add(Source.TREES, i, PARK_TREES)
             }
         }
     }

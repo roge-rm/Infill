@@ -10,14 +10,15 @@
 7. [Power](07-power.md) - power stations, lines, losses, the peak, and the wind and sun.
 8. [Water, drains and garbage](08-water-and-waste.md) - wells and mains, pressure, sewers and foul water, storms and floods, and garbage.
 9. [Phones and the internet](09-phones.md) - exchanges, lines, masts and broadband.
-10. [Services](10-services.md) - police and justice, fire, health, schools and parks, and how their cover works.
-11. [People](11-people.md) - households, ages, schooling, wealth, work, health and getting about.
-12. [Money](12-money.md) - taxes, income, upkeep and the budget.
-13. [Eras](13-eras.md) - the six eras, what each needs and what each brings.
-14. [Districts](14-districts.md) - painting districts, their taxes, height limits and policies.
-15. [The environment](15-the-environment.md) - pollution, grime, smog, noise, heat and carbon.
-16. [Weather and disasters](16-weather-and-disasters.md) - climates, seasons, rain and snow, and what can go wrong.
-17. [Regions](17-regions.md) - towns side by side, and what crosses between them.
-18. [Settings and sound](18-settings-and-sound.md) - the settings, and what you hear.
+10. [Services](10-services.md) - police and justice, fire, health, schools and waste, and how their cover works.
+11. [Leisure and parks](11-leisure-and-parks.md) - what people want to do near home, and the parks, gardens and green space that give it.
+12. [People](12-people.md) - households, ages, schooling, wealth, work, health and getting about.
+13. [Money](13-money.md) - taxes, income, upkeep and the budget.
+14. [Eras](14-eras.md) - the six eras, what each needs and what each brings.
+15. [Districts](15-districts.md) - painting districts, their taxes, height limits and policies.
+16. [The environment](16-the-environment.md) - pollution, grime, smog, noise, heat and carbon.
+17. [Weather and disasters](17-weather-and-disasters.md) - climates, seasons, rain and snow, and what can go wrong.
+18. [Regions](18-regions.md) - towns side by side, and what crosses between them.
+19. [Settings and sound](19-settings-and-sound.md) - the settings, and what you hear.
 
 <!-- /contents -->

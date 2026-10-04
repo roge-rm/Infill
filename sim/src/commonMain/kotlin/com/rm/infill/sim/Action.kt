@@ -148,8 +148,12 @@ sealed interface Action {
     /** A building the player places, like a power station, with its top left corner at [x], [y]. */
     data class PlaceBuilding(val type: BuildingType, val x: Int, val y: Int) : Action
 
-    /** Parks on every free tile from [x0], [y0] to [x1], [y1]. Trees stay and become part of them. */
-    data class PlaceParks(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action
+    /**
+     * Green space laid a tile at a time, park unless [kind] says otherwise
+     * (woodland, a greenway), on every free tile from [x0], [y0] to [x1], [y1].
+     * Trees stay and become part of it.
+     */
+    data class PlaceParks(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val kind: BuildingType = BuildingType.PARK) : Action
 
     companion object {
         /**
@@ -317,7 +321,7 @@ object Prices {
         BuildingType.COOLING_CENTRE -> 1_500L
         BuildingType.LIBRARY -> 1_500L
         BuildingType.COLLEGE -> 25_000L
-        // A newer kind of a service by its own price.
-        else -> Lineage.kindOf(type).price
+        // A newer kind of a service by its own price, or a building priced in its specs.
+        else -> Specs.of(type)?.price ?: Lineage.kindOf(type).price
     }
 }

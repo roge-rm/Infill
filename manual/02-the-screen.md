@@ -20,7 +20,7 @@ Under the strip is the advice line, and under that, news as it happens: a fire, 
 
 ## Tools
 
-The toolbar has six buttons: **Inspect**, **Bulldoze**, **Zones**, **Transport**, **Utilities** and **Services**. Then undo and redo.
+The toolbar has seven buttons: **Inspect**, **Bulldoze**, **Zones**, **Transport**, **Utilities**, **Services** and **Leisure**. Then undo and redo.
 
 A button opens its tray: tabs for the tools that share it, a line naming what's picked and its price, and the choices as tiles. Tap the line to fold the tray away, and it folds by itself once you've built something. Tapping the same button again puts the tool away and goes back to **Inspect**. Only what the year and era allow is shown.
 
@@ -36,7 +36,7 @@ With **Inspect**, one finger moves the map and a tap opens a card on what's ther
 
 **Map view** opens the views, in four tabs:
 
-- **Town**: land value, pollution, wealth, age, heat, what's in the ground, visitors, carbon and noise.
+- **Town**: land value, pollution, wealth, age, heat, what's in the ground, visitors, carbon, noise and leisure.
 - **Utilities**: power, line load, phone and internet, water, runoff and garbage.
 - **Services**: crime, theft, vice, rackets, police, fire cover, ladders, ambulances, schooling and health.
 - **Transport**: traffic, railway, transit, goods, junctions, trips and reach.
@@ -53,7 +53,7 @@ The whole game can be played from a keyboard.
 
 - The arrows move a cursor on the map, and the map follows it. Enter uses the tool at the cursor: it inspects, puts a building down, or starts a road, a line or an area, which the next Enter finishes where the cursor's got to. Esc lets go of it.
 - W, A, S and D move the map, and + and - zoom.
-- 1 to 0 pick the tools: Inspect, Bulldoze, Road, Rail, Zone, Power, Water, Services, Transit and Traffic. T is Phone, O Ports, I Air and \ Districts. Pressing one again steps through its kinds.
+- 1 to 0 pick the tools: Inspect, Bulldoze, Road, Rail, Zone, Power, Water, Services, Transit and Traffic. T is Phone, O Ports, I Air, L Leisure and \ Districts. Pressing one again steps through its kinds.
 - [ and ] step through the tray's choices, and , and . through its tabs.
 - Tab moves between the buttons on the screen, Enter presses one, and Esc goes back to the map. A window opened from the keyboard starts on its first button, and Esc closes it.
 - B, G, P and N open the Budget, Graphs, People and Demand. V steps through the map views.

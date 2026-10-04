@@ -517,8 +517,8 @@ fun powerChoices(city: City): List<Choice<PowerKind>> = powerKindsIn(city).map {
 
 /** The kinds of service [city] has something of to build, as tabs. */
 @Composable
-fun serviceTabs(city: City): List<TrayTab> {
-    val open = servicesIn(city).map { it.group }.toSet()
+fun serviceTabs(city: City, leisure: Boolean = false): List<TrayTab> {
+    val open = servicesIn(city, leisure).map { it.group }.toSet()
     return ServiceGroup.entries.filter { it in open }.map { TrayTab(it, stringResource(it.title), serviceGlyph(it)) }
 }
 
@@ -588,10 +588,11 @@ fun phoneChoices(city: City): List<Choice<PhoneKind>> = phoneKindsIn(city).map {
 }
 
 @Composable
-fun serviceChoices(city: City, group: ServiceGroup): List<Choice<ServiceKind>> = servicesIn(city).filter { it.group == group }.map { k ->
+fun serviceChoices(city: City, group: ServiceGroup): List<Choice<ServiceKind>> = servicesIn(city, group.leisure).filter { it.group == group }.map { k ->
     when {
         k.type == null -> Choice(k, stringResource(k.title), ChoiceIcon(intArrayOf(Atlas.ROAD_STREET + ACROSS, Atlas.STREET_TREES)), perTile(Prices.STREET_TREE))
-        k.type == BuildingType.PARK -> Choice(k, stringResource(k.title), building(k.type), perTile(Prices.PARK))
+        // Green space laid a tile at a time is priced by the tile.
+        k.type.painted -> Choice(k, stringResource(k.title), building(k.type), perTile(Prices.of(k.type)))
         // A line of kinds shows the newest the town can build.
         else -> city.newest(k.type).let { t -> Choice(k, stringResource(if (t == k.type) k.title else buildingName(t)), building(t), buildingDetail(t)) }
     }
@@ -621,7 +622,8 @@ fun zoneChoices(city: City, density: DensityKind): List<Choice<ZoneKind>> = Zone
 enum class ViewGroup { Town, Utilities, Services, Transport }
 
 fun viewGroup(o: Overlay): ViewGroup = when (o) {
-    Overlay.None, Overlay.LandValue, Overlay.Wealth, Overlay.Age, Overlay.Pollution, Overlay.Heat, Overlay.Land, Overlay.Visitors, Overlay.Noise, Overlay.Carbon -> ViewGroup.Town
+    Overlay.None, Overlay.LandValue, Overlay.Wealth, Overlay.Age, Overlay.Pollution, Overlay.Heat, Overlay.Land, Overlay.Visitors, Overlay.Noise, Overlay.Carbon,
+    Overlay.Leisure -> ViewGroup.Town
     Overlay.Power, Overlay.LineLoad, Overlay.Water, Overlay.Runoff, Overlay.Garbage, Overlay.Comms -> ViewGroup.Utilities
     Overlay.Crime, Overlay.Theft, Overlay.Vice, Overlay.Rackets, Overlay.Police, Overlay.Fire, Overlay.Ladders, Overlay.Ambulance, Overlay.Schooling, Overlay.Health -> ViewGroup.Services
     Overlay.Traffic, Overlay.Junctions, Overlay.Trips, Overlay.Reach, Overlay.Transit, Overlay.Railway, Overlay.Goods -> ViewGroup.Transport
@@ -658,6 +660,7 @@ fun overlayChoices(group: ViewGroup): List<Choice<Overlay>> = Overlay.entries.fi
         Overlay.Traffic -> Glyph.Car
         Overlay.Railway -> Glyph.Rail
         Overlay.Visitors -> Glyph.Suitcase
+        Overlay.Leisure -> Glyph.Tree
         Overlay.Noise -> Glyph.Plane
         Overlay.Carbon -> Glyph.Smoke
         Overlay.Water -> Glyph.Drop

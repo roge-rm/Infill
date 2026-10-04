@@ -10,6 +10,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import com.rm.infill.res.tool_leisure
 import com.rm.infill.res.climate_dry
 import com.rm.infill.res.climate_coastal
 import com.rm.infill.res.climate_northern
@@ -468,6 +469,7 @@ private val ACTION_NAMES: Map<KeyAction, StringResource> = mapOf(
     KeyAction.ToolPhone to Res.string.tool_phone,
     KeyAction.ToolPorts to Res.string.tool_port,
     KeyAction.ToolAir to Res.string.tool_air,
+    KeyAction.ToolLeisure to Res.string.tool_leisure,
     KeyAction.Tools to Res.string.key_tools,
     KeyAction.PrevChoice to Res.string.key_prev_choice,
     KeyAction.NextChoice to Res.string.key_next_choice,

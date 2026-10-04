@@ -465,6 +465,7 @@ private fun groupGlyph(group: ToolGroup): Glyph = when (group) {
     ToolGroup.Transport -> Glyph.Road
     ToolGroup.Utilities -> Glyph.Utilities
     ToolGroup.Services -> Glyph.Civic
+    ToolGroup.Leisure -> Glyph.Tree
 }
 
 @Composable

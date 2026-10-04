@@ -303,6 +303,15 @@ class CityMap(val width: Int, val height: Int) {
     val policeCover = ByteArray(size)
     val fireCover = ByteArray(size)
 
+    /**
+     * The leisure within reach of each tile, 0 to 255, by kind: parks and
+     * gardens, sport, and culture (see [Leisure]). Worked out each month and
+     * on loading, so never saved.
+     */
+    val leisureGreen = ByteArray(size)
+    val leisureSport = ByteArray(size)
+    val leisureCulture = ByteArray(size)
+
     /** Cover by ladder companies, which a tall building's fire needs, and by ambulances. */
     val ladderCover = ByteArray(size)
     val ambulanceCover = ByteArray(size)

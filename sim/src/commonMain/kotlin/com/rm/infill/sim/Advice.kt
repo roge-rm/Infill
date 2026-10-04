@@ -25,6 +25,9 @@ enum class AdviceKind {
     NO_STAFF,
     UNAPPEALING,
 
+    /** Homes are wanted, but nothing can grow where they're zoned for want of leisure nearby: parks, sport and culture. */
+    LEISURE,
+
     /** Garbage isn't being taken away. */
     GARBAGE,
 }

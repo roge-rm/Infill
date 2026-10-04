@@ -623,6 +623,51 @@ object Balance {
     const val VISITORS_BASE = 20.0
     const val VISITORS_PER_RESIDENT = 0.02
     const val PARK_DRAW = 1.5
+
+    /**
+     * Green space: the most the parks and gardens within four tiles add to
+     * the land's value, and the years planted woodland takes to come into
+     * its own.
+     */
+    const val PARK_VALUE_CAP = 32
+    const val BIG_PARK_VALUE_CAP = 40
+    const val WOODLAND_MATURES = 15
+
+    /**
+     * Leisure (see [Leisure]): a home's score is its green, sport and culture
+     * nearby, each up to 100, weighed by what people want in the year
+     * (LEISURE_WEIGHTS: green, sport and culture in percent at each of
+     * LEISURE_YEARS), against what they expect then (LEISURE_EXPECTED).
+     * Each point over moves the home's appeal by LEISURE_APPEAL tenths of a
+     * point, up to LEISURE_MOST, by LEISURE_DENSITY percent for a home on
+     * rural or low, medium, and high or tower land: dense homes have no
+     * yards of their own. Each point short takes LEISURE_LACK tenths of a
+     * point, down to LEISURE_LEAST.
+     */
+    val LEISURE_YEARS = intArrayOf(1900, 1950, 1980, 2030)
+    val LEISURE_WEIGHTS = arrayOf(intArrayOf(45, 20, 35), intArrayOf(30, 35, 35), intArrayOf(35, 35, 30), intArrayOf(45, 30, 25))
+    val LEISURE_EXPECTED = intArrayOf(5, 20, 28, 38)
+    const val LEISURE_APPEAL = 3
+    const val LEISURE_LACK = 1
+    const val LEISURE_LEAST = -3
+    const val LEISURE_MOST = 14
+    val LEISURE_DENSITY = intArrayOf(50, 100, 150)
+
+    /** Green and sport nearby make a home healthier, a point for every LEISURE_HEALTH of them, up to LEISURE_HEALTH_MOST. */
+    const val LEISURE_HEALTH = 25
+    const val LEISURE_HEALTH_MOST = 7
+
+    /** Sport for the young cuts theft by up to LEISURE_THEFT percent where there's plenty of it. */
+    const val LEISURE_THEFT = 15
+
+    /** Homes held back for want of appeal are told it's leisure they lack when they have this much less than people expect. */
+    const val ADVICE_LEISURE = 10
+
+    /** Culture nearby draws custom: shops gain a point for every CULTURE_SHOPS of it, up to CULTURE_SHOPS_MOST; offices the same. */
+    const val CULTURE_SHOPS = 25
+    const val CULTURE_SHOPS_MOST = 5
+    const val CULTURE_OFFICES = 40
+    const val CULTURE_OFFICES_MOST = 3
     const val HERITAGE_DRAW = 4.0
     const val ROAD_VISITORS = 30
     const val ROAD_VISITORS_BY_CAR = 150

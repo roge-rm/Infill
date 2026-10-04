@@ -306,6 +306,29 @@ enum class BuildingType(
     FIRE_HALL(Zone.NONE, 0, 16, width = 2, height = 2, year = 1975, life = 50),
     PRECINCT(Zone.NONE, 0, 12, width = 2, height = 1, year = 1935, life = 50),
     COMMUNITY_POLICING(Zone.NONE, 0, 12, width = 2, height = 1, year = 1995, life = 50),
+
+    /**
+     * Green space, for the leisure the homes nearby want, and to soak up
+     * pollution, cool the summer and hold the rain (see [Specs]): a
+     * playground, a town square (a paved plaza from 1960), a formal garden,
+     * a big city park, allotments (community gardens from 1975), pocket
+     * parks fitted into the gaps (from 1965), woodland planted a tile at a
+     * time, a botanical garden (from 1910), a wetland reserve and a greenway
+     * (from 1985) and a dog park (from 1990).
+     */
+    PLAYGROUND(Zone.NONE, 0, 0),
+    TOWN_SQUARE(Zone.NONE, 0, 0, width = 2, height = 2),
+    PLAZA(Zone.NONE, 0, 0, width = 2, height = 2, year = 1960),
+    FORMAL_GARDEN(Zone.NONE, 0, 2, width = 2, height = 2),
+    CITY_PARK(Zone.NONE, 0, 4, width = 4, height = 4),
+    ALLOTMENTS(Zone.NONE, 0, 0, width = 2, height = 2, year = 1915),
+    COMMUNITY_GARDEN(Zone.NONE, 0, 0, width = 2, height = 2, year = 1975),
+    POCKET_PARK(Zone.NONE, 0, 0, year = 1965),
+    URBAN_WOODLAND(Zone.NONE, 0, 0),
+    BOTANICAL_GARDEN(Zone.NONE, 0, 6, width = 3, height = 3, year = 1910),
+    WETLAND_RESERVE(Zone.NONE, 0, 2, width = 3, height = 3, year = 1985),
+    GREENWAY(Zone.NONE, 0, 0, year = 1985),
+    DOG_PARK(Zone.NONE, 0, 0, year = 1990),
     ;
 
     /** A building the city runs rather than one that grows on zoned land. */
@@ -432,6 +455,12 @@ enum class BuildingType(
 
     /** The rung below, the first choice there, or null if this is the first. */
     val previous: BuildingType? get() = rung(zone, stage - 1).let { r -> r.firstOrNull { (it.density == Density.RURAL) == (density == Density.RURAL) } ?: r.firstOrNull() }
+
+    /** Green space: a park, garden, woodland and the like, see [Specs]. */
+    val green: Boolean get() = Specs.of(this)?.green != null
+
+    /** Laid a tile at a time, by dragging, like a park. */
+    val painted: Boolean get() = Specs.of(this)?.painted == true
 
     /** The first kind of its [Lineage], whose role it has: itself for most. */
     val root: BuildingType get() = Lineage.rootOf(this)

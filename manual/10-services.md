@@ -1,5 +1,5 @@
 # Services
-> Police and justice, fire, health, schools and parks, and how their cover works.
+> Police and justice, fire, health, schools and waste, and how their cover works.
 
 ## Cover
 
@@ -19,7 +19,7 @@ Schools and doctors take more than they have room for, up to 140%, and each pers
 
 As the decades go by, newer kinds of most services come in: the schoolhouse gives way to the elementary school in 1930, the doctor's clinic to the health centre in 1950, and so on. A newer kind stands on the same ground as the one before it, takes in more, reaches further and costs a little more to run. The tray always offers the newest kind the town can build.
 
-Older ones keep working, but they date: a fifth less for each newer kind, coming on over twenty years from when it came, down to half. The inspect card says **Dated** and names the newer kind. **Bring up to date** renovates it into the newest, where it stands, for 60% of the new kind's price and a month closed.
+Older ones keep working, but they date: a fifth less for each newer kind, coming on over twenty years from when it came, down to half. The inspect card says **Dated**, with the newer kind and the year it's been built since. **Bring up to date** renovates it into the newest, where it stands, for 60% of the new kind's price and a month closed.
 
 ## Police and justice
 
@@ -59,9 +59,7 @@ Health also comes from mains water and the sewer, wealth, parks nearby, clean ai
 
 Schooling builds up over years. Children who grow up schooled become the workers that shops, offices and later works need.
 
-## Parks
-
-**Park** is laid a tile at a time. Parks raise land value and health nearby, cool the town in summer, soak up pollution and draw visitors. Parks that are let go for want of funding do less for the land, health and visitors.
+Parks and green space are under **Leisure** (see Leisure and parks).
 
 ## Funding
 

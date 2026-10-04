@@ -81,7 +81,9 @@ internal object Effects {
         val water = SummedArea(w, h) { if (map.terrain[it] == Terrain.WATER) 1 else 0 }
         val trees = SummedArea(w, h) { if (map.terrain[it] == Terrain.TREES) 1 else 0 }
         val foul = if (map.foul.any { it.toInt() != 0 }) SummedArea(w, h) { map.foul[it].toInt() and 0xff } else null
-        val parks = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.PARK) 1 else 0 }
+        // Green space by what each tile of it adds to the land, the biggest parks able to add more.
+        val parks = SummedArea(w, h) { buildingTypes(it)?.let { t -> Specs.of(t)?.green?.value } ?: 0 }
+        val bigParks = SummedArea(w, h) { buildingTypes(it)?.let { t -> Specs.of(t)?.green?.let { g -> if (g.valueCap > Balance.PARK_VALUE_CAP) 1 else 0 } } ?: 0 }
         val shops = SummedArea(w, h) { buildingTypes(it)?.let { t -> if (t.zone == Zone.COMMERCIAL || t.zone == Zone.OFFICE) t.capacity else t.jobs } ?: 0 }
         val industry = SummedArea(w, h) { if (buildingTypes(it)?.zone == Zone.INDUSTRIAL) 1 else 0 }
         val traffic = SummedArea(w, h) { map.congestion[it].toInt() and 0xff }
@@ -114,7 +116,8 @@ internal object Effects {
             // Unless the water's foul.
             if (foul != null) v -= min(30, foul.around(x, y, 3) / 60)
             v += min(trees.around(x, y, 2) * 3, 18)
-            v += min(parks.around(x, y, 4) * 8, 32) * parksKept / 100
+            val parkCap = if (bigParks.around(x, y, 4) > 0) Balance.BIG_PARK_VALUE_CAP else Balance.PARK_VALUE_CAP
+            v += min(parks.around(x, y, 4), parkCap) * parksKept / 100
             v += min(shops.around(x, y, 8) / 3, 40)
             // Where much goes on, the land's wanted: a busy centre grows dear.
             v += min(busy.around(x, y, Balance.ACTIVITY_REACH) / Balance.ACTIVITY_PER_VALUE, Balance.ACTIVITY_VALUE)
@@ -182,6 +185,9 @@ internal object Effects {
             var theft = max(0, 80 - (map.landValue[i].toInt() and 0xff)) / 3 + unemployment
             theft += min(Balance.SHOP_THEFT, nearShops / 20)
             theft = theft * (255 * 100 - police * Balance.THEFT_POLICE) / (255 * 100)
+            // The young with games and a club to go to steal less.
+            val sport = min(100, map.leisureSport[i].toInt() and 0xff)
+            theft = theft * (100 - Balance.LEISURE_THEFT * sport / 100) / 100
             var vice = people.around(x, y, 3) / 6 + min(Balance.NIGHTLIFE, nearShops / 30)
             vice = vice * (255 * 100 - police * Balance.VICE_POLICE) / (255 * 100)
             theft = theft.coerceIn(0, 255) * slack / 100

@@ -7,6 +7,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.rm.infill.res.label_leisure
+import com.rm.infill.res.leisure_value
+import com.rm.infill.res.series_leisure
 import com.rm.infill.res.green_roofs
 import com.rm.infill.res.cool_roofs
 import com.rm.infill.res.carbon_heating
@@ -571,6 +574,11 @@ fun DemandWindow(game: GameState, onClose: () -> Unit) {
                     StatItem(Glyph.Tag, stringResource(Res.string.empty_homes), n(s.emptyHomes)),
                     StatItem(Glyph.Arrows, stringResource(Res.string.moved_in), n(s.movedIn)),
                     StatItem(Glyph.Road, stringResource(Res.string.way_in), stringResource(if (city.wayInNow) Res.string.way_in_open else Res.string.way_in_none), tone = if (city.wayInNow) Tone.Good else Tone.Bad),
+                    // Parks, sport and culture near home, against what people expect in the year.
+                    city.leisureExpected().let { e ->
+                        StatItem(Glyph.Tree, stringResource(Res.string.label_leisure), stringResource(Res.string.leisure_value, s.leisure, e), s.leisure / 100f,
+                            when { s.leisure >= e -> Tone.Good; s.leisure + 10 >= e -> Tone.Warn; else -> Tone.Bad })
+                    },
                     if (s.commutersOut > 0) StatItem(Glyph.Arrows, stringResource(Res.string.commuting_out), n(s.commutersOut)) else null,
                     if (s.commutersIn > 0) StatItem(Glyph.Arrows, stringResource(Res.string.commuting_in), n(s.commutersIn)) else null,
                 ),
@@ -672,6 +680,7 @@ private val SERIES = listOf(
     Triple(Series.Pollution, Res.string.series_pollution, Glyph.Smoke),
     Triple(Series.LandValue, Res.string.series_land_value, Glyph.Mountain),
     Triple(Series.Carbon, Res.string.series_carbon, Glyph.Smoke),
+    Triple(Series.Leisure, Res.string.series_leisure, Glyph.Tree),
 )
 
 /** The town over the years, one thing at a time. */

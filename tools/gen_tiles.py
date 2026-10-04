@@ -5696,6 +5696,375 @@ def community_policing(look, v):
     flat_roof(b.img, roof, look, random.Random(10300 + v), [("vent", 8, 6), ("vent", 40, 6)], parapet=c("#8a8a84"))
     return b
 
+
+# ---- green space ---------------------------------------------------------------
+
+def green_lawn(look):
+    """Kept grass, watered so it stays green in a dry summer."""
+    return GRASS[look] if look not in ("summer", "dry") else [c("#6aae4a"), c("#5f9f42"), c("#78bc56")]
+
+
+def lawn_box(b, look, x0, y0, x1, y1, rng):
+    noise_fill(b.img, (x0, y0 + b.lift, x1 + 1, y1 + b.lift + 1), green_lawn(look), rng)
+
+
+def tree_at(b, look, v, x, y, r, rng, conifer_tree=False):
+    # Kept inside the sprite, crown and all.
+    x = max(r + 2, min(b.img.width - r - 3, x))
+    if conifer_tree:
+        cast = conifer(b.img, look, x, y + b.lift, r * 2, rng)
+    else:
+        cast = deciduous(b.img, look, v, x, y + b.lift, r, rng)
+    b.casters.append((0, cast[0], cast[1] - b.lift, cast[2], cast[3], 0))
+
+
+def path_line(b, look, pts, width=3):
+    b.d.line([(x, y + b.lift) for x, y in pts], PATH if look != "snow" else c("#e6ecf0"), width)
+
+
+def bench(b, x, y):
+    b.d.rectangle([x, y + b.lift, x + 5, y + 1 + b.lift], c("#7a5a3a"))
+
+
+def flowers(b, look, x0, y0, x1, y1, rng, n=12):
+    d = b.d
+    d.rectangle([x0, y0 + b.lift, x1, y1 + b.lift], c("#6b4a30") if look != "snow" else SNOW_ROOF[1])
+    if look in ("spring", "summer", "dry"):
+        for _ in range(n):
+            d.point((rng.randrange(x0 + 1, x1), rng.randrange(y0 + 1, y1) + b.lift), rng.choice(FLOWERS))
+
+
+def pond(b, look, cx, cy, rx, ry, rng, lilies=True):
+    """A pond with an uneven shore: a few overlapping lobes, a darker edge and, in season, lily pads."""
+    d = b.d
+    top = b.lift
+    water = c("#5a8fbf") if look != "snow" else c("#dfe8ef")
+    edge = c("#3f6f9a") if look != "snow" else c("#c8d4dc")
+    lobes = [(cx, cy, rx, ry)]
+    for _ in range(3):
+        ox = rng.randint(-rx // 2, rx // 2)
+        oy = rng.randint(-ry // 2, ry // 2)
+        lobes.append((cx + ox, cy + oy, max(3, rx * rng.randint(45, 75) // 100), max(3, ry * rng.randint(45, 75) // 100)))
+    # The shore first, a pixel bigger all round, then the water over it.
+    for (x, y, a, e) in lobes:
+        d.ellipse([x - a - 1, y - e - 1 + top, x + a + 1, y + e + 1 + top], edge)
+    for (x, y, a, e) in lobes:
+        d.ellipse([x - a, y - e + top, x + a, y + e + top], water)
+    if lilies and look in ("spring", "summer"):
+        for _ in range(max(2, rx // 4)):
+            x, y, a, e = rng.choice(lobes)
+            px = x + rng.randint(-a // 2, a // 2)
+            py = y + rng.randint(-e // 2, e // 2)
+            d.point((px, py + top), c("#4f8a3a"))
+            d.point((px + 1, py + top), c("#4f8a3a"))
+    elif look != "snow":
+        for _ in range(max(2, rx // 5)):
+            x, y, a, e = rng.choice(lobes)
+            d.line([x - 2, y + top, x + 1, y + top], c("#8fbce0"))
+
+
+def playground(look, v):
+    """A playground on one tile: a sandpit, swings and a slide on soft ground, a fence round it and a tree for shade."""
+    b = Building(height=LIFT)
+    d = b.d
+    rng = random.Random(11000 + v)
+    lawn_box(b, look, 0, 0, 31, 31, rng)
+    top = b.lift
+    d.rectangle([3, top + 3, 28, top + 28], c("#c8a878") if look != "snow" else SNOW_GROUND, outline=c("#6b5a44"))
+    d.rectangle([5, top + 18, 13, top + 26], c("#e6d49a") if look != "snow" else SNOW_ROOF[1])
+    # Swings, and a slide.
+    d.line([16, top + 6, 26, top + 6], c("#c0392b") if v == 0 else c("#2f6fb8"), 1)
+    for x in (16, 26):
+        d.line([x, top + 6, x, top + 12], c("#4a3a2a"))
+    for x in (19, 23):
+        d.line([x, top + 6, x, top + 10], c("#9a9a9a"))
+    d.line([18, top + 16, 26, top + 24], c("#f2c94c"), 2)
+    tree_at(b, look, v, 7, 10, 5, rng)
+    return b
+
+
+def town_square(look, v):
+    """A town square on 2 by 2 tiles: paving, a statue or a war memorial in the middle, trees at the corners and benches."""
+    b = Building(2, 2, height=LIFT)
+    d = b.d
+    rng = random.Random(11100 + v)
+    top = b.lift
+    pave = c("#c8bfae") if look != "snow" else c("#e6ecf0")
+    d.rectangle([2, top + 2, 61, top + 61], pave)
+    for k in range(4, 61, 6):
+        d.line([2, top + k, 61, top + k], shade(pave, 0.94))
+    d.rectangle([24, top + 24, 39, top + 39], c("#a89c88"), outline=OUTLINE)
+    d.rectangle([29, top + 22, 34, top + 34], c("#6e6a62") if v == 0 else c("#8a7a58"))
+    b.casters.append((1, 29, 22, 35, 35, 12))
+    for x, y in ((10, 12), (53, 12), (10, 54), (53, 54)):
+        tree_at(b, look, v, x, y, 6, rng)
+    for x, y in ((20, 18), (38, 18), (20, 44), (38, 44)):
+        bench(b, x, y)
+    return b
+
+
+def plaza_square(look, v):
+    """A plaza of the 1960s on 2 by 2 tiles: broad concrete paving, a long fountain pool, planters and seating."""
+    b = Building(2, 2, height=LIFT)
+    d = b.d
+    rng = random.Random(11200 + v)
+    top = b.lift
+    pave = c("#cfcac0") if look != "snow" else c("#e6ecf0")
+    d.rectangle([1, top + 1, 62, top + 62], pave)
+    for k in range(1, 62, 8):
+        d.line([k, top + 1, k, top + 62], shade(pave, 0.93))
+    d.rectangle([12, top + 26, 51, top + 37], c("#8a8a84"))
+    d.rectangle([14, top + 28, 49, top + 35], c("#6fa0cf") if look != "snow" else c("#dfe8ef"))
+    for x in (20, 31, 42):
+        d.point((x, top + 31), c("#e8f4ff"))
+    for x, y in ((8, 8), (48, 8), (8, 48), (48, 48)):
+        d.rectangle([x, top + y, x + 8, top + y + 8], c("#7a7a74"))
+        tree_at(b, look, v, x + 4, y + 6, 4, rng)
+    return b
+
+
+def formal_garden(look, v):
+    """A formal garden on 2 by 2 tiles: clipped hedges in a pattern, gravel walks, flower beds and a fountain at the centre."""
+    b = Building(2, 2, height=LIFT)
+    d = b.d
+    rng = random.Random(11300 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 63, 63, rng)
+    gravel = c("#d9ccaa") if look != "snow" else c("#e6ecf0")
+    d.line([32, top + 2, 32, top + 61], gravel, 4)
+    d.line([2, top + 32, 61, top + 32], gravel, 4)
+    hedge = c("#3f6b3a") if look != "snow" else c("#c9d6e0")
+    for (x0, y0) in ((6, 6), (38, 6), (6, 38), (38, 38)):
+        d.rectangle([x0, top + y0, x0 + 19, top + y0 + 19], outline=hedge, width=2)
+        flowers(b, look, x0 + 5, y0 + 5, x0 + 14, y0 + 14, rng)
+    d.ellipse([26, top + 26, 38, top + 38], c("#bdb6a4"))
+    d.ellipse([28, top + 28, 36, top + 36], c("#6fa0cf") if look != "snow" else c("#dfe8ef"))
+    for x, y in ((3, 3), (60, 3), (3, 60), (60, 60)):
+        tree_at(b, look, v, x, y, 3, rng, conifer_tree=True)
+    return b
+
+
+def city_park(look, v):
+    """A city park on 4 by 4 tiles: rolling lawns, a lake with a boathouse, winding paths, a bandstand and many trees."""
+    b = Building(4, 4, height=LIFT)
+    d = b.d
+    rng = random.Random(11400 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 127, 127, rng)
+    if v == 0:
+        pond(b, look, 86, 38, 24, 18, rng)
+    else:
+        pond(b, look, 42, 86, 26, 20, rng)
+    path_line(b, look, [(0, 90), (30, 70), (64, 72), (96, 90), (127, 84)])
+    path_line(b, look, [(64, 0), (58, 40), (64, 72), (60, 127)])
+    d.ellipse([86, top + 96, 104, top + 114], c("#efe8d8"))
+    d.polygon([(87, top + 95), (103, top + 95), (106, top + 101), (103, top + 107), (87, top + 107), (84, top + 101)],
+              SNOW_ROOF[0] if look == "snow" else c("#3f6b48"), OUTLINE)
+    b.casters.append((1, 84, 95, 106, 108, 8))
+    for _ in range(26):
+        x, y = rng.randrange(6, 122), rng.randrange(6, 122)
+        if (v == 0 and 56 <= x <= 116 and 14 <= y <= 64) or (v == 1 and 10 <= x <= 74 and 60 <= y <= 112):
+            continue
+        tree_at(b, look, v, x, y, rng.randrange(5, 9), rng, conifer_tree=rng.random() < 0.25)
+    for x, y in ((40, 74), (80, 76), (56, 30)):
+        bench(b, x, y)
+    return b
+
+
+def allotments(look, v):
+    """Allotments on 2 by 2 tiles: narrow plots of vegetables in rows, sheds, water butts and a path down the middle."""
+    b = Building(2, 2, height=LIFT)
+    d = b.d
+    rng = random.Random(11500 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 63, 63, rng)
+    path_line(b, look, [(32, 0), (32, 63)], 4)
+    soil = c("#6b4a30") if look != "snow" else SNOW_GROUND
+    for k in range(4):
+        for side in (0, 1):
+            x0 = 3 if side == 0 else 36
+            y0 = 3 + k * 15
+            d.rectangle([x0, top + y0, x0 + 25, top + y0 + 12], soil)
+            if look in ("spring", "summer", "dry"):
+                for yy in range(y0 + 2, y0 + 12, 3):
+                    d.line([x0 + 2, top + yy, x0 + 23, top + yy], c("#5f9f42") if (k + side) % 2 == 0 else c("#8ab04a"))
+            if (k + side + v) % 3 == 0:
+                d.rectangle([x0 + 18, top + y0 + 1, x0 + 24, top + y0 + 6], c("#8a6a4a"), outline=OUTLINE)
+                b.casters.append((1, x0 + 18, y0 + 1, x0 + 25, y0 + 7, 6))
+    return b
+
+
+def community_garden(look, v):
+    """A community garden of the 1970s on 2 by 2 tiles: raised beds, a greenhouse, a compost corner, benches and a mural wall."""
+    b = Building(2, 2, height=LIFT + 6)
+    d = b.d
+    rng = random.Random(11600 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 63, 63, rng)
+    for (x0, y0) in ((4, 4), (22, 4), (4, 22), (22, 22), (4, 40), (22, 40)):
+        d.rectangle([x0, top + y0, x0 + 14, top + y0 + 12], c("#8a6a4a"))
+        flowers(b, look, x0 + 2, y0 + 2, x0 + 12, y0 + 10, rng, n=8)
+        if look in ("spring", "summer", "dry"):
+            d.line([x0 + 3, top + y0 + 6, x0 + 11, top + y0 + 6], c("#5f9f42"))
+    groof, gwall = b.box(42, 6, 60, 26, 8)
+    d.rectangle(gwall, GLASSHOUSE)
+    d.rectangle(groof, GLASSHOUSE if look != "snow" else SNOW_ROOF[0], outline=OUTLINE)
+    d.rectangle([44, top + 44, 58, top + 58], c("#5a3a22"))
+    bench(b, 44, 34)
+    return b
+
+
+def pocket_park(look, v):
+    """A pocket park of the 1960s on one tile, fitted between buildings: a little lawn, a tree, benches and a low wall."""
+    b = Building(height=LIFT)
+    d = b.d
+    rng = random.Random(11700 + v)
+    top = b.lift
+    d.rectangle([0, top, 31, top + 31], c("#c8bfae") if look != "snow" else c("#e6ecf0"))
+    lawn_box(b, look, 4, 4, 27, 22, rng)
+    d.rectangle([2, top + 2, 29, top + 3], c("#9a8a78"))
+    bench(b, 6, 26)
+    bench(b, 18, 26)
+    tree_at(b, look, v, 16 if v == 0 else 10, 14, 7, rng)
+    return b
+
+
+def urban_woodland(look, v):
+    """A tile of planted woodland: trees close together over leaf litter, some young and some grown."""
+    b = Building(height=LIFT)
+    rng = random.Random(11800 + v)
+    top = b.lift
+    floor = [c("#5a6a34"), c("#4e5e2e"), c("#6a7a3e")] if look not in ("snow", "bare", "autumn") else (
+        [c("#e4ebf0"), c("#d8e0e6"), c("#eef2f5")] if look == "snow" else [c("#7a6a3e"), c("#6a5a34"), c("#8a7a4a")])
+    noise_fill(b.img, (0, top, T, top + T), floor, rng)
+    spots = [(8, 9, 6), (22, 7, 5), (15, 20, 7), (27, 24, 5), (5, 26, 4)]
+    for k, (x, y, r) in enumerate(spots):
+        tree_at(b, look, v, x, y, r, rng, conifer_tree=(k + v) % 3 == 0)
+    return b
+
+
+def botanical_garden(look, v):
+    """A botanical garden of the 1910s on 3 by 3 tiles: a palm house of white iron and glass, a dome over its middle and a
+    wing either side, palms showing through the glass, beds of every colour, a pond and trees from abroad."""
+    b = Building(3, 3, height=3 * STOREY + 8)
+    d = b.d
+    rng = random.Random(11900 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 95, 95, rng)
+    path_line(b, look, [(48, 95), (48, 50)], 4)
+    path_line(b, look, [(4, 72), (92, 72)], 3)
+    for (x0, y0) in ((8, 78), (58, 78), (8, 58), (62, 58)):
+        flowers(b, look, x0, y0, x0 + 26, y0 + 10, rng, n=24)
+    pond(b, look, 85, 50, 7, 5, rng)
+    glass = GLASSHOUSE if look != "snow" else SNOW_ROOF[0]
+    iron = c("#f2f4f2")
+    # The two wings, low, with ribs across them.
+    for (x0, x1) in ((14, 38), (58, 82)):
+        roof, wall = b.box(x0, 20, x1, 40, 2 * STOREY)
+        d.rectangle(wall, shade(GLASSHOUSE, 0.92))
+        for xx in range(wall[0] + 3, wall[2], 3):
+            d.line([xx, wall[1], xx, wall[3]], iron)
+        d.rectangle(wall, outline=OUTLINE)
+        rx0, ry0, rx1, ry1 = roof
+        d.rectangle(roof, glass)
+        # A curved glass roof: lighter along the ridge, ribs across it.
+        d.line([rx0 + 1, (ry0 + ry1) // 2, rx1 - 1, (ry0 + ry1) // 2], shade(GLASSHOUSE, 1.12) if look != "snow" else SNOW_ROOF[1])
+        for xx in range(rx0 + 3, rx1, 3):
+            d.line([xx, ry0 + 1, xx, ry1 - 1], iron)
+        if look != "snow":
+            for _ in range(3):
+                px, py = rng.randint(rx0 + 3, rx1 - 3), rng.randint(ry0 + 3, ry1 - 3)
+                d.ellipse([px - 2, py - 2, px + 2, py + 2], c("#4f8a3a"))
+        d.rectangle(roof, outline=OUTLINE)
+    # The dome over the middle, taller, its ribs running out from the lantern at the top.
+    droof, dwall = b.box(36, 14, 60, 46, 3 * STOREY + 4)
+    d.rectangle(dwall, shade(GLASSHOUSE, 0.92))
+    for xx in range(dwall[0] + 2, dwall[2], 3):
+        d.line([xx, dwall[1], xx, dwall[3]], iron)
+    d.rectangle([(dwall[0] + dwall[2]) // 2 - 2, dwall[3] - 5, (dwall[0] + dwall[2]) // 2 + 2, dwall[3]], c("#3a5a4a"))
+    d.rectangle(dwall, outline=OUTLINE)
+    rx0, ry0, rx1, ry1 = droof
+    mx, my = (rx0 + rx1) // 2, (ry0 + ry1) // 2
+    d.ellipse([rx0, ry0, rx1, ry1], glass, OUTLINE)
+    if look != "snow":
+        for _ in range(5):
+            px, py = mx + rng.randint(-7, 7), my + rng.randint(-10, 10)
+            d.ellipse([px - 2, py - 2, px + 2, py + 2], c("#3f7a32"))
+    for k in range(12):
+        import math
+        ang = k * math.pi / 6
+        d.line([mx, my, mx + int(math.cos(ang) * (rx1 - rx0) / 2), my + int(math.sin(ang) * (ry1 - ry0) / 2)], iron)
+    d.ellipse([mx - 3, my - 3, mx + 3, my + 3], c("#d9b44a"), OUTLINE)
+    for x, y, r in ((8, 10, 6), (8, 40, 5), (88, 44, 6), (88, 90, 5)):
+        tree_at(b, look, v, x, y, r, rng, conifer_tree=(x + y + v) % 2 == 0)
+    return b
+
+
+def wetland_reserve(look, v):
+    """A wetland reserve of the 1980s on 3 by 3 tiles: open water among reeds and sedge, a boardwalk across it and a bird
+    hide."""
+    b = Building(3, 3, height=LIFT + 6)
+    d = b.d
+    rng = random.Random(12000 + v)
+    top = b.lift
+    reeds = [c("#7a8a4a"), c("#6a7a3e"), c("#8a9a56")] if look not in ("snow", "bare", "autumn") else (
+        [c("#e4ebf0"), c("#d8e0e6"), c("#eef2f5")] if look == "snow" else [c("#a89a5a"), c("#988a4e"), c("#b8aa6a")])
+    noise_fill(b.img, (0, top, 96, top + 96), reeds, rng)
+    for (cx, cy, rx, ry) in ((28, 24, 18, 12), (64, 66, 20, 15), (22, 74, 10, 10)):
+        pond(b, look, cx, cy, rx, ry, rng, lilies=False)
+    walk = c("#9a7a52") if look != "snow" else c("#c8b8a0")
+    d.line([0, top + 48, 60, top + 48], walk, 3)
+    d.line([60, top + 48, 60, top + 92], walk, 3)
+    hroof, hwall = b.box(62, 20, 76, 30, 6)
+    d.rectangle(hwall, c("#7a5a3a"))
+    d.line([hwall[0] + 2, hwall[1] + 2, hwall[2] - 2, hwall[1] + 2], OUTLINE)
+    d.rectangle(hroof, c("#5a4a3a") if look != "snow" else SNOW_ROOF[0], outline=OUTLINE)
+    for x, y in ((88, 8), (6, 92), (92, 92)):
+        tree_at(b, look, v, x, y, 5, rng)
+    return b
+
+
+def greenway(look, v):
+    """A tile of greenway: a paved path for walking and cycling through a strip of grass and trees, like an old railway
+    line."""
+    b = Building(height=LIFT)
+    d = b.d
+    rng = random.Random(12100 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 31, 31, rng)
+    pave = c("#9a9a92") if look != "snow" else c("#e6ecf0")
+    if v % 2 == 0:
+        d.rectangle([12, top, 19, top + 31], pave)
+        d.line([16, top + 2, 16, top + 29], c("#f2f2ea") if look != "snow" else pave)
+        tree_at(b, look, v, 5, 12, 4, rng)
+        tree_at(b, look, v, 26, 24, 4, rng)
+    else:
+        d.rectangle([0, top + 12, 31, top + 19], pave)
+        d.line([2, top + 16, 29, top + 16], c("#f2f2ea") if look != "snow" else pave)
+        tree_at(b, look, v, 8, 6, 4, rng)
+        tree_at(b, look, v, 24, 28, 4, rng)
+    return b
+
+
+def dog_park(look, v):
+    """A dog park of the 1990s on one tile: a fenced run with a gate, a water bowl, a few logs and posts to jump."""
+    b = Building(height=LIFT)
+    d = b.d
+    rng = random.Random(12200 + v)
+    top = b.lift
+    noise_fill(b.img, (0, top, T, top + T), [c("#8aa65a"), c("#7a964e"), c("#9ab66a")] if look not in ("snow",) else
+               [c("#e4ebf0"), c("#d8e0e6"), c("#eef2f5")], rng)
+    d.rectangle([2, top + 2, 29, top + 29], outline=c("#5a5a5e"))
+    for k in range(2, 30, 3):
+        d.point((k, top + 2), c("#3a3a3e"))
+        d.point((k, top + 29), c("#3a3a3e"))
+    d.rectangle([13, top + 28, 18, top + 30], c("#9a7a52"))
+    d.rectangle([6, top + 18, 16, top + 20], c("#7a5a3a"))
+    for x in (20, 24):
+        d.line([x, top + 8, x, top + 12], c("#c0392b") if v == 0 else c("#2f6fb8"))
+    tree_at(b, look, v, 24, 22, 4, rng)
+    return b
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -5727,6 +6096,11 @@ BUILDINGS = [
     ("community_health", community_health, 2), ("general_hospital", general_hospital, 2), ("medical_centre", medical_centre, 2),
     ("care_home", care_home, 2), ("motor_fire_station", motor_fire_station, 2), ("fire_hall", fire_hall, 2),
     ("precinct", precinct, 2), ("community_policing", community_policing, 2),
+    # Green space.
+    ("playground", playground, 2), ("town_square", town_square, 2), ("plaza", plaza_square, 2), ("formal_garden", formal_garden, 2),
+    ("city_park", city_park, 2), ("allotments", allotments, 2), ("community_garden", community_garden, 2), ("pocket_park", pocket_park, 2),
+    ("urban_woodland", urban_woodland, 4), ("botanical_garden", botanical_garden, 2), ("wetland_reserve", wetland_reserve, 2),
+    ("greenway", greenway, 2), ("dog_park", dog_park, 2),
     ("police_hq", police_hq, 1), ("courthouse", courthouse, 2), ("jail", jail, 1),
     ("farmstead", farmstead, 4), ("country_house", country_house, 2), ("acreage_home", acreage_home, 2),
     ("crossroads_store", crossroads_store, 2), ("roadhouse", roadhouse, 2),

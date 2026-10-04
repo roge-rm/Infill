@@ -1,5 +1,19 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.tool_leisure
+import com.rm.infill.res.leisure_sport
+import com.rm.infill.res.leisure_culture
+import com.rm.infill.res.playground
+import com.rm.infill.res.town_square
+import com.rm.infill.res.formal_garden
+import com.rm.infill.res.city_park
+import com.rm.infill.res.allotments
+import com.rm.infill.res.pocket_park
+import com.rm.infill.res.urban_woodland
+import com.rm.infill.res.botanical_garden
+import com.rm.infill.res.wetland_reserve
+import com.rm.infill.res.greenway
+import com.rm.infill.res.dog_park
 import com.rm.infill.res.cooling_centre
 import com.rm.infill.res.tool_air
 import com.rm.infill.res.international_airport
@@ -171,6 +185,7 @@ enum class Tool(val title: StringResource) {
     Power(Res.string.tool_power),
     Water(Res.string.tool_water),
     Services(Res.string.tool_services),
+    Leisure(Res.string.tool_leisure),
     Transit(Res.string.tool_transit),
     Traffic(Res.string.tool_traffic),
     Districts(Res.string.tool_districts),
@@ -190,6 +205,7 @@ enum class ToolGroup(val title: StringResource, val tools: List<Tool>) {
     Transport(Res.string.group_transport, listOf(Tool.Road, Tool.Rail, Tool.Transit, Tool.Traffic, Tool.Port, Tool.Air)),
     Utilities(Res.string.group_utilities, listOf(Tool.Power, Tool.Water, Tool.Phone)),
     Services(Res.string.tool_services, listOf(Tool.Services)),
+    Leisure(Res.string.tool_leisure, listOf(Tool.Leisure)),
 }
 
 /** The button [tool] is under. */
@@ -271,14 +287,16 @@ val TransitKind.groups: List<TransitGroup> get() = when (this) {
 fun transitKindsIn(city: City): List<TransitKind> =
     TransitKind.entries.filter { k -> if (k.wire) city.allowsTrolleybuses() else (k.building ?: k.needs)?.let { city.allows(it) } ?: true }
 
-/** The kinds of service, each a tab of its own in the services tray. */
-enum class ServiceGroup(val title: StringResource) {
+/** The kinds of service, each a tab of its own in the services tray, or for [leisure] in the leisure tray. */
+enum class ServiceGroup(val title: StringResource, val leisure: Boolean = false) {
     Police(Res.string.services_police),
     Fire(Res.string.services_fire),
     Health(Res.string.services_health),
     Schools(Res.string.services_schools),
-    Parks(Res.string.services_parks),
     Waste(Res.string.services_waste),
+    Parks(Res.string.services_parks, leisure = true),
+    Sport(Res.string.leisure_sport, leisure = true),
+    Culture(Res.string.leisure_culture, leisure = true),
 }
 
 /** What the services tool puts down. Parks are dragged out, as are street trees along roads; stations go where the finger ends up. */
@@ -292,6 +310,17 @@ enum class ServiceKind(val title: StringResource, val type: BuildingType?, val g
     Ladders(Res.string.ladder_company, BuildingType.LADDER_COMPANY, ServiceGroup.Fire),
     Park(Res.string.park, BuildingType.PARK, ServiceGroup.Parks),
     StreetTrees(Res.string.street_trees, null, ServiceGroup.Parks),
+    Playground(Res.string.playground, BuildingType.PLAYGROUND, ServiceGroup.Parks),
+    TownSquare(Res.string.town_square, BuildingType.TOWN_SQUARE, ServiceGroup.Parks),
+    FormalGarden(Res.string.formal_garden, BuildingType.FORMAL_GARDEN, ServiceGroup.Parks),
+    CityPark(Res.string.city_park, BuildingType.CITY_PARK, ServiceGroup.Parks),
+    Allotments(Res.string.allotments, BuildingType.ALLOTMENTS, ServiceGroup.Parks),
+    PocketPark(Res.string.pocket_park, BuildingType.POCKET_PARK, ServiceGroup.Parks),
+    UrbanWoodland(Res.string.urban_woodland, BuildingType.URBAN_WOODLAND, ServiceGroup.Parks),
+    BotanicalGarden(Res.string.botanical_garden, BuildingType.BOTANICAL_GARDEN, ServiceGroup.Parks),
+    WetlandReserve(Res.string.wetland_reserve, BuildingType.WETLAND_RESERVE, ServiceGroup.Parks),
+    Greenway(Res.string.greenway, BuildingType.GREENWAY, ServiceGroup.Parks),
+    DogPark(Res.string.dog_park, BuildingType.DOG_PARK, ServiceGroup.Parks),
     School(Res.string.school, BuildingType.SCHOOL, ServiceGroup.Schools),
     HighSchool(Res.string.high_school, BuildingType.HIGH_SCHOOL, ServiceGroup.Schools),
     Library(Res.string.library, BuildingType.LIBRARY, ServiceGroup.Schools),
@@ -306,8 +335,9 @@ enum class ServiceKind(val title: StringResource, val type: BuildingType?, val g
     Recycling(Res.string.recycling, BuildingType.RECYCLING, ServiceGroup.Waste),
 }
 
-/** The services [city] can build in its era. */
-fun servicesIn(city: City): List<ServiceKind> = ServiceKind.entries.filter { it.type == null || city.allows(it.type) }
+/** The services [city] can build in its era, under the services button or for [leisure] the leisure button. */
+fun servicesIn(city: City, leisure: Boolean = false): List<ServiceKind> =
+    ServiceKind.entries.filter { it.group.leisure == leisure && (it.type == null || city.allows(it.type)) }
 
 /** What the rail tool puts down. Track is dragged; stations and yards go where the finger ends up. */
 enum class RailKind(val title: StringResource) {
@@ -551,8 +581,9 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             transit == TransitKind.Subway -> Action.BuildSubway(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             else -> Action.RemoveTransit(x0, y0, x1, y1)
         }
-        Tool.Services -> when {
-            service == ServiceKind.Park -> Action.PlaceParks(x0, y0, x1, y1)
+        Tool.Services, Tool.Leisure -> when {
+            // Green space laid a tile at a time.
+            service.type?.painted == true -> Action.PlaceParks(x0, y0, x1, y1, newest(service.type))
             service.type == null -> Action.PlantStreetTrees(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             else -> Action.PlaceBuilding(newest(service.type), x1, y1)
         }

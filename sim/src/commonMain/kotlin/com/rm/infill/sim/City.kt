@@ -498,13 +498,13 @@ class City(
                 }
             }
             is Action.PlaceParks -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
-                if (m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
+                if (!action.kind.painted || !allows(action.kind) || m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
                     m.zone[i] != Zone.NONE || m.building[i] != 0 || m.rail[i] != Rail.NONE || m.bank[i].toInt() != 0
                 ) {
                     blocked += i
                 } else {
                     changes += i
-                    cost += Prices.PARK
+                    cost += Prices.of(action.kind)
                 }
             }
             is Action.Bulldoze -> {
@@ -1420,7 +1420,7 @@ class City(
             }
             is Action.PlaceParks -> for (i in plan.changes) {
                 clearTrees(i)
-                added += addBuilding(BuildingType.PARK, i % m.width, i / m.width, rng.nextInt(1000))
+                added += addBuilding(action.kind, i % m.width, i / m.width, rng.nextInt(1000))
             }
             is Action.Bulldoze -> {
               var forcedOut = 0
@@ -1889,6 +1889,8 @@ class City(
         updateGrime()
         between()
         updateServices()
+        between()
+        updateLeisure()
         between()
         updateComms()
         between()
@@ -2453,6 +2455,8 @@ class City(
         val green = SummedArea(m.width, m.height) {
             when {
                 m.buildingType[it].toInt() - 1 == BuildingType.PARK.ordinal -> park
+                m.buildingType[it] > 0 && Specs.of(BuildingType.entries[m.buildingType[it] - 1])?.green != null ->
+                    Specs.of(BuildingType.entries[m.buildingType[it] - 1])!!.green!!.cool * park / 100
                 m.terrain[it] == Terrain.TREES || m.terrain[it] == Terrain.WATER || m.streetTrees[it].toInt() != 0 -> 100
                 m.building[it] != 0 && greenRoof(it) -> Balance.GREEN_ROOF_GREEN
                 else -> 0
@@ -3410,6 +3414,108 @@ class City(
         for (i in 0 until map.size) if ((volunteers[i].toInt() and 0xff) > (map.fireCover[i].toInt() and 0xff)) map.fireCover[i] = volunteers[i]
         cover(of(BuildingType.LADDER_COMPANY), motor, Balance.FIRE_REACH, Balance.FIRE_RESPONSE_FULL, Balance.FIRE_RESPONSE_MOST, fireFunding, 100, map.ladderCover)
         cover(of(BuildingType.AMBULANCE_STATION), true, Balance.FIRE_REACH, Balance.FIRE_RESPONSE_FULL, Balance.FIRE_RESPONSE_MOST, healthFunding, 100, map.ambulanceCover)
+    }
+
+    /**
+     * The leisure round each tile: each park, garden and the like adds what
+     * it gives, as much as people want it this year, as well as it's kept
+     * and as up to date as it is, fading to nothing at its reach. Woodland
+     * comes into its own as it grows.
+     */
+    internal fun updateLeisure() {
+        val m = map
+        m.leisureGreen.fill(0)
+        m.leisureSport.fill(0)
+        m.leisureCulture.fill(0)
+        val green = IntArray(m.size)
+        val sport = IntArray(m.size)
+        val culture = IntArray(m.size)
+        val kept = parksKept()
+        for (b in buildings.values.sortedBy { it.id }) {
+            val spec = Specs.of(b.type) ?: continue
+            val l = spec.leisure ?: continue
+            if (b.underway > 0 || b.outage > 0) continue
+            var strong = l.fashion(year) * condition(b) / 100
+            if (spec.green != null) strong = strong * kept / 100 * grown(b, spec.green) / 100
+            if (strong <= 0) continue
+            val cx = b.x + b.type.width / 2
+            val cy = b.y + b.type.height / 2
+            val r = l.reach
+            forRect(max(0, cx - r), max(0, cy - r), min(m.width - 1, cx + r), min(m.height - 1, cy + r)) { i ->
+                val d = abs(i % m.width - cx) + abs(i / m.width - cy)
+                if (d <= r) {
+                    val share = strong * (r + 1 - d) / (r + 1)
+                    if (l.green > 0) green[i] += l.green * share / 100
+                    if (l.sport > 0) sport[i] += l.sport * share / 100
+                    if (l.culture > 0) culture[i] += l.culture * share / 100
+                }
+            }
+        }
+        for (i in 0 until m.size) {
+            m.leisureGreen[i] = min(255, green[i]).toByte()
+            m.leisureSport[i] = min(255, sport[i]).toByte()
+            m.leisureCulture[i] = min(255, culture[i]).toByte()
+        }
+        var people = 0L
+        var sum = 0L
+        for (b in buildings.values) {
+            val n = b.people?.size ?: continue
+            people += n
+            sum += n.toLong() * leisureAt(m.index(b.x, b.y))
+        }
+        stats.leisure = if (people == 0L) 0 else (sum / people).toInt()
+    }
+
+    /** How far planted green space has grown, in percent: all of it unless it takes years to come into its own. */
+    private fun grown(b: Building, green: Green): Int =
+        if (green.matures <= 0) 100 else (30 + 70 * (monthNow - b.built) / (green.matures * 12)).coerceIn(30, 100)
+
+    /** What people want of green, sport and culture this year, in percent, from [Balance.LEISURE_WEIGHTS]. */
+    private fun leisureWeights(): IntArray {
+        val years = Balance.LEISURE_YEARS
+        val w = Balance.LEISURE_WEIGHTS
+        if (year <= years.first()) return w.first()
+        for (k in 1 until years.size) if (year <= years[k]) {
+            val t = (year - years[k - 1]) * 100 / (years[k] - years[k - 1])
+            return IntArray(3) { w[k - 1][it] + (w[k][it] - w[k - 1][it]) * t / 100 }
+        }
+        return w.last()
+    }
+
+    /**
+     * The leisure a home on tile [i] has, 0 to 100: its green, sport and
+     * culture nearby, weighed by what's wanted this year, so that plenty of
+     * the kind most wanted is enough on its own and more kinds add to it.
+     */
+    fun leisureAt(i: Int): Int {
+        val m = map
+        val w = leisureWeights()
+        val g = min(100, m.leisureGreen[i].toInt() and 0xff)
+        val s = min(100, m.leisureSport[i].toInt() and 0xff)
+        val c = min(100, m.leisureCulture[i].toInt() and 0xff)
+        return min(100, (g * w[0] + s * w[1] + c * w[2]) / maxOf(w[0], w[1], w[2]))
+    }
+
+    /** The leisure people expect near home this year, 0 to 100, from [Balance.LEISURE_EXPECTED]. */
+    fun leisureExpected(): Int {
+        val years = Balance.LEISURE_YEARS
+        val e = Balance.LEISURE_EXPECTED
+        if (year <= years.first()) return e.first()
+        for (k in 1 until years.size) if (year <= years[k]) return e[k - 1] + (e[k] - e[k - 1]) * (year - years[k - 1]) / (years[k] - years[k - 1])
+        return e.last()
+    }
+
+    /** What leisure does for a home's appeal on tile [i]: more than it expects is a draw, less a drawback; more so on dense land. */
+    private fun leisureAppeal(i: Int): Int {
+        val gap = leisureAt(i) - leisureExpected()
+        if (gap <= 0) return max(Balance.LEISURE_LEAST, gap * Balance.LEISURE_LACK / 10)
+        val diff = gap * Balance.LEISURE_APPEAL / 10
+        val dense = when (Density.rank(heightAt(i))) {
+            0, 1 -> Balance.LEISURE_DENSITY[0]
+            2 -> Balance.LEISURE_DENSITY[1]
+            else -> Balance.LEISURE_DENSITY[2]
+        }
+        return min(Balance.LEISURE_MOST, diff * dense / 100)
     }
 
     /**
@@ -4490,6 +4596,10 @@ class City(
         for (b in buildings.values) {
             if (b.underway > 0) continue
             if (b.type == BuildingType.PARK) draw += Balance.PARK_DRAW * parksKept() / 100
+            // Gardens and parks people come to see, as well as they're kept and as much as they're in fashion.
+            else Specs.of(b.type)?.let { spec ->
+                if (spec.draw > 0) draw += spec.draw * (spec.leisure?.fashion(year) ?: 100) / 100 * condition(b) / 100 * parksKept() / 100
+            }
             if (b.type.hotel) hotels += b
             if (isHeritage(b)) draw += Balance.HERITAGE_DRAW
         }
@@ -4519,11 +4629,11 @@ class City(
         s.spending += ((s.guests * Balance.GUEST_SPEND + (visitors - s.guests) * Balance.TRIPPER_SPEND) / 100)
     }
 
-    /** Park tiles within [reach] of building [b]. */
+    /** Tiles of green space within [reach] of building [b]. */
     private fun parksNear(b: Building, reach: Int): Int {
         var n = 0
         forRect(max(0, b.x - reach), max(0, b.y - reach), min(map.width - 1, b.x + b.type.width - 1 + reach), min(map.height - 1, b.y + b.type.height - 1 + reach)) { i ->
-            if (buildings[map.building[i]]?.type == BuildingType.PARK) n++
+            if (buildings[map.building[i]]?.type?.green == true) n++
         }
         return n
     }
@@ -5724,7 +5834,6 @@ class City(
                 Lineage.kindOf(b.type).serves * condition(b) / 100
             } else 0
         }
-        val parks = SummedArea(m.width, m.height) { if (m.buildingType[it].toInt() - 1 == BuildingType.PARK.ordinal) 1 else 0 }
         val fouled = if (m.brownfield.any { it.toInt() != 0 }) SummedArea(m.width, m.height) { m.brownfield[it].toInt() } else null
         val dumpsNear = SummedArea(m.width, m.height) { if (m.buildingType[it].toInt() - 1 == BuildingType.DUMP.ordinal) 1 else 0 }
         s.pupils = pupils.values.sum()
@@ -5751,7 +5860,8 @@ class City(
             var target = Balance.HEALTH_BASE + Balance.CARE_HEALTH * careShare / 100 + Balance.WEALTH_HEALTH * h.wealth
             if (m.watered[i]) target += Balance.MAINS_HEALTH
             if (m.sewered[i]) target += Balance.MAINS_HEALTH
-            if (parks.around(b.x, b.y, 4) > 0) target += Balance.PARK_HEALTH * parksKept() / 100
+            // Green and sport near home: walks, games, fresh air.
+            target += min(Balance.LEISURE_HEALTH_MOST, ((m.leisureGreen[i].toInt() and 0xff) + (m.leisureSport[i].toInt() and 0xff)) / Balance.LEISURE_HEALTH)
             // An ambulance that can get there in time.
             val ambulance = m.ambulanceCover[i].toInt() and 0xff
             target += Balance.AMBULANCE_HEALTH * ambulance / 255
@@ -6237,6 +6347,8 @@ class City(
                 if (home != null && !home.empty && home.health < Balance.UNHEALTHY) score -= (Balance.UNHEALTHY - home.health) / 2
                 // Nobody wants to live where the town's been clearing homes.
                 score -= (m.upset[i].toInt() and 0xff) / Balance.UPSET_APPEAL
+                // Somewhere to go out to: parks, sport and culture near home.
+                score += leisureAppeal(i)
             }
             Zone.COMMERCIAL -> {
                 var people = 0
@@ -6254,6 +6366,8 @@ class City(
                 // Stock from the town's own works and farms, or none at all if nothing can get in.
                 buildings[m.building[i]]?.let { score += it.local * Balance.LOCAL_APPEAL / 100 }
                 if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
+                // A theatre or a cinema brings people out to the shops round it.
+                score += min(Balance.CULTURE_SHOPS_MOST, (m.leisureCulture[i].toInt() and 0xff) / Balance.CULTURE_SHOPS)
             }
             Zone.OFFICE -> {
                 // Dear land in the busy middle of town, close to the shops, clean and safe.
@@ -6267,6 +6381,7 @@ class City(
                 if (colleges.any { abs(it.x - x) + abs(it.y - y) <= Balance.COLLEGE_REACH }) score += Balance.COLLEGE_OFFICES
                 buildings[m.building[i]]?.let { score += ageAppeal(it) }
                 if (access[i] >= 0) score += min(Balance.PASSING_TRADE, traffic.lastFootfall[access[i]] / Balance.TRIPS_PER_PASSING_POINT)
+                score += min(Balance.CULTURE_OFFICES_MOST, (m.leisureCulture[i].toInt() and 0xff) / Balance.CULTURE_OFFICES)
             }
             Zone.INDUSTRIAL -> {
                 var water = false
@@ -6326,11 +6441,20 @@ class City(
     /** Appeal a lot loses while it stands in floodwater. */
     private fun floodPenalty(i: Int): Int = if ((map.flood[i].toInt() and 0xff) >= Balance.FLOODED) Balance.FLOOD_APPEAL else 0
 
-    /** How much a tile soaks up pollution: 2 for park or woods, 1 for street trees. */
-    private fun greenWeight(i: Int): Int = when {
-        map.terrain[i] == Terrain.TREES || map.buildingType[i].toInt() - 1 == BuildingType.PARK.ordinal -> 2
-        map.streetTrees[i].toInt() != 0 -> 1
-        else -> 0
+    /** How much a tile soaks up pollution: 2 for woods, 1 for street trees, a green space's own soak, more as planted woodland grows. */
+    private fun greenWeight(i: Int): Int {
+        if (map.terrain[i] == Terrain.TREES) return 2
+        greenOn(i)?.let { (b, g) -> return g.soak * grown(b, g) / 100 }
+        return if (map.streetTrees[i].toInt() != 0) 1 else 0
+    }
+
+    /** The green space on tile [i] and what it does, or null. */
+    private fun greenOn(i: Int): Pair<Building, Green>? {
+        val t = map.buildingType[i].toInt()
+        if (t == 0) return null
+        val g = Specs.of(BuildingType.entries[t - 1])?.green ?: return null
+        val b = buildings[map.building[i]] ?: return null
+        return b to g
     }
 
     /** [amount] of pollution from ([sx], [sy]) reaching tile [j]: less of it if a belt of park or woods lies between. */
@@ -6342,7 +6466,7 @@ class City(
             val x = sx + (tx - sx) * k / steps
             val y = sy + (ty - sy) * k / steps
             val i = map.index(x, y)
-            if (map.terrain[i] == Terrain.TREES || map.buildingType[i].toInt() - 1 == BuildingType.PARK.ordinal) return amount * Balance.BELT_PASSES / 100
+            if (map.terrain[i] == Terrain.TREES || greenWeight(i) >= 2) return amount * Balance.BELT_PASSES / 100
         }
         return amount
     }
@@ -7080,6 +7204,8 @@ class City(
             t.needsWater && !map.watered[i] -> AdviceKind.NO_WATER
             t.needsSewer && !map.sewered[i] -> AdviceKind.NO_SEWER
             zone != Zone.RESIDENTIAL && zone != Zone.MIXED && skillsShort(t) -> AdviceKind.NO_STAFF
+            // Homes short of appeal where there's far less to do nearby than people expect.
+            zone == Zone.RESIDENTIAL && leisureAt(i) + Balance.ADVICE_LEISURE < leisureExpected() -> AdviceKind.LEISURE
             else -> AdviceKind.UNAPPEALING
         }
     }
@@ -7111,7 +7237,7 @@ class City(
         var works = 0.0
         var police = 0.0
         var fire = 0.0
-        var parks = 0
+        var parks = 0.0
         var plants = 0.0
         var stations = 0
         var yards = 0
@@ -7180,7 +7306,8 @@ class City(
                 // Newer kinds cost more to run, by their share of the first's upkeep.
                 b.type.root == BuildingType.POLICE_STATION -> police += Lineage.kindOf(b.type).upkeep / 100.0
                 b.type.root == BuildingType.FIRE_STATION -> fire += Lineage.kindOf(b.type).upkeep / 100.0
-                b.type == BuildingType.PARK -> parks++
+                b.type == BuildingType.PARK -> parks += 1.0
+                b.type.green -> parks += Specs.of(b.type)!!.upkeep / Balance.PARK_UPKEEP
                 Generation.station(b.type) || b.type == BuildingType.SUBSTATION -> plants += when (b.type) {
                     BuildingType.OIL_PLANT -> Balance.OIL_PLANT_UPKEEP
                     BuildingType.GAS_PLANT -> Balance.GAS_PLANT_UPKEEP
@@ -7566,6 +7693,8 @@ class City(
         w.long(s.neighbourIncome); w.long(s.neighbourCost)
         for (a in arrayOf(edgePowerOut, edgePowerIn, edgeWaterOut, edgeWaterIn, edgeGarbageOut, edgeGarbageIn)) for (v in a) w.int(v)
         for (v in intArrayOf(spare.power, short.power, spare.water, short.water, spare.garbage, short.garbage)) w.int(v)
+        // Since version 36: leisure.
+        w.int(s.leisure)
     }
 
     companion object {
@@ -7600,7 +7729,7 @@ class City(
             s.roadUpkeep = r.long(); s.powerUpkeep = r.long(); s.policeUpkeep = r.long(); s.fireUpkeep = r.long()
             s.parkUpkeep = r.long(); s.upkeep = r.long()
             c.weather.readFrom(r)
-            c.history.readFrom(r, if (version >= 27) Series.entries.size else 8)
+            c.history.readFrom(r, if (version >= 36) Series.entries.size else if (version >= 27) 9 else 8)
             val m = c.map
             for (layer in arrayOf(m.terrain, m.road, m.zone, m.power, m.grime, m.pollution, m.landValue, m.crime, m.policeCover, m.fireCover)) {
                 r.layer(layer)
@@ -7879,6 +8008,7 @@ class City(
                     for (a in arrayOf(c.edgePowerOut, c.edgePowerIn, c.edgeWaterOut, c.edgeWaterIn, c.edgeGarbageOut, c.edgeGarbageIn)) for (k in 0 until 4) a[k] = r.int()
                     c.spare.power = r.int(); c.short.power = r.int(); c.spare.water = r.int(); c.short.water = r.int(); c.spare.garbage = r.int(); c.short.garbage = r.int()
                 }
+                if (version >= 36) c.stats.leisure = r.int()
                 c.updateNetworks()
                 c.markContainerTrains()
                 c.updateAirports()
@@ -7906,6 +8036,7 @@ class City(
             }
             // Before the cover was saved, a loaded town had none till the month turned.
             if (version < 18) c.updateServices()
+            c.updateLeisure()
             if (version < 14) {
                 // Before lines: the stops the depots and garages served, made into lines.
                 c.autoLines()
@@ -7950,6 +8081,9 @@ class City(
 /** The town's numbers as of the start of the month. Demand is in residents or jobs, negative when there's too much. */
 class Stats {
     var population = 0
+
+    /** The leisure the town's people have near home, on average, 0 to 100 (see [City.leisureAt]). */
+    var leisure = 0
 
     /** The people by age, adults' schooling and wealth. */
     var children = 0
@@ -8207,7 +8341,7 @@ enum class EventKind { ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged,
 class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType?, val era: Era? = null, val count: Int = 0)
 
 /** What the graphs can show. */
-enum class Series { Population, Jobs, Funds, Income, Upkeep, Crime, Pollution, LandValue, Carbon }
+enum class Series { Population, Jobs, Funds, Income, Upkeep, Crime, Pollution, LandValue, Carbon, Leisure }
 
 /** The town month by month, the last [capacity] months of it. */
 class History(val capacity: Int = 240) {
@@ -8222,7 +8356,7 @@ class History(val capacity: Int = 240) {
         val s = city.stats
         val values = longArrayOf(
             s.population.toLong(), s.jobs.toLong(), city.funds, s.income, s.upkeep,
-            s.crime.toLong(), s.pollution.toLong(), s.landValue.toLong(), s.carbon,
+            s.crime.toLong(), s.pollution.toLong(), s.landValue.toLong(), s.carbon, s.leisure.toLong(),
         )
         for (k in values.indices) data[k][next] = values[k]
         years[next] = city.year

@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.rm.infill.res.label_leisure
+import com.rm.infill.res.leisure_value
 import com.rm.infill.res.action_bring_up_to_date
 import com.rm.infill.res.pill_newer_kind
 import com.rm.infill.res.pill_nonconforming
@@ -258,6 +260,11 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
         )
         stats += StatItem(Glyph.Coins, stringResource(Res.string.label_wealth), stringResource(wealthName(h.wealth)))
         stats += StatItem(Glyph.Cross, stringResource(Res.string.label_health), healthWord(h.health).replaceFirstChar { it.uppercase() }, h.health / 100f, toneOf(h.health, 65, 45))
+        // Parks, sport and culture near home, against what people expect in the year.
+        val leisure = city.leisureAt(i)
+        val expected = city.leisureExpected()
+        stats += StatItem(Glyph.Tree, stringResource(Res.string.label_leisure), stringResource(Res.string.leisure_value, leisure, expected), leisure / 100f,
+            when { leisure >= expected -> Tone.Good; leisure + 10 >= expected -> Tone.Warn; else -> Tone.Bad })
         if (h.children > 0) stats += StatItem(Glyph.Cap, stringResource(Res.string.label_schooling), stringResource(Res.string.percent, h.schooling), h.schooling / 100f, toneOf(h.schooling))
         if (h.adults > 0) {
             val schooled = (h.schooled[Education.SCHOOLED] + h.schooled[Education.EDUCATED]) * 100 / h.adults
@@ -266,12 +273,12 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     }
     // The shops under homes over shops; anything else that isn't a home is its jobs.
     if (t.jobs > 0) stats += StatItem(Glyph.Crate, stringResource(Res.string.label_shop_jobs), groupThousands(t.jobs.toLong()))
-    else if (h == null && t.capacity > 0 && t != BuildingType.PARK) {
+    else if (h == null && t.capacity > 0 && !t.green) {
         stats += StatItem(Glyph.Briefcase, stringResource(Res.string.label_jobs), groupThousands(t.capacity.toLong()))
     }
 
     // A service: staff, wear, and how full it is.
-    if ((t.service || t == BuildingType.EXCHANGE) && t != BuildingType.PARK && built) {
+    if ((t.service || t == BuildingType.EXCHANGE) && !t.green && built) {
         val staffed = city.staffed(t)
         stats += StatItem(Glyph.Person, stringResource(Res.string.label_staffed), stringResource(Res.string.percent, staffed), staffed / 100f, toneOf(staffed, 90, 60))
         if (t.life > 0 || unmet.isNotEmpty()) {

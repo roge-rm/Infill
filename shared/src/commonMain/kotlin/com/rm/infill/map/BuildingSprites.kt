@@ -170,6 +170,19 @@ internal object BuildingSprites {
                 BuildingType.FIRE_HALL -> Atlas.FIRE_HALL to Atlas.FIRE_HALL_COUNT
                 BuildingType.PRECINCT -> Atlas.PRECINCT to Atlas.PRECINCT_COUNT
                 BuildingType.COMMUNITY_POLICING -> Atlas.COMMUNITY_POLICING to Atlas.COMMUNITY_POLICING_COUNT
+                BuildingType.PLAYGROUND -> Atlas.PLAYGROUND to Atlas.PLAYGROUND_COUNT
+                BuildingType.TOWN_SQUARE -> Atlas.TOWN_SQUARE to Atlas.TOWN_SQUARE_COUNT
+                BuildingType.PLAZA -> Atlas.PLAZA to Atlas.PLAZA_COUNT
+                BuildingType.FORMAL_GARDEN -> Atlas.FORMAL_GARDEN to Atlas.FORMAL_GARDEN_COUNT
+                BuildingType.CITY_PARK -> Atlas.CITY_PARK to Atlas.CITY_PARK_COUNT
+                BuildingType.ALLOTMENTS -> Atlas.ALLOTMENTS to Atlas.ALLOTMENTS_COUNT
+                BuildingType.COMMUNITY_GARDEN -> Atlas.COMMUNITY_GARDEN to Atlas.COMMUNITY_GARDEN_COUNT
+                BuildingType.POCKET_PARK -> Atlas.POCKET_PARK to Atlas.POCKET_PARK_COUNT
+                BuildingType.URBAN_WOODLAND -> Atlas.URBAN_WOODLAND to Atlas.URBAN_WOODLAND_COUNT
+                BuildingType.BOTANICAL_GARDEN -> Atlas.BOTANICAL_GARDEN to Atlas.BOTANICAL_GARDEN_COUNT
+                BuildingType.WETLAND_RESERVE -> Atlas.WETLAND_RESERVE to Atlas.WETLAND_RESERVE_COUNT
+                BuildingType.GREENWAY -> Atlas.GREENWAY to Atlas.GREENWAY_COUNT
+                BuildingType.DOG_PARK -> Atlas.DOG_PARK to Atlas.DOG_PARK_COUNT
                 BuildingType.COLLEGE -> Atlas.COLLEGE to Atlas.COLLEGE_COUNT
                 BuildingType.POLICE_HQ -> Atlas.POLICE_HQ to Atlas.POLICE_HQ_COUNT
                 BuildingType.EXCHANGE -> Atlas.EXCHANGE to Atlas.EXCHANGE_COUNT
