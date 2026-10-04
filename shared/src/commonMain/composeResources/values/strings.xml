@@ -1425,6 +1425,58 @@
         <item>Ellis</item>
     </string-array>
     <!-- How a first part and a word after it go together, and a word before a place. -->
+    <!-- Public opinion -->
+    <string name="opinion">Opinion</string>
+    <string name="approval">Approval</string>
+    <string name="series_approval">Approval</string>
+    <string name="overlay_mood">Mood</string>
+    <string name="what_people_think">What people think</string>
+    <string name="concern_taxes">Taxes</string>
+    <string name="concern_jobs">Jobs</string>
+    <string name="concern_crime">Crime</string>
+    <string name="concern_health">Health</string>
+    <string name="concern_services">Power and water</string>
+    <string name="concern_leisure">Things to do</string>
+    <string name="concern_traffic">Traffic</string>
+    <string name="concern_clearances">Clearances</string>
+    <string name="concern_air">The air</string>
+    <string name="concern_housing">Housing</string>
+    <string name="advice_unhappy">People are unhappy, most of all about %1$s</string>
+    <string name="petitions">Petitions</string>
+    <string name="petitions_none">No petitions</string>
+    <string name="petition_until">%1$s, by %2$s</string>
+    <string name="want_park">a park</string>
+    <string name="want_police">police</string>
+    <string name="want_fire">a fire station</string>
+    <string name="want_water">mains water</string>
+    <string name="want_sewer">the sewer</string>
+    <string name="want_power">power</string>
+    <string name="want_transit">a tram or bus stop</string>
+    <string name="grant">Grant</string>
+    <string name="grant_none">None on offer</string>
+    <string name="grant_sewers">%1$s toward sewers once %2$d% of people are on the sewer, by %3$s. Now %4$d%.</string>
+    <string name="grant_highways">%1$s toward highways once there are %2$d tiles of highway, by %3$s. Now %4$d.</string>
+    <string name="grant_transit">%1$s toward transit once %2$d% of trips are made other than by car, by %3$s. Now %4$d%.</string>
+    <string name="grant_resilience">%1$s toward storm drains once there are %2$d tiles of them, by %3$s. Now %4$d.</string>
+    <string name="grant_noun_sewers">sewers</string>
+    <string name="grant_noun_highways">highways</string>
+    <string name="grant_noun_transit">transit</string>
+    <string name="grant_noun_resilience">storm drains</string>
+    <string name="elections">Elections</string>
+    <string name="hold_elections">Hold elections</string>
+    <string name="next_election">Next in November %1$d</string>
+    <string name="taxes_capped">Taxes capped at %1$d% until %2$s</string>
+    <string name="district_mood">Mood %1$d, unhappiest about %2$s</string>
+    <string name="protest">Protesters are stopping the works</string>
+    <string name="event_protest">People march against the clearances</string>
+    <string name="event_petition">A petition: people here want %1$s</string>
+    <string name="event_petition_met">Petition answered: %1$s</string>
+    <string name="event_petition_lapsed">Petition ignored: %1$s</string>
+    <string name="event_grant_offered">Higher government offers a grant toward %1$s</string>
+    <string name="event_grant_paid">The grant toward %1$s is paid</string>
+    <string name="event_grant_lapsed">The grant toward %1$s has lapsed</string>
+    <string name="event_election_won">The council is returned</string>
+    <string name="event_election_lost">The council is voted out, and taxes are capped for four years</string>
     <string name="town_after_pattern">%1$s %2$s</string>
     <string name="town_before_pattern">%1$s %2$s</string>
 </resources>

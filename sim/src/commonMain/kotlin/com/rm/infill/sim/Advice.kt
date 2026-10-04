@@ -39,10 +39,13 @@ enum class AdviceKind {
 
     /** The town's flooded and its storm drains, if any, lead nowhere: no outfall or pond. */
     FLOODING,
+
+    /** People think poorly of how the town's run; [Advice.concern] is what they mind most. */
+    UNHAPPY,
 }
 
-/** One piece of advice: what, which zone it's about if any, and a place to look at (-1 if none). */
-class Advice(val kind: AdviceKind, val zone: Byte = Zone.NONE, val x: Int = -1, val y: Int = -1)
+/** One piece of advice: what, which zone it's about if any, a place to look at (-1 if none), and for [AdviceKind.UNHAPPY] the complaint. */
+class Advice(val kind: AdviceKind, val zone: Byte = Zone.NONE, val x: Int = -1, val y: Int = -1, val concern: Concern? = null)
 
 /** Where a zone's demand comes from, for the Demand window. */
 enum class DemandSource {

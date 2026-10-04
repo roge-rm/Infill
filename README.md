@@ -44,6 +44,7 @@ Dan (rm)
 - Crime of different kinds, with courts and jails to deal with it
 - Ordinances, from the building code to prohibition and a carbon price, that history brings in and ends
 - Money with teeth: bonds, a credit rating, and an overseer if the debt gets out of hand
+- Public opinion: approval that weighs different things in each era, petitions, grants, protests and elections
 - Districts with their own taxes and rules, and neighbouring towns to trade and commute with
 - Weather, seasons, floods, fires and the odd disaster
 - A chronicle of the town's story, in the papers of each era

@@ -33,6 +33,10 @@ import com.rm.infill.res.upkeep_civic
 import com.rm.infill.res.ordinances
 import com.rm.infill.res.law_from
 import com.rm.infill.res.law_era
+import com.rm.infill.res.approval
+import com.rm.infill.res.opinion
+import com.rm.infill.res.series_approval
+import com.rm.infill.res.district_mood
 import com.rm.infill.res.law_cost
 import com.rm.infill.res.law_free
 import com.rm.infill.res.ordinances_summary
@@ -460,9 +464,9 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit, onOrdinances: () -> Unit 
     val s = city.stats
     Window(Res.string.budget, onClose, Glyph.Coins, help = "money") {
         Section(stringResource(Res.string.taxes), Glyph.Coin) {
-            Stepper(ZoneMark(com.rm.infill.sim.Zone.RESIDENTIAL), stringResource(Res.string.tax_residential), city.residentialTax, 1) { game.setTaxes(r = (city.residentialTax + it).coerceIn(0, 20)) }
-            Stepper(ZoneMark(com.rm.infill.sim.Zone.COMMERCIAL), stringResource(Res.string.tax_commercial), city.commercialTax, 1) { game.setTaxes(c = (city.commercialTax + it).coerceIn(0, 20)) }
-            Stepper(ZoneMark(com.rm.infill.sim.Zone.INDUSTRIAL), stringResource(Res.string.tax_industrial), city.industrialTax, 1) { game.setTaxes(i = (city.industrialTax + it).coerceIn(0, 20)) }
+            Stepper(ZoneMark(com.rm.infill.sim.Zone.RESIDENTIAL), stringResource(Res.string.tax_residential), city.residentialTax, 1) { game.setTaxes(r = (city.residentialTax + it).coerceIn(0, city.maxTax())) }
+            Stepper(ZoneMark(com.rm.infill.sim.Zone.COMMERCIAL), stringResource(Res.string.tax_commercial), city.commercialTax, 1) { game.setTaxes(c = (city.commercialTax + it).coerceIn(0, city.maxTax())) }
+            Stepper(ZoneMark(com.rm.infill.sim.Zone.INDUSTRIAL), stringResource(Res.string.tax_industrial), city.industrialTax, 1) { game.setTaxes(i = (city.industrialTax + it).coerceIn(0, city.maxTax())) }
         }
         Section(stringResource(Res.string.bonds), Glyph.Coins) {
             if (city.overseen) Text(stringResource(Res.string.overseer_note), color = c.bad, fontSize = 13.sp)
@@ -660,11 +664,11 @@ fun DemandWindow(game: GameState, onClose: () -> Unit) {
                 val tax = stringResource(Res.string.tax)
                 when (z.zone) {
                     com.rm.infill.sim.Zone.RESIDENTIAL ->
-                        Stepper(GlyphMark(Glyph.Coins), tax, city.residentialTax, 1) { game.setTaxes(r = (city.residentialTax + it).coerceIn(0, 20)) }
+                        Stepper(GlyphMark(Glyph.Coins), tax, city.residentialTax, 1) { game.setTaxes(r = (city.residentialTax + it).coerceIn(0, city.maxTax())) }
                     com.rm.infill.sim.Zone.COMMERCIAL, com.rm.infill.sim.Zone.OFFICE ->
-                        Stepper(GlyphMark(Glyph.Coins), tax, city.commercialTax, 1) { game.setTaxes(c = (city.commercialTax + it).coerceIn(0, 20)) }
+                        Stepper(GlyphMark(Glyph.Coins), tax, city.commercialTax, 1) { game.setTaxes(c = (city.commercialTax + it).coerceIn(0, city.maxTax())) }
                     else ->
-                        Stepper(GlyphMark(Glyph.Coins), tax, city.industrialTax, 1) { game.setTaxes(i = (city.industrialTax + it).coerceIn(0, 20)) }
+                        Stepper(GlyphMark(Glyph.Coins), tax, city.industrialTax, 1) { game.setTaxes(i = (city.industrialTax + it).coerceIn(0, city.maxTax())) }
                 }
                 // Shops and offices share a rate, and so do works and farms.
                 when (z.zone) {
@@ -814,6 +818,7 @@ private val SERIES = listOf(
     Triple(Series.Births, Res.string.series_births, Glyph.Plus),
     Triple(Series.Deaths, Res.string.series_deaths, Glyph.Hourglass),
     Triple(Series.Smog, Res.string.series_smog, Glyph.Smoke),
+    Triple(Series.Approval, Res.string.series_approval, Glyph.Check),
 )
 
 /** The town over the years, one thing at a time. */
@@ -944,7 +949,7 @@ private val VISITOR_COLOURS = listOf(Color(0xFF8A8F98), Color(0xFF8E44AD), Color
 
 /** Who lives in the town, the work they're schooled for, places at school and with a doctor, and how justice is doing. */
 @Composable
-fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
+fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onOpinion: () -> Unit, onClose: () -> Unit) {
     val c = Infill.colors
     game.revision
     val s = game.city.stats
@@ -953,6 +958,7 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
         StatGrid(
             listOfNotNull(
                 StatItem(Glyph.Person, stringResource(Res.string.population), n(s.population)),
+                StatItem(Glyph.Check, stringResource(Res.string.approval), stringResource(Res.string.percent, game.city.approval), game.city.approval / 100f, toneOf(game.city.approval, 60, 40)),
                 StatItem(Glyph.Cross, stringResource(Res.string.health), healthWord(s.health).replaceFirstChar { it.uppercase() }, s.health / 100f, toneOf(s.health, 65, 45)),
                 StatItem(Glyph.Briefcase, stringResource(Res.string.label_unemployed), stringResource(Res.string.percent, s.unemployment), s.unemployment / 100f, when { s.unemployment >= 15 -> Tone.Bad; s.unemployment >= 7 -> Tone.Warn; else -> Tone.Good }),
                 if (s.commute > 0) StatItem(Glyph.Car, stringResource(Res.string.label_commute), stringResource(Res.string.value_minutes, s.commute)) else null,
@@ -966,6 +972,7 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
                 if (s.emptyHomes > 0) StatItem(Glyph.Tag, stringResource(Res.string.empty_homes), n(s.emptyHomes)) else null,
             ),
         )
+        Actions(listOf(ActionItem(Glyph.Check, stringResource(Res.string.opinion), onClick = onOpinion), ActionItem(Glyph.Arrows, stringResource(Res.string.graphs), onClick = onGraphs)))
         Section(stringResource(Res.string.label_ages), Glyph.Hourglass) {
             BarWithKey(listOf(Triple(stringResource(Res.string.children), s.children, AGES[0]), Triple(stringResource(Res.string.adults), s.adults, AGES[1]), Triple(stringResource(Res.string.elderly), s.elderly, AGES[2])))
         }
@@ -1064,7 +1071,6 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onClose: () -> Unit) {
                 ),
             )
         }
-        Actions(listOf(ActionItem(Glyph.Arrows, stringResource(Res.string.graphs), onClick = onGraphs)))
     }
 }
 
@@ -1346,6 +1352,9 @@ fun DistrictsWindow(game: GameState, onClose: () -> Unit) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     StatCell(StatItem(Glyph.Person, stringResource(Res.string.people), groupThousands(f.people.toLong())), Modifier.weight(1f))
                     StatCell(StatItem(Glyph.Briefcase, stringResource(Res.string.label_jobs), groupThousands(f.jobs.toLong())), Modifier.weight(1f))
+                }
+                f.worst?.let { worst ->
+                    Text(stringResource(Res.string.district_mood, f.mood, stringResource(concernName(worst)).lowercase()), color = toneColour(toneOf(f.mood, 60, 40)), fontSize = 13.sp)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     MiniMeter(Glyph.Coin, stringResource(Res.string.label_land_value), f.landValue, highIsBad = false)

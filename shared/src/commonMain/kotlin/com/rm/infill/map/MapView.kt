@@ -173,6 +173,9 @@ fun MapView(
                     else -> 255
                 }
             } ?: -1
+        }, moodAt = { i ->
+            // Under the town's lock, as it looks at the buildings the sim may be changing.
+            if (map.building[i] == 0) -1 else game.tryLocked { game.city.moodAt(i) } ?: -1
         }, heritageAt = { i ->
             val b = game.city.building(map.building[i])
             when {

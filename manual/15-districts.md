@@ -3,7 +3,7 @@
 
 From the Streetcar era you can paint the town into districts and give each its own rules. Under **Zones**, **Districts**, pick **New district** and paint, or pick a district to paint more of it, or **Erase**. Painting is free. A district painted down to nothing goes away.
 
-**Districts** in the tray lists them. Each card shows its people and jobs, its land value, crime and pollution, and its settings.
+**Districts** in the tray lists them. Each card shows its people and jobs, its mood and what its people mind most, its land value, crime and pollution, and its settings.
 
 ## Taxes
 

@@ -624,6 +624,7 @@ class City(
             changes.isEmpty() -> Problem.NothingToDo
             noRoute -> Problem.NoRoute
             overseen && cost > 0 && action !is Action.Bulldoze && action !is Action.RenewArea -> Problem.Overseen
+            protests(changes.toIntArray()) && approval < Balance.PROTEST_BELOW -> Problem.Protest
             cost > funds -> Problem.NotEnoughMoney
             else -> null
         }
@@ -1232,6 +1233,11 @@ class City(
         val scrubbedBefore = buildings.values.filter { it.scrubbed }.map { it.id }.toSet()
         val renovated = ArrayList<IntArray>()
         val now = monthNow
+        // Clearing homes or heritage brings people out, and they think less of the town for it.
+        if (protests(plan.changes)) {
+            approval = max(0, approval - Balance.PROTEST_COST)
+            events += CityEvent(EventKind.Protest, plan.changes[0] % m.width, plan.changes[0] / m.width, null)
+        }
         var queued = 0
         val added = ArrayList<Building>()
         val removed = ArrayList<Building>()
@@ -1992,6 +1998,8 @@ class City(
         demand()
         between()
         money()
+        between()
+        opinion()
         between()
         carbon()
         between()
@@ -5101,9 +5109,16 @@ class City(
         var pollution = 0L
         var tiles = 0
         val seen = HashSet<Int>()
+        val concern = IntArray(Concern.entries.size)
+        var homes = 0
         for (i in 0 until map.size) {
             if (map.district[i].toInt() and 0xff != id) continue
             tiles++
+            if (moodAt(i) >= 0) {
+                val c = concernsAt(i)
+                for (k in c.indices) concern[k] += c[k]
+                homes++
+            }
             value += map.landValue[i].toInt() and 0xff
             crime += map.crime[i].toInt() and 0xff
             pollution += map.pollution[i].toInt() and 0xff
@@ -5113,7 +5128,9 @@ class City(
             jobs += b.type.jobs
         }
         val n = maxOf(1, tiles)
-        return DistrictFigures(people, jobs, (value / n).toInt(), (crime / n).toInt(), (pollution / n).toInt(), tiles)
+        if (homes == 0) return DistrictFigures(people, jobs, (value / n).toInt(), (crime / n).toInt(), (pollution / n).toInt(), tiles)
+        for (k in concern.indices) concern[k] /= homes
+        return DistrictFigures(people, jobs, (value / n).toInt(), (crime / n).toInt(), (pollution / n).toInt(), tiles, Opinion.target(era, concern), Opinion.worst(era, concern))
     }
 
     /** The planned transit lines, in the order they were made. */
@@ -7448,6 +7465,7 @@ class City(
             val i = (0 until map.size).firstOrNull { map.building[it] != 0 && (map.floodMemory[it].toInt() and 0xff) >= Balance.FLOODED }
             out += Advice(AdviceKind.FLOODING, x = i?.let { it % map.width } ?: -1, y = i?.let { it / map.width } ?: -1)
         }
+        if (s.population > 0 && approval < Balance.PROTEST_BELOW) out += Advice(AdviceKind.UNHAPPY, concern = Opinion.worst(era, concerns))
         advice = out
     }
 
@@ -7779,6 +7797,232 @@ class City(
 
     /** The most a service can be funded, in percent: less with the overseer in. */
     fun fundingCap(): Int = if (overseen) Balance.OVERSEER_FUNDING else 100
+
+    /** What the town thinks of how it's run, 0 to 100, moving a little each month towards what people think now. */
+    var approval = Opinion.START
+        internal set
+
+    /** Each [Concern]'s score last month, 0 to 100, for the whole town. */
+    val concerns = IntArray(Concern.entries.size) { Opinion.START }
+
+    /** Petitions waiting on an answer. */
+    val petitions = ArrayList<Petition>()
+
+    /** The grant on offer, if any, and the kinds offered already, by bit. */
+    var grant: Grant? = null
+        private set
+    private var grantsOffered = 0
+
+    /** Whether the town holds elections, and the month a lost one's cap on taxes lifts. */
+    var elections = false
+    var taxCapUntil = 0
+        private set
+
+    /** The highest a tax can be set: capped for a term after a lost election. */
+    fun maxTax(): Int = if (monthNow < taxCapUntil) Balance.CAPPED_TAX else MAX_TAX
+
+    /** The year of the next election, if the town holds them. */
+    fun nextElection(): Int = year + (Balance.ELECTION_YEARS - year % Balance.ELECTION_YEARS) % Balance.ELECTION_YEARS +
+        if (year % Balance.ELECTION_YEARS == 0 && month > ELECTION_MONTH) Balance.ELECTION_YEARS else 0
+
+    /**
+     * The month's turn for opinion: each concern scored, approval a step
+     * towards what they come to, then petitions, grants and elections.
+     */
+    private fun opinion() {
+        scoreConcerns()
+        val target = Opinion.target(era, concerns)
+        val gap = target - approval
+        if (gap != 0) approval += if (abs(gap) < Balance.APPROVAL_STEP) gap.coerceIn(-1, 1) else gap / Balance.APPROVAL_STEP
+        approval = approval.coerceIn(0, 100)
+        // Its own numbers, from the seed and the month, so the rest of the town plays out the same.
+        val dice = Rng(seed * 7919 + monthNow)
+        petitionsMonth(dice)
+        grantMonth(dice)
+        if (elections && month == ELECTION_MONTH && year % Balance.ELECTION_YEARS == 0 && stats.population > 0) {
+            if (approval >= Balance.ELECTION_WIN) events += CityEvent(EventKind.ElectionWon, -1, -1, null, count = approval)
+            else {
+                taxCapUntil = monthNow + Balance.ELECTION_YEARS * 12
+                events += CityEvent(EventKind.ElectionLost, -1, -1, null, count = approval)
+            }
+        }
+        val most = maxTax()
+        residentialTax = min(residentialTax, most)
+        commercialTax = min(commercialTax, most)
+        industrialTax = min(industrialTax, most)
+    }
+
+    /** Each concern scored from last month's figures. */
+    private fun scoreConcerns() {
+        val s = stats
+        var upset = 0L
+        var homes = 0
+        for (i in 0 until map.size) {
+            val b = buildings[map.building[i]] ?: continue
+            if (b.people == null) continue
+            upset += map.upset[i].toInt() and 0xff
+            homes++
+        }
+        val c = concerns
+        c[Concern.TAXES.ordinal] = Opinion.taxes(residentialTax, commercialTax, industrialTax)
+        c[Concern.JOBS.ordinal] = Opinion.jobs(s.unemployment)
+        c[Concern.CRIME.ordinal] = Opinion.crime(s.crime)
+        c[Concern.HEALTH.ordinal] = Opinion.health(s.health)
+        c[Concern.SERVICES.ordinal] = Opinion.services(s.powered, s.onMains, s.onSewer, era)
+        c[Concern.LEISURE.ordinal] = Opinion.leisure(s.leisure, leisureExpected())
+        c[Concern.TRAFFIC.ordinal] = Opinion.traffic(s.flow)
+        c[Concern.CLEARANCES.ordinal] = Opinion.clearances(if (homes == 0) 0 else (upset / homes).toInt(), if (s.population == 0) 0 else displaced * 100 / s.population)
+        c[Concern.AIR.ordinal] = Opinion.air(s.smog, s.pollution)
+        // Those the empty homes can't take.
+        c[Concern.HOUSING.ordinal] = Opinion.housing(if (s.population == 0) 0 else max(0, s.homeSeekers - s.emptyRoom) * 100 / s.population)
+    }
+
+    /** Each concern's score for the people on tile [i]: the town's, with what's around them in place of the town's average. */
+    fun concernsAt(i: Int): IntArray {
+        val c = concerns.copyOf()
+        val m = map
+        c[Concern.CRIME.ordinal] = Opinion.crime(m.crime[i].toInt() and 0xff)
+        c[Concern.LEISURE.ordinal] = Opinion.leisure(leisureAt(i), leisureExpected())
+        c[Concern.CLEARANCES.ordinal] = Opinion.clearances(m.upset[i].toInt() and 0xff, 0)
+        c[Concern.AIR.ordinal] = Opinion.air(stats.smog, m.pollution[i].toInt() and 0xff)
+        c[Concern.SERVICES.ordinal] = Opinion.services(if (m.powered[i]) 100 else 0, if (m.watered[i]) 100 else 0, if (m.sewered[i]) 100 else 0, era)
+        return c
+    }
+
+    /** How content the people on tile [i] are, 0 to 100, or -1 if nobody lives there. */
+    fun moodAt(i: Int): Int {
+        val b = buildings[map.building[i]] ?: return -1
+        if (b.people == null) return -1
+        return Opinion.target(era, concernsAt(i))
+    }
+
+    /** Whether clearing [changes] would bring people out: from the Renewal era on, heritage or enough homes at once. */
+    private fun protests(changes: IntArray): Boolean {
+        if (era < Era.RENEWAL) return false
+        var homes = 0
+        for (i in changes) {
+            val b = buildings[map.building[i]] ?: continue
+            if (b.underway > 0) continue
+            if (isHeritage(b)) return true
+            if (b.people != null) homes++
+        }
+        return homes >= Balance.PROTEST_HOMES
+    }
+
+    /** Petitions answered or lapsed, and now and then a new one from people who are short of something. */
+    private fun petitionsMonth(dice: Rng) {
+        val now = monthNow
+        val it = petitions.iterator()
+        while (it.hasNext()) {
+            val p = it.next()
+            val i = map.index(p.x, p.y)
+            when {
+                met(p.want, i) -> {
+                    approval = min(100, approval + Balance.PETITION_MET)
+                    events += CityEvent(EventKind.PetitionMet, p.x, p.y, null, count = p.want.ordinal)
+                    it.remove()
+                }
+                now >= p.until || moodAt(i) < 0 -> {
+                    if (moodAt(i) >= 0) {
+                        approval = max(0, approval - Balance.PETITION_LAPSED)
+                        events += CityEvent(EventKind.PetitionLapsed, p.x, p.y, null, count = p.want.ordinal)
+                    }
+                    it.remove()
+                }
+            }
+        }
+        if (petitions.size >= Balance.PETITIONS_MOST || stats.population < Balance.PETITION_PEOPLE || dice.nextInt(Balance.PETITION_ODDS) != 0) return
+        // The least content of a sample of homes, asking for what they're short of.
+        var best = -1
+        var bestMood = 101
+        var bestWant: Want? = null
+        repeat(Balance.PETITION_SAMPLE) {
+            val i = dice.nextInt(map.size)
+            val mood = moodAt(i)
+            if (mood < 0 || mood >= bestMood || petitions.any { p -> abs(p.x - i % map.width) + abs(p.y - i / map.width) < Balance.PETITION_STOP_REACH * 2 }) return@repeat
+            val want = wantAt(i) ?: return@repeat
+            best = i
+            bestMood = mood
+            bestWant = want
+        }
+        val want = bestWant ?: return
+        petitions += Petition(want, best % map.width, best / map.width, now + Balance.PETITION_MONTHS)
+        events += CityEvent(EventKind.Petition, best % map.width, best / map.width, null, count = want.ordinal)
+    }
+
+    /** What the people on tile [i] would ask for, from what they lack that the town can give them now; null for nothing. */
+    private fun wantAt(i: Int): Want? {
+        val m = map
+        val mains = era >= Era.STREETCAR
+        return when {
+            !m.powered[i] -> Want.POWER
+            mains && !m.watered[i] -> Want.WATER
+            mains && !m.sewered[i] -> Want.SEWER
+            (m.crime[i].toInt() and 0xff) > 0 && (m.policeCover[i].toInt() and 0xff) == 0 -> Want.POLICE
+            (m.fireCover[i].toInt() and 0xff) == 0 -> Want.FIRE
+            leisureAt(i) < leisureExpected() -> Want.PARK
+            mains && !met(Want.TRANSIT, i) -> Want.TRANSIT
+            else -> null
+        }
+    }
+
+    /** Whether tile [i] has what [want] asks for. */
+    private fun met(want: Want, i: Int): Boolean {
+        val m = map
+        return when (want) {
+            Want.POWER -> m.powered[i]
+            Want.WATER -> m.watered[i]
+            Want.SEWER -> m.sewered[i]
+            Want.POLICE -> (m.policeCover[i].toInt() and 0xff) > 0
+            Want.FIRE -> (m.fireCover[i].toInt() and 0xff) > 0
+            Want.PARK -> leisureAt(i) >= leisureExpected()
+            Want.TRANSIT -> {
+                var found = false
+                around(i % m.width, i / m.width, Balance.PETITION_STOP_REACH) { j, _ -> if (m.stop[j].toInt() != 0) found = true }
+                found
+            }
+        }
+    }
+
+    /** What a grant of [kind] is measured by now. */
+    fun grantFigure(kind: GrantKind): Int = when (kind) {
+        GrantKind.SEWERS -> stats.onSewer
+        GrantKind.HIGHWAYS -> (0 until map.size).count { RoadType.of(map.road[it]) == RoadType.HIGHWAY }
+        GrantKind.TRANSIT -> stats.greenTrips
+        GrantKind.RESILIENCE -> (0 until map.size).count { map.stormPipe[it].toInt() != 0 }
+    }
+
+    /** The grant on offer paid or lapsed, and now and then one offered to a town that's well thought of. */
+    private fun grantMonth(dice: Rng) {
+        grant?.let { g ->
+            when {
+                grantFigure(g.kind) >= g.goal -> {
+                    funds += g.amount
+                    events += CityEvent(EventKind.GrantPaid, -1, -1, null, count = g.kind.ordinal)
+                    grant = null
+                }
+                monthNow >= g.until -> {
+                    events += CityEvent(EventKind.GrantLapsed, -1, -1, null, count = g.kind.ordinal)
+                    grant = null
+                }
+            }
+            return
+        }
+        if (approval < Balance.GRANT_APPROVAL || stats.population == 0 || dice.nextInt(Balance.GRANT_ODDS) != 0) return
+        val kind = GrantKind.entries.firstOrNull { year in it.from until it.until && grantsOffered and (1 shl it.ordinal) == 0 } ?: return
+        val now = grantFigure(kind)
+        val goal = when (kind) {
+            GrantKind.SEWERS -> min(Balance.GRANT_SEWERS_MOST, now + Balance.GRANT_SEWERS)
+            GrantKind.HIGHWAYS -> now + Balance.GRANT_HIGHWAYS
+            GrantKind.TRANSIT -> now + Balance.GRANT_TRANSIT
+            GrantKind.RESILIENCE -> now + Balance.GRANT_DRAINS
+        }
+        if (now >= goal) return
+        grantsOffered = grantsOffered or (1 shl kind.ordinal)
+        grant = Grant(kind, max(Balance.GRANT_LEAST, stats.income * Balance.GRANT_MONTHS), goal, monthNow + Balance.GRANT_YEARS * 12)
+        events += CityEvent(EventKind.GrantOffered, -1, -1, null, count = kind.ordinal)
+    }
+
 
     /**
      * The month's end for the town's credit: a step down the ratings for a
@@ -8132,6 +8376,15 @@ class City(
             for (b in shot.tiles) w.byte(b.toInt())
         }
         history.writeYears(w)
+        // Since version 42: opinion, the petitions, the grant on offer, and elections.
+        w.int(approval)
+        for (v in concerns) w.int(v)
+        w.count(petitions.size)
+        for (p in petitions) { w.int(p.want.ordinal); w.int(p.x); w.int(p.y); w.int(p.until) }
+        val g = grant
+        w.int(g?.kind?.ordinal ?: -1)
+        if (g != null) { w.long(g.amount); w.int(g.goal); w.int(g.until) }
+        w.int(grantsOffered); w.bool(elections); w.int(taxCapUntil)
     }
 
     companion object {
@@ -8166,7 +8419,7 @@ class City(
             s.roadUpkeep = r.long(); s.powerUpkeep = r.long(); s.policeUpkeep = r.long(); s.fireUpkeep = r.long()
             s.parkUpkeep = r.long(); s.upkeep = r.long()
             c.weather.readFrom(r)
-            c.history.readFrom(r, if (version >= 41) Series.entries.size else if (version >= 36) 10 else if (version >= 27) 9 else 8)
+            c.history.readFrom(r, if (version >= 42) Series.entries.size else if (version >= 41) 15 else if (version >= 36) 10 else if (version >= 27) 9 else 8)
             val m = c.map
             for (layer in arrayOf(m.terrain, m.road, m.zone, m.power, m.grime, m.pollution, m.landValue, m.crime, m.policeCover, m.fireCover)) {
                 r.layer(layer)
@@ -8482,10 +8735,23 @@ class City(
                         c.snapshots += Snapshot(era, year, tiles)
                     }
                     c.history.readYears(r)
+                    if (version >= 42) {
+                        c.approval = r.int()
+                        for (k in c.concerns.indices) c.concerns[k] = r.int()
+                        repeat(r.count()) { c.petitions += Petition(Want.entries[r.int()], r.int(), r.int(), r.int()) }
+                        val kind = r.int()
+                        if (kind >= 0) c.grant = Grant(GrantKind.entries[kind], r.long(), r.int(), r.int())
+                        c.grantsOffered = r.int(); c.elections = r.bool(); c.taxCapUntil = r.int()
+                    }
                 } else {
                     // An older town: what it already has isn't news, nor the size it's already reached.
                     for (b in c.buildings.values) c.firsts[b.type.like.root.ordinal] = true
                     while (c.milestone < Balance.MILESTONES.size && c.stats.population >= Balance.MILESTONES[c.milestone]) c.milestone++
+                }
+                if (version < 42) {
+                    // An older town: it thinks what its figures say.
+                    c.scoreConcerns()
+                    c.approval = Opinion.target(c.era, c.concerns)
                 }
                 c.updateNetworks()
                 c.markContainerTrains()
@@ -8529,6 +8795,10 @@ class City(
         }
 
         const val DEFAULT_SIZE = 128
+
+        /** The highest a tax can be, and the month elections are held (0 is January). */
+        const val MAX_TAX = 20
+        const val ELECTION_MONTH = 10
         const val START_YEAR = 1900
         const val START_FUNDS = 20_000L
 
@@ -8820,7 +9090,7 @@ class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int, va
 }
 
 
-enum class EventKind { FirstBuilt, Milestone, OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut }
+enum class EventKind { FirstBuilt, Milestone, OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut, Protest, Petition, PetitionMet, PetitionLapsed, GrantOffered, GrantPaid, GrantLapsed, ElectionWon, ElectionLost }
 
 /** Something that happened, kept in the town's chronicle: [event] in [year] and [month] (0 is January). */
 class Story(val year: Int, val month: Int, val event: CityEvent)
@@ -8871,7 +9141,7 @@ class Snapshot(val era: Era, val year: Int, val tiles: ByteArray) {
 class CityEvent(val kind: EventKind, val x: Int, val y: Int, val type: BuildingType?, val era: Era? = null, val count: Int = 0)
 
 /** What the graphs can show. */
-enum class Series { Population, Jobs, Funds, Income, Upkeep, Crime, Pollution, LandValue, Carbon, Leisure, Health, Unemployment, Births, Deaths, Smog }
+enum class Series { Population, Jobs, Funds, Income, Upkeep, Crime, Pollution, LandValue, Carbon, Leisure, Health, Unemployment, Births, Deaths, Smog, Approval }
 
 /** The town month by month, the last [capacity] months of it. */
 class History(val capacity: Int = 240) {
@@ -8888,6 +9158,7 @@ class History(val capacity: Int = 240) {
             s.population.toLong(), s.jobs.toLong(), city.funds, s.income, s.upkeep,
             s.crime.toLong(), s.pollution.toLong(), s.landValue.toLong(), s.carbon, s.leisure.toLong(),
             s.health.toLong(), s.unemployment.toLong(), s.births.toLong(), s.deaths.toLong(), s.smog.toLong(),
+            city.approval.toLong(),
         )
         for (k in values.indices) data[k][next] = values[k]
         // Each December the year's kept for good, for the long view back to the start.

@@ -862,12 +862,13 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             c.residentialTax, s.emptyHomes, s.health, s.onMains, s.onSewer, s.powered,
             blocks[Zone.RESIDENTIAL.toInt()], blocks[Zone.COMMERCIAL.toInt()], blocks[Zone.INDUSTRIAL.toInt()], blocks[Zone.FARMLAND.toInt()], blocks[Zone.OFFICE.toInt()],
             c.buildingCount, s.leisure, avg(m.crime, Zone.RESIDENTIAL), Ordinance.entries.count { c.passed(it) }, "\"$advice\"", "\"$next\"",
+            c.approval, Opinion.worst(c.era, c.concerns), "\"${c.concerns.joinToString(" ")}\"", c.petitions.size, c.grant?.kind ?: "",
         ).joinToString(",")
     }
 
     companion object {
         const val S = 8
         const val HEADER = "year,era,population,shopJobs,industryJobs,farmJobs,officeJobs,workers,funds,income,upkeep," +
-            "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,leisure,homeCrime,laws,advice,goals"
+            "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,leisure,homeCrime,laws,advice,goals,approval,worst,concerns,petitions,grant"
     }
 }

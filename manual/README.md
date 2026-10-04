@@ -21,6 +21,7 @@
 18. [Weather and disasters](18-weather-and-disasters.md) - climates, seasons, rain and snow, and what can go wrong.
 19. [Regions](19-regions.md) - towns side by side, and what crosses between them.
 20. [The town's story](20-the-towns-story.md) - the chronicle, the graphs, then and now, and why lots aren't growing.
-21. [Settings and sound](21-settings-and-sound.md) - the settings, and what you hear.
+21. [Public opinion](21-public-opinion.md) - approval, what people mind, petitions, grants, protests and elections.
+22. [Settings and sound](22-settings-and-sound.md) - the settings, and what you hear.
 
 <!-- /contents -->

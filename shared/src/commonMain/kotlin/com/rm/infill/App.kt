@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.Density
 import com.rm.infill.ui.airChoices
 import com.rm.infill.ui.AirKind
 import com.rm.infill.res.overseen
+import com.rm.infill.res.protest
 import com.rm.infill.res.event_rating_up
 import com.rm.infill.res.event_rating_down
 import com.rm.infill.res.event_overseer_out
@@ -203,6 +204,7 @@ import com.rm.infill.ui.LineDraftBar
 import com.rm.infill.ui.JunctionKind
 import com.rm.infill.ui.junctionKindsIn
 import com.rm.infill.ui.PeopleWindow
+import com.rm.infill.ui.OpinionWindow
 import com.rm.infill.ui.DemandWindow
 import com.rm.infill.ui.EraWindow
 import com.rm.infill.sim.Era
@@ -756,6 +758,7 @@ private fun GameScreen(
         var edgeAsk by remember { mutableStateOf<Action.BuildRoad?>(null) }
         var graphsOpen by remember { mutableStateOf(false) }
         var peopleOpen by remember { mutableStateOf(false) }
+        var opinionOpen by remember { mutableStateOf(false) }
         var demandOpen by remember { mutableStateOf(false) }
         var eraShown by remember { mutableStateOf<Era?>(null) }
         var paused by remember { mutableStateOf(true) }
@@ -869,6 +872,7 @@ private fun GameScreen(
             else if (it.plan.problem == Problem.CutsOffPort) stringResource(Res.string.cuts_off_port)
             else if (it.plan.problem == Problem.OnlyOne) stringResource(Res.string.only_one)
             else if (it.plan.problem == Problem.Overseen) stringResource(Res.string.overseen)
+            else if (it.plan.problem == Problem.Protest) stringResource(Res.string.protest)
             else moneyText(it.plan.cost)
         } ?: ""
 
@@ -977,6 +981,7 @@ private fun GameScreen(
                 Problem.CutsOffPort -> Message(Res.string.cuts_off_port)
                 Problem.OnlyOne -> Message(Res.string.only_one)
                 Problem.Overseen -> Message(Res.string.overseen)
+                Problem.Protest -> Message(Res.string.protest)
                 else -> message
             }
         }
@@ -999,10 +1004,10 @@ private fun GameScreen(
             // The keys come back to the map from wherever they were.
             runCatching { focus.requestFocus() }
             when {
-                fromTools && drag == null && inspected == null && !choosingOverlay && !budgetOpen && !ordinancesOpen && !chronicleOpen && edgeAsk == null && !graphsOpen && !peopleOpen && !demandOpen &&
+                fromTools && drag == null && inspected == null && !choosingOverlay && !budgetOpen && !ordinancesOpen && !chronicleOpen && !opinionOpen && edgeAsk == null && !graphsOpen && !peopleOpen && !demandOpen &&
                     !linesOpen && !districtsOpen && eraShown == null -> {}
-                budgetOpen || ordinancesOpen || chronicleOpen || edgeAsk != null || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null -> {
-                    budgetOpen = false; ordinancesOpen = false; chronicleOpen = false; edgeAsk = null; graphsOpen = false; peopleOpen = false; demandOpen = false; linesOpen = false; districtsOpen = false; eraShown = null
+                budgetOpen || ordinancesOpen || chronicleOpen || opinionOpen || edgeAsk != null || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null -> {
+                    budgetOpen = false; ordinancesOpen = false; chronicleOpen = false; opinionOpen = false; edgeAsk = null; graphsOpen = false; peopleOpen = false; demandOpen = false; linesOpen = false; districtsOpen = false; eraShown = null
                 }
                 drag != null -> drag = null
                 choosingOverlay -> choosingOverlay = false
@@ -1216,7 +1221,7 @@ private fun GameScreen(
         }
 
         // The keys come back to the map whenever a window or panel over it closes, which takes the focus with it.
-        val anyOpen = windowOpen || budgetOpen || ordinancesOpen || chronicleOpen || edgeAsk != null || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
+        val anyOpen = windowOpen || budgetOpen || ordinancesOpen || chronicleOpen || opinionOpen || edgeAsk != null || graphsOpen || peopleOpen || demandOpen || linesOpen || districtsOpen || eraShown != null || inspected != null
         LaunchedEffect(anyOpen) { if (!anyOpen) focus.requestFocus() }
 
         // A controller's buttons do on the map what they're set to, as keys do. Away from the map the
@@ -1579,7 +1584,8 @@ private fun GameScreen(
             if (graphsOpen) GraphsWindow(game) { graphsOpen = false }
             eraShown?.let { EraWindow(game, it, { eraShown = null; chronicleOpen = true }) { eraShown = null } }
             if (chronicleOpen) ChronicleWindow(game, { x, y -> chronicleOpen = false; camera.centreOn(x, y) }) { chronicleOpen = false }
-            if (peopleOpen) PeopleWindow(game, { peopleOpen = false; graphsOpen = true }) { peopleOpen = false }
+            if (peopleOpen) PeopleWindow(game, { peopleOpen = false; graphsOpen = true }, { peopleOpen = false; opinionOpen = true }) { peopleOpen = false }
+            if (opinionOpen) OpinionWindow(game, { x, y -> opinionOpen = false; camera.centreOn(x, y) }) { opinionOpen = false }
             if (demandOpen) DemandWindow(game) { demandOpen = false }
         }
         }

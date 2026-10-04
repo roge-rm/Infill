@@ -13,10 +13,10 @@ As each era arrives, the town's picture is taken. The era card shows it beside t
 
 ## The graphs
 
-**Graphs**, from the People window or G, shows the town over time: people, jobs, money, income and upkeep, crime, pollution, land value, carbon, leisure, health, those out of work, births, deaths and smog. **Last 20 years** shows it month by month, and **Since** the year the town began shows every year back to the start. A dashed line marks each new era.
+**Graphs**, from the People window or G, shows the town over time: people, jobs, money, income and upkeep, crime, pollution, land value, carbon, leisure, health, those out of work, births, deaths, smog and approval. **Last 20 years** shows it month by month, and **Since** the year the town began shows every year back to the start. A dashed line marks each new era.
 
 ## Why not growing
 
 The **Why not growing** map view, under **Town**, shows each zoned lot green where something can go up next and red where something holds it back. Inspect a red lot to see why, in the same words as the advice line. Lots already as built up as their zoning lets them show nothing.
 
-The **Upset** view shows where clearings have upset people, **Empty homes** the homes standing empty, and **Heritage** the buildings valued as heritage, with the ones that will be one day paler.
+The **Upset** view shows where clearings have upset people, **Empty homes** the homes standing empty, **Heritage** the buildings valued as heritage, with the ones that will be one day paler, and **Mood** how content each home is.

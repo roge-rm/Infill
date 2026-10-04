@@ -88,4 +88,8 @@ class District(val id: Int, var name: String) {
 }
 
 /** A district's figures as last counted. */
-class DistrictFigures(val people: Int, val jobs: Int, val landValue: Int, val crime: Int, val pollution: Int, val tiles: Int)
+class DistrictFigures(
+    val people: Int, val jobs: Int, val landValue: Int, val crime: Int, val pollution: Int, val tiles: Int,
+    /** How content its people are, 0 to 100, or -1 with nobody living there, and what they mind most. */
+    val mood: Int = -1, val worst: Concern? = null,
+)

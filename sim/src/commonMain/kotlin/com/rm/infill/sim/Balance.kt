@@ -1210,6 +1210,55 @@ object Balance {
     const val DEBT_MONTHS = 6L
     const val DEBT_FLOOR = 20_000L
     const val OVERSEER_FUNDING = 80
+
+    /** Approval closes this share of the gap to what people think now each month, in sixths. */
+    const val APPROVAL_STEP = 6
+
+    /**
+     * Petitions: a town needs this many people for them, one comes about once
+     * in [PETITION_ODDS] months, up to [PETITIONS_MOST] at once, and each has a
+     * year. Answered, approval goes up [PETITION_MET]; let lapse, down [PETITION_LAPSED].
+     * A transit stop answers within [PETITION_STOP_REACH] tiles.
+     */
+    const val PETITION_PEOPLE = 500
+    const val PETITION_ODDS = 4
+    const val PETITIONS_MOST = 2
+    const val PETITION_MONTHS = 12
+    const val PETITION_MET = 4
+    const val PETITION_LAPSED = 2
+    const val PETITION_STOP_REACH = 4
+    const val PETITION_SAMPLE = 200
+
+    /**
+     * Grants: offered once in [GRANT_ODDS] months to a town with at least
+     * [GRANT_APPROVAL], for [GRANT_MONTHS] of its income, with [GRANT_YEARS]
+     * to meet the goal. Each kind is offered once.
+     */
+    const val GRANT_ODDS = 12
+    const val GRANT_APPROVAL = 55
+    const val GRANT_MONTHS = 6L
+    const val GRANT_LEAST = 5_000L
+    const val GRANT_YEARS = 3
+    /** What each grant asks for more of: sewered percent, highway tiles, percent of trips not by car, storm drain tiles. */
+    const val GRANT_SEWERS = 25
+    const val GRANT_SEWERS_MOST = 95
+    const val GRANT_HIGHWAYS = 30
+    const val GRANT_TRANSIT = 8
+    const val GRANT_DRAINS = 60
+
+    /**
+     * Protests, from the Renewal era on, at clearing heritage or this many
+     * homes' lots at once: approval drops [PROTEST_COST], and below
+     * [PROTEST_BELOW] the protesters stop the works.
+     */
+    const val PROTEST_HOMES = 6
+    const val PROTEST_COST = 3
+    const val PROTEST_BELOW = 40
+
+    /** Elections every four years in November: the council's returned at this approval; otherwise taxes are capped for a term. */
+    const val ELECTION_WIN = 45
+    const val ELECTION_YEARS = 4
+    const val CAPPED_TAX = 9
     const val RATING_DROP_MONTHS = 3
     const val RATING_RISE_MONTHS = 24
     const val BOND_MOST = 25L

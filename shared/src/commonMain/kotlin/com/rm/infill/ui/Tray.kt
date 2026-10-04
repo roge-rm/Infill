@@ -625,7 +625,7 @@ enum class ViewGroup { Town, Utilities, Services, Transport }
 
 fun viewGroup(o: Overlay): ViewGroup = when (o) {
     Overlay.None, Overlay.LandValue, Overlay.Wealth, Overlay.Age, Overlay.Pollution, Overlay.Heat, Overlay.Land, Overlay.Visitors, Overlay.Noise, Overlay.Carbon,
-    Overlay.Leisure, Overlay.Growth, Overlay.Upset, Overlay.Vacant, Overlay.Heritage -> ViewGroup.Town
+    Overlay.Leisure, Overlay.Growth, Overlay.Upset, Overlay.Vacant, Overlay.Heritage, Overlay.Mood -> ViewGroup.Town
     Overlay.Power, Overlay.LineLoad, Overlay.Water, Overlay.Runoff, Overlay.Garbage, Overlay.Comms -> ViewGroup.Utilities
     Overlay.Crime, Overlay.Theft, Overlay.Vice, Overlay.Rackets, Overlay.Police, Overlay.Fire, Overlay.Ladders, Overlay.Ambulance, Overlay.Schooling, Overlay.Health -> ViewGroup.Services
     Overlay.Traffic, Overlay.Junctions, Overlay.Trips, Overlay.Reach, Overlay.Transit, Overlay.Railway, Overlay.Goods -> ViewGroup.Transport
@@ -681,6 +681,7 @@ fun overlayChoices(group: ViewGroup): List<Choice<Overlay>> = Overlay.entries.fi
         Overlay.Reach -> Glyph.Target
         Overlay.Growth -> Glyph.Zone
         Overlay.Upset -> Glyph.Warn
+        Overlay.Mood -> Glyph.Check
         Overlay.Vacant -> Glyph.Person
         Overlay.Heritage -> Glyph.Building
     }

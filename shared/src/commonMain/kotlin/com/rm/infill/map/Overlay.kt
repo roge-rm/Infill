@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.rm.infill.res.overlay_heritage
+import com.rm.infill.res.overlay_mood
 import com.rm.infill.res.overlay_vacant
 import com.rm.infill.res.overlay_upset
 import com.rm.infill.res.overlay_growth
@@ -111,6 +112,8 @@ enum class Overlay(val title: StringResource, val low: Color, val high: Color) {
     Vacant(Res.string.overlay_vacant, Color(0x00D8A030), Color(0xFFD8A030)),
     /** Buildings old and handsome enough to be heritage, and those getting there. */
     Heritage(Res.string.overlay_heritage, Color(0x408A6A4A), Color(0xFF8A4A2A)),
+    /** How content the people in each home are with how the town's run: red to green. */
+    Mood(Res.string.overlay_mood, Color(0xFFC0392B), Color(0xFF3FA85A)),
 }
 
 /** The crime views run up to the worst on the map, though never past this far. */
@@ -136,6 +139,7 @@ internal fun overlayImage(
     growthAt: (Int) -> Int = { -1 },
     /** For a building: 255 when it's heritage, less as an old one gets nearer, -1 for anything else. */
     heritageAt: (Int) -> Int = { -1 },
+    moodAt: (Int) -> Int = { -1 },
     ridersAt: (Int) -> Int,
 ): ImageBitmap? {
     if (overlay == Overlay.None) return null
@@ -155,6 +159,7 @@ internal fun overlayImage(
             Overlay.Upset -> map.upset[i].toInt() and 0xff
             Overlay.Vacant -> (homeAt(i) ?: continue).let { if (it.empty) 255 else 0 }
             Overlay.Heritage -> heritageAt(i).takeIf { it >= 0 } ?: continue
+            Overlay.Mood -> moodAt(i).takeIf { it >= 0 }?.let { it * 255 / 100 } ?: continue
             Overlay.Pollution -> map.pollution[i].toInt() and 0xff
             Overlay.Crime -> (map.crime[i].toInt() and 0xff) * 255 / worst
             Overlay.Police -> map.policeCover[i].toInt() and 0xff
@@ -257,7 +262,7 @@ internal fun overlayImage(
             overlay == Overlay.Railway || overlay == Overlay.Water || overlay == Overlay.Runoff ||
             overlay == Overlay.Schooling || overlay == Overlay.Health || overlay == Overlay.Wealth || overlay == Overlay.Age ||
             overlay == Overlay.Heat || overlay == Overlay.Garbage || overlay == Overlay.Goods || overlay == Overlay.Junctions || overlay == Overlay.Reach || overlay == Overlay.LineLoad || overlay == Overlay.Visitors ||
-            overlay == Overlay.Leisure || overlay == Overlay.Growth || overlay == Overlay.Vacant
+            overlay == Overlay.Leisure || overlay == Overlay.Growth || overlay == Overlay.Vacant || overlay == Overlay.Mood
         if (!everywhere && v == 0) continue
         pixels[i] = mix(overlay.low, overlay.high, v / 255f)
     }

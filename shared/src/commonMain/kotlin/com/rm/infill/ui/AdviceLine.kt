@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.rm.infill.res.advice_overseen
 import com.rm.infill.res.advice_garbage_far
 import com.rm.infill.res.advice_flooding
+import com.rm.infill.res.advice_unhappy
 import com.rm.infill.res.advice_leisure
 import com.rm.infill.res.*
 import com.rm.infill.sim.Advice
@@ -112,6 +113,7 @@ internal fun adviceText(a: Advice): String {
         AdviceKind.GARBAGE -> stringResource(Res.string.advice_garbage)
         AdviceKind.GARBAGE_FAR -> stringResource(Res.string.advice_garbage_far)
         AdviceKind.FLOODING -> stringResource(Res.string.advice_flooding)
+        AdviceKind.UNHAPPY -> stringResource(Res.string.advice_unhappy, a.concern?.let { stringResource(concernName(it)).lowercase() } ?: "")
     }
 }
 
@@ -135,6 +137,7 @@ internal fun adviceGlyph(kind: AdviceKind): Glyph = when (kind) {
     AdviceKind.LEISURE -> Glyph.Tree
     AdviceKind.GARBAGE, AdviceKind.GARBAGE_FAR -> Glyph.Bin
     AdviceKind.FLOODING -> Glyph.Rain
+    AdviceKind.UNHAPPY -> Glyph.Person
 }
 
 /** How long each piece of advice shows before the next. */

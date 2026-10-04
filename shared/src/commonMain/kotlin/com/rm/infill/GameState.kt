@@ -146,6 +146,9 @@ class GameState(val city: City) {
     /** Passes or repeals a town-wide law. */
     fun setOrdinance(o: com.rm.infill.sim.Ordinance, on: Boolean) = setting { city.setOrdinance(o, on) }
 
+    /** Whether the town holds elections. */
+    fun setElections(on: Boolean) = setting { city.elections = on }
+
     /** Sells a bond of [years] of income, if the town can. */
     fun sellBond(years: Int) = setting { city.sellBond(years) }
 

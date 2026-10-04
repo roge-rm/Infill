@@ -39,6 +39,15 @@ import com.rm.infill.res.event_tram_track_broken
 import com.rm.infill.res.event_tunnel_flooded
 import com.rm.infill.res.event_tunnel_shut
 import com.rm.infill.res.event_wire_down
+import com.rm.infill.res.event_protest
+import com.rm.infill.res.event_petition
+import com.rm.infill.res.event_petition_met
+import com.rm.infill.res.event_petition_lapsed
+import com.rm.infill.res.event_grant_offered
+import com.rm.infill.res.event_grant_paid
+import com.rm.infill.res.event_grant_lapsed
+import com.rm.infill.res.event_election_won
+import com.rm.infill.res.event_election_lost
 import com.rm.infill.sim.CityEvent
 import com.rm.infill.sim.EventKind
 import com.rm.infill.ui.buildingName
@@ -103,6 +112,15 @@ internal fun messageOf(e: CityEvent): Message? =
         EventKind.EraArrived -> e.era?.let { Message(Res.string.event_era_began, com.rm.infill.ui.eraName(it)) }
         EventKind.FirstBuilt -> Message(Res.string.event_first_built, e.type?.let { buildingName(it) }, e.x, e.y)
         EventKind.Milestone -> Message(Res.string.event_milestone, name = groupThousands(e.count.toLong()))
+        EventKind.Protest -> Message(Res.string.event_protest, x = e.x, y = e.y)
+        EventKind.Petition -> Message(Res.string.event_petition, com.rm.infill.ui.wantName(com.rm.infill.sim.Want.entries[e.count]), e.x, e.y)
+        EventKind.PetitionMet -> Message(Res.string.event_petition_met, com.rm.infill.ui.wantName(com.rm.infill.sim.Want.entries[e.count]), e.x, e.y)
+        EventKind.PetitionLapsed -> Message(Res.string.event_petition_lapsed, com.rm.infill.ui.wantName(com.rm.infill.sim.Want.entries[e.count]), e.x, e.y)
+        EventKind.GrantOffered -> Message(Res.string.event_grant_offered, com.rm.infill.ui.grantNoun(com.rm.infill.sim.GrantKind.entries[e.count]))
+        EventKind.GrantPaid -> Message(Res.string.event_grant_paid, com.rm.infill.ui.grantNoun(com.rm.infill.sim.GrantKind.entries[e.count]))
+        EventKind.GrantLapsed -> Message(Res.string.event_grant_lapsed, com.rm.infill.ui.grantNoun(com.rm.infill.sim.GrantKind.entries[e.count]))
+        EventKind.ElectionWon -> Message(Res.string.event_election_won)
+        EventKind.ElectionLost -> Message(Res.string.event_election_lost)
     }
 
 /** [m] as text. */
