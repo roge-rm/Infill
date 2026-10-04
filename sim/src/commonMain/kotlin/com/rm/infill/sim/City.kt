@@ -19,8 +19,8 @@ class City(
     /** Blank when [terrain] is null, for a city being loaded. */
     val map = CityMap(width, height).also { if (terrain != null) TerrainGen.generate(it, seed, terrain) }
 
-    /** What the player calls the town. */
-    var name = "New town"
+    /** What the player calls the town; one made from the seed until it's given one. */
+    var name = TownNames.make(seed)
 
     /** The region file this town belongs to, null for a town on its own, and its square there. */
     var region: String? = null
