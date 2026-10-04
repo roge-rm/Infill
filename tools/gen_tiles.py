@@ -8414,6 +8414,573 @@ def offshore_wind(look, v):
 BUILDINGS += [("river_turbine", river_turbine, 1), ("tidal_turbine", tidal_turbine, 1), ("offshore_wind", offshore_wind, 2)]
 
 
+# Newer power stations, each in the footprint of the one before it, and the stations of their own.
+
+
+def pulverized_coal(look, v):
+    """A coal station of the 1930s on 2 by 2 tiles: a tall brick boiler house with a row of three stacks, the turbine hall in
+    front and a conveyor up from the coal."""
+    b = Building(2, 2, height=56)
+    d = b.d
+    rng = random.Random(17000 + v)
+    plant_yard(b, look, 1, 1, 62, 62, c("#7a7268"))
+    gx, gy = b.ground(48, 58)
+    for k, col in enumerate([c("#1e1e22"), c("#2a2a2f"), c("#35353b")]):
+        d.ellipse([gx - 10 + k * 3, gy - 4 - k * 2, gx + 10 - k * 3, gy + 2 - k * 2], SNOW_ROOF[k] if look == "snow" else col)
+    d.line([gx - 4, gy - 6, gx - 14, gy - 22], c("#5a5048"), 2)
+    for x in (12, 24, 36):
+        chimney(b, x, 6, 56, c("#8a4f3c"), look)
+    roof, wall = b.box(4, 10, 44, 30, 5 * STOREY)
+    brick(d, wall, c("#7a4636") if v == 0 else c("#8a5a44"))
+    windows(d, wall, 5, glass=c("#6c7f8a"), every=5, width=2, height=4)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, rng, [("vent", 4, 4)], parapet=c("#6e3e30"))
+    roof, wall = b.box(4, 32, 40, 52, 2 * STOREY + 4)
+    brick(d, wall, c("#7a4636"))
+    windows(d, wall, 2, glass=c("#6c7f8a"), every=5, width=3, height=4)
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else IRON_ROOF, OUTLINE)
+    return b
+
+
+def supercritical_coal(look, v):
+    """A big coal station of the 1970s on 2 by 2 tiles: a steel-clad boiler house, one very tall concrete stack, a cooling
+    tower and a long coal belt."""
+    b = Building(2, 2, height=64)
+    d = b.d
+    rng = random.Random(17100 + v)
+    plant_yard(b, look, 1, 1, 62, 62, c("#8a867c"))
+    cooling_tower(b, look, 46, 40, 12, 34)
+    roof, wall = b.box(4, 6, 32, 34, 5 * STOREY + 4)
+    d.rectangle(wall, c("#9aa6ae") if v == 0 else c("#b8b2a2"))
+    for yy in range(wall[1] + 2, wall[3], 3):
+        d.line([wall[0] + 1, yy, wall[2] - 1, yy], shade(c("#9aa6ae"), 0.9))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, rng, [("vent", 6, 6), ("hatch", 16, 12)], parapet=c("#7f8a90"))
+    banded_chimney(b, look, 38, 10, 64, c("#b4b0a8"), c("#b04030"))
+    gx, gy = b.ground(6, 58)
+    d.rectangle([gx, gy - 4, gx + 22, gy], SNOW_ROOF[1] if look == "snow" else c("#2a2a2f"))
+    d.line([gx + 22, gy - 2, gx + 30, gy - 24], c("#6a6a70"), 2)
+    transformer(b, look, 56, 60)
+    return b
+
+
+def large_oil(look, v):
+    """A large oil station of the 1950s on 2 by 2 tiles: four tanks of fuel oil, a pale hall and twin banded stacks."""
+    b = Building(2, 2, height=56)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62)
+    for (x, y) in ((10, 10), (28, 10), (10, 28), (28, 28)):
+        cylinder(b, look, x, y, 7, 10, c("#c9c4b8") if v == 0 else c("#d8d4ca"))
+    roof, wall = b.box(4, 40, 46, 60, 2 * STOREY + 6)
+    d.rectangle(wall, c("#d8d4c8"))
+    windows(d, wall, 1, glass=c("#4a5866"), every=6, width=4, height=3)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(17200 + v), [("vent", 6, 4), ("vent", 26, 4)], parapet=c("#a8a296"))
+    for x in (50, 58):
+        banded_chimney(b, look, x, 34, 56, c("#b8b2a6"), c("#b04030"))
+    return b
+
+
+def combined_cycle(look, v):
+    """A combined cycle gas station of the 1990s on 2 by 2 tiles: a long white turbine hall, the heat recovery boilers beside
+    it with their stacks, and an air-cooled condenser of fans."""
+    b = Building(2, 2, height=44)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62, c("#a29e94"))
+    roof, wall = b.box(4, 4, 58, 20, STOREY + 2)
+    d.rectangle(wall, c("#b8bcc0"), OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#9ea4aa"), OUTLINE)
+    for k in range(6):
+        fx = roof[0] + 3 + k * 9
+        d.ellipse([fx, roof[1] + 3, fx + 6, roof[3] - 3], c("#3a3e44"))
+    roof, wall = b.box(4, 30, 36, 58, 3 * STOREY)
+    d.rectangle(wall, c("#eceae4"))
+    d.rectangle([wall[0], wall[3] - 3, wall[2], wall[3]], c("#4f7a9a") if v == 0 else c("#3f8a5a"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(17300 + v), [("vent", 8, 6)], parapet=c("#c8c2b4"))
+    for x in (42, 52):
+        roof, wall = b.box(x - 4, 30, x + 4, 52, 3 * STOREY + 4)
+        d.rectangle(wall, c("#c4c8cc"))
+        d.rectangle(wall, outline=OUTLINE)
+        d.rectangle(roof, c("#a8aeb4"), OUTLINE)
+        chimney(b, x, 32, 44, c("#c4c8cc"), look)
+    return b
+
+
+def hydro_station(look, v):
+    """A big hydro station of the 1930s on 2 by 2 tiles: a tall powerhouse of concrete in the style of its day, with long
+    vertical windows, its penstocks, and a switchyard."""
+    b = Building(2, 2, height=4 * STOREY + 8)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62, c("#a8a49a"))
+    for x in (10, 22, 34, 46):
+        gx, gy = b.ground(x, 2)
+        d.rectangle([gx - 3, gy, gx + 3, gy + 14], c("#5a6066"), OUTLINE)
+    roof, wall = b.box(4, 16, 60, 46, 4 * STOREY)
+    d.rectangle(wall, c("#d8d2c2") if v == 0 else c("#c4beb0"))
+    x0, y0, x1, y1 = wall
+    for k in range(5):
+        wx = x0 + 5 + k * 11
+        d.rectangle([wx, y0 + 2, wx + 3, y1 - 3], c("#4a5866"))
+        d.line([wx - 2, y0, wx - 2, y1], shade(c("#d8d2c2"), 0.85))
+    d.rectangle([x0, y0, x1, y0 + 2], c("#b4ae9f"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(17400 + v), [("vent", 10, 8), ("vent", 40, 8)], parapet=c("#b4ae9f"))
+    for x in (10, 22, 34):
+        transformer(b, look, x, 58)
+    return b
+
+
+def advanced_reactor(look, v):
+    """An advanced reactor of the 2000s on 3 by 3 tiles: a single big cooling tower, a smooth domed containment beside a
+    pale turbine hall, and a neat fenced yard."""
+    b = Building(3, 3, height=64)
+    d = b.d
+    plant_yard(b, look, 1, 1, 94, 94, c("#b0aea6"))
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(94, 94)
+    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#d0ccc0"))
+    cooling_tower(b, look, 26, 40, 20, 60)
+    gx, gy = b.ground(72, 46)
+    col = c("#e6e2d8")
+    d.rectangle([gx - 14, gy - 26, gx + 14, gy], col)
+    d.line([gx - 14, gy - 26, gx - 14, gy], OUTLINE)
+    d.line([gx + 14, gy - 26, gx + 14, gy], OUTLINE)
+    d.pieslice([gx - 14, gy - 40, gx + 14, gy - 12], 180, 360, SNOW_ROOF[0] if look == "snow" else c("#eeeae2"), OUTLINE)
+    b.casters.append((1, 58, 38, 87, 54, 32))
+    roof, wall = b.box(6, 66, 88, 90, 3 * STOREY)
+    d.rectangle(wall, c("#e2e4e6"))
+    d.rectangle([wall[0], wall[1], wall[2], wall[1] + 2], c("#3f8a9a") if v == 0 else c("#4f7a9a"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(17500 + v), [("vent", 8, 6), ("vent", 40, 6), ("vent", 70, 6)], parapet=c("#b8bec4"))
+    return b
+
+
+def tall_turbine(b, look, tx, ty, height, blade, angle):
+    """One tall modern wind turbine standing at tile pixel tx, ty."""
+    d = b.d
+    white = c("#f2f4f6")
+    fx, fy = b.ground(tx, ty)
+    top = fy - height
+    d.polygon([(fx - 1, fy), (fx + 2, fy), (fx, top)], white, None)
+    d.line([fx + 1, fy, fx, top], c("#b8bec4"))
+    d.rectangle([fx - 3, top - 1, fx + 3, top + 1], white, OUTLINE)
+    a0 = angle * math.pi / 180
+    for j in range(3):
+        a = a0 + j * 2 * math.pi / 3
+        ex = fx + round(blade * math.cos(a))
+        ey = top + round(blade * math.sin(a))
+        d.line([fx, top, ex, ey], white, width=2)
+        d.line([fx, top, ex, ey], c("#c8ced4"))
+    d.point((fx, top), c("#e05040"))
+    b.casters.append((1, tx - 1, ty - 1, tx + 2, ty + 2, height))
+
+
+def tall_wind(look, v):
+    """A tall wind turbine of the 2020s on 2 by 2 tiles of grass: one tower twice the height of the old ones, with long
+    slender blades and a red light on the nacelle."""
+    b = Building(2, 2, height=62)
+    tall_turbine(b, look, 32, 44, 50, 18, 20 + v * 35)
+    return b
+
+
+def bifacial_solar(look, v):
+    """A bifacial solar farm of the 2020s on 3 by 3 tiles: rows of panels up on trackers that turn with the sun, with grass
+    and sheep under them."""
+    b = Building(3, 3, height=8)
+    d = b.d
+    rng = random.Random(17600 + v)
+    gx0, gy0 = b.ground(2, 2)
+    gx1, gy1 = b.ground(93, 93)
+    d.rectangle([gx0, gy0, gx1, gy1], SNOW_GROUND if look == "snow" else c("#8aaa6a"))
+    for row in range(7):
+        y = 6 + row * 13
+        px0, py0 = b.ground(4, y)
+        px1, py1 = b.ground(90, y + 4)
+        d.line([px0, py1 + 3, px1, py1 + 3], c("#5a5a60"))
+        d.rectangle([px0, py0, px1, py1], SNOW_ROOF[0] if look == "snow" and row % 2 == 0 else c("#2a4a7a"))
+        for xx in range(px0 + 3, px1, 4):
+            d.line([xx, py0, xx, py1], c("#1a2c4c"))
+        d.line([px0, py0, px1, py0], c("#7a9ac8"))
+    if look not in ("snow",):
+        for _ in range(6):
+            sx, sy = b.ground(rng.randrange(6, 88), rng.choice([11, 24, 37, 50, 63, 76]))
+            d.rectangle([sx, sy, sx + 2, sy + 1], c("#f2f0ea"))
+            d.point((sx + 3, sy), c("#3a3a3a"))
+    return b
+
+
+def floating_offshore(look, v):
+    """A floating wind turbine of the 2030s on 2 by 2 tiles of deep water: one very tall turbine on a yellow three-legged
+    float, moored by cables, with white water round it."""
+    b = Building(2, 2, height=64)
+    d = b.d
+    fx, fy = b.ground(32, 44)
+    for (dx, dy) in ((-9, 4), (9, 4), (0, -6)):
+        d.line([fx, fy, fx + dx * 2, fy + dy * 2], (40, 60, 80, 140))
+    d.ellipse([fx - 10, fy - 3, fx + 10, fy + 5], c("#e6f0f6"))
+    d.polygon([(fx - 8, fy + 2), (fx + 8, fy + 2), (fx, fy - 6)], c("#e0b020"), OUTLINE)
+    tall_turbine(b, look, 32, 42, 50, 18, 40 + v * 30)
+    return b
+
+
+def tidal_array(look, v):
+    """A tidal array of the 2030s on 2 by 1 tiles of water: a long floating platform with a row of rotors hung under it,
+    their wakes trailing, and a light at each end."""
+    b = Building(2, 1, height=10)
+    d = b.d
+    for cx in (10, 24, 40, 54):
+        x, y = b.ground(cx, 18)
+        d.ellipse([x - 5, y - 3, x + 5, y + 3], (20, 40, 60, 140))
+        d.point((x, y + 5), c("#e6f0f6"))
+    roof, wall = b.box(4, 12, 60, 18, 3)
+    d.rectangle(wall, c("#d8b030"))
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, c("#e8c040"), OUTLINE)
+    for x in (6, 58):
+        mx, my = b.ground(x, 14)
+        d.line([mx, my - 3, mx, my - 8], c("#c8ccd0"))
+        d.point((mx, my - 9), c("#e05040"))
+    return b
+
+
+def hydro_dam(look, v):
+    """A hydro dam on 3 by 3 tiles: a curved concrete wall holding back the river, the spillway foaming, and the powerhouse at
+    its foot with its switchyard."""
+    b = Building(3, 3, height=4 * STOREY + 4)
+    d = b.d
+    top = b.lift
+    water = c("#5a8fbf") if look != "snow" else c("#dfe8ef")
+    d.rectangle([0, top, 95, top + 30], water)
+    plant_yard(b, look, 1, 52, 94, 94, c("#a8a49a"))
+    # The wall, curved against the water.
+    d.chord([-20, top + 18, 115, top + 70], 180, 360, c("#c8c4b8"), OUTLINE)
+    d.chord([-16, top + 24, 111, top + 66], 180, 360, c("#b4b0a6"))
+    for x in range(10, 90, 10):
+        d.line([x, top + 26, x, top + 40], shade(c("#b4b0a6"), 0.85))
+    # The spillway.
+    d.rectangle([40, top + 30, 56, top + 52], c("#e6f0f6"))
+    for yy in range(top + 32, top + 52, 3):
+        d.line([41, yy, 55, yy], c("#bcd4e4"))
+    roof, wall = b.box(8, 56, 36, 76, 2 * STOREY + 4)
+    d.rectangle(wall, c("#d0cabc"))
+    for wx in range(wall[0] + 4, wall[2] - 2, 6):
+        d.rectangle([wx, wall[1] + 2, wx + 2, wall[3] - 3], c("#4a5866"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(17700 + v), [("vent", 6, 6)], parapet=c("#b4ae9f"))
+    for x in (64, 76, 88):
+        transformer(b, look, x, 76)
+    return b
+
+
+def pumped_storage(look, v):
+    """Pumped storage on 3 by 2 tiles: an upper pond behind an embankment, the pipes down the slope and the pump house at the
+    water's edge."""
+    b = Building(3, 2, height=3 * STOREY)
+    d = b.d
+    rng = random.Random(17800 + v)
+    lawn_box(b, look, 0, 0, 95, 63, rng)
+    top = b.lift
+    d.rectangle([6, top + 4, 60, top + 30], c("#8a8478"))
+    d.rectangle([9, top + 7, 57, top + 27], c("#5a8fbf") if look != "snow" else c("#dfe8ef"))
+    for x in (66, 74):
+        d.line([x, top + 14, x, top + 46], c("#5a6066"), 3)
+    d.line([58, top + 14, 74, top + 14], c("#5a6066"), 3)
+    roof, wall = b.box(56, 40, 90, 58, 2 * STOREY + 4)
+    d.rectangle(wall, c("#c4beb0"))
+    windows(d, wall, 2, glass=c("#4a5866"), every=6, width=3, height=3)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, rng, [("vent", 6, 4)], parapet=c("#b4ae9f"))
+    transformer(b, look, 20, 50)
+    return b
+
+
+def geothermal(look, v):
+    """A geothermal station on 2 by 2 tiles: well heads in the yard, insulated steam pipes on stilts looping across it, a
+    turbine hall and plumes of steam from the cooling towers."""
+    b = Building(2, 2, height=3 * STOREY + 10)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62, c("#a8a090"))
+    pipe = c("#c8ccd0")
+    for (x, y) in ((8, 8), (24, 6), (52, 10)):
+        gx, gy = b.ground(x, y)
+        d.rectangle([gx - 2, gy - 3, gx + 2, gy + 1], c("#7a8088"), OUTLINE)
+    for pts in (((8, 10), (8, 24), (40, 24)), ((24, 8), (24, 20)), ((52, 12), (52, 24), (40, 24))):
+        d.line([(x, y + b.lift - 3) for x, y in pts], pipe, 2)
+    roof, wall = b.box(6, 32, 40, 58, 2 * STOREY + 4)
+    d.rectangle(wall, c("#d8d4c8") if v == 0 else c("#c8b8a0"))
+    windows(d, wall, 2, glass=c("#4a5866"), every=6, width=3, height=3)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(17900 + v), [("vent", 6, 6)], parapet=c("#a8a296"))
+    roof, wall = b.box(44, 32, 60, 56, STOREY + 6)
+    d.rectangle(wall, c("#8a9096"))
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, c("#6a7076"), OUTLINE)
+    steam = Image.new("RGBA", b.img.size, (0, 0, 0, 0))
+    sd = ImageDraw.Draw(steam)
+    for (dx, dy, rr) in ((50, 22, 6), (55, 16, 7), (48, 10, 5)):
+        sd.ellipse([dx - rr, dy - rr, dx + rr, dy + rr], (246, 248, 250, 210))
+    b.img.alpha_composite(steam)
+    return b
+
+
+def small_reactor(look, v):
+    """A small modular reactor of the 2030s on 2 by 2 tiles: a low windowless reactor building, a turbine hall, a ring of
+    mechanical draft cooling fans and a security fence."""
+    b = Building(2, 2, height=3 * STOREY + 4)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62, c("#b4b2aa"))
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(62, 62)
+    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#d0ccc0"))
+    roof, wall = b.box(6, 6, 30, 30, 3 * STOREY)
+    d.rectangle(wall, c("#e6e2d8"))
+    d.rectangle(wall, outline=OUTLINE)
+    rx0, ry0, rx1, ry1 = roof
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#d8d4ca"), OUTLINE)
+    d.ellipse([rx0 + 4, ry0 + 4, rx1 - 4, ry1 - 4], c("#c8c4ba"), OUTLINE)
+    roof, wall = b.box(34, 10, 58, 30, 2 * STOREY + 2)
+    d.rectangle(wall, c("#d4d8dc"))
+    d.rectangle([wall[0], wall[1], wall[2], wall[1] + 2], c("#3f8a9a"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(18000 + v), [("vent", 6, 6)], parapet=c("#b8bec4"))
+    roof, wall = b.box(6, 40, 58, 52, STOREY)
+    d.rectangle(wall, c("#b8bcc0"), OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#9ea4aa"), OUTLINE)
+    for k in range(5):
+        fx = roof[0] + 3 + k * 10
+        d.ellipse([fx, roof[1] + 2, fx + 7, roof[3] - 2], c("#3a3e44"))
+    return b
+
+
+def long_storage(look, v):
+    """Long-duration storage of the 2030s on 2 by 2 tiles: big tanks of flow battery liquid in two colours, the pumps and
+    stacks between them in a white shed, and a switchyard."""
+    b = Building(2, 2, height=3 * STOREY)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62, c("#b8b2a6"))
+    for (x, y, col) in ((12, 12, c("#c8c4e0")), (30, 12, c("#c8c4e0")), (12, 34, c("#e0c8b4")), (30, 34, c("#e0c8b4"))):
+        cylinder(b, look, x, y, 7, 14, col)
+    roof, wall = b.box(42, 8, 60, 44, 2 * STOREY)
+    d.rectangle(wall, c("#eceae4"))
+    for yy in range(wall[1] + 2, wall[3], 2):
+        d.line([wall[0] + 2, yy, wall[2] - 2, yy], c("#c8ccd0"))
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#cfd3d6"), OUTLINE)
+    transformer(b, look, 48, 56)
+    return b
+
+
+# Garbage by era.
+
+
+def sanitary_landfill(look, v):
+    """A sanitary landfill of the 1950s on 3 by 3 tiles: cells of refuse covered over with earth each day, one open where the
+    compactor works, a lined pond for what drains off, and a weighbridge at the gate."""
+    b = Building(3, 3, height=14)
+    d = b.d
+    rng = random.Random(18100 + v)
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(94, 94)
+    noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), [c("#8a7a5a"), c("#7e6e50"), c("#94845e")] if look != "snow"
+               else [c("#dfe5ea"), c("#cfd7de"), c("#eef2f5")], rng)
+    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#6b6258"))
+    # Finished cells, grassed over, and the cell being filled.
+    for (x0, y0, x1, y1) in ((4, 4, 44, 40), (48, 4, 90, 40)):
+        cx0, cy0 = b.ground(x0, y0)
+        cx1, cy1 = b.ground(x1, y1)
+        noise_fill(b.img, (cx0, cy0, cx1, cy1), GRASS[look], rng)
+        d.rectangle([cx0, cy0, cx1, cy1], outline=shade(c("#6a8a4a"), 0.8) if look != "snow" else c("#cfd7de"))
+    cx0, cy0 = b.ground(4, 44)
+    cx1, cy1 = b.ground(60, 76)
+    for _ in range(160):
+        x, y = rng.randrange(cx0, cx1), rng.randrange(cy0, cy1)
+        if look != "snow" or rng.random() < 0.25:
+            d.point((x, y), rng.choice(LITTER + GARBAGE))
+    bx, by = b.ground(30, 62)
+    d.rectangle([bx, by - 5, bx + 9, by], c("#d8a030"), OUTLINE)
+    d.rectangle([bx + 2, by - 9, bx + 6, by - 5], c("#c89020"), OUTLINE)
+    # The leachate pond.
+    px, py = b.ground(66, 48)
+    d.rectangle([px, py, px + 24, py + 16], c("#3a3a40"))
+    d.rectangle([px + 2, py + 2, px + 22, py + 14], c("#5a6a5a") if look != "snow" else c("#dfe8ef"))
+    roof, wall = b.box(66, 80, 90, 92, STOREY)
+    d.rectangle(wall, c("#d8d4ca"))
+    door(d, wall)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, rng, [], parapet=c("#a8a296"))
+    return b
+
+
+def waste_to_energy(look, v):
+    """A waste-to-energy plant of the 1970s and on, on 2 by 2 tiles: a big clad hall with a curving roof, the trucks' ramp,
+    one slim stack and its own transformers."""
+    b = Building(2, 2, height=56)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62, c("#a29e94"))
+    roof, wall = b.box(4, 6, 50, 44, 4 * STOREY)
+    col = c("#7a9aa8") if v == 0 else c("#a8b4a0")
+    d.rectangle(wall, col)
+    for xx in range(wall[0] + 2, wall[2], 3):
+        d.line([xx, wall[1] + 1, xx, wall[3] - 1], shade(col, 0.9))
+    d.rectangle([wall[0] + 4, wall[3] - 9, wall[0] + 16, wall[3]], c("#4a4c50"))
+    d.rectangle(wall, outline=OUTLINE)
+    rx0, ry0, rx1, ry1 = roof
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#c8ccd0"))
+    for yy in range(ry0 + 1, ry1, 2):
+        d.line([rx0 + 1, yy, rx1 - 1, yy], shade(c("#c8ccd0"), 1.0 - 0.15 * abs(yy - (ry0 + ry1) / 2) / ((ry1 - ry0) / 2 + 1)))
+    d.rectangle(roof, outline=OUTLINE)
+    banded_chimney(b, look, 56, 30, 56, c("#d8d8d0"), c("#4f7a9a"))
+    tx, ty = b.ground(8, 58)
+    d.rectangle([tx, ty - 6, tx + 14, ty], c("#e8e4da"), OUTLINE)
+    d.rectangle([tx + 10, ty - 8, tx + 14, ty - 4], c("#3f6fa8"), OUTLINE)
+    transformer(b, look, 40, 58)
+    return b
+
+
+def materials_recovery(look, v):
+    """A materials recovery facility of the 1990s on 2 by 2 tiles: a big blue shed where the mixed recycling's sorted on
+    conveyors, bales stacked in rows outside and a loading bay."""
+    b = Building(2, 2, height=3 * STOREY)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62, c("#9c988e"))
+    roof, wall = b.box(4, 4, 60, 34, 3 * STOREY - 2)
+    col = c("#3f6fa8") if v == 0 else c("#4a7a5a")
+    d.rectangle(wall, col)
+    for xx in range(wall[0] + 2, wall[2], 3):
+        d.line([xx, wall[1] + 1, xx, wall[3] - 1], shade(col, 0.88))
+    for k in range(3):
+        dx = wall[0] + 6 + k * 18
+        d.rectangle([dx, wall[3] - 9, dx + 10, wall[3]], c("#6a7076"))
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else shade(col, 1.2), OUTLINE)
+    for row, bc in enumerate([c("#8aa4c8"), c("#b8bcc0"), c("#5a9a6a"), c("#c89a5a")]):
+        for k in range(6):
+            bx, by = b.ground(6 + k * 9, 40 + row * 6)
+            d.rectangle([bx, by - 4, bx + 7, by + 1], SNOW_ROOF[1] if look == "snow" and row == 0 else bc, OUTLINE)
+    return b
+
+
+def advanced_sorting(look, v):
+    """An advanced sorting plant of the 2020s on 2 by 2 tiles: a clean white hall with solar panels on its roof, where
+    optical sorters and robots pick the recycling, and tidy bays of sorted bales."""
+    b = Building(2, 2, height=3 * STOREY)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62, c("#aaa69c"))
+    roof, wall = b.box(4, 4, 60, 36, 3 * STOREY - 2)
+    d.rectangle(wall, c("#eceae4"))
+    d.rectangle([wall[0], wall[3] - 3, wall[2], wall[3]], c("#3f8a5a"))
+    d.rectangle([wall[0] + 4, wall[1] + 3, wall[2] - 4, wall[1] + 6], GLASS_NEW)
+    d.rectangle(wall, outline=OUTLINE)
+    rx0, ry0, rx1, ry1 = roof
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#d8d8d0"), OUTLINE)
+    solar_rows(d, rx0 + 3, ry0 + 3, rx1 - 3, ry1 - 3, look)
+    for k, bc in enumerate([c("#8aa4c8"), c("#b8bcc0"), c("#5a9a6a"), c("#c89a5a"), c("#d8d0b8"), c("#8a6aa0")]):
+        bx0, by0 = b.ground(4 + k * 10, 44)
+        d.rectangle([bx0, by0, bx0 + 8, by0 + 14], c("#c8c4b8"), OUTLINE)
+        d.rectangle([bx0 + 1, by0 + 6, bx0 + 7, by0 + 13], bc)
+    return b
+
+
+def transfer_station(look, v):
+    """A transfer station on 2 by 1 tiles: a tipping shed the town's trucks back into, and the long trailers that take it on
+    to the dump."""
+    b = Building(2, 1, height=2 * STOREY + 4)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 30, c("#98948a"))
+    roof, wall = b.box(4, 4, 40, 22, 2 * STOREY + 2)
+    col = c("#8a7a62") if v == 0 else c("#6a7a82")
+    d.rectangle(wall, col)
+    for k in range(3):
+        dx = wall[0] + 3 + k * 12
+        d.rectangle([dx, wall[3] - 8, dx + 8, wall[3]], c("#4a4c50"))
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else shade(col, 1.15), OUTLINE)
+    for k in range(2):
+        tx, ty = b.ground(44, 10 + k * 10)
+        d.rectangle([tx, ty - 5, tx + 16, ty], c("#b8bcc0"), OUTLINE)
+        d.rectangle([tx + 13, ty - 7, tx + 16, ty - 3], c("#c0392b"), OUTLINE)
+    return b
+
+
+def compost_yard(look, v):
+    """A compost yard on 2 by 2 tiles: long steaming windrows of garden and food waste on a pad, a turner working one, and a
+    screened heap of finished compost."""
+    b = Building(2, 2, height=8)
+    d = b.d
+    rng = random.Random(18200 + v)
+    plant_yard(b, look, 1, 1, 62, 62, c("#8a7a62"))
+    for row in range(5):
+        y = 6 + row * 10
+        px0, py0 = b.ground(6, y)
+        px1, py1 = b.ground(44, y + 5)
+        d.ellipse([px0, py0, px1, py1], c("#4a3a2a") if look != "snow" else SNOW_ROOF[1])
+        d.line([px0 + 4, py0 + 1, px1 - 4, py0 + 1], c("#6a5a3a") if look != "snow" else SNOW_ROOF[0])
+    gx, gy = b.ground(54, 30)
+    for k, col in enumerate([c("#3a2a1e"), c("#4a3826"), c("#5a4630")]):
+        d.ellipse([gx - 8 + k * 2, gy - 4 - k * 2, gx + 8 - k * 2, gy + 2 - k * 2], SNOW_ROOF[k] if look == "snow" else col)
+    tx, ty = b.ground(20, 58)
+    d.rectangle([tx, ty - 4, tx + 10, ty], c("#3f8a5a"), OUTLINE)
+    if look in ("bare", "snow", "autumn"):
+        steam = Image.new("RGBA", b.img.size, (0, 0, 0, 0))
+        sd = ImageDraw.Draw(steam)
+        for _ in range(5):
+            x, y = b.ground(rng.randrange(10, 40), rng.randrange(6, 50))
+            sd.ellipse([x - 3, y - 6, x + 3, y - 1], (240, 242, 244, 150))
+        b.img.alpha_composite(steam)
+    return b
+
+
+def landfill_gas(look, v):
+    """A landfill gas plant on one tile: a container of engines that burn the gas drawn off the fill, a flare stack beside it
+    and the pipes coming in."""
+    b = Building(height=20)
+    d = b.d
+    plant_yard(b, look, 1, 1, 30, 30, c("#a29e94"))
+    d.line([0, b.lift + 6, 10, b.lift + 6], c("#e8a33a"), 2)
+    d.line([0, b.lift + 26, 10, b.lift + 26], c("#e8a33a"), 2)
+    roof, wall = b.box(6, 8, 24, 20, 7)
+    d.rectangle(wall, c("#3f8a5a") if v == 0 else c("#d8d4ca"))
+    for yy in range(wall[1] + 2, wall[3], 2):
+        d.line([wall[0] + 2, yy, wall[2] - 2, yy], shade(c("#3f8a5a"), 0.85))
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, c("#b8bec4"), OUTLINE)
+    chimney(b, 26, 6, 20, c("#c4c8cc"), look)
+    fx, fy = b.ground(26, 6)
+    d.point((fx, fy - 21), c("#f2a03a"))
+    return b
+
+
+def biogas(look, v):
+    """A biogas plant on 2 by 2 tiles: two round digesters under green domes, a gas holder, and a small engine house that
+    turns the gas into power."""
+    b = Building(2, 2, height=3 * STOREY)
+    d = b.d
+    plant_yard(b, look, 1, 1, 62, 62, c("#a8a49a"))
+    for (x, y) in ((16, 18), (40, 18)):
+        cylinder(b, look, x, y, 11, 10, c("#c8c4b8"), c("#4a8a5a") if look != "snow" else None)
+    gx, gy = b.ground(16, 48)
+    d.ellipse([gx - 10, gy - 10, gx + 10, gy + 4], SNOW_ROOF[0] if look == "snow" else c("#e6e2d8"), OUTLINE)
+    roof, wall = b.box(36, 40, 58, 56, STOREY + 4)
+    d.rectangle(wall, c("#d8d4ca"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, random.Random(18300 + v), [("vent", 4, 3)], parapet=c("#a8a296"))
+    return b
+
+
+BUILDINGS += [
+    ("pulverized_coal", pulverized_coal, 2), ("supercritical_coal", supercritical_coal, 2), ("large_oil", large_oil, 2),
+    ("combined_cycle", combined_cycle, 2), ("hydro_station", hydro_station, 2), ("advanced_reactor", advanced_reactor, 2),
+    ("tall_wind", tall_wind, 2), ("bifacial_solar", bifacial_solar, 2), ("floating_offshore", floating_offshore, 2),
+    ("tidal_array", tidal_array, 1), ("hydro_dam", hydro_dam, 1), ("pumped_storage", pumped_storage, 2),
+    ("geothermal", geothermal, 2), ("small_reactor", small_reactor, 2), ("long_storage", long_storage, 1),
+    ("sanitary_landfill", sanitary_landfill, 2), ("waste_to_energy", waste_to_energy, 2), ("materials_recovery", materials_recovery, 2),
+    ("advanced_sorting", advanced_sorting, 1), ("transfer_station", transfer_station, 2), ("compost_yard", compost_yard, 2),
+    ("landfill_gas", landfill_gas, 2), ("biogas", biogas, 1),
+]
+
+
 # High-voltage lines: a steel lattice pylon, taller, with three wires a side.
 PYLON = c("#7d848a")
 HV_WIRE = (40, 42, 46, 160)

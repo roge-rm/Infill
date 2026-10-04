@@ -188,7 +188,7 @@ enum class BuildingType(
     /** Power from the weather: wind turbines, solar panels, and batteries to keep it for the evening. */
     WIND_FARM(Zone.NONE, 0, 4, width = 2, height = 2, year = 2000, life = 25),
     SOLAR_FARM(Zone.NONE, 0, 3, width = 3, height = 3, year = 2005, life = 25),
-    BATTERY(Zone.NONE, 0, 2, width = 2, height = 1, year = 2030, life = 15),
+    BATTERY(Zone.NONE, 0, 2, width = 2, height = 1, year = 2015, life = 15),
 
     /** Out on the water: a turbine in a river's current, turbines in the tide, and wind farms offshore. */
     RIVER_TURBINE(Zone.NONE, 0, 1, year = 1985, life = 30),
@@ -410,6 +410,51 @@ enum class BuildingType(
     POLICE_BOX(Zone.NONE, 0, 1, year = 1925),
     TRAFFIC_POLICE(Zone.NONE, 0, 10, width = 2, height = 1, year = 1930, life = 50),
     FIREBOAT_STATION(Zone.NONE, 0, 12, width = 2, height = 2, year = 1910, life = 50),
+
+    /**
+     * Newer power stations, each in the footprint of the one before it (see
+     * [Lineage]): pulverized coal (1930) and supercritical coal (1970), a
+     * large oil station (1955), combined cycle gas (1990), a hydro station
+     * (1930), an advanced reactor (2000), tall wind turbines and bifacial
+     * solar (2020), floating offshore wind (2030) and a tidal array (2035).
+     */
+    PULVERIZED_COAL(Zone.NONE, 0, 8, width = 2, height = 2, year = 1930, life = 35),
+    SUPERCRITICAL_COAL(Zone.NONE, 0, 10, width = 2, height = 2, year = 1970, life = 40),
+    LARGE_OIL(Zone.NONE, 0, 12, width = 2, height = 2, year = 1955, life = 35),
+    COMBINED_CYCLE(Zone.NONE, 0, 10, width = 2, height = 2, year = 1990, life = 40),
+    HYDRO_STATION(Zone.NONE, 0, 6, width = 2, height = 2, year = 1930, life = 70),
+    ADVANCED_REACTOR(Zone.NONE, 0, 40, width = 3, height = 3, year = 2000, life = 60),
+    TALL_WIND(Zone.NONE, 0, 4, width = 2, height = 2, year = 2020, life = 25),
+    BIFACIAL_SOLAR(Zone.NONE, 0, 3, width = 3, height = 3, year = 2020, life = 30),
+    FLOATING_OFFSHORE(Zone.NONE, 0, 6, width = 2, height = 2, year = 2030, life = 25),
+    TIDAL_ARRAY(Zone.NONE, 0, 4, width = 2, height = 1, year = 2035, life = 25),
+
+    /**
+     * Power stations of their own: a hydro dam (1940) across a river, pumped
+     * storage (1960) beside water, geothermal (2010), a small modular reactor
+     * (2030) and long-duration storage (2035).
+     */
+    HYDRO_DAM(Zone.NONE, 0, 12, width = 3, height = 3, year = 1940, life = 80),
+    PUMPED_STORAGE(Zone.NONE, 0, 6, width = 3, height = 2, year = 1960, life = 60),
+    GEOTHERMAL(Zone.NONE, 0, 6, width = 2, height = 2, year = 2010, life = 30),
+    SMALL_REACTOR(Zone.NONE, 0, 15, width = 2, height = 2, year = 2030, life = 50),
+    LONG_STORAGE(Zone.NONE, 0, 3, width = 2, height = 2, year = 2035, life = 25),
+
+    /**
+     * Garbage by era: the dump becomes a sanitary landfill (1950), the
+     * incinerator waste-to-energy (1975) and recycling a materials recovery
+     * facility (1995), then advanced sorting (2025). Besides them a transfer
+     * station (1960), a compost yard (1975), landfill gas (1985) and a biogas
+     * plant (2005).
+     */
+    SANITARY_LANDFILL(Zone.NONE, 0, 8, width = 3, height = 3, year = 1950),
+    WASTE_TO_ENERGY(Zone.NONE, 0, 15, width = 2, height = 2, year = 1975, life = 40),
+    MATERIALS_RECOVERY(Zone.NONE, 0, 20, width = 2, height = 2, year = 1995, life = 30),
+    ADVANCED_SORTING(Zone.NONE, 0, 15, width = 2, height = 2, year = 2025, life = 30),
+    TRANSFER_STATION(Zone.NONE, 0, 8, width = 2, height = 1, year = 1960, life = 40),
+    COMPOST_YARD(Zone.NONE, 0, 4, width = 2, height = 2, year = 1975),
+    LANDFILL_GAS(Zone.NONE, 0, 1, year = 1985, life = 25),
+    BIOGAS(Zone.NONE, 0, 4, width = 2, height = 2, year = 2005, life = 25),
     ;
 
     /** A building the city runs rather than one that grows on zoned land. */
@@ -521,10 +566,11 @@ enum class BuildingType(
     val needsSewer get() = needs >= 3
 
     /** Stands out in the water, every tile of it. */
-    val inWater get() = this == RIVER_TURBINE || this == TIDAL_TURBINE || this == OFFSHORE_WIND
+    val inWater get() = this == RIVER_TURBINE || root == TIDAL_TURBINE || root == OFFSHORE_WIND
 
     /** Has to be beside water. */
-    val onWater get() = this == PUMPING_STATION || outfall || this == STORM_OUTFALL || this == HYDRO_PLANT || this == FIREBOAT_STATION
+    val onWater get() = this == PUMPING_STATION || outfall || this == STORM_OUTFALL || root == HYDRO_PLANT || this == FIREBOAT_STATION ||
+        this == HYDRO_DAM || this == PUMPED_STORAGE
 
     /** Where the sewers come out. */
     val outfall get() = this == OUTFALL || this == SEWAGE_WORKS || this == TREATMENT_PLANT

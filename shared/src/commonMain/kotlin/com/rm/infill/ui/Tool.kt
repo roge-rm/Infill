@@ -1,5 +1,14 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.hydro_dam
+import com.rm.infill.res.pumped_storage
+import com.rm.infill.res.geothermal
+import com.rm.infill.res.small_reactor
+import com.rm.infill.res.long_storage
+import com.rm.infill.res.transfer_station
+import com.rm.infill.res.compost_yard
+import com.rm.infill.res.landfill_gas
+import com.rm.infill.res.biogas
 import com.rm.infill.res.services_civic
 import com.rm.infill.res.town_hall
 import com.rm.infill.res.post_office
@@ -413,6 +422,10 @@ enum class ServiceKind(val title: StringResource, val type: BuildingType?, val g
     Dump(Res.string.dump, BuildingType.DUMP, ServiceGroup.Waste),
     Incinerator(Res.string.incinerator, BuildingType.INCINERATOR, ServiceGroup.Waste),
     Recycling(Res.string.recycling, BuildingType.RECYCLING, ServiceGroup.Waste),
+    Transfer(Res.string.transfer_station, BuildingType.TRANSFER_STATION, ServiceGroup.Waste),
+    Compost(Res.string.compost_yard, BuildingType.COMPOST_YARD, ServiceGroup.Waste),
+    LandfillGas(Res.string.landfill_gas, BuildingType.LANDFILL_GAS, ServiceGroup.Waste),
+    Biogas(Res.string.biogas, BuildingType.BIOGAS, ServiceGroup.Waste),
 }
 
 /** The services [city] can build in its era, under the services button or for [leisure] the leisure button. */
@@ -561,6 +574,11 @@ enum class PowerKind(
     RiverTurbine(Res.string.river_turbine, BuildingType.RIVER_TURBINE),
     Tidal(Res.string.tidal_turbine, BuildingType.TIDAL_TURBINE),
     Offshore(Res.string.offshore_wind, BuildingType.OFFSHORE_WIND),
+    Dam(Res.string.hydro_dam, BuildingType.HYDRO_DAM),
+    PumpedStorage(Res.string.pumped_storage, BuildingType.PUMPED_STORAGE),
+    Geothermal(Res.string.geothermal, BuildingType.GEOTHERMAL),
+    SmallReactor(Res.string.small_reactor, BuildingType.SMALL_REACTOR),
+    LongStorage(Res.string.long_storage, BuildingType.LONG_STORAGE),
     /** Fitted to the coal or oil station tapped. */
     Scrubbers(Res.string.scrubbers, scrubbers = true),
 }
@@ -696,7 +714,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             BulldozeKind.Clear -> Action.Bulldoze(x0, y0, x1, y1)
         }
         // A building goes where the finger ends up, with that tile its top left.
-        Tool.Power -> if (power.scrubbers) Action.FitScrubbers(x1, y1) else power.building?.let { Action.PlaceBuilding(it, x1, y1) }
+        Tool.Power -> if (power.scrubbers) Action.FitScrubbers(x1, y1) else power.building?.let { Action.PlaceBuilding(newest(it), x1, y1) }
             ?: Action.BuildPowerLine(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), power.high, power.buried)
     }
 }

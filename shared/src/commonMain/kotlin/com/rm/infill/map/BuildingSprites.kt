@@ -231,6 +231,29 @@ internal object BuildingSprites {
                 BuildingType.POLICE_BOX -> Atlas.POLICE_BOX to Atlas.POLICE_BOX_COUNT
                 BuildingType.TRAFFIC_POLICE -> Atlas.TRAFFIC_POLICE to Atlas.TRAFFIC_POLICE_COUNT
                 BuildingType.FIREBOAT_STATION -> Atlas.FIREBOAT_STATION to Atlas.FIREBOAT_STATION_COUNT
+                BuildingType.PULVERIZED_COAL -> Atlas.PULVERIZED_COAL to Atlas.PULVERIZED_COAL_COUNT
+                BuildingType.SUPERCRITICAL_COAL -> Atlas.SUPERCRITICAL_COAL to Atlas.SUPERCRITICAL_COAL_COUNT
+                BuildingType.LARGE_OIL -> Atlas.LARGE_OIL to Atlas.LARGE_OIL_COUNT
+                BuildingType.COMBINED_CYCLE -> Atlas.COMBINED_CYCLE to Atlas.COMBINED_CYCLE_COUNT
+                BuildingType.HYDRO_STATION -> Atlas.HYDRO_STATION to Atlas.HYDRO_STATION_COUNT
+                BuildingType.ADVANCED_REACTOR -> Atlas.ADVANCED_REACTOR to Atlas.ADVANCED_REACTOR_COUNT
+                BuildingType.TALL_WIND -> Atlas.TALL_WIND to Atlas.TALL_WIND_COUNT
+                BuildingType.BIFACIAL_SOLAR -> Atlas.BIFACIAL_SOLAR to Atlas.BIFACIAL_SOLAR_COUNT
+                BuildingType.FLOATING_OFFSHORE -> Atlas.FLOATING_OFFSHORE to Atlas.FLOATING_OFFSHORE_COUNT
+                BuildingType.TIDAL_ARRAY -> Atlas.TIDAL_ARRAY to Atlas.TIDAL_ARRAY_COUNT
+                BuildingType.HYDRO_DAM -> Atlas.HYDRO_DAM to Atlas.HYDRO_DAM_COUNT
+                BuildingType.PUMPED_STORAGE -> Atlas.PUMPED_STORAGE to Atlas.PUMPED_STORAGE_COUNT
+                BuildingType.GEOTHERMAL -> Atlas.GEOTHERMAL to Atlas.GEOTHERMAL_COUNT
+                BuildingType.SMALL_REACTOR -> Atlas.SMALL_REACTOR to Atlas.SMALL_REACTOR_COUNT
+                BuildingType.LONG_STORAGE -> Atlas.LONG_STORAGE to Atlas.LONG_STORAGE_COUNT
+                BuildingType.SANITARY_LANDFILL -> Atlas.SANITARY_LANDFILL to Atlas.SANITARY_LANDFILL_COUNT
+                BuildingType.WASTE_TO_ENERGY -> Atlas.WASTE_TO_ENERGY to Atlas.WASTE_TO_ENERGY_COUNT
+                BuildingType.MATERIALS_RECOVERY -> Atlas.MATERIALS_RECOVERY to Atlas.MATERIALS_RECOVERY_COUNT
+                BuildingType.ADVANCED_SORTING -> Atlas.ADVANCED_SORTING to Atlas.ADVANCED_SORTING_COUNT
+                BuildingType.TRANSFER_STATION -> Atlas.TRANSFER_STATION to Atlas.TRANSFER_STATION_COUNT
+                BuildingType.COMPOST_YARD -> Atlas.COMPOST_YARD to Atlas.COMPOST_YARD_COUNT
+                BuildingType.LANDFILL_GAS -> Atlas.LANDFILL_GAS to Atlas.LANDFILL_GAS_COUNT
+                BuildingType.BIOGAS -> Atlas.BIOGAS to Atlas.BIOGAS_COUNT
                 BuildingType.COLLEGE -> Atlas.COLLEGE to Atlas.COLLEGE_COUNT
                 BuildingType.POLICE_HQ -> Atlas.POLICE_HQ to Atlas.POLICE_HQ_COUNT
                 BuildingType.EXCHANGE -> Atlas.EXCHANGE to Atlas.EXCHANGE_COUNT

@@ -97,6 +97,16 @@ object Balance {
     const val GAS_PLANT_UPKEEP = 40.0
     const val HYDRO_PLANT_UPKEEP = 60.0
     const val NUCLEAR_PLANT_UPKEEP = 500.0
+    // Newer stations of their own: a dam, pumped storage, geothermal, a small reactor, long-duration storage,
+    // landfill gas and biogas. A newer reactor is this many times less likely to have an accident.
+    const val DAM_UPKEEP = 150.0
+    const val PUMPED_UPKEEP = 80.0
+    const val GEOTHERMAL_UPKEEP = 60.0
+    const val SMALL_REACTOR_UPKEEP = 200.0
+    const val LONG_STORAGE_UPKEEP = 60.0
+    const val LANDFILL_GAS_UPKEEP = 10.0
+    const val BIOGAS_UPKEEP = 30.0
+    const val NEWER_REACTOR_SAFER = 4
 
     // Wind, solar and batteries: upkeep a month; the wind speeds a wind farm starts making power at and
     // makes its most at; how much of the sun a fully overcast sky keeps off; how much a wind farm's
@@ -184,6 +194,20 @@ object Balance {
     const val INCINERATOR_UPKEEP = 80.0
     const val RECYCLING_UPKEEP = 60.0
     const val INCINERATOR_FUMES = 25
+    // Garbage by era. A transfer station's reach, from which it takes garbage on to anywhere in town. A compost yard's
+    // reach, what it takes a month and its share of what it's given. What the newer recycling sells, a tonne. How far
+    // landfill gas reaches for a dump, and how full the dump has to be (one part in this); how far biogas reaches for
+    // sewage or compost. Upkeep.
+    const val TRANSFER_REACH = 12
+    const val COMPOST_REACH = 20
+    const val COMPOST_TAKES = 200_000
+    const val COMPOSTED = 20
+    const val MATERIALS_PRICE = 0.12
+    const val LANDFILL_GAS_REACH = 2
+    const val GASSY_SHARE = 10
+    const val BIOGAS_REACH = 4
+    const val TRANSFER_UPKEEP = 25.0
+    const val COMPOST_UPKEEP = 15.0
     const val UNCOLLECTED_APPEAL = 6
     const val UNCOLLECTED_HEALTH = 6
     const val UNCOLLECTED_GRIME = 12

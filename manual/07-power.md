@@ -17,7 +17,27 @@ Under **Utilities**, **Power**:
 - **Solar farm** (2005): 15 MW at its best, but the town's peak is in the evening, so it helps most in summer and not at all in winter.
 - **Tidal turbines** (2010): 10 MW, in water near the edge of the map, with the tides.
 - **Offshore wind** (2010): 20 MW in open water, windier than on land.
-- **Batteries** (2030): store what the wind and sun make beyond what the town uses, and give it back at the peak.
+- **Batteries** (2015): store what the wind and sun make beyond what the town uses, and give it back at the peak.
+- **Hydro dam** (1940): 60 MW, across a river, with the river's flow. It floods more land upstream.
+- **Pumped storage** (1960): 40 MW, beside water. It stores power like batteries do.
+- **Geothermal station** (2010): 20 MW, clean, and the same in any weather.
+- **Small modular reactor** (2030): 60 MW on 2 by 2 tiles, safer than the big stations.
+- **Long-duration storage** (2035): 50 MW, stored like batteries.
+
+## Newer stations
+
+Most stations have newer kinds that come in over the years, on the same ground. Each makes more, and the coal, oil and gas ones burn less fuel for each megawatt and give off less smoke and carbon:
+
+- Coal: **Pulverized coal station** (1930) makes twice as much, **Supercritical coal station** (1970) four times.
+- Oil: **Large oil station** (1955), twice as much.
+- Gas: **Combined cycle station** (1990), 60% more for a third less gas.
+- Hydro: **Large hydro station** (1930), 60% more.
+- Nuclear: **Advanced reactor** (2000), 30% more, and much safer.
+- Wind: **Tall wind farm** (2020), over twice as much.
+- Solar: **Bifacial solar farm** (2020), half as much again.
+- **Floating offshore wind** (2030) and **Tidal array** (2035).
+
+The tray offers the newest kind. An older station makes a little less as newer kinds come in, and **Bring up to date** on its inspect card rebuilds it as the newest.
 
 The grid runs the cheapest power first: wind, sun, water and tide, then nuclear, coal, gas and oil. Coal and oil cost least from the town's own mines and wells, and bringing them in costs less with a port. **Fit scrubbers** (from 1970) cuts a coal or oil station's smoke to 30%.
 

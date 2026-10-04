@@ -497,22 +497,24 @@ fun waterChoices(city: City, group: WaterGroup): List<Choice<WaterKind>> = water
 
 @Composable
 fun powerChoices(city: City): List<Choice<PowerKind>> = powerKindsIn(city).map { k ->
+    // A line of stations shows the newest the town can build.
+    val newest = k.building?.let { city.newest(it) }
     val icon = when {
-        k.building != null -> building(k.building)
+        newest != null -> building(newest)
         k.scrubbers -> ChoiceIcon(glyph = Glyph.Scrubber)
         k.buried -> ChoiceIcon(glyph = Glyph.Cable, glyphColour = if (k.high) Color(0xFFE0503A) else Color(0xFFE8A33A))
         k.high -> ChoiceIcon(intArrayOf(Atlas.GRASS, Atlas.HV_LINE + ACROSS))
         else -> ChoiceIcon(intArrayOf(Atlas.GRASS, Atlas.POWER_LINE + ACROSS))
     }
     val detail = when {
-        k.building != null -> buildingDetail(k.building)
+        newest != null -> buildingDetail(newest)
         k.scrubbers -> null
         k.buried && k.high -> perTile(Prices.HIGH_CABLE)
         k.buried -> perTile(Prices.CABLE)
         k.high -> perTile(Prices.HIGH_LINE)
         else -> perTile(Prices.POWER_LINE)
     }
-    Choice(k, stringResource(k.title), icon, detail)
+    Choice(k, stringResource(if (newest == null || newest == k.building) k.title else buildingName(newest)), icon, detail)
 }
 
 /** The kinds of service [city] has something of to build, as tabs. */

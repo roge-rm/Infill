@@ -11,7 +11,23 @@ object Power {
 
 /** What each kind of power station makes at most, in watts, and the smoke it gives off at full output. */
 object Generation {
+    /**
+     * Watts at most: a newer kind by its share of the first of its line;
+     * waste-to-energy, landfill gas and biogas as much as they're given.
+     */
     fun capacity(t: BuildingType): Int = when (t) {
+        BuildingType.HYDRO_DAM -> 60_000_000
+        BuildingType.PUMPED_STORAGE -> 40_000_000
+        BuildingType.GEOTHERMAL -> 20_000_000
+        BuildingType.SMALL_REACTOR -> 60_000_000
+        BuildingType.LONG_STORAGE -> 50_000_000
+        BuildingType.WASTE_TO_ENERGY -> 8_000_000
+        BuildingType.LANDFILL_GAS -> 3_000_000
+        BuildingType.BIOGAS -> 5_000_000
+        else -> (first(t.root).toLong() * Lineage.kindOf(t).serves / 100).toInt()
+    }
+
+    private fun first(t: BuildingType): Int = when (t) {
         BuildingType.COAL_PLANT -> 10_000_000
         BuildingType.OIL_PLANT -> 20_000_000
         BuildingType.GAS_PLANT -> 50_000_000
@@ -26,9 +42,14 @@ object Generation {
         else -> 0
     }
 
+    /** Keeps power from the day for the evening peak: batteries, pumped storage and long-duration storage. */
+    fun storage(t: BuildingType): Boolean = t == BuildingType.BATTERY || t == BuildingType.PUMPED_STORAGE || t == BuildingType.LONG_STORAGE
+
     /** Makes its power from the weather, and costs nothing to run. */
-    fun renewable(t: BuildingType): Boolean =
-        t == BuildingType.WIND_FARM || t == BuildingType.SOLAR_FARM || t == BuildingType.RIVER_TURBINE || t == BuildingType.TIDAL_TURBINE || t == BuildingType.OFFSHORE_WIND
+    fun renewable(t: BuildingType): Boolean = when (t.root) {
+        BuildingType.WIND_FARM, BuildingType.SOLAR_FARM, BuildingType.RIVER_TURBINE, BuildingType.TIDAL_TURBINE, BuildingType.OFFSHORE_WIND -> true
+        else -> false
+    }
 
     /** The wind out on open water: steadier and stronger than on land. */
     fun offshoreShare(speed: Int): Int = if (speed >= Weather.GALE) 0 else windShare(speed + Balance.OFFSHORE_WIND_GAIN)
@@ -62,32 +83,57 @@ object Generation {
     private val SOLAR_PEAK = intArrayOf(0, 0, 2, 8, 15, 20, 18, 12, 5, 0, 0, 0)
 
     /** Carbon a station gives off, in hundredths of a tonne for each megawatt-hour it makes. */
-    fun carbon(t: BuildingType): Int = when (t) {
+    fun carbon(t: BuildingType): Int = when (t.root) {
         BuildingType.COAL_PLANT -> 100
         BuildingType.OIL_PLANT -> 80
         BuildingType.GAS_PLANT -> 45
         else -> 0
-    }
+    } * Lineage.kindOf(t).carbon / 100
 
-    fun fumes(t: BuildingType): Int = when (t) {
+    fun fumes(t: BuildingType): Int = when (t.root) {
         BuildingType.COAL_PLANT -> 40
         BuildingType.OIL_PLANT -> 30
         BuildingType.GAS_PLANT -> 12
         else -> 0
-    }
+    } * Lineage.kindOf(t).fumes / 100
 
     /**
      * What a station's fuel costs a month for each megawatt it makes. The grid
      * runs the cheapest first: water costs nothing, uranium little, then coal,
      * gas and oil.
      */
-    fun fuel(t: BuildingType): Double = when (t) {
+    fun fuel(t: BuildingType): Double = when (t.root) {
         BuildingType.COAL_PLANT -> Balance.COAL_FUEL
         BuildingType.OIL_PLANT -> Balance.OIL_FUEL
         BuildingType.GAS_PLANT -> Balance.GAS_FUEL
-        BuildingType.NUCLEAR_PLANT -> Balance.NUCLEAR_FUEL
+        BuildingType.NUCLEAR_PLANT, BuildingType.SMALL_REACTOR -> Balance.NUCLEAR_FUEL
         else -> 0.0
-    }
+    } * Lineage.kindOf(t).fuel / 100
+
+    /** What a station costs to keep a month, its fuel aside: a newer kind by its share of the first's. */
+    fun upkeep(t: BuildingType): Double = when (t.root) {
+        BuildingType.OIL_PLANT -> Balance.OIL_PLANT_UPKEEP
+        BuildingType.GAS_PLANT -> Balance.GAS_PLANT_UPKEEP
+        BuildingType.HYDRO_PLANT -> Balance.HYDRO_PLANT_UPKEEP
+        BuildingType.WIND_FARM -> Balance.WIND_UPKEEP
+        BuildingType.SOLAR_FARM -> Balance.SOLAR_UPKEEP
+        BuildingType.BATTERY -> Balance.BATTERY_UPKEEP
+        BuildingType.RIVER_TURBINE -> Balance.RIVER_TURBINE_UPKEEP
+        BuildingType.TIDAL_TURBINE -> Balance.TIDAL_UPKEEP
+        BuildingType.OFFSHORE_WIND -> Balance.OFFSHORE_UPKEEP
+        BuildingType.NUCLEAR_PLANT -> Balance.NUCLEAR_PLANT_UPKEEP
+        BuildingType.SUBSTATION -> Balance.SUBSTATION_UPKEEP
+        BuildingType.HYDRO_DAM -> Balance.DAM_UPKEEP
+        BuildingType.PUMPED_STORAGE -> Balance.PUMPED_UPKEEP
+        BuildingType.GEOTHERMAL -> Balance.GEOTHERMAL_UPKEEP
+        BuildingType.SMALL_REACTOR -> Balance.SMALL_REACTOR_UPKEEP
+        BuildingType.LONG_STORAGE -> Balance.LONG_STORAGE_UPKEEP
+        BuildingType.LANDFILL_GAS -> Balance.LANDFILL_GAS_UPKEEP
+        BuildingType.BIOGAS -> Balance.BIOGAS_UPKEEP
+        // Kept with the garbage.
+        BuildingType.INCINERATOR -> 0.0
+        else -> Balance.PLANT_UPKEEP
+    } * Lineage.kindOf(t).upkeep / 100
 
     fun station(t: BuildingType): Boolean = capacity(t) > 0
 }

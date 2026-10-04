@@ -25,6 +25,29 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rm.infill.res.pulverized_coal
+import com.rm.infill.res.supercritical_coal
+import com.rm.infill.res.large_oil
+import com.rm.infill.res.combined_cycle
+import com.rm.infill.res.hydro_station
+import com.rm.infill.res.advanced_reactor
+import com.rm.infill.res.tall_wind
+import com.rm.infill.res.bifacial_solar
+import com.rm.infill.res.floating_offshore
+import com.rm.infill.res.tidal_array
+import com.rm.infill.res.hydro_dam
+import com.rm.infill.res.pumped_storage
+import com.rm.infill.res.geothermal
+import com.rm.infill.res.small_reactor
+import com.rm.infill.res.long_storage
+import com.rm.infill.res.sanitary_landfill
+import com.rm.infill.res.waste_to_energy
+import com.rm.infill.res.materials_recovery
+import com.rm.infill.res.advanced_sorting
+import com.rm.infill.res.transfer_station
+import com.rm.infill.res.compost_yard
+import com.rm.infill.res.landfill_gas
+import com.rm.infill.res.biogas
 import com.rm.infill.res.town_hall
 import com.rm.infill.res.city_hall
 import com.rm.infill.res.civic_centre
@@ -521,6 +544,29 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.POLICE_BOX -> Res.string.police_box
     BuildingType.TRAFFIC_POLICE -> Res.string.traffic_police
     BuildingType.FIREBOAT_STATION -> Res.string.fireboat_station
+    BuildingType.PULVERIZED_COAL -> Res.string.pulverized_coal
+    BuildingType.SUPERCRITICAL_COAL -> Res.string.supercritical_coal
+    BuildingType.LARGE_OIL -> Res.string.large_oil
+    BuildingType.COMBINED_CYCLE -> Res.string.combined_cycle
+    BuildingType.HYDRO_STATION -> Res.string.hydro_station
+    BuildingType.ADVANCED_REACTOR -> Res.string.advanced_reactor
+    BuildingType.TALL_WIND -> Res.string.tall_wind
+    BuildingType.BIFACIAL_SOLAR -> Res.string.bifacial_solar
+    BuildingType.FLOATING_OFFSHORE -> Res.string.floating_offshore
+    BuildingType.TIDAL_ARRAY -> Res.string.tidal_array
+    BuildingType.HYDRO_DAM -> Res.string.hydro_dam
+    BuildingType.PUMPED_STORAGE -> Res.string.pumped_storage
+    BuildingType.GEOTHERMAL -> Res.string.geothermal
+    BuildingType.SMALL_REACTOR -> Res.string.small_reactor
+    BuildingType.LONG_STORAGE -> Res.string.long_storage
+    BuildingType.SANITARY_LANDFILL -> Res.string.sanitary_landfill
+    BuildingType.WASTE_TO_ENERGY -> Res.string.waste_to_energy
+    BuildingType.MATERIALS_RECOVERY -> Res.string.materials_recovery
+    BuildingType.ADVANCED_SORTING -> Res.string.advanced_sorting
+    BuildingType.TRANSFER_STATION -> Res.string.transfer_station
+    BuildingType.COMPOST_YARD -> Res.string.compost_yard
+    BuildingType.LANDFILL_GAS -> Res.string.landfill_gas
+    BuildingType.BIOGAS -> Res.string.biogas
     BuildingType.PLAYGROUND -> Res.string.playground
     BuildingType.TOWN_SQUARE -> Res.string.town_square
     BuildingType.PLAZA -> Res.string.plaza

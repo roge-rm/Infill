@@ -1192,6 +1192,30 @@
     <string name="upkeep_civic">Civic buildings</string>
     <!-- Inspecting the town hall: the share it takes off what the ordinances cost. -->
     <string name="label_hall_saves">Saves on ordinances</string>
+    <!-- Power stations and garbage by era. -->
+    <string name="pulverized_coal">Pulverized coal station</string>
+    <string name="supercritical_coal">Supercritical coal station</string>
+    <string name="large_oil">Large oil station</string>
+    <string name="combined_cycle">Combined cycle station</string>
+    <string name="hydro_station">Large hydro station</string>
+    <string name="advanced_reactor">Advanced reactor</string>
+    <string name="tall_wind">Tall wind farm</string>
+    <string name="bifacial_solar">Bifacial solar farm</string>
+    <string name="floating_offshore">Floating offshore wind</string>
+    <string name="tidal_array">Tidal array</string>
+    <string name="hydro_dam">Hydro dam</string>
+    <string name="pumped_storage">Pumped storage</string>
+    <string name="geothermal">Geothermal station</string>
+    <string name="small_reactor">Small modular reactor</string>
+    <string name="long_storage">Long-duration storage</string>
+    <string name="sanitary_landfill">Sanitary landfill</string>
+    <string name="waste_to_energy">Waste-to-energy plant</string>
+    <string name="materials_recovery">Materials recovery</string>
+    <string name="advanced_sorting">Advanced sorting</string>
+    <string name="transfer_station">Transfer station</string>
+    <string name="compost_yard">Compost yard</string>
+    <string name="landfill_gas">Landfill gas plant</string>
+    <string name="biogas">Biogas plant</string>
     <!-- Newer kinds of the services, which take the older kinds' place as the years go by. -->
     <string name="elementary_school">Elementary school</string>
     <string name="community_school">Community school</string>

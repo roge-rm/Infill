@@ -311,7 +311,7 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     // What it makes, and from where.
     // Why a station on the weather is making little.
     if (built && city.stationAvailable(b) == 0) {
-        when (t) {
+        when (if (Generation.storage(t)) BuildingType.BATTERY else t.root) {
             BuildingType.WIND_FARM -> pills += PillItem(
                 Glyph.Warn, stringResource(if (city.weather.windSpeed >= com.rm.infill.sim.Weather.GALE) Res.string.pill_gale else Res.string.pill_calm), Tone.Warn,
             )
@@ -331,7 +331,7 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
             stringResource(Res.string.value_of, stringResource(Res.string.megawatts, megawatts(made)), stringResource(Res.string.megawatts, megawatts(could))),
             if (could > 0) made / could.toFloat() else 0f, Tone.Plain, wide = true,
         )
-        if ((t == BuildingType.COAL_PLANT || t == BuildingType.OIL_PLANT) && made > 0) {
+        if ((t.root == BuildingType.COAL_PLANT || t.root == BuildingType.OIL_PLANT) && made > 0) {
             stats += StatItem(Glyph.Target, stringResource(Res.string.label_from_town), stringResource(Res.string.percent, b.local), b.local / 100f, Tone.Plain)
         }
     }
@@ -348,8 +348,8 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     } else if (t.zone == Zone.COMMERCIAL && !t.office && built) {
         stats += StatItem(Glyph.Crate, stringResource(Res.string.label_stock), stringResource(Res.string.percent, b.local), b.local / 100f, if (city.shortOfStock(b)) Tone.Bad else Tone.Plain)
     }
-    if (t == BuildingType.DUMP) {
-        val full = (b.fill.toLong() * 100 / Balance.DUMP_ROOM).toInt()
+    if (t.root == BuildingType.DUMP) {
+        val full = (b.fill.toLong() * 100 / city.dumpRoom(b)).toInt()
         stats += StatItem(Glyph.Bin, stringResource(Res.string.label_full), stringResource(Res.string.percent, full), full / 100f, when { full >= 90 -> Tone.Bad; full >= 70 -> Tone.Warn; else -> Tone.Good })
     }
     if (t.airport && built) {
@@ -403,7 +403,7 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
             pills += PillItem(Glyph.Hourglass, stringResource(Res.string.pill_newer_kind, stringResource(buildingName(kind)), kind.year), Tone.Warn)
         } else if (city.condition(b) < 100) pills += PillItem(Glyph.Warn, stringResource(Res.string.pill_worn), Tone.Warn)
     }
-    if ((t == BuildingType.COAL_PLANT || t == BuildingType.OIL_PLANT) && !b.scrubbed && city.allowsScrubbers()) {
+    if ((t.root == BuildingType.COAL_PLANT || t.root == BuildingType.OIL_PLANT) && !b.scrubbed && city.allowsScrubbers()) {
         val fit = Action.FitScrubbers(b.x, b.y)
         val plan = city.plan(fit)
         if (plan.ok) actions += ActionItem(Glyph.Scrubber, stringResource(Res.string.action_scrubbers), moneyText(plan.cost)) { onAction(fit) }

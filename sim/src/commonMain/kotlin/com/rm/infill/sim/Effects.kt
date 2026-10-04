@@ -91,10 +91,10 @@ internal object Effects {
         val traffic = SummedArea(w, h) { map.congestion[it].toInt() and 0xff }
         val busy = SummedArea(w, h, activity)
         val avenues = if (map.streetTrees.any { it.toInt() != 0 }) SummedArea(w, h) { map.streetTrees[it].toInt() } else null
-        val dumps = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.DUMP) 1 else 0 }
+        val dumps = SummedArea(w, h) { if (buildingTypes(it)?.root == BuildingType.DUMP) 1 else 0 }
         val jails = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.JAIL) 1 else 0 }
         val highways = if (map.road.any { RoadType.of(it)?.limited == true }) SummedArea(w, h) { if (RoadType.of(map.road[it])?.limited == true) 1 else 0 } else null
-        val turbines = SummedArea(w, h) { if (buildingTypes(it) == BuildingType.WIND_FARM) 1 else 0 }
+        val turbines = SummedArea(w, h) { if (buildingTypes(it)?.root == BuildingType.WIND_FARM) 1 else 0 }
         val overhead = map.power.any { it != Power.NONE }
         val poles = if (overhead) SummedArea(w, h) { if (map.power[it] == Power.LINE && !map.cable(it)) 1 else 0 } else null
         val pylons = if (overhead) SummedArea(w, h) { if (map.power[it] == Power.HIGH && !map.cable(it)) 1 else 0 } else null
@@ -130,14 +130,14 @@ internal object Effects {
             if (industry.around(x, y, 2) > 0 && buildingTypes(i)?.zone != Zone.INDUSTRIAL) v -= 15
             // A street with trees, and none of a dump's smell.
             if (avenues != null && avenues.around(x, y, 1) > 0) v += Balance.STREET_TREE_VALUE
-            if (dumps.around(x, y, 4) > 0 && buildingTypes(i) != BuildingType.DUMP) v -= Balance.DUMP_VALUE
+            if (dumps.around(x, y, 4) > 0 && buildingTypes(i)?.root != BuildingType.DUMP) v -= Balance.DUMP_VALUE
             // Poles and wires next door, and pylons a little further.
             if (poles != null && poles.around(x, y, 1) > 0) v -= Balance.POLE_VALUE
             if (pylons != null && pylons.around(x, y, 2) > 0) v -= Balance.PYLON_VALUE
             // The roar of a highway.
             if (highways != null && map.road[i] == Road.NONE && highways.around(x, y, 2) > 0) v -= Balance.HIGHWAY_VALUE
             // The hum of turbines.
-            if (turbines.around(x, y, 2) > 0 && buildingTypes(i) != BuildingType.WIND_FARM) v -= Balance.WIND_VALUE
+            if (turbines.around(x, y, 2) > 0 && buildingTypes(i)?.root != BuildingType.WIND_FARM) v -= Balance.WIND_VALUE
             // Nor next to a jail.
             if (jails.around(x, y, Balance.JAIL_REACH) > 0 && buildingTypes(i) != BuildingType.JAIL) v -= Balance.JAIL_VALUE
             // A tram or bus stop round the corner, and a subway station a walk away.

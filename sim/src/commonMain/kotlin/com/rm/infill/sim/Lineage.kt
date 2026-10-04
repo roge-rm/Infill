@@ -38,7 +38,11 @@ object Lineage {
      * patients, pupils), how far it [reaches], and its [upkeep], in percent;
      * and its [price] (0 for the first, whose price is its own).
      */
-    class Kind(val type: BuildingType, val serves: Int = 100, val reach: Int = 100, val upkeep: Int = 100, val price: Long = 0)
+    class Kind(
+        val type: BuildingType, val serves: Int = 100, val reach: Int = 100, val upkeep: Int = 100, val price: Long = 0,
+        /** For a power station, against the first: fuel for each megawatt, smoke and carbon, in percent. */
+        val fuel: Int = 100, val fumes: Int = 100, val carbon: Int = 100,
+    )
 
     private val lines: List<List<Kind>> = listOf(
         listOf(Kind(SCHOOL), Kind(ELEMENTARY_SCHOOL, 133, 117, 127, 2_200), Kind(COMMUNITY_SCHOOL, 142, 117, 150, 3_000)),
@@ -59,6 +63,37 @@ object Lineage {
         listOf(Kind(BuildingType.CEMETERY), Kind(BuildingType.MEMORIAL_GARDEN)),
         // A police box is a beat's worth of a station: a constable and a telephone.
         listOf(Kind(BuildingType.POLICE_BOX, serves = 30, reach = 45)),
+        // Power stations: [Kind.serves] is what each makes against the first.
+        listOf(
+            Kind(BuildingType.COAL_PLANT),
+            Kind(BuildingType.PULVERIZED_COAL, serves = 200, upkeep = 150, price = 6_000, fuel = 85, fumes = 80, carbon = 90),
+            Kind(BuildingType.SUPERCRITICAL_COAL, serves = 400, upkeep = 250, price = 14_000, fuel = 70, fumes = 55, carbon = 80),
+        ),
+        listOf(Kind(BuildingType.OIL_PLANT), Kind(BuildingType.LARGE_OIL, serves = 200, upkeep = 160, price = 12_000, fuel = 85, fumes = 80, carbon = 95)),
+        listOf(Kind(BuildingType.GAS_PLANT), Kind(BuildingType.COMBINED_CYCLE, serves = 160, upkeep = 130, price = 25_000, fuel = 65, fumes = 60, carbon = 70)),
+        listOf(Kind(BuildingType.HYDRO_PLANT), Kind(BuildingType.HYDRO_STATION, serves = 160, upkeep = 120, price = 15_000)),
+        listOf(Kind(BuildingType.NUCLEAR_PLANT), Kind(BuildingType.ADVANCED_REACTOR, serves = 130, upkeep = 110, price = 110_000, fuel = 85)),
+        listOf(Kind(BuildingType.WIND_FARM), Kind(BuildingType.TALL_WIND, serves = 220, upkeep = 140, price = 14_000)),
+        listOf(Kind(BuildingType.SOLAR_FARM), Kind(BuildingType.BIFACIAL_SOLAR, serves = 150, upkeep = 110, price = 12_000)),
+        listOf(Kind(BuildingType.OFFSHORE_WIND), Kind(BuildingType.FLOATING_OFFSHORE, serves = 150, upkeep = 120, price = 30_000)),
+        listOf(Kind(BuildingType.TIDAL_TURBINE), Kind(BuildingType.TIDAL_ARRAY, serves = 200, upkeep = 130, price = 20_000)),
+        listOf(Kind(BuildingType.HYDRO_DAM, price = 40_000)),
+        listOf(Kind(BuildingType.PUMPED_STORAGE, price = 30_000)),
+        listOf(Kind(BuildingType.GEOTHERMAL, price = 25_000)),
+        listOf(Kind(BuildingType.SMALL_REACTOR, price = 60_000)),
+        listOf(Kind(BuildingType.LONG_STORAGE, price = 20_000)),
+        // Garbage: [Kind.serves] is what each holds or takes against the first.
+        listOf(Kind(BuildingType.DUMP), Kind(BuildingType.SANITARY_LANDFILL, serves = 150, upkeep = 150, price = 3_000)),
+        listOf(Kind(BuildingType.INCINERATOR), Kind(BuildingType.WASTE_TO_ENERGY, serves = 150, upkeep = 130, price = 12_000, fumes = 50)),
+        listOf(
+            Kind(BuildingType.RECYCLING),
+            Kind(BuildingType.MATERIALS_RECOVERY, serves = 150, upkeep = 120, price = 6_000),
+            Kind(BuildingType.ADVANCED_SORTING, serves = 200, upkeep = 140, price = 9_000),
+        ),
+        listOf(Kind(BuildingType.TRANSFER_STATION, price = 2_500)),
+        listOf(Kind(BuildingType.COMPOST_YARD, price = 1_200)),
+        listOf(Kind(BuildingType.LANDFILL_GAS, price = 2_000)),
+        listOf(Kind(BuildingType.BIOGAS, price = 6_000)),
     )
 
     /** The year a kind with nothing after it went out all the same: the sanatorium with antibiotics, the police box with the patrol car's radio. */

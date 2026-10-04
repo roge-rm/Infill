@@ -139,7 +139,7 @@ fun MapView(
     val overlayImage = remember(overlay, focusData, game.revision) {
         overlayImage(overlay, map, { game.city.building(map.building[it])?.people }, { game.city.wearAt(it) }, { game.city.building(map.building[it])?.uncollected == true }, { i ->
             game.city.building(map.building[i])?.takeIf { it.kind >= 0 || it.type.zone == Zone.FARMLAND || it.type.zone == Zone.COMMERCIAL && !it.type.office ||
-                it.type == BuildingType.COAL_PLANT || it.type == BuildingType.OIL_PLANT }?.local ?: -1
+                it.type.root == BuildingType.COAL_PLANT || it.type.root == BuildingType.OIL_PLANT }?.local ?: -1
         }, { game.city.junctionWait(it) }, focusData, { game.city.lineLoad(it) }, visitorAt = { i ->
             val b = game.city.building(map.building[i])
             when {

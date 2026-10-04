@@ -231,7 +231,7 @@ class City(
             }
             is Action.FitScrubbers -> buildings[if (m.inside(action.x, action.y)) m.building[m.index(action.x, action.y)] else 0]?.let { b ->
                 when {
-                    b.type != BuildingType.COAL_PLANT && b.type != BuildingType.OIL_PLANT -> blocked += m.index(action.x, action.y)
+                    b.type.root != BuildingType.COAL_PLANT && b.type.root != BuildingType.OIL_PLANT -> blocked += m.index(action.x, action.y)
                     !everything && year < Balance.SCRUBBER_YEAR -> blocked += m.index(action.x, action.y)
                     b.scrubbed -> {}
                     else -> {
@@ -491,7 +491,7 @@ class City(
                 } else {
                     cost += Prices.of(t)
                     // A hydro station's dam floods the clear land beside the river upstream of it.
-                    if (t == BuildingType.HYDRO_PLANT) for (i in reservoir(action.x, action.y)) {
+                    if (t.root == BuildingType.HYDRO_PLANT || t == BuildingType.HYDRO_DAM) for (i in reservoir(t, action.x, action.y)) {
                         changes += i
                         cost += clearing(i)
                     }
@@ -676,7 +676,7 @@ class City(
      * river turbine, tidal water near the map's edge for a tidal one, any
      * open water for wind; and anything for a building on land.
      */
-    private fun inWaterFits(t: BuildingType, i: Int): Boolean = when (t) {
+    private fun inWaterFits(t: BuildingType, i: Int): Boolean = when (t.root) {
         BuildingType.RIVER_TURBINE -> flow()[i] >= 0
         BuildingType.TIDAL_TURBINE -> {
             val x = i % map.width
@@ -795,7 +795,8 @@ class City(
 
     /** Whether [b] is a service worn enough to renovate, and open. */
     fun renovatable(b: Building): Boolean =
-        b.type.zone == Zone.NONE && (b.type.service || b.type.leisure || Needs.of(b.type).isNotEmpty()) && b.outage == 0 && b.underway == 0 &&
+        b.type.zone == Zone.NONE && (b.type.service || b.type.leisure || Needs.of(b.type).isNotEmpty() || Lineage.lineOf(b.type).size > 1) &&
+            b.outage == 0 && b.underway == 0 &&
             (b.type.life > 0 && Ageing.wear(monthNow - b.built, b.type.life) >= Balance.RENEWABLE_WEAR || unmet(b).any { it.second } || outdated(b))
 
     /** What renovating [b] costs: a share of a newer kind's price to bring it up to date, or of its own to make it good. */
@@ -1840,7 +1841,7 @@ class City(
             if (river > Balance.BANKFULL) overflowRivers()
             weatherDisasters()
             // The wind, sun, tide and river change what some stations make.
-            if (buildings.values.any { it.type in WEATHER_STATIONS }) updatePower()
+            if (buildings.values.any { it.type.root in WEATHER_STATIONS || Generation.storage(it.type) }) updatePower()
         }
         bridgeWeather()
         traffic.snowedIn = snowedIn > 0
@@ -2398,9 +2399,8 @@ class City(
      * [Balance.RESERVOIR_REACH] beside water that's level with or upstream of
      * the water by the station.
      */
-    private fun reservoir(x: Int, y: Int): List<Int> {
+    private fun reservoir(t: BuildingType, x: Int, y: Int): List<Int> {
         val m = map
-        val t = BuildingType.HYDRO_PLANT
         val f = flow()
         var here = Int.MAX_VALUE
         forRect(x - 1, y - 1, x + t.width, y + t.height) { j -> if (m.terrain[j] == Terrain.WATER && f[j] >= 0) here = min(here, f[j]) }
@@ -2500,12 +2500,15 @@ class City(
         if (before < Balance.SMOG_WARNING && s.smog >= Balance.SMOG_WARNING) events += CityEvent(EventKind.Smog, -1, -1, null)
 
         // Garbage.
-        val dumps = buildings.values.filter { it.type == BuildingType.DUMP && it.underway == 0 }.sortedBy { it.id }
-        val fullBefore = dumps.filter { it.fill > Balance.DUMP_ROOM - Balance.DUMP_FULL }.map { it.id }.toSet()
-        val burners = buildings.values.filter { it.type == BuildingType.INCINERATOR && it.underway == 0 && it.outage == 0 }.sortedBy { it.id }
-        val recyclers = buildings.values.filter { it.type == BuildingType.RECYCLING && it.underway == 0 }.sortedBy { it.id }
+        val dumps = buildings.values.filter { it.type.root == BuildingType.DUMP && it.underway == 0 }.sortedBy { it.id }
+        val fullBefore = dumps.filter { it.fill > dumpRoom(it) - Balance.DUMP_FULL }.map { it.id }.toSet()
+        val burners = buildings.values.filter { it.type.root == BuildingType.INCINERATOR && it.underway == 0 && it.outage == 0 }.sortedBy { it.id }
+        val recyclers = buildings.values.filter { it.type.root == BuildingType.RECYCLING && it.underway == 0 }.sortedBy { it.id }
+        val composts = buildings.values.filter { it.type == BuildingType.COMPOST_YARD && it.underway == 0 }.sortedBy { it.id }
+        val transfers = buildings.values.filter { it.type == BuildingType.TRANSFER_STATION && it.underway == 0 && it.outage == 0 }
         val burnt = HashMap<Int, Int>()
         val recycled = HashMap<Int, Int>()
+        val composted = HashMap<Int, Int>()
         val per = wastePerPerson()
         var made = 0L
         var taken = 0L
@@ -2513,6 +2516,9 @@ class City(
         var send = edgeGarbageOut.sum() * 1000L
         var sent = 0L
         fun near(f: Building, b: Building) = kotlin.math.abs(f.x - b.x) + kotlin.math.abs(f.y - b.y) <= Balance.GARBAGE_REACH
+        // Near a transfer station, the trucks take it on to anywhere in town.
+        fun reaches(f: Building, b: Building) = near(f, b) ||
+            transfers.any { kotlin.math.abs(it.x - b.x) + kotlin.math.abs(it.y - b.y) <= Balance.TRANSFER_REACH }
         for (b in buildings.values.sortedBy { it.id }) {
             // Farms and mines see to their own, out where they are.
             val people = b.people?.size ?: if (b.type.zone != Zone.NONE && b.type.zone != Zone.FARMLAND) b.type.capacity / 2 else 0
@@ -2522,15 +2528,21 @@ class City(
             }
             var waste = people * per
             made += waste
-            // Some to recycling first.
-            recyclers.firstOrNull { near(it, b) && (recycled[it.id] ?: 0) < Balance.RECYCLING_TAKES }?.let { r0 ->
-                val take = min(waste * Balance.RECYCLED / 100 * (if (has(Ordinance.CURBSIDE_RECYCLING)) Balance.CURBSIDE_RECYCLED else 100) / 100, Balance.RECYCLING_TAKES - (recycled[r0.id] ?: 0))
+            // Food and garden waste to compost first, then some to recycling.
+            composts.firstOrNull { kotlin.math.abs(it.x - b.x) + kotlin.math.abs(it.y - b.y) <= Balance.COMPOST_REACH && (composted[it.id] ?: 0) < Balance.COMPOST_TAKES }?.let { c0 ->
+                val take = min(waste * Balance.COMPOSTED / 100, Balance.COMPOST_TAKES - (composted[c0.id] ?: 0))
+                composted[c0.id] = (composted[c0.id] ?: 0) + take
+                waste -= take
+                taken += take
+            }
+            recyclers.firstOrNull { reaches(it, b) && (recycled[it.id] ?: 0) < recyclerTakes(it) }?.let { r0 ->
+                val take = min(waste * recyclerShare(r0) / 100 * (if (has(Ordinance.CURBSIDE_RECYCLING)) Balance.CURBSIDE_RECYCLED else 100) / 100, recyclerTakes(r0) - (recycled[r0.id] ?: 0))
                 recycled[r0.id] = (recycled[r0.id] ?: 0) + take
                 waste -= take
                 taken += take
             }
-            val burner = burners.firstOrNull { near(it, b) && (burnt[it.id] ?: 0) + waste <= Balance.INCINERATOR_TAKES }
-            val dump = if (burner == null) dumps.firstOrNull { near(it, b) && it.fill + waste <= Balance.DUMP_ROOM } else null
+            val burner = burners.firstOrNull { reaches(it, b) && (burnt[it.id] ?: 0) + waste <= burnerTakes(it) }
+            val dump = if (burner == null) dumps.firstOrNull { reaches(it, b) && it.fill + waste <= dumpRoom(it) } else null
             val away = burner == null && dump == null && waste <= send
             when {
                 burner != null -> burnt[burner.id] = (burnt[burner.id] ?: 0) + waste
@@ -2553,23 +2565,31 @@ class City(
         s.garbageIn = edgeGarbageIn.sum()
         for (d in dumps) {
             if (take <= 0) break
-            val put = minOf(take, (Balance.DUMP_ROOM - d.fill).toLong()).coerceAtLeast(0L)
+            val put = minOf(take, (dumpRoom(d) - d.fill).toLong()).coerceAtLeast(0L)
             d.fill += put.toInt()
             take -= put
         }
         incinerated.clear()
         incinerated.putAll(burnt)
+        recycledAt.clear()
+        recycledAt.putAll(recycled)
+        // In kilograms, for inspect.
+        for (r0 in recyclers) r0.served = recycled[r0.id] ?: 0
+        for (c0 in composts) c0.served = composted[c0.id] ?: 0
         s.waste = (made / 1000).toInt()
         s.wasteCollected = if (made == 0L) 100 else (taken * 100 / made).toInt()
-        s.dumpRoom = dumps.sumOf { (Balance.DUMP_ROOM - it.fill).toLong() / 1000 }.toInt()
+        s.dumpRoom = dumps.sumOf { (dumpRoom(it) - it.fill).toLong() / 1000 }.toInt()
         // Say so when a dump's filled up this month.
-        for (d in dumps) if (d.fill > Balance.DUMP_ROOM - Balance.DUMP_FULL && d.id !in fullBefore) {
+        for (d in dumps) if (d.fill > dumpRoom(d) - Balance.DUMP_FULL && d.id !in fullBefore) {
             events += CityEvent(EventKind.DumpFull, d.x, d.y, d.type)
         }
     }
 
     /** Last month's garbage burnt at each incinerator, in kilograms, for its smoke. */
     private val incinerated = HashMap<Int, Int>()
+
+    /** Last month's garbage recycled at each recycling centre, in kilograms, for what it sells. */
+    private val recycledAt = HashMap<Int, Int>()
 
     // ---- disasters ---------------------------------------------------------------
 
@@ -2660,14 +2680,16 @@ class City(
         for (b in buildings.values.sortedBy { it.id }.toList()) {
             if (b.underway > 0 || buildings[b.id] == null) continue
             val t = b.type
-            if (t == BuildingType.NUCLEAR_PLANT) {
+            if (t.root == BuildingType.NUCLEAR_PLANT || t == BuildingType.SMALL_REACTOR) {
                 val wear = Ageing.wear(monthNow - b.built, t.life)
-                if (disaster(Balance.NUCLEAR_PPM + Balance.NUCLEAR_WEAR_PPM * wear / 100 * wear / 100)) nuclearAccident(b)
+                // A newer reactor is safer.
+                val safer = if (t == BuildingType.NUCLEAR_PLANT) 1 else Balance.NEWER_REACTOR_SAFER
+                if (disaster((Balance.NUCLEAR_PPM + Balance.NUCLEAR_WEAR_PPM * wear / 100 * wear / 100) / safer)) nuclearAccident(b)
                 continue
             }
             val heavy = t.like == BuildingType.MILL || t.like == BuildingType.WAREHOUSE || t.like == BuildingType.FACTORY || t == BuildingType.WORKS ||
                 t == BuildingType.MINE || t == BuildingType.COLLIERY ||
-                t == BuildingType.COAL_PLANT || t == BuildingType.OIL_PLANT || t == BuildingType.GAS_PLANT
+                t.root == BuildingType.COAL_PLANT || t.root == BuildingType.OIL_PLANT || t.root == BuildingType.GAS_PLANT
             if (!heavy) continue
             val wear = Ageing.wear(monthNow - b.built, if (t.life > 0) t.life else 40)
             var crowd = 0
@@ -3168,9 +3190,9 @@ class City(
     }
 
     /** What a station burns that the town can make, and how many loads a month for each megawatt. */
-    private fun burns(b: Building): Pair<Good, Int>? = when (b.type) {
-        BuildingType.COAL_PLANT -> Good.COAL to Balance.COAL_PER_MW
-        BuildingType.OIL_PLANT -> Good.FUEL to Balance.FUEL_PER_MW
+    private fun burns(b: Building): Pair<Good, Int>? = when (b.type.root) {
+        BuildingType.COAL_PLANT -> Good.COAL to Balance.COAL_PER_MW * Lineage.kindOf(b.type).fuel / 100
+        BuildingType.OIL_PLANT -> Good.FUEL to Balance.FUEL_PER_MW * Lineage.kindOf(b.type).fuel / 100
         else -> null
     }
 
@@ -4874,7 +4896,7 @@ class City(
     /** Stations whose output goes with the weather, the tide or the river. */
     private val WEATHER_STATIONS = setOf(
         BuildingType.HYDRO_PLANT, BuildingType.WIND_FARM, BuildingType.SOLAR_FARM, BuildingType.RIVER_TURBINE,
-        BuildingType.TIDAL_TURBINE, BuildingType.OFFSHORE_WIND, BuildingType.BATTERY,
+        BuildingType.TIDAL_TURBINE, BuildingType.OFFSHORE_WIND, BuildingType.HYDRO_DAM,
     )
 
     /** How full the batteries go into the evening, in percent. */
@@ -4885,14 +4907,14 @@ class City(
      * the batteries for the evening, in percent of what they hold.
      */
     private fun charge(perPerson: Int, tractionEach: Int): Int {
-        val batteries = buildings.values.filter { it.type == BuildingType.BATTERY && it.underway == 0 && it.outage == 0 }
+        val batteries = buildings.values.filter { Generation.storage(it.type) && it.underway == 0 && it.outage == 0 }
         if (batteries.isEmpty()) return 0
         val w = weather
         var made = 0L
         for (b in buildings.values) {
             if (b.underway > 0 || b.outage > 0) continue
             val full = Generation.capacity(b.type).toLong()
-            made += when (b.type) {
+            made += when (b.type.root) {
                 BuildingType.WIND_FARM -> full * Generation.windShare(w.windSpeed) / 100
                 BuildingType.SOLAR_FARM -> full * Generation.solarDay(month, w.cloud) / 100
                 BuildingType.OFFSHORE_WIND -> full * Generation.offshoreShare(w.windSpeed) / 100
@@ -4924,10 +4946,11 @@ class City(
     /** What a station can make now, in watts: nothing broken down or under water; hydro with the river. */
     private fun available(b: Building): Int {
         if (!Generation.station(b.type) || b.underway > 0 || b.outage > 0 || flooded(b)) return 0
-        val full = Generation.capacity(b.type)
+        // A station of a kind since outdone makes less: half as much less as a service would do.
+        val full = (Generation.capacity(b.type).toLong() * (100 + Lineage.dated(b.type, year)) / 200).toInt()
         val w = weather
-        return when (b.type) {
-            BuildingType.HYDRO_PLANT -> (full.toLong() * (50 + river / 2) / 100).toInt()
+        return when (b.type.root) {
+            BuildingType.HYDRO_PLANT, BuildingType.HYDRO_DAM -> (full.toLong() * (50 + river / 2) / 100).toInt()
             // The weather's: the wind, and the evening sun through the cloud.
             BuildingType.WIND_FARM -> (full.toLong() * Generation.windShare(w.windSpeed) / 100).toInt()
             BuildingType.SOLAR_FARM -> (full.toLong() * Generation.solarPeak(month, w.cloud) / 100).toInt()
@@ -4935,10 +4958,32 @@ class City(
             BuildingType.TIDAL_TURBINE -> (full.toLong() * Generation.tideAtPeak(day) / 100).toInt()
             BuildingType.OFFSHORE_WIND -> (full.toLong() * Generation.offshoreShare(w.windSpeed) / 100).toInt()
             // What the day left spare to keep.
-            BuildingType.BATTERY -> (full.toLong() * batteryCharge / 100).toInt()
+            BuildingType.BATTERY, BuildingType.PUMPED_STORAGE, BuildingType.LONG_STORAGE -> (full.toLong() * batteryCharge / 100).toInt()
+            // As much as it burns.
+            BuildingType.INCINERATOR -> (full.toLong() * min(burnerTakes(b), incinerated[b.id] ?: 0) / maxOf(1, burnerTakes(b))).toInt()
+            // Gas off a dump or landfill that's filling, and off sewage or compost nearby.
+            BuildingType.LANDFILL_GAS -> if (near(b, Balance.LANDFILL_GAS_REACH) { it.type.root == BuildingType.DUMP && it.fill >= dumpRoom(it) / Balance.GASSY_SHARE }) full else 0
+            BuildingType.BIOGAS -> if (near(b, Balance.BIOGAS_REACH) { it.type == BuildingType.SEWAGE_WORKS || it.type == BuildingType.TREATMENT_PLANT || it.type == BuildingType.COMPOST_YARD }) full else 0
             else -> full
         }
     }
+
+    /** Whether a building that [match]es stands within [reach] tiles of [b], edge to edge. */
+    private fun near(b: Building, reach: Int, match: (Building) -> Boolean): Boolean = buildings.values.any {
+        it !== b && it.underway == 0 && match(it) &&
+            it.x <= b.x + b.type.width - 1 + reach && it.x + it.type.width - 1 >= b.x - reach &&
+            it.y <= b.y + b.type.height - 1 + reach && it.y + it.type.height - 1 >= b.y - reach
+    }
+
+    /** What a dump or landfill holds, in kilograms. */
+    fun dumpRoom(d: Building): Int = (Balance.DUMP_ROOM.toLong() * Lineage.kindOf(d.type).serves / 100).toInt()
+
+    /** What an incinerator or waste-to-energy burns at most a month, in kilograms. */
+    private fun burnerTakes(b: Building): Int = Balance.INCINERATOR_TAKES * Lineage.kindOf(b.type).serves / 100
+
+    /** What [b] recycles at most a month, in kilograms, and its share of what it's given, in percent. */
+    private fun recyclerTakes(b: Building): Int = Balance.RECYCLING_TAKES * Lineage.kindOf(b.type).serves / 100
+    private fun recyclerShare(b: Building): Int = Balance.RECYCLED * Lineage.kindOf(b.type).serves / 100
 
     /** What a station's making, in watts, as of the last time the grid was worked out. */
     fun stationOutput(b: Building): Int = grid.output[b.id] ?: 0
@@ -6666,8 +6711,8 @@ class City(
         val field = IntArray(m.size)
         for (b in buildings.values) {
             // A power station smokes by what it's making, never less than when it's idling.
-            val p = if (b.type == BuildingType.INCINERATOR) {
-                Balance.INCINERATOR_FUMES * maxOf(Balance.IDLE_FUMES, (incinerated[b.id] ?: 0) * 100 / Balance.INCINERATOR_TAKES) / 100
+            val p = if (b.type.root == BuildingType.INCINERATOR) {
+                Balance.INCINERATOR_FUMES * Lineage.kindOf(b.type).fumes / 100 * maxOf(Balance.IDLE_FUMES, (incinerated[b.id] ?: 0) * 100 / burnerTakes(b)) / 100
             } else if (Generation.fumes(b.type) > 0 && b.outage == 0) {
                 val load = (stationOutput(b).toLong() * 100 / Generation.capacity(b.type)).toInt()
                 // Scrubbers let out only some of it.
@@ -7500,20 +7545,8 @@ class City(
                 b.type == BuildingType.PARK -> parks += 1.0
                 // Green space, sport and culture, all under the parks funding.
                 (b.type.green || b.type.leisure) && Specs.of(b.type)!!.fund == Fund.PARKS -> parks += Specs.of(b.type)!!.upkeep / Balance.PARK_UPKEEP
-                Generation.station(b.type) || b.type == BuildingType.SUBSTATION -> plants += when (b.type) {
-                    BuildingType.OIL_PLANT -> Balance.OIL_PLANT_UPKEEP
-                    BuildingType.GAS_PLANT -> Balance.GAS_PLANT_UPKEEP
-                    BuildingType.HYDRO_PLANT -> Balance.HYDRO_PLANT_UPKEEP
-                    BuildingType.WIND_FARM -> Balance.WIND_UPKEEP
-                    BuildingType.SOLAR_FARM -> Balance.SOLAR_UPKEEP
-                    BuildingType.BATTERY -> Balance.BATTERY_UPKEEP
-                    BuildingType.RIVER_TURBINE -> Balance.RIVER_TURBINE_UPKEEP
-                    BuildingType.TIDAL_TURBINE -> Balance.TIDAL_UPKEEP
-                    BuildingType.OFFSHORE_WIND -> Balance.OFFSHORE_UPKEEP
-                    BuildingType.NUCLEAR_PLANT -> Balance.NUCLEAR_PLANT_UPKEEP
-                    BuildingType.SUBSTATION -> Balance.SUBSTATION_UPKEEP
-                    else -> Balance.PLANT_UPKEEP
-                } + fuelCost(b) + if (b.scrubbed) Balance.SCRUBBER_UPKEEP else 0.0
+                Generation.station(b.type) || b.type == BuildingType.SUBSTATION ->
+                    plants += Generation.upkeep(b.type) + fuelCost(b) + if (b.scrubbed) Balance.SCRUBBER_UPKEEP else 0.0
                 b.type.station -> stations++
                 b.type.terminal -> terminals++
                 b.type.yard -> yards++
@@ -7592,12 +7625,19 @@ class City(
         var streetTrees = 0
         for (i in 0 until map.size) streetTrees += map.streetTrees[i]
         var garbage = streetTrees * Balance.STREET_TREE_UPKEEP
-        for (b in buildings.values) garbage += when (b.type) {
+        for (b in buildings.values) garbage += when (b.type.root) {
             BuildingType.DUMP -> Balance.DUMP_UPKEEP
             BuildingType.INCINERATOR -> Balance.INCINERATOR_UPKEEP
             BuildingType.RECYCLING -> Balance.RECYCLING_UPKEEP
+            BuildingType.TRANSFER_STATION -> Balance.TRANSFER_UPKEEP
+            BuildingType.COMPOST_YARD -> Balance.COMPOST_UPKEEP
             else -> 0.0
+        } * Lineage.kindOf(b.type).upkeep / 100
+        // What the newer recycling sells of what it sorts, against its upkeep.
+        for ((id, kg) in recycledAt) if (buildings[id]?.type?.let { it.root == BuildingType.RECYCLING && it != BuildingType.RECYCLING } == true) {
+            garbage -= kg / 1000.0 * Balance.MATERIALS_PRICE
         }
+        garbage = maxOf(0.0, garbage)
         // Cool and green roofs, kept up on every building in their districts.
         for (b in buildings.values) {
             if (b.underway > 0) continue

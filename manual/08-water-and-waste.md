@@ -46,8 +46,12 @@ A river rises with rain and snowmelt, more when the ground is soaked, and spills
 
 Each person makes some garbage every month, more as the years go by until 2000, then less. A town under 1,500 people burns its own. After that it needs somewhere to take it:
 
-- **Dump** (1900) takes it until it's full, and lowers land value and health around it.
-- **Incinerator** (1930) burns a set amount a month, with some smoke.
-- **Recycling depot** (1975) takes three tenths of each building's garbage.
+- **Dump** (1900) takes it until it's full, and lowers land value and health around it. **Sanitary landfill** (1950) holds half as much again and doesn't harm health.
+- **Incinerator** (1930) burns a set amount a month, with some smoke. **Waste-to-energy plant** (1975) burns half as much again, with half the smoke, and makes up to 8 MW from what it burns.
+- **Recycling depot** (1975) takes three tenths of each building's garbage. **Materials recovery** (1995) and **Advanced sorting** (2025) take more, and sell what they sort, which pays for some of their upkeep.
+- **Transfer station** (1960) takes the garbage from the buildings around it on to a dump, incinerator or recycling anywhere in town.
+- **Compost yard** (1975) takes a fifth of the garbage of the buildings within 20 tiles.
+- **Landfill gas plant** (1985) makes 3 MW beside a dump or landfill that's at least a tenth full.
+- **Biogas plant** (2005) makes 5 MW near sewage works, a treatment plant or a compost yard.
 
 Each one serves the town within 60 tiles. Garbage that isn't taken away piles up in yards, makes the place grimy and unhealthy, and puts people off.
