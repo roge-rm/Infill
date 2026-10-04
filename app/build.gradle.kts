@@ -23,8 +23,8 @@ android {
         applicationId = "com.rm.infill"
         minSdk = 27
         targetSdk = 37
-        versionCode = 1040
-        versionName = "0.10.4"
+        versionCode = 1050
+        versionName = "0.10.5"
         // The synth (app/src/main/cpp), brought over from Apogee.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         externalNativeBuild {
