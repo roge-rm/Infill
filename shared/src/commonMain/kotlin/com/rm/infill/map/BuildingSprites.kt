@@ -183,6 +183,33 @@ internal object BuildingSprites {
                 BuildingType.WETLAND_RESERVE -> Atlas.WETLAND_RESERVE to Atlas.WETLAND_RESERVE_COUNT
                 BuildingType.GREENWAY -> Atlas.GREENWAY to Atlas.GREENWAY_COUNT
                 BuildingType.DOG_PARK -> Atlas.DOG_PARK to Atlas.DOG_PARK_COUNT
+                BuildingType.SPORTS_GROUND -> Atlas.SPORTS_GROUND to Atlas.SPORTS_GROUND_COUNT
+                BuildingType.LIT_FIELDS -> Atlas.LIT_FIELDS to Atlas.LIT_FIELDS_COUNT
+                BuildingType.PUBLIC_BATHS -> Atlas.PUBLIC_BATHS to Atlas.PUBLIC_BATHS_COUNT
+                BuildingType.SWIMMING_POOL -> Atlas.SWIMMING_POOL to Atlas.SWIMMING_POOL_COUNT
+                BuildingType.AQUATIC_CENTRE -> Atlas.AQUATIC_CENTRE to Atlas.AQUATIC_CENTRE_COUNT
+                BuildingType.TENNIS_COURTS -> Atlas.TENNIS_COURTS to Atlas.TENNIS_COURTS_COUNT
+                BuildingType.ICE_RINK -> Atlas.ICE_RINK to Atlas.ICE_RINK_COUNT
+                BuildingType.BALLPARK -> Atlas.BALLPARK to Atlas.BALLPARK_COUNT
+                BuildingType.ARENA -> Atlas.ARENA to Atlas.ARENA_COUNT
+                BuildingType.STADIUM -> Atlas.STADIUM to Atlas.STADIUM_COUNT
+                BuildingType.GOLF_COURSE -> Atlas.GOLF_COURSE to Atlas.GOLF_COURSE_COUNT
+                BuildingType.SKATE_PARK -> Atlas.SKATE_PARK to Atlas.SKATE_PARK_COUNT
+                BuildingType.REC_CENTRE -> Atlas.REC_CENTRE to Atlas.REC_CENTRE_COUNT
+                BuildingType.BANDSTAND -> Atlas.BANDSTAND to Atlas.BANDSTAND_COUNT
+                BuildingType.VARIETY_THEATRE -> Atlas.VARIETY_THEATRE to Atlas.VARIETY_THEATRE_COUNT
+                BuildingType.PICTURE_PALACE -> Atlas.PICTURE_PALACE to Atlas.PICTURE_PALACE_COUNT
+                BuildingType.MULTIPLEX -> Atlas.MULTIPLEX to Atlas.MULTIPLEX_COUNT
+                BuildingType.OPERA_HOUSE -> Atlas.OPERA_HOUSE to Atlas.OPERA_HOUSE_COUNT
+                BuildingType.MUSEUM -> Atlas.MUSEUM to Atlas.MUSEUM_COUNT
+                BuildingType.ART_GALLERY -> Atlas.ART_GALLERY to Atlas.ART_GALLERY_COUNT
+                BuildingType.CONCERT_HALL -> Atlas.CONCERT_HALL to Atlas.CONCERT_HALL_COUNT
+                BuildingType.ZOO -> Atlas.ZOO to Atlas.ZOO_COUNT
+                BuildingType.FAIRGROUND -> Atlas.FAIRGROUND to Atlas.FAIRGROUND_COUNT
+                BuildingType.AMUSEMENT_PARK -> Atlas.AMUSEMENT_PARK to Atlas.AMUSEMENT_PARK_COUNT
+                BuildingType.DRIVE_IN -> Atlas.DRIVE_IN to Atlas.DRIVE_IN_COUNT
+                BuildingType.AQUARIUM -> Atlas.AQUARIUM to Atlas.AQUARIUM_COUNT
+                BuildingType.CONVENTION_CENTRE -> Atlas.CONVENTION_CENTRE to Atlas.CONVENTION_CENTRE_COUNT
                 BuildingType.COLLEGE -> Atlas.COLLEGE to Atlas.COLLEGE_COUNT
                 BuildingType.POLICE_HQ -> Atlas.POLICE_HQ to Atlas.POLICE_HQ_COUNT
                 BuildingType.EXCHANGE -> Atlas.EXCHANGE to Atlas.EXCHANGE_COUNT

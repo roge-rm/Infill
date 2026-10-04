@@ -6436,6 +6436,762 @@ def dog_park(look, v):
         tree_at(b, look, v, 15, 16, 9, rng)
     return b
 
+
+# ---- sport and culture ---------------------------------------------------------
+
+TURF = c("#5f9f42")
+TURF_LINE = c("#f2f2ea")
+TRACK_RED = c("#b8603a")
+POOL_BLUE = c("#5ab4d8")
+STAND = c("#8a8a90")
+
+
+def pitch(b, look, x0, y0, x1, y1, lines=True, col=None):
+    """A marked playing field."""
+    d = b.d
+    top = b.lift
+    green = col or (TURF if look not in ("snow",) else c("#e4ebf0"))
+    d.rectangle([x0, top + y0, x1, top + y1], green)
+    if look != "snow" and lines:
+        d.rectangle([x0 + 2, top + y0 + 2, x1 - 2, top + y1 - 2], outline=TURF_LINE)
+        mx = (x0 + x1) // 2
+        d.line([mx, top + y0 + 2, mx, top + y1 - 2], TURF_LINE)
+        r = max(2, min(x1 - x0, y1 - y0) // 6)
+        d.ellipse([mx - r, top + (y0 + y1) // 2 - r, mx + r, top + (y0 + y1) // 2 + r], outline=TURF_LINE)
+
+
+def stands(b, look, x0, y0, x1, y1, height, col=STAND, roof=True):
+    """A grandstand: tiers of seats, its back wall and maybe a roof over the top rows."""
+    d = b.d
+    rf, wall = b.box(x0, y0, x1, y1, height)
+    d.rectangle(wall, shade(col, 0.8))
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(rf, SNOW_ROOF[0] if look == "snow" else col)
+    rx0, ry0, rx1, ry1 = rf
+    for yy in range(ry0 + 1, ry1, 2):
+        d.line([rx0 + 1, yy, rx1 - 1, yy], shade(col, 1.15) if look != "snow" else SNOW_ROOF[1])
+    if roof:
+        d.rectangle([rx0, ry0, rx1, ry0 + 2], c("#4a4c52"))
+    d.rectangle(rf, outline=OUTLINE)
+
+
+def hall(b, look, x0, y0, x1, y1, height, wall_col, roof_kind="flat", roof_col=None, storeys=2, rng=None, glass=None, entrance=True):
+    """A plain public building: walls, windows and a roof of one kind or another."""
+    d = b.d
+    rf, wall = b.box(x0, y0, x1, y1, height)
+    d.rectangle(wall, wall_col)
+    windows(d, wall, storeys, glass=glass or WINDOW, sill=TRIM, every=5, skip_door=entrance)
+    if entrance:
+        door(d, wall, c("#3a2e26"))
+    d.rectangle(wall, outline=OUTLINE)
+    if roof_kind == "gable":
+        gable_ew(d, rf, roof_col or SHINGLE[0], look)
+    elif roof_kind == "barrel":
+        d.rectangle(rf, SNOW_ROOF[0] if look == "snow" else (roof_col or c("#7a8088")))
+        rx0, ry0, rx1, ry1 = rf
+        for yy in range(ry0 + 1, ry1, 2):
+            d.line([rx0 + 1, yy, rx1 - 1, yy], shade(roof_col or c("#7a8088"), 1.0 + 0.25 * abs((yy - ry0) - (ry1 - ry0) / 2) / ((ry1 - ry0) / 2 + 1)) if look != "snow" else SNOW_ROOF[1])
+        d.rectangle(rf, outline=OUTLINE)
+    else:
+        flat_roof(b.img, rf, look, rng or random.Random(14000), [("vent", 4, 4)], parapet=roof_col or STONE)
+    return rf, wall
+
+
+def sports_ground(look, v):
+    """A sports ground on 2 by 2 tiles: a grass pitch with its lines, a little wooden stand and a clubhouse; or a cricket green
+    with its square and pavilion; or a running track round a field."""
+    b = Building(2, 2, height=STOREY + 8)
+    d = b.d
+    rng = random.Random(13000 + v)
+    lawn_box(b, look, 0, 0, 63, 63, rng)
+    if v == 0:
+        pitch(b, look, 4, 4, 59, 44)
+        stands(b, look, 6, 48, 34, 56, 6, c("#8a6a4a"), roof=False)
+        hall(b, look, 40, 48, 58, 58, STOREY + 2, c("#e8dcb5"), "gable", SHINGLE[0], 1, rng)
+    elif v == 1:
+        d.ellipse([4, b.lift + 4, 59, b.lift + 50], TURF if look != "snow" else c("#e4ebf0"))
+        d.rectangle([28, b.lift + 18, 35, b.lift + 36], c("#c8b48a") if look != "snow" else c("#e4ebf0"))
+        hall(b, look, 20, 50, 44, 60, STOREY + 2, c("#f2efe6"), "gable", c("#3f6b48"), 1, rng)
+    else:
+        d.ellipse([3, b.lift + 3, 60, b.lift + 52], TRACK_RED if look != "snow" else c("#e4ebf0"))
+        pitch(b, look, 12, 12, 51, 43, lines=True)
+        stands(b, look, 14, 54, 50, 60, 5, STAND, roof=False)
+    return b
+
+
+def lit_fields(look, v):
+    """Lit playing fields of the 1980s on 2 by 2 tiles: an all weather pitch under floodlights, with a changing pavilion; or
+    two small pitches side by side."""
+    b = Building(2, 2, height=5 * STOREY)
+    d = b.d
+    rng = random.Random(13100 + v)
+    lawn_box(b, look, 0, 0, 63, 63, rng)
+    turf = c("#3f8a4a") if look != "snow" else c("#cfd9e1")
+    if v % 2 == 0:
+        pitch(b, look, 4, 4, 59, 46, col=turf)
+        hall(b, look, 20, 50, 44, 60, STOREY, c("#c8c0b0"), "flat", None, 1, rng)
+    else:
+        pitch(b, look, 3, 4, 30, 46, col=turf)
+        pitch(b, look, 33, 4, 60, 46, col=turf)
+        hall(b, look, 22, 50, 42, 60, STOREY, c("#b8b0a4"), "flat", None, 1, rng)
+    for x, y in ((3, 3), (60, 3), (3, 47), (60, 47)):
+        gx, gy = b.ground(x, y)
+        d.line([gx, gy, gx, gy - 24], c("#6a6a70"))
+        d.rectangle([gx - 2, gy - 27, gx + 2, gy - 24], c("#f2f2d8"), OUTLINE)
+        b.casters.append((1, x, y, x + 1, y + 1, 26))
+    return b
+
+
+def public_baths(look, v):
+    """Public baths of 1900 on 2 by 2 tiles: brick, with a tall chimney for the boilers, round topped windows and BATHS in
+    stone over the door."""
+    b = Building(2, 2, height=3 * STOREY + 8)
+    d = b.d
+    rng = random.Random(13200 + v)
+    gx0, gy0 = b.ground(2, 48)
+    gx1, gy1 = b.ground(61, 61)
+    d.rectangle([gx0, gy0, gx1, gy1], c("#b8b2a6") if look != "snow" else c("#dfe5ea"))
+    rf, wall = b.box(4, 8, 59, 46, 3 * STOREY)
+    brick(d, wall, [c("#9a4a36"), c("#b07a50")][v % 2])
+    x0, y0, x1, y1 = wall
+    for xx in range(x0 + 4, x1 - 3, 6):
+        d.rectangle([xx, y0 + 4, xx + 3, y1 - 6], c("#5a7080"))
+        d.arc([xx, y0 + 2, xx + 3, y0 + 6], 180, 360, STONE)
+    d.rectangle([(x0 + x1) // 2 - 8, y0 + 1, (x0 + x1) // 2 + 8, y0 + 3], STONE)
+    door(d, wall, c("#3a2e26"))
+    d.rectangle(wall, outline=OUTLINE)
+    # A glass lantern down the roof over the pool hall.
+    d.rectangle(rf, SNOW_ROOF[0] if look == "snow" else c("#5b5f6b"), OUTLINE)
+    rx0, ry0, rx1, ry1 = rf
+    d.rectangle([rx0 + 10, ry0 + 6, rx1 - 10, ry1 - 6], GLASSHOUSE if look != "snow" else SNOW_ROOF[1], OUTLINE)
+    chimney(b, 54, 10, 36, look=look)
+    return b
+
+
+def swimming_pool(look, v):
+    """A swimming pool of the thirties on 2 by 2 tiles: an open air pool, white edged, with diving boards and a pale changing
+    block; or an indoor pool under a curved roof."""
+    b = Building(2, 2, height=2 * STOREY + 6)
+    d = b.d
+    rng = random.Random(13300 + v)
+    top = b.lift
+    d.rectangle([2, top + 2, 61, top + 61], c("#e8e4da") if look != "snow" else c("#e6ecf0"))
+    if v % 2 == 0:
+        water = POOL_BLUE if look in ("spring", "summer", "dry") else c("#b8c4cc")
+        d.rectangle([8, top + 6, 55, top + 40], water, OUTLINE)
+        if look in ("spring", "summer", "dry"):
+            for xx in range(14, 55, 8):
+                d.line([xx, top + 7, xx, top + 39], c("#7cc8e8"))
+        d.rectangle([30, top + 4, 34, top + 10], c("#f2f2ea"), OUTLINE)
+        hall(b, look, 6, 46, 57, 58, STOREY + 2, c("#f2efe6"), "flat", c("#d8d4ca"), 1, rng)
+    else:
+        rf, wall = hall(b, look, 4, 8, 59, 46, 2 * STOREY + 2, c("#d8d0c0"), "barrel", c("#8a9aa8"), 1, rng, glass=c("#7a9ab0"))
+        lawn_box(b, look, 2, 50, 61, 61, rng)
+    return b
+
+
+def aquatic_centre(look, v):
+    """An aquatic centre of the 1980s on 2 by 2 tiles: a big glazed hall with a water slide curling out of its side and a car
+    park."""
+    b = Building(2, 2, height=3 * STOREY + 6)
+    d = b.d
+    rng = random.Random(13400 + v)
+    top = b.lift
+    d.rectangle([2, top + 46, 61, top + 61], c("#6a6a70") if look != "snow" else c("#e6ecf0"))
+    if look != "snow":
+        for xx in range(6, 60, 6):
+            d.line([xx, top + 48, xx, top + 58], c("#d8d8d0"))
+    rf, wall = b.box(4, 6, 50, 42, 3 * STOREY)
+    d.rectangle(wall, GLASS_NEW)
+    x0, y0, x1, y1 = wall
+    for xx in range(x0 + 3, x1, 4):
+        d.line([xx, y0, xx, y1], c("#e8eef0"))
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(rf, SNOW_ROOF[0] if look == "snow" else [c("#d8d8d0"), c("#8aa0b0")][v % 2], OUTLINE)
+    rx0, ry0, rx1, ry1 = rf
+    d.rectangle([rx0 + 6, ry0 + 6, rx1 - 6, ry1 - 6], GLASSHOUSE if look != "snow" else SNOW_ROOF[1], OUTLINE)
+    # The slide: a coloured tube winding down from the roof.
+    tube = [c("#f2c94c"), c("#c0392b")][v % 2]
+    pts = [(rx1, ry0 + 8), (rx1 + 8, ry0 + 6), (rx1 + 10, ry0 + 14), (rx1 + 4, ry0 + 20), (rx1 + 9, ry0 + 28), (rx1 + 3, ry0 + 34)]
+    d.line(pts, tube, 3)
+    return b
+
+
+def tennis_courts(look, v):
+    """Tennis courts on 2 by 1 tiles: two grass or red clay courts, lined, with nets and a wire fence round them."""
+    b = Building(2, 1, height=LIFT)
+    d = b.d
+    top = b.lift
+    surface = [c("#6aa84a"), c("#c8703a"), c("#4a7aa8")][v % 3] if look != "snow" else c("#e4ebf0")
+    d.rectangle([1, top + 1, 62, top + 30], surface)
+    if look != "snow":
+        for x0 in (4, 34):
+            d.rectangle([x0, top + 4, x0 + 25, top + 27], outline=TURF_LINE)
+            d.line([x0 + 12, top + 4, x0 + 12, top + 27], c("#e8e8e8"))
+            d.line([x0, top + 15, x0 + 25, top + 15], TURF_LINE)
+    d.rectangle([1, top + 1, 62, top + 30], outline=c("#4a4c50"))
+    return b
+
+
+def ice_rink(look, v):
+    """An indoor ice rink on 2 by 2 tiles: a long hall under a curved roof, pale walls and a car park; or an open air rink of
+    the twenties with a warming hut."""
+    b = Building(2, 2, height=2 * STOREY + 8)
+    d = b.d
+    rng = random.Random(13600 + v)
+    top = b.lift
+    if v % 2 == 0:
+        d.rectangle([2, top + 46, 61, top + 61], c("#6a6a70") if look != "snow" else c("#e6ecf0"))
+        hall(b, look, 4, 6, 59, 42, 2 * STOREY + 4, c("#d8dce0"), "barrel", c("#7a8a98"), 1, rng)
+    else:
+        lawn_box(b, look, 0, 0, 63, 63, rng)
+        d.rounded_rectangle([6, top + 6, 57, top + 44], 8, c("#e8f2f8"), outline=c("#8a8a90"))
+        if look != "snow":
+            d.line([31, top + 8, 31, top + 42], c("#c0392b"))
+            d.ellipse([27, top + 21, 35, top + 29], outline=c("#3c78a8"))
+        hall(b, look, 20, 48, 44, 60, STOREY + 2, c("#8a6a4a"), "gable", SHINGLE[1], 1, rng)
+    return b
+
+
+def ballpark(look, v):
+    """A ballpark of the 1910s on 3 by 3 tiles: home plate in a corner, the outfield fanning out from it to a fence, a diamond of
+    red earth with its bases, stands behind home along both sides, and a scoreboard out past the fence."""
+    b = Building(3, 3, height=3 * STOREY + 6)
+    d = b.d
+    rng = random.Random(13700 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 95, 95, rng)
+    field = TURF if look != "snow" else c("#e4ebf0")
+    dirt = c("#b8703a") if look != "snow" else c("#dfe5ea")
+    east = v % 2 == 0
+    hx, hy = (78, 78) if east else (17, 78)
+    r = 74
+    start, end = (180, 270) if east else (270, 360)
+    d.pieslice([hx - r, top + hy - r, hx + r, top + hy + r], start, end, field, outline=c("#3f5a2e"))
+    # The diamond: home, first, second and third, the infield dirt round them.
+    sx = -1 if east else 1
+    bases = [(hx, hy), (hx + sx * 0, hy - 20), (hx + sx * 20, hy - 20), (hx + sx * 20, hy)]
+    bases = [(hx, hy), (hx, hy - 22), (hx + sx * 22, hy - 22), (hx + sx * 22, hy)]
+    d.polygon([(x, top + y) for x, y in bases], dirt)
+    inner = [(hx + sx * 4, hy - 4), (hx + sx * 4, hy - 18), (hx + sx * 18, hy - 18), (hx + sx * 18, hy - 4)]
+    d.polygon([(x, top + y) for x, y in inner], field)
+    for (x, y) in bases:
+        d.rectangle([x - 1, top + y - 1, x + 1, top + y + 1], TURF_LINE)
+    d.ellipse([hx + sx * 11 - 2, top + hy - 13, hx + sx * 11 + 2, top + hy - 9], dirt)
+    # Stands behind home, along the bottom and the near side.
+    if east:
+        stands(b, look, 40, 84, 94, 94, 3 * STOREY, STAND)
+        stands(b, look, 84, 40, 94, 84, 3 * STOREY, STAND)
+        sbx = 6
+    else:
+        stands(b, look, 1, 84, 56, 94, 3 * STOREY, STAND)
+        stands(b, look, 1, 40, 11, 84, 3 * STOREY, STAND)
+        sbx = 72
+    gx, gy = b.ground(sbx, 8)
+    d.rectangle([gx, gy - 10, gx + 16, gy], c("#2a3a2a"), OUTLINE)
+    for k in range(3):
+        d.line([gx + 2, gy - 8 + k * 3, gx + 14, gy - 8 + k * 3], c("#f2e6a0"))
+    b.casters.append((1, sbx, 7, sbx + 17, 9, 10))
+    return b
+
+
+def arena(look, v):
+    """An arena of the sixties on 3 by 3 tiles: a great round roof on a ring of glass, with a plaza and car parks round it."""
+    b = Building(3, 3, height=3 * STOREY + 8)
+    d = b.d
+    rng = random.Random(13800 + v)
+    top = b.lift
+    d.rectangle([1, top + 1, 94, top + 94], c("#6a6a70") if look != "snow" else c("#e6ecf0"))
+    if look != "snow":
+        for xx in range(4, 92, 6):
+            d.line([xx, top + 4, xx, top + 14], c("#d8d8d0"))
+            d.line([xx, top + 82, xx, top + 92], c("#d8d8d0"))
+    rf, wall = b.box(14, 16, 81, 78, 3 * STOREY)
+    d.rectangle(wall, GLASS_NEW)
+    for xx in range(wall[0] + 2, wall[2], 3):
+        d.line([xx, wall[1], xx, wall[3]], c("#c8d8e0"))
+    d.rectangle(wall, outline=OUTLINE)
+    roofc = [c("#c8c4bc"), c("#b87a4a")][v % 2] if look != "snow" else SNOW_ROOF[0]
+    d.ellipse([rf[0], rf[1], rf[2], rf[3]], roofc, OUTLINE)
+    mx, my = (rf[0] + rf[2]) // 2, (rf[1] + rf[3]) // 2
+    import math
+    for k in range(16):
+        a = k * math.pi / 8
+        d.line([mx, my, mx + int(math.cos(a) * (rf[2] - rf[0]) / 2), my + int(math.sin(a) * (rf[3] - rf[1]) / 2)], shade(roofc, 0.88))
+    d.ellipse([mx - 4, my - 4, mx + 4, my + 4], shade(roofc, 1.1), OUTLINE)
+    return b
+
+
+def stadium(look, v):
+    """A stadium on 4 by 4 tiles: a pitch in a bowl of stands, roofed along the sides, floodlights at the corners and a car park
+    round it."""
+    b = Building(4, 4, height=4 * STOREY + 10)
+    d = b.d
+    rng = random.Random(13900 + v)
+    top = b.lift
+    d.rectangle([1, top + 1, 126, top + 126], c("#6a6a70") if look != "snow" else c("#e6ecf0"))
+    seat = [c("#3c78a8"), c("#c0392b"), c("#3f8a4a")][v % 3]
+    # The bowl: stands round the four sides, the pitch in the middle.
+    stands(b, look, 10, 10, 117, 28, 4 * STOREY, seat)
+    stands(b, look, 10, 28, 28, 98, 3 * STOREY, seat, roof=False)
+    stands(b, look, 99, 28, 117, 98, 3 * STOREY, seat, roof=False)
+    pitch(b, look, 30, 30, 97, 96)
+    stands(b, look, 10, 98, 117, 116, 4 * STOREY, seat)
+    for x, y in ((6, 6), (120, 6), (6, 120), (120, 120)):
+        gx, gy = b.ground(x, y)
+        d.line([gx, gy, gx, gy - 34], c("#6a6a70"), 2)
+        d.rectangle([gx - 4, gy - 38, gx + 4, gy - 33], c("#f2f2d8"), OUTLINE)
+        b.casters.append((1, x, y, x + 2, y + 2, 36))
+    return b
+
+
+def golf_course(look, v):
+    """A golf course on 4 by 4 tiles: fairways of short grass between the rough, greens with flags, sand bunkers, a pond, trees
+    and a clubhouse."""
+    b = Building(4, 4, height=STOREY + 8)
+    d = b.d
+    rng = random.Random(14000 + v)
+    top = b.lift
+    rough = [c("#4f8a3a"), c("#47803a"), c("#5a9442")] if look not in ("snow", "bare", "autumn") else GRASS[look]
+    noise_fill(b.img, (0, top, 128, top + 128), rough, rng)
+    fair = c("#7cbc5a") if look not in ("snow",) else c("#eef2f5")
+    holes = [((10, 100), (60, 20)), ((70, 110), (112, 60)), ((112, 40), (80, 10))] if v % 2 == 0 else \
+        [((20, 20), (100, 30)), ((110, 50), (40, 70)), ((30, 110), (110, 104))]
+    for (tx, ty), (gx, gy) in holes:
+        d.line([tx, top + ty, gx, top + gy], fair, 14)
+        d.ellipse([gx - 8, top + gy - 6, gx + 8, top + gy + 6], c("#8ad06a") if look != "snow" else c("#f2f6f9"))
+        d.line([gx, top + gy, gx, top + gy - 8], c("#e8e8e8"))
+        d.rectangle([gx, top + gy - 8, gx + 4, top + gy - 6], c("#c0392b"))
+        bx, by = (tx + gx) // 2 + 8, (ty + gy) // 2 - 6
+        d.ellipse([bx - 5, top + by - 3, bx + 5, top + by + 3], c("#e8dcb0") if look != "snow" else c("#e6ecf0"))
+    pond(b, look, 64, 64, 10, 7, rng)
+    for _ in range(18):
+        x, y = rng.randrange(6, 122), rng.randrange(6, 122)
+        tree_at(b, look, v, x, y, rng.randrange(4, 7), rng, conifer_tree=rng.random() < 0.3)
+    hall(b, look, 4, 4, 26, 18, STOREY + 2, c("#f2efe6"), "gable", c("#3f6b48"), 1, rng)
+    return b
+
+
+def skate_park(look, v):
+    """A skate park of the nineties on one tile: concrete bowls and ramps, a rail, and paint on the walls."""
+    b = Building(height=LIFT)
+    d = b.d
+    top = b.lift
+    conc = c("#b8b4ac") if look != "snow" else c("#e6ecf0")
+    d.rectangle([1, top + 1, 30, top + 30], conc)
+    if v % 2 == 0:
+        d.ellipse([4, top + 4, 20, top + 18], shade(conc, 0.8), OUTLINE)
+        d.ellipse([7, top + 7, 17, top + 15], shade(conc, 0.7))
+        d.polygon([(20, top + 22), (29, top + 22), (29, top + 29), (20, top + 29)], shade(conc, 0.85), OUTLINE)
+    else:
+        d.polygon([(2, top + 4), (14, top + 4), (14, top + 12), (2, top + 8)], shade(conc, 0.82), OUTLINE)
+        d.polygon([(18, top + 18), (29, top + 18), (29, top + 26), (18, top + 22)], shade(conc, 0.82), OUTLINE)
+        d.line([6, top + 20, 14, top + 20], c("#c0392b"), 2)
+    if look != "snow":
+        for k, col in enumerate((c("#c0392b"), c("#f2c94c"), c("#3c78a8"))):
+            d.line([3 + k * 3, top + 28, 6 + k * 3, top + 25], col)
+    return b
+
+
+def rec_centre(look, v):
+    """A recreation centre of the fifties on 2 by 2 tiles: a gym hall of pale brick with high windows, a lower wing of rooms, and
+    a ball court beside it."""
+    b = Building(2, 2, height=2 * STOREY + 8)
+    d = b.d
+    rng = random.Random(14200 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 63, 63, rng)
+    court = c("#c8703a") if look != "snow" else c("#e4ebf0")
+    d.rectangle([38, top + 40, 60, top + 60], court)
+    if look != "snow":
+        d.rectangle([40, top + 42, 58, top + 58], outline=TURF_LINE)
+        d.line([40, top + 50, 58, top + 50], TURF_LINE)
+    hall(b, look, 4, 6, 40, 36, 2 * STOREY + 4, [PALE_BRICK, c("#c8a888")][v % 2], "flat", None, 1, rng, entrance=False)
+    hall(b, look, 4, 38, 34, 56, STOREY + 2, shade([PALE_BRICK, c("#c8a888")][v % 2], 0.94), "flat", None, 1, rng)
+    return b
+
+
+def bandstand(look, v):
+    """A bandstand on one tile: an eight sided roof on slim iron posts, on a raised round floor, in a ring of lawn and paths."""
+    b = Building(height=LIFT + 8)
+    d = b.d
+    rng = random.Random(14300 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 31, 31, rng)
+    path_line(b, look, [(0, 26), (31, 26)])
+    d.ellipse([6, top + 7, 25, top + 24], c("#efe8d8"), OUTLINE)
+    roofc = [c("#3f6b48"), c("#8a3b2e")][v % 2] if look != "snow" else SNOW_ROOF[0]
+    d.polygon([(10, top + 3), (21, top + 3), (25, top + 8), (21, top + 13), (10, top + 13), (6, top + 8)], roofc, OUTLINE)
+    d.point((15, top + 7), c("#d9b44a"))
+    for x in (8, 15, 23):
+        d.line([x, top + 13, x, top + 20], TRIM)
+    b.casters.append((1, 6, 3, 26, 14, 10))
+    return b
+
+
+def theatre_front(b, look, wall, name_col, lights=False):
+    """A theatre's front: a canopy over the doors and its name up in lights."""
+    d = b.d
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    d.rectangle([x0 + 6, y1 - 8, x1 - 6, y1 - 6], c("#2a2a30"))
+    for xx in range(x0 + 7, x1 - 6, 2):
+        d.point((xx, y1 - 7), c("#f2e6a0") if lights else c("#d8d0c0"))
+    d.rectangle([cx - 8, y0 + 3, cx + 8, y0 + 8], name_col, OUTLINE)
+    for xx in range(cx - 6, cx + 7, 2):
+        d.point((xx, y0 + 5), c("#f2f2ea"))
+    d.rectangle([cx - 3, y1 - 5, cx + 3, y1], c("#3a2e26"))
+
+
+def variety_theatre(look, v):
+    """A variety theatre of 1900 on 2 by 2 tiles: an ornate front of brick and stone, a canopy and bills by the doors, and the
+    stage house rising behind."""
+    b = Building(2, 2, height=4 * STOREY + 6)
+    d = b.d
+    rng = random.Random(14400 + v)
+    rf, wall = b.box(6, 6, 57, 22, 4 * STOREY + 4)
+    brick(d, wall, c("#9a4a36"))
+    d.rectangle(rf, SNOW_ROOF[0] if look == "snow" else c("#5b5f6b"), OUTLINE)
+    rf, wall = b.box(4, 24, 59, 52, 3 * STOREY)
+    d.rectangle(wall, [c("#d8c8a8"), c("#c8a888")][v % 2])
+    windows(d, wall, 3, glass=c("#46586a"), sill=TRIM, every=6, skip=[((wall[0] + wall[2]) // 2 - 9, (wall[0] + wall[2]) // 2 + 9)])
+    theatre_front(b, look, wall, [c("#8a2a2a"), c("#2a4a6a")][v % 2])
+    d.rectangle(wall, outline=OUTLINE)
+    cornice(d, wall, STONE)
+    flat_roof(b.img, rf, look, rng, [("vent", 6, 6)], parapet=STONE)
+    return b
+
+
+def picture_palace(look, v):
+    """A picture palace of the twenties and thirties on 2 by 2 tiles: a tall front with its name up the vertical sign, a lit
+    canopy over the doors and a long plain auditorium behind."""
+    b = Building(2, 2, height=4 * STOREY + 8)
+    d = b.d
+    rng = random.Random(14500 + v)
+    rf, wall = b.box(8, 4, 55, 34, 3 * STOREY)
+    d.rectangle(wall, c("#b8a890"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, rf, look, rng, [("vent", 8, 8), ("vent", 30, 12)], parapet=c("#a89878"))
+    rf, wall = b.box(4, 36, 59, 52, 3 * STOREY + 4)
+    col = [c("#e8dcc0"), c("#d8c0a0"), c("#c8d0c0")][v % 3]
+    d.rectangle(wall, col)
+    x0, y0, x1, y1 = wall
+    for xx in range(x0 + 3, x1 - 2, 4):
+        d.line([xx, y0 + 2, xx, y1 - 10], shade(col, 0.9))
+    theatre_front(b, look, wall, [c("#c0392b"), c("#2f5f8a"), c("#3f8a4a")][v % 3], lights=True)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, rf, look, rng, [], parapet=shade(col, 1.06))
+    sx = x1 - 10
+    d.rectangle([sx, y0 - 14, sx + 4, y1 - 10], [c("#c0392b"), c("#2f5f8a"), c("#3f8a4a")][v % 3], OUTLINE)
+    for yy in range(y0 - 12, y1 - 12, 3):
+        d.point((sx + 2, yy), c("#f2e6a0"))
+    return b
+
+
+def multiplex(look, v):
+    """A multiplex cinema of the eighties on 2 by 2 tiles: a big plain box of coloured panels, a glass foyer at the corner with
+    posters, and a car park."""
+    b = Building(2, 2, height=3 * STOREY + 4)
+    d = b.d
+    rng = random.Random(14600 + v)
+    top = b.lift
+    d.rectangle([2, top + 44, 61, top + 61], c("#6a6a70") if look != "snow" else c("#e6ecf0"))
+    if look != "snow":
+        for xx in range(6, 60, 6):
+            d.line([xx, top + 46, xx, top + 58], c("#d8d8d0"))
+    rf, wall = b.box(4, 4, 59, 40, 3 * STOREY)
+    col = [c("#c8c4bc"), c("#b8b0c8"), c("#c8b8a8")][v % 3]
+    d.rectangle(wall, col)
+    x0, y0, x1, y1 = wall
+    d.rectangle([x0, y0 + 3, x1, y0 + 6], [c("#c0392b"), c("#7a3f7a"), c("#2f5f8a")][v % 3])
+    d.rectangle([x0 + 2, y1 - 8, x0 + 20, y1], GLASS_NEW, OUTLINE)
+    for xx in range(x0 + 24, x1 - 2, 6):
+        d.rectangle([xx, y1 - 7, xx + 3, y1 - 2], c("#f2e6a0"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, rf, look, rng, [("vent", 8, 8), ("vent", 24, 8), ("vent", 40, 8), ("hatch", 20, 20)], parapet=shade(col, 1.06))
+    return b
+
+
+def opera_house(look, v):
+    """An opera house on 3 by 2 tiles: a grand front of pale stone with columns and a pediment, a dome or a tall stage house
+    behind, and steps down to a square."""
+    b = Building(3, 2, height=5 * STOREY + 8)
+    d = b.d
+    rng = random.Random(14700 + v)
+    top = b.lift
+    d.rectangle([2, top + 48, 93, top + 61], c("#c8bfae") if look != "snow" else c("#e6ecf0"))
+    rf, wall = b.box(20, 6, 75, 24, 5 * STOREY)
+    d.rectangle(wall, shade(STONE, 0.95))
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(rf, SNOW_ROOF[0] if look == "snow" else c("#5b6a6a"), OUTLINE)
+    rf, wall = b.box(6, 26, 89, 46, 3 * STOREY)
+    d.rectangle(wall, c("#e8e0cc"))
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    for xx in range(cx - 20, cx + 21, 4):
+        d.line([xx, y0 + 4, xx, y1], c("#c8c0ac"))
+    d.polygon([(cx - 22, y0 + 4), (cx, y0 - 6), (cx + 22, y0 + 4)], c("#e8e0cc"), OUTLINE)
+    windows(d, wall, 3, glass=c("#46586a"), sill=TRIM, every=6, skip=[(cx - 22, cx + 22)])
+    d.rectangle([cx - 4, y1 - 6, cx + 4, y1], c("#3a2e26"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, rf, look, rng, [], parapet=STONE)
+    if v % 2 == 0:
+        mx, my = (rf[0] + rf[2]) // 2, (rf[1] + rf[3]) // 2
+        d.ellipse([mx - 9, my - 9, mx + 9, my + 9], c("#6e8f86") if look != "snow" else SNOW_ROOF[0], OUTLINE)
+        d.ellipse([mx - 2, my - 6, mx + 1, my - 3], c("#a8c8be"))
+    return b
+
+
+def museum(look, v):
+    """A museum on 3 by 2 tiles: a long classical front with columns along it and wide steps, wings either side, and a lawn
+    with a statue; or brick with a clock tower."""
+    b = Building(3, 2, height=4 * STOREY + 8)
+    d = b.d
+    rng = random.Random(14800 + v)
+    lawn_box(b, look, 0, 44, 95, 63, rng)
+    path_line(b, look, [(47, 63), (47, 44)], 4)
+    col = [c("#ddd5c2"), c("#a85a40")][v % 2]
+    rf, wall = b.box(4, 8, 91, 40, 3 * STOREY)
+    if v % 2 == 0:
+        d.rectangle(wall, col)
+    else:
+        brick(d, wall, col)
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    windows(d, wall, 3, glass=c("#46586a"), sill=TRIM, every=6, skip=[(cx - 16, cx + 16)])
+    d.rectangle([cx - 16, y0, cx + 16, y1], c("#e8e0cc"))
+    for xx in range(cx - 14, cx + 15, 4):
+        d.line([xx, y0 + 3, xx, y1], c("#c8c0ac"))
+    d.polygon([(cx - 18, y0 + 3), (cx, y0 - 6), (cx + 18, y0 + 3)], c("#e8e0cc"), OUTLINE)
+    d.rectangle([cx - 18, y1 + 1, cx + 18, y1 + 3], STONE)
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, rf, look, rng, [("skylight", 10, 8), ("skylight", 60, 8)], parapet=STONE)
+    if v % 2 == 1:
+        troof, twall = b.box(80, 10, 88, 18, 4 * STOREY + 6)
+        brick(d, twall, col)
+        d.ellipse([twall[0] + 1, twall[1] + 3, twall[2] - 1, twall[1] + 9], c("#f2f2ea"), OUTLINE)
+        d.rectangle(twall, outline=OUTLINE)
+        d.rectangle(troof, SNOW_ROOF[0] if look == "snow" else c("#5b6a6a"), OUTLINE)
+    else:
+        gx, gy = b.ground(70, 54)
+        d.rectangle([gx - 2, gy - 2, gx + 2, gy], c("#a8a090"))
+        d.rectangle([gx - 1, gy - 9, gx + 1, gy - 2], c("#6e6a62"))
+        b.casters.append((1, 69, 53, 72, 55, 9))
+    return b
+
+
+def art_gallery(look, v):
+    """An art gallery on 2 by 2 tiles: pale stone rooms lit from above through long skylights, a sculpture garden; or a modern
+    white box with a single big window."""
+    b = Building(2, 2, height=2 * STOREY + 8)
+    d = b.d
+    rng = random.Random(14900 + v)
+    lawn_box(b, look, 0, 44, 63, 63, rng)
+    if v % 2 == 0:
+        rf, wall = b.box(4, 6, 59, 40, 2 * STOREY + 2)
+        d.rectangle(wall, c("#e0d8c4"))
+        x0, y0, x1, y1 = wall
+        for xx in range(x0 + 3, x1 - 2, 6):
+            d.line([xx, y0 + 2, xx, y1], shade(c("#e0d8c4"), 0.9))
+        door(d, wall, c("#3a2e26"))
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, rf, look, rng, [("skylight", 6, 6), ("skylight", 22, 6), ("skylight", 38, 6)], parapet=STONE)
+        for x, y in ((16, 54), (44, 52)):
+            gx, gy = b.ground(x, y)
+            d.ellipse([gx - 3, gy - 6, gx + 3, gy], c("#6e6a62"), OUTLINE)
+    else:
+        rf, wall = b.box(8, 8, 55, 40, 2 * STOREY + 4)
+        d.rectangle(wall, c("#f2f2ee"))
+        x0, y0, x1, y1 = wall
+        d.rectangle([x0 + 6, y0 + 4, x1 - 6, y1 - 4], GLASS_DARK)
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, rf, look, rng, [], parapet=c("#d8d8d4"))
+    return b
+
+
+def concert_hall(look, v):
+    """A concert hall of the sixties on 3 by 2 tiles: a big angular roof, folded like paper, over a glass foyer, with a plaza in
+    front."""
+    b = Building(3, 2, height=4 * STOREY + 8)
+    d = b.d
+    rng = random.Random(15000 + v)
+    top = b.lift
+    d.rectangle([2, top + 46, 93, top + 61], c("#cfcac0") if look != "snow" else c("#e6ecf0"))
+    rf, wall = b.box(6, 8, 89, 42, 3 * STOREY)
+    d.rectangle(wall, GLASS_NEW)
+    for xx in range(wall[0] + 2, wall[2], 4):
+        d.line([xx, wall[1], xx, wall[3]], c("#c8d8e0"))
+    d.rectangle(wall, outline=OUTLINE)
+    roofc = [c("#d8d4ca"), c("#a8b0a8")][v % 2] if look != "snow" else SNOW_ROOF[0]
+    d.rectangle(rf, roofc)
+    rx0, ry0, rx1, ry1 = rf
+    for k, xx in enumerate(range(rx0, rx1, 10)):
+        d.polygon([(xx, ry1), (xx + 5, ry0), (xx + 10, ry1)], shade(roofc, 0.86 if k % 2 else 1.06))
+    d.rectangle(rf, outline=OUTLINE)
+    return b
+
+
+def zoo(look, v):
+    """A zoo on 4 by 4 tiles: paddocks with animals, a pond for the birds, a big house for the elephants, paths and trees."""
+    b = Building(4, 4, height=2 * STOREY + 8)
+    d = b.d
+    rng = random.Random(15100 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 127, 127, rng)
+    path_line(b, look, [(0, 64), (40, 60), (64, 64), (100, 70), (127, 64)], 3)
+    path_line(b, look, [(64, 0), (60, 40), (64, 64), (70, 100), (64, 127)], 3)
+    earth = c("#b89a6a") if look != "snow" else c("#e4ebf0")
+    paddocks = [(6, 6, 54, 54), (74, 6, 122, 54), (6, 74, 54, 122), (74, 74, 122, 122)]
+    animals = [c("#8a8a8a"), c("#d8b060"), c("#2a2a2a"), c("#a8784a")]
+    for k, (x0, y0, x1, y1) in enumerate(paddocks):
+        d.rectangle([x0, top + y0, x1, top + y1], earth, outline=c("#6b5a44"))
+        if k == (v % 4):
+            pond(b, look, (x0 + x1) // 2, (y0 + y1) // 2, 14, 10, rng)
+            continue
+        for _ in range(3):
+            ax, ay = rng.randrange(x0 + 6, x1 - 6), rng.randrange(y0 + 6, y1 - 6)
+            d.ellipse([ax - 3, top + ay - 2, ax + 3, top + ay + 2], animals[k], OUTLINE)
+        tree_at(b, look, v, x0 + 8, y0 + 8, 5, rng)
+    house = paddocks[(v + 2) % 4]
+    hall(b, look, house[0] + 14, house[1] + 14, house[2] - 4, house[3] - 8, STOREY + 6, c("#c8a878"), "barrel", c("#8a6a4a"), 1, rng)
+    return b
+
+
+def fairground(look, v):
+    """A fairground on 3 by 3 tiles: a big wheel, a carousel under its striped top, stalls and caravans on trampled grass."""
+    b = Building(3, 3, height=5 * STOREY + 4)
+    d = b.d
+    rng = random.Random(15200 + v)
+    top = b.lift
+    ground = [c("#8aa65a"), c("#7a964e"), c("#a8a070")] if look != "snow" else [c("#e4ebf0"), c("#d8e0e6"), c("#eef2f5")]
+    noise_fill(b.img, (0, top, 96, top + 96), ground, rng)
+    # The carousel.
+    cx, cy = (30, 60) if v % 2 == 0 else (66, 30)
+    for k in range(12):
+        import math
+        a0 = k * 30
+        d.pieslice([cx - 14, top + cy - 14, cx + 14, top + cy + 14], a0, a0 + 30, c("#c0392b") if k % 2 else c("#f2f2ea"))
+    d.ellipse([cx - 3, top + cy - 3, cx + 3, top + cy + 3], c("#d9b44a"), OUTLINE)
+    # The big wheel, standing up from its foot.
+    wx, wy = (68, 70) if v % 2 == 0 else (26, 74)
+    gx, gy = b.ground(wx, wy)
+    d.line([gx - 6, gy, gx, gy - 18], c("#6a6a70"), 2)
+    d.line([gx + 6, gy, gx, gy - 18], c("#6a6a70"), 2)
+    d.ellipse([gx - 16, gy - 34, gx + 16, gy - 2], outline=c("#8a8a90"), width=2)
+    for k in range(8):
+        a = k * math.pi / 4
+        px, py = gx + int(math.cos(a) * 16), gy - 18 + int(math.sin(a) * 16)
+        d.line([gx, gy - 18, px, py], c("#8a8a90"))
+        d.rectangle([px - 2, py - 1, px + 2, py + 2], [c("#c0392b"), c("#f2c94c"), c("#3c78a8")][k % 3])
+    b.casters.append((1, wx - 16, wy - 2, wx + 16, wy + 1, 34))
+    for k in range(5):
+        sx, sy = 8 + k * 17, 10 if v % 2 == 0 else 86
+        d.rectangle([sx, top + sy, sx + 12, top + sy + 7], [c("#c0392b"), c("#f2c94c"), c("#3c78a8"), c("#3f8a4a"), c("#7a3f7a")][k], OUTLINE)
+    return b
+
+
+def amusement_park(look, v):
+    """An amusement park of the fifties on 3 by 3 tiles: a roller coaster's track looping round, a log flume, rides, and paths
+    between bright stalls."""
+    b = Building(3, 3, height=5 * STOREY + 6)
+    d = b.d
+    rng = random.Random(15300 + v)
+    top = b.lift
+    d.rectangle([1, top + 1, 94, top + 94], c("#d8d0c0") if look != "snow" else c("#e6ecf0"))
+    lawn_box(b, look, 6, 6, 40, 40, rng)
+    lawn_box(b, look, 56, 56, 90, 90, rng)
+    # The coaster's track, a loop of white rail on red supports.
+    pts = [(10, 70), (30, 50), (60, 46), (86, 30), (80, 10), (50, 14), (20, 24), (8, 50), (10, 70)] if v % 2 == 0 else \
+        [(86, 70), (66, 50), (36, 46), (10, 30), (16, 10), (46, 14), (76, 24), (88, 50), (86, 70)]
+    for (x, y) in pts:
+        gx, gy = b.ground(x, y)
+        d.line([gx, gy, gx, gy - 10], c("#c0392b"))
+    d.line([(x, y + top - 10) for x, y in pts], c("#f2f2ea"), 2)
+    # A flume of blue water, and a few rides.
+    d.line([(60 if v % 2 == 0 else 34, top + 92), (70 if v % 2 == 0 else 24, top + 70), (88 if v % 2 == 0 else 8, top + 66)], c("#5ab4d8"), 4)
+    for (x, y, col) in ((24, 84, c("#f2c94c")), (48, 70, c("#3c78a8")), (72, 82, c("#7a3f7a"))):
+        d.ellipse([x - 6, top + y - 6, x + 6, top + y + 6], col, OUTLINE)
+    return b
+
+
+def drive_in(look, v):
+    """A drive-in cinema of the fifties on 3 by 3 tiles: a big white screen on its frame, rows of parking bays curving towards it
+    with posts for the speakers, and a snack bar in the middle."""
+    b = Building(3, 3, height=4 * STOREY)
+    d = b.d
+    rng = random.Random(15400 + v)
+    top = b.lift
+    d.rectangle([1, top + 1, 94, top + 94], c("#8a8478") if look != "snow" else c("#e6ecf0"))
+    for k in range(6):
+        y = 30 + k * 10
+        d.arc([6, top + y - 20, 89, top + y + 20], 20, 160, c("#6a645a") if look != "snow" else c("#d0d8de"))
+        for x in range(12, 86, 8):
+            d.point((x, top + y + 6), c("#3a3a3e"))
+    if look != "snow":
+        for _ in range(8 + 4 * v):
+            x, y = rng.randrange(14, 82), rng.randrange(34, 88)
+            d.rectangle([x, top + y, x + 3, top + y + 5], rng.choice([c("#c0392b"), c("#2f5f8a"), c("#e8d070"), c("#3f8a4a")]), OUTLINE)
+    gx, gy = b.ground(48, 14)
+    d.rectangle([gx - 30, gy - 24, gx + 30, gy - 4], c("#f2f2ee"), OUTLINE)
+    d.line([gx - 24, gy - 4, gx - 24, gy], c("#6a6a70"), 2)
+    d.line([gx + 24, gy - 4, gx + 24, gy], c("#6a6a70"), 2)
+    b.casters.append((1, 18, 13, 79, 15, 24))
+    hall(b, look, 40, 54, 56, 64, STOREY, c("#e8dcb5"), "flat", c("#c0392b"), 1, rng)
+    return b
+
+
+def aquarium(look, v):
+    """An aquarium of the nineties on 3 by 2 tiles: curving glass and pale panels like a wave, an outdoor seal pool and a
+    plaza."""
+    b = Building(3, 2, height=3 * STOREY + 8)
+    d = b.d
+    rng = random.Random(15500 + v)
+    top = b.lift
+    d.rectangle([2, top + 44, 93, top + 61], c("#cfcac0") if look != "snow" else c("#e6ecf0"))
+    pond(b, look, 80 if v % 2 == 0 else 14, 52, 10, 6, rng, lilies=False)
+    rf, wall = b.box(6, 6, 89, 40, 3 * STOREY)
+    d.rectangle(wall, [c("#e8eef0"), c("#d8e4e8")][v % 2])
+    x0, y0, x1, y1 = wall
+    for xx in range(x0 + 2, x1 - 1, 3):
+        h = 3 + int(3 * (1 + __import__("math").sin(xx / 6)))
+        d.line([xx, y0 + h, xx, y1 - 6], GLASS_NEW)
+    d.rectangle([x0 + 30, y1 - 6, x0 + 52, y1], GLASS_DARK)
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(rf, SNOW_ROOF[0] if look == "snow" else c("#a8c4d0"))
+    rx0, ry0, rx1, ry1 = rf
+    for yy in range(ry0 + 2, ry1, 3):
+        d.line([rx0 + 1, yy, rx1 - 1, yy], shade(c("#a8c4d0"), 1.08) if look != "snow" else SNOW_ROOF[1])
+    d.rectangle(rf, outline=OUTLINE)
+    return b
+
+
+def convention_centre(look, v):
+    """A convention centre of the seventies on 3 by 3 tiles: a vast low hall under a flat roof of trusses, a glass entrance at
+    the corner, flags along the front and a car park."""
+    b = Building(3, 3, height=3 * STOREY + 6)
+    d = b.d
+    rng = random.Random(15600 + v)
+    top = b.lift
+    d.rectangle([1, top + 68, 94, top + 94], c("#6a6a70") if look != "snow" else c("#e6ecf0"))
+    if look != "snow":
+        for xx in range(4, 92, 6):
+            d.line([xx, top + 72, xx, top + 90], c("#d8d8d0"))
+    rf, wall = b.box(4, 6, 91, 64, 3 * STOREY)
+    d.rectangle(wall, [c("#c8c4bc"), c("#b8b4ac")][v % 2])
+    x0, y0, x1, y1 = wall
+    d.rectangle([x0 + 2, y1 - 10, x0 + 30, y1], GLASS_NEW, OUTLINE)
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(rf, SNOW_ROOF[0] if look == "snow" else c("#8a8a90"))
+    rx0, ry0, rx1, ry1 = rf
+    for xx in range(rx0 + 6, rx1, 8):
+        d.line([xx, ry0 + 1, xx, ry1 - 1], c("#6a6a70") if look != "snow" else SNOW_ROOF[1])
+    d.rectangle(rf, outline=OUTLINE)
+    for k, xx in enumerate(range(40, 90, 8)):
+        gx, gy = b.ground(xx, 66)
+        d.line([gx, gy, gx, gy - 10], c("#d8d8d0"))
+        d.rectangle([gx + 1, gy - 10, gx + 5, gy - 7], [c("#c0392b"), c("#3c78a8"), c("#f2c94c"), c("#3f8a4a")][k % 4])
+    return b
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -6472,6 +7228,14 @@ BUILDINGS = [
     ("city_park", city_park, 3), ("allotments", allotments, 3), ("community_garden", community_garden, 3), ("pocket_park", pocket_park, 3),
     ("urban_woodland", urban_woodland, 4), ("botanical_garden", botanical_garden, 2), ("wetland_reserve", wetland_reserve, 3),
     ("greenway", greenway, 4), ("dog_park", dog_park, 3),
+    # Sport and culture.
+    ("sports_ground", sports_ground, 3), ("lit_fields", lit_fields, 2), ("public_baths", public_baths, 2), ("swimming_pool", swimming_pool, 2),
+    ("aquatic_centre", aquatic_centre, 2), ("tennis_courts", tennis_courts, 3), ("ice_rink", ice_rink, 2), ("ballpark", ballpark, 2),
+    ("arena", arena, 2), ("stadium", stadium, 3), ("golf_course", golf_course, 2), ("skate_park", skate_park, 2), ("rec_centre", rec_centre, 2),
+    ("bandstand", bandstand, 2), ("variety_theatre", variety_theatre, 2), ("picture_palace", picture_palace, 3), ("multiplex", multiplex, 3),
+    ("opera_house", opera_house, 2), ("museum", museum, 2), ("art_gallery", art_gallery, 2), ("concert_hall", concert_hall, 2),
+    ("zoo", zoo, 4), ("fairground", fairground, 2), ("amusement_park", amusement_park, 2), ("drive_in", drive_in, 2),
+    ("aquarium", aquarium, 2), ("convention_centre", convention_centre, 2),
     ("police_hq", police_hq, 1), ("courthouse", courthouse, 2), ("jail", jail, 1),
     ("farmstead", farmstead, 4), ("country_house", country_house, 3), ("acreage_home", acreage_home, 3),
     ("crossroads_store", crossroads_store, 3), ("roadhouse", roadhouse, 3),

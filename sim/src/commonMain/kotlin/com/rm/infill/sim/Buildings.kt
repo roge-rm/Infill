@@ -329,6 +329,47 @@ enum class BuildingType(
     WETLAND_RESERVE(Zone.NONE, 0, 2, width = 3, height = 3, year = 1985),
     GREENWAY(Zone.NONE, 0, 0, year = 1985),
     DOG_PARK(Zone.NONE, 0, 0, year = 1990),
+
+    /**
+     * Sport: a sports ground (lit playing fields from 1980), public baths
+     * (a swimming pool from 1935, an aquatic centre from 1985), tennis
+     * courts, an ice rink, a ballpark, a stadium, an arena, a golf course,
+     * a skate park and a recreation centre.
+     */
+    SPORTS_GROUND(Zone.NONE, 0, 2, width = 2, height = 2),
+    LIT_FIELDS(Zone.NONE, 0, 3, width = 2, height = 2, year = 1980),
+    PUBLIC_BATHS(Zone.NONE, 0, 6, width = 2, height = 2, life = 50),
+    SWIMMING_POOL(Zone.NONE, 0, 6, width = 2, height = 2, year = 1935, life = 40),
+    AQUATIC_CENTRE(Zone.NONE, 0, 10, width = 2, height = 2, year = 1985, life = 40),
+    TENNIS_COURTS(Zone.NONE, 0, 1, width = 2, height = 1, year = 1910),
+    ICE_RINK(Zone.NONE, 0, 8, width = 2, height = 2, year = 1920, life = 40),
+    BALLPARK(Zone.NONE, 0, 20, width = 3, height = 3, year = 1910, life = 60),
+    ARENA(Zone.NONE, 0, 40, width = 3, height = 3, year = 1965, life = 50),
+    STADIUM(Zone.NONE, 0, 60, width = 4, height = 4, year = 1960, life = 60),
+    GOLF_COURSE(Zone.NONE, 0, 12, width = 4, height = 4, year = 1910),
+    SKATE_PARK(Zone.NONE, 0, 0, year = 1995),
+    REC_CENTRE(Zone.NONE, 0, 10, width = 2, height = 2, year = 1950, life = 40),
+
+    /**
+     * Culture and entertainment: a bandstand, a variety theatre (a picture
+     * palace from 1925, a multiplex from 1985), an opera house, a museum, an
+     * art gallery, a concert hall, a zoo, a fairground (an amusement park
+     * from 1955), a drive-in, an aquarium and a convention centre.
+     */
+    BANDSTAND(Zone.NONE, 0, 0),
+    VARIETY_THEATRE(Zone.NONE, 0, 12, width = 2, height = 2, life = 60),
+    PICTURE_PALACE(Zone.NONE, 0, 14, width = 2, height = 2, year = 1925, life = 60),
+    MULTIPLEX(Zone.NONE, 0, 18, width = 2, height = 2, year = 1985, life = 40),
+    OPERA_HOUSE(Zone.NONE, 0, 30, width = 3, height = 2, life = 80),
+    MUSEUM(Zone.NONE, 0, 20, width = 3, height = 2, life = 80),
+    ART_GALLERY(Zone.NONE, 0, 10, width = 2, height = 2, year = 1920, life = 70),
+    CONCERT_HALL(Zone.NONE, 0, 30, width = 3, height = 2, year = 1960, life = 60),
+    ZOO(Zone.NONE, 0, 40, width = 4, height = 4, year = 1910),
+    FAIRGROUND(Zone.NONE, 0, 10, width = 3, height = 3),
+    AMUSEMENT_PARK(Zone.NONE, 0, 60, width = 3, height = 3, year = 1955, life = 40),
+    DRIVE_IN(Zone.NONE, 0, 6, width = 3, height = 3, year = 1950),
+    AQUARIUM(Zone.NONE, 0, 30, width = 3, height = 2, year = 1990, life = 50),
+    CONVENTION_CENTRE(Zone.NONE, 0, 60, width = 3, height = 3, year = 1975, life = 50),
     ;
 
     /** A building the city runs rather than one that grows on zoned land. */
@@ -458,6 +499,9 @@ enum class BuildingType(
 
     /** Green space: a park, garden, woodland and the like, see [Specs]. */
     val green: Boolean get() = Specs.of(this)?.green != null
+
+    /** A place for sport or culture: it gives the homes round it leisure, and isn't green space. */
+    val leisure: Boolean get() = Specs.of(this)?.let { it.leisure != null && it.green == null } == true
 
     /** Laid a tile at a time, by dragging, like a park. */
     val painted: Boolean get() = Specs.of(this)?.painted == true

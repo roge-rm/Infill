@@ -1053,7 +1053,37 @@
     <string name="wetland_reserve">Wetland reserve</string>
     <string name="greenway">Greenway</string>
     <string name="dog_park">Dog park</string>
+    <!-- Sport and culture, under Leisure. -->
+    <string name="sports_ground">Sports ground</string>
+    <string name="lit_fields">Lit playing fields</string>
+    <string name="public_baths">Public baths</string>
+    <string name="swimming_pool">Swimming pool</string>
+    <string name="aquatic_centre">Aquatic centre</string>
+    <string name="tennis_courts">Tennis courts</string>
+    <string name="ice_rink">Ice rink</string>
+    <string name="ballpark">Ballpark</string>
+    <string name="arena">Arena</string>
+    <string name="stadium">Stadium</string>
+    <string name="golf_course">Golf course</string>
+    <string name="skate_park">Skate park</string>
+    <string name="rec_centre">Recreation centre</string>
+    <string name="bandstand">Bandstand</string>
+    <string name="variety_theatre">Variety theatre</string>
+    <string name="picture_palace">Picture palace</string>
+    <string name="multiplex">Multiplex</string>
+    <string name="opera_house">Opera house</string>
+    <string name="museum">Museum</string>
+    <string name="art_gallery">Art gallery</string>
+    <string name="concert_hall">Concert hall</string>
+    <string name="zoo">Zoo</string>
+    <string name="fairground">Fairground</string>
+    <string name="amusement_park">Amusement park</string>
+    <string name="drive_in">Drive-in</string>
+    <string name="aquarium">Aquarium</string>
+    <string name="convention_centre">Convention centre</string>
     <string name="tool_leisure">Leisure</string>
+    <!-- The funding and upkeep of parks, sport and culture together. -->
+    <string name="parks_and_leisure">Parks and leisure</string>
     <string name="label_leisure">Leisure near home</string>
     <!-- The town's leisure near home, and what people expect in the year, both 0 to 100. -->
     <string name="leisure_value">%1$d, %2$d expected</string>

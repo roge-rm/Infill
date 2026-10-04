@@ -278,7 +278,7 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     }
 
     // A service: staff, wear, and how full it is.
-    if ((t.service || t == BuildingType.EXCHANGE) && !t.green && built) {
+    if ((t.service || t.leisure || t == BuildingType.EXCHANGE) && !t.green && built) {
         val staffed = city.staffed(t)
         stats += StatItem(Glyph.Person, stringResource(Res.string.label_staffed), stringResource(Res.string.percent, staffed), staffed / 100f, toneOf(staffed, 90, 60))
         if (t.life > 0 || unmet.isNotEmpty()) {

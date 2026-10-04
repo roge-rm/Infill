@@ -138,4 +138,67 @@ class LeisureTest {
         val i = c.map.index(24, 36)
         assertEquals(c.map.leisureGreen[i], loaded.map.leisureGreen[i])
     }
+
+    @Test
+    fun thePicturePalaceComesAndGoes() {
+        fun culture(year: Int): Int {
+            val c = town(year, Era.STREETCAR)
+            c.everything = true
+            assertTrue(c.apply(Action.PlaceBuilding(BuildingType.PICTURE_PALACE, 20, 20)).ok)
+            c.months(1)
+            return c.map.leisureCulture[c.map.index(21, 24)].toInt() and 0xff
+        }
+        val early = culture(1920)
+        val peak = culture(1945)
+        val late = culture(1995)
+        assertTrue(early < peak && late < peak, "1920 $early, 1945 $peak, 1995 $late")
+    }
+
+    @Test
+    fun theBathsBecomeASwimmingPool() {
+        val c = town(1940)
+        c.needsApply = false
+        assertTrue(c.apply(Action.PlaceBuilding(BuildingType.PUBLIC_BATHS, 20, 20)).ok)
+        c.months(1)
+        val b = c.buildingAt(20, 20)!!
+        assertTrue(c.outdated(b))
+        assertTrue(c.apply(Action.RenewArea(b.x, b.y, b.x, b.y)).ok)
+        assertEquals(BuildingType.SWIMMING_POOL, b.type)
+    }
+
+    @Test
+    fun aStadiumDrawsCrowds() {
+        fun visitors(stadium: Boolean): Int {
+            val c = town(1970)
+            assertTrue(c.apply(Action.PlaceZone(10, 31, 40, 33, Zone.RESIDENTIAL, Density.MEDIUM)).ok)
+            if (stadium) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.STADIUM, 30, 20)).ok)
+            c.months(6)
+            return c.stats.visitors
+        }
+        assertTrue(visitors(true) > visitors(false))
+    }
+
+    @Test
+    fun sportIsAsGoodAsItsFunding() {
+        fun sport(funding: Int): Int {
+            val c = town(1960)
+            c.parkFunding = funding
+            assertTrue(c.apply(Action.PlaceBuilding(BuildingType.REC_CENTRE, 20, 20)).ok)
+            c.months(1)
+            return c.map.leisureSport[c.map.index(21, 22)].toInt() and 0xff
+        }
+        assertTrue(sport(0) in 1 until sport(100), "none ${sport(0)}, full ${sport(100)}")
+    }
+
+    @Test
+    fun cultureBringsCustomToTheShops() {
+        fun appeal(museum: Boolean): Int {
+            val c = town(1950)
+            assertTrue(c.apply(Action.PlaceZone(10, 31, 30, 33, Zone.COMMERCIAL, Density.MEDIUM)).ok)
+            if (museum) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.MUSEUM, 16, 26)).ok)
+            c.months(1)
+            return c.attraction(c.map.index(18, 32), Zone.COMMERCIAL)
+        }
+        assertTrue(appeal(true) > appeal(false))
+    }
 }

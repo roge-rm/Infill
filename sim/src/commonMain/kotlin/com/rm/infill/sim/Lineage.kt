@@ -51,6 +51,10 @@ object Lineage {
         listOf(Kind(POLICE_STATION), Kind(PRECINCT, 100, 125, 112, 3_000), Kind(COMMUNITY_POLICING, 100, 135, 120, 3_500)),
         listOf(Kind(BuildingType.TOWN_SQUARE), Kind(BuildingType.PLAZA)),
         listOf(Kind(BuildingType.ALLOTMENTS), Kind(BuildingType.COMMUNITY_GARDEN)),
+        listOf(Kind(BuildingType.SPORTS_GROUND), Kind(BuildingType.LIT_FIELDS)),
+        listOf(Kind(BuildingType.PUBLIC_BATHS), Kind(BuildingType.SWIMMING_POOL), Kind(BuildingType.AQUATIC_CENTRE)),
+        listOf(Kind(BuildingType.VARIETY_THEATRE), Kind(BuildingType.PICTURE_PALACE), Kind(BuildingType.MULTIPLEX)),
+        listOf(Kind(BuildingType.FAIRGROUND), Kind(BuildingType.AMUSEMENT_PARK)),
     )
 
     private val kinds = arrayOfNulls<Kind>(BuildingType.entries.size)

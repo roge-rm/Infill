@@ -794,7 +794,7 @@ class City(
 
     /** Whether [b] is a service worn enough to renovate, and open. */
     fun renovatable(b: Building): Boolean =
-        b.type.zone == Zone.NONE && (b.type.service || Needs.of(b.type).isNotEmpty()) && b.outage == 0 && b.underway == 0 &&
+        b.type.zone == Zone.NONE && (b.type.service || b.type.leisure || Needs.of(b.type).isNotEmpty()) && b.outage == 0 && b.underway == 0 &&
             (b.type.life > 0 && Ageing.wear(monthNow - b.built, b.type.life) >= Balance.RENEWABLE_WEAR || unmet(b).any { it.second } || outdated(b))
 
     /** What renovating [b] costs: a share of a newer kind's price to bring it up to date, or of its own to make it good. */
@@ -3435,8 +3435,9 @@ class City(
             val spec = Specs.of(b.type) ?: continue
             val l = spec.leisure ?: continue
             if (b.underway > 0 || b.outage > 0) continue
-            var strong = l.fashion(year) * condition(b) / 100
-            if (spec.green != null) strong = strong * kept / 100 * grown(b, spec.green) / 100
+            // Green space as it's kept and grown; sport and culture as they're funded, staffed and kept up.
+            val strong = if (spec.green != null) l.fashion(year) * condition(b) / 100 * kept / 100 * grown(b, spec.green) / 100
+            else l.fashion(year) * strengthOf(b, parkFunding) / 100
             if (strong <= 0) continue
             val cx = b.x + b.type.width / 2
             val cy = b.y + b.type.height / 2
@@ -7307,7 +7308,8 @@ class City(
                 b.type.root == BuildingType.POLICE_STATION -> police += Lineage.kindOf(b.type).upkeep / 100.0
                 b.type.root == BuildingType.FIRE_STATION -> fire += Lineage.kindOf(b.type).upkeep / 100.0
                 b.type == BuildingType.PARK -> parks += 1.0
-                b.type.green -> parks += Specs.of(b.type)!!.upkeep / Balance.PARK_UPKEEP
+                // Green space, sport and culture, all under the parks funding.
+                b.type.green || b.type.leisure -> parks += Specs.of(b.type)!!.upkeep / Balance.PARK_UPKEEP
                 Generation.station(b.type) || b.type == BuildingType.SUBSTATION -> plants += when (b.type) {
                     BuildingType.OIL_PLANT -> Balance.OIL_PLANT_UPKEEP
                     BuildingType.GAS_PLANT -> Balance.GAS_PLANT_UPKEEP

@@ -59,8 +59,8 @@ Health also comes from mains water and the sewer, wealth, parks nearby, clean ai
 
 Schooling builds up over years. Children who grow up schooled become the workers that shops, offices and later works need.
 
-Parks and green space are under **Leisure** (see Leisure and parks).
+Parks, sport and culture are under **Leisure** (see Leisure and parks).
 
 ## Funding
 
-The budget has a funding slider for police, fire, parks, schools and health care, which scales what they do and what they cost. **Emergency repairs** sets how fast breakdowns and broken pipes, lines and roads are mended, from 50% to 200%, and what that costs.
+The budget has a funding slider for police, fire, parks and leisure, schools and health care, which scales what they do and what they cost. **Emergency repairs** sets how fast breakdowns and broken pipes, lines and roads are mended, from 50% to 200%, and what that costs.

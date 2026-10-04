@@ -7,6 +7,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.rm.infill.res.parks_and_leisure
 import com.rm.infill.res.label_leisure
 import com.rm.infill.res.leisure_value
 import com.rm.infill.res.series_leisure
@@ -371,7 +372,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
         Section(stringResource(Res.string.funding), Glyph.Civic) {
             Stepper(GlyphMark(Glyph.Star), stringResource(Res.string.police_station), city.policeFunding, 10) { game.setFunding(police = (city.policeFunding + it).coerceIn(0, 100)) }
             Stepper(GlyphMark(Glyph.Flame), stringResource(Res.string.fire_station), city.fireFunding, 10) { game.setFunding(fire = (city.fireFunding + it).coerceIn(0, 100)) }
-            Stepper(GlyphMark(Glyph.Tree), stringResource(Res.string.park), city.parkFunding, 10) { game.setFunding(parks = (city.parkFunding + it).coerceIn(0, 100)) }
+            Stepper(GlyphMark(Glyph.Tree), stringResource(Res.string.parks_and_leisure), city.parkFunding, 10) { game.setFunding(parks = (city.parkFunding + it).coerceIn(0, 100)) }
             Stepper(GlyphMark(Glyph.Cap), stringResource(Res.string.upkeep_schools), city.schoolFunding, 10) { game.setFunding(schools = (city.schoolFunding + it).coerceIn(0, 100)) }
             Stepper(GlyphMark(Glyph.Cross), stringResource(Res.string.upkeep_health), city.healthFunding, 10) { game.setFunding(health = (city.healthFunding + it).coerceIn(0, 100)) }
             Stepper(GlyphMark(Glyph.Wrench), stringResource(Res.string.emergency_repairs), city.reliefFunding, 25) { game.setFunding(relief = (city.reliefFunding + it).coerceIn(50, 200)) }
@@ -397,7 +398,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit) {
                 Triple(Glyph.Bolt, Res.string.upkeep_power, s.powerUpkeep),
                 Triple(Glyph.Star, Res.string.police_station, s.policeUpkeep),
                 Triple(Glyph.Flame, Res.string.fire_station, s.fireUpkeep),
-                Triple(Glyph.Tree, Res.string.park, s.parkUpkeep),
+                Triple(Glyph.Tree, Res.string.parks_and_leisure, s.parkUpkeep),
                 if (s.schoolUpkeep > 0) Triple(Glyph.Cap, Res.string.upkeep_schools, s.schoolUpkeep) else null,
                 if (s.healthUpkeep > 0) Triple(Glyph.Cross, Res.string.upkeep_health, s.healthUpkeep) else null,
                 if (s.repairCost > 0) Triple(Glyph.Wrench, Res.string.upkeep_repairs, s.repairCost) else null,

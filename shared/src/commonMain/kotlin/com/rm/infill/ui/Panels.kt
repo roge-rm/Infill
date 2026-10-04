@@ -25,6 +25,33 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rm.infill.res.sports_ground
+import com.rm.infill.res.lit_fields
+import com.rm.infill.res.public_baths
+import com.rm.infill.res.swimming_pool
+import com.rm.infill.res.aquatic_centre
+import com.rm.infill.res.tennis_courts
+import com.rm.infill.res.ice_rink
+import com.rm.infill.res.ballpark
+import com.rm.infill.res.arena
+import com.rm.infill.res.stadium
+import com.rm.infill.res.golf_course
+import com.rm.infill.res.skate_park
+import com.rm.infill.res.rec_centre
+import com.rm.infill.res.bandstand
+import com.rm.infill.res.variety_theatre
+import com.rm.infill.res.picture_palace
+import com.rm.infill.res.multiplex
+import com.rm.infill.res.opera_house
+import com.rm.infill.res.museum
+import com.rm.infill.res.art_gallery
+import com.rm.infill.res.concert_hall
+import com.rm.infill.res.zoo
+import com.rm.infill.res.fairground
+import com.rm.infill.res.amusement_park
+import com.rm.infill.res.drive_in
+import com.rm.infill.res.aquarium
+import com.rm.infill.res.convention_centre
 import com.rm.infill.res.playground
 import com.rm.infill.res.town_square
 import com.rm.infill.res.plaza
@@ -425,6 +452,33 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.NURSING_HOME -> Res.string.nursing_home
     BuildingType.COOLING_CENTRE -> Res.string.cooling_centre
     BuildingType.LIBRARY -> Res.string.library
+    BuildingType.SPORTS_GROUND -> Res.string.sports_ground
+    BuildingType.LIT_FIELDS -> Res.string.lit_fields
+    BuildingType.PUBLIC_BATHS -> Res.string.public_baths
+    BuildingType.SWIMMING_POOL -> Res.string.swimming_pool
+    BuildingType.AQUATIC_CENTRE -> Res.string.aquatic_centre
+    BuildingType.TENNIS_COURTS -> Res.string.tennis_courts
+    BuildingType.ICE_RINK -> Res.string.ice_rink
+    BuildingType.BALLPARK -> Res.string.ballpark
+    BuildingType.ARENA -> Res.string.arena
+    BuildingType.STADIUM -> Res.string.stadium
+    BuildingType.GOLF_COURSE -> Res.string.golf_course
+    BuildingType.SKATE_PARK -> Res.string.skate_park
+    BuildingType.REC_CENTRE -> Res.string.rec_centre
+    BuildingType.BANDSTAND -> Res.string.bandstand
+    BuildingType.VARIETY_THEATRE -> Res.string.variety_theatre
+    BuildingType.PICTURE_PALACE -> Res.string.picture_palace
+    BuildingType.MULTIPLEX -> Res.string.multiplex
+    BuildingType.OPERA_HOUSE -> Res.string.opera_house
+    BuildingType.MUSEUM -> Res.string.museum
+    BuildingType.ART_GALLERY -> Res.string.art_gallery
+    BuildingType.CONCERT_HALL -> Res.string.concert_hall
+    BuildingType.ZOO -> Res.string.zoo
+    BuildingType.FAIRGROUND -> Res.string.fairground
+    BuildingType.AMUSEMENT_PARK -> Res.string.amusement_park
+    BuildingType.DRIVE_IN -> Res.string.drive_in
+    BuildingType.AQUARIUM -> Res.string.aquarium
+    BuildingType.CONVENTION_CENTRE -> Res.string.convention_centre
     BuildingType.PLAYGROUND -> Res.string.playground
     BuildingType.TOWN_SQUARE -> Res.string.town_square
     BuildingType.PLAZA -> Res.string.plaza

@@ -1,5 +1,26 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.sports_ground
+import com.rm.infill.res.public_baths
+import com.rm.infill.res.tennis_courts
+import com.rm.infill.res.ice_rink
+import com.rm.infill.res.ballpark
+import com.rm.infill.res.arena
+import com.rm.infill.res.stadium
+import com.rm.infill.res.golf_course
+import com.rm.infill.res.skate_park
+import com.rm.infill.res.rec_centre
+import com.rm.infill.res.bandstand
+import com.rm.infill.res.variety_theatre
+import com.rm.infill.res.opera_house
+import com.rm.infill.res.museum
+import com.rm.infill.res.art_gallery
+import com.rm.infill.res.concert_hall
+import com.rm.infill.res.zoo
+import com.rm.infill.res.fairground
+import com.rm.infill.res.drive_in
+import com.rm.infill.res.aquarium
+import com.rm.infill.res.convention_centre
 import com.rm.infill.res.tool_leisure
 import com.rm.infill.res.leisure_sport
 import com.rm.infill.res.leisure_culture
@@ -321,6 +342,27 @@ enum class ServiceKind(val title: StringResource, val type: BuildingType?, val g
     WetlandReserve(Res.string.wetland_reserve, BuildingType.WETLAND_RESERVE, ServiceGroup.Parks),
     Greenway(Res.string.greenway, BuildingType.GREENWAY, ServiceGroup.Parks),
     DogPark(Res.string.dog_park, BuildingType.DOG_PARK, ServiceGroup.Parks),
+    SportsGround(Res.string.sports_ground, BuildingType.SPORTS_GROUND, ServiceGroup.Sport),
+    PublicBaths(Res.string.public_baths, BuildingType.PUBLIC_BATHS, ServiceGroup.Sport),
+    TennisCourts(Res.string.tennis_courts, BuildingType.TENNIS_COURTS, ServiceGroup.Sport),
+    IceRink(Res.string.ice_rink, BuildingType.ICE_RINK, ServiceGroup.Sport),
+    Ballpark(Res.string.ballpark, BuildingType.BALLPARK, ServiceGroup.Sport),
+    Arena(Res.string.arena, BuildingType.ARENA, ServiceGroup.Sport),
+    Stadium(Res.string.stadium, BuildingType.STADIUM, ServiceGroup.Sport),
+    GolfCourse(Res.string.golf_course, BuildingType.GOLF_COURSE, ServiceGroup.Sport),
+    SkatePark(Res.string.skate_park, BuildingType.SKATE_PARK, ServiceGroup.Sport),
+    RecCentre(Res.string.rec_centre, BuildingType.REC_CENTRE, ServiceGroup.Sport),
+    Bandstand(Res.string.bandstand, BuildingType.BANDSTAND, ServiceGroup.Culture),
+    VarietyTheatre(Res.string.variety_theatre, BuildingType.VARIETY_THEATRE, ServiceGroup.Culture),
+    OperaHouse(Res.string.opera_house, BuildingType.OPERA_HOUSE, ServiceGroup.Culture),
+    Museum(Res.string.museum, BuildingType.MUSEUM, ServiceGroup.Culture),
+    ArtGallery(Res.string.art_gallery, BuildingType.ART_GALLERY, ServiceGroup.Culture),
+    ConcertHall(Res.string.concert_hall, BuildingType.CONCERT_HALL, ServiceGroup.Culture),
+    Zoo(Res.string.zoo, BuildingType.ZOO, ServiceGroup.Culture),
+    Fairground(Res.string.fairground, BuildingType.FAIRGROUND, ServiceGroup.Culture),
+    DriveIn(Res.string.drive_in, BuildingType.DRIVE_IN, ServiceGroup.Culture),
+    Aquarium(Res.string.aquarium, BuildingType.AQUARIUM, ServiceGroup.Culture),
+    ConventionCentre(Res.string.convention_centre, BuildingType.CONVENTION_CENTRE, ServiceGroup.Culture),
     School(Res.string.school, BuildingType.SCHOOL, ServiceGroup.Schools),
     HighSchool(Res.string.high_school, BuildingType.HIGH_SCHOOL, ServiceGroup.Schools),
     Library(Res.string.library, BuildingType.LIBRARY, ServiceGroup.Schools),

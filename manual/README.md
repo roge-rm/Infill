@@ -11,7 +11,7 @@
 8. [Water, drains and garbage](08-water-and-waste.md) - wells and mains, pressure, sewers and foul water, storms and floods, and garbage.
 9. [Phones and the internet](09-phones.md) - exchanges, lines, masts and broadband.
 10. [Services](10-services.md) - police and justice, fire, health, schools and waste, and how their cover works.
-11. [Leisure and parks](11-leisure-and-parks.md) - what people want to do near home, and the parks, gardens and green space that give it.
+11. [Leisure and parks](11-leisure-and-parks.md) - what people want to do near home, and the parks, sport and culture that give it.
 12. [People](12-people.md) - households, ages, schooling, wealth, work, health and getting about.
 13. [Money](13-money.md) - taxes, income, upkeep and the budget.
 14. [Eras](14-eras.md) - the six eras, what each needs and what each brings.

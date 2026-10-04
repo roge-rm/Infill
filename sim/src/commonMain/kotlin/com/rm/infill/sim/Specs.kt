@@ -80,6 +80,37 @@ object Specs {
         put(WETLAND_RESERVE, Spec(3_000, 10.0, Green(3, 140, 0, 3), Leisure(green = 50, reach = 10), draw = 10.0))
         put(GREENWAY, Spec(80, 0.4, Green(1, 80, 10, 5), Leisure(green = 25, sport = 15, reach = 3), painted = true))
         put(DOG_PARK, Spec(300, 3.0, Green(1, 80, 10, 5), Leisure(green = 20, reach = 4)))
+
+        // Sport.
+        put(BuildingType.SPORTS_GROUND, Spec(700, 5.0, leisure = Leisure(green = 15, sport = 50, reach = 8)))
+        put(BuildingType.LIT_FIELDS, Spec(1_200, 9.0, leisure = Leisure(green = 10, sport = 70, reach = 8)))
+        put(BuildingType.PUBLIC_BATHS, Spec(1_500, 12.0, leisure = Leisure(sport = 40, reach = 8)))
+        put(BuildingType.SWIMMING_POOL, Spec(2_000, 15.0, leisure = Leisure(sport = 60, reach = 10)))
+        put(BuildingType.AQUATIC_CENTRE, Spec(4_000, 25.0, leisure = Leisure(sport = 80, reach = 12), draw = 5.0))
+        put(BuildingType.TENNIS_COURTS, Spec(500, 3.0, leisure = Leisure(sport = 30, reach = 5)))
+        put(BuildingType.ICE_RINK, Spec(1_800, 12.0, leisure = Leisure(sport = 45, culture = 10, reach = 10)))
+        put(BuildingType.BALLPARK, Spec(6_000, 30.0, leisure = Leisure(sport = 60, reach = 14), draw = 15.0))
+        put(BuildingType.ARENA, Spec(15_000, 60.0, leisure = Leisure(sport = 50, culture = 40, reach = 16), draw = 25.0))
+        put(BuildingType.STADIUM, Spec(30_000, 120.0, leisure = Leisure(sport = 80, reach = 20), draw = 50.0))
+        put(BuildingType.GOLF_COURSE, Spec(5_000, 25.0, Green(2, 120, 5, 3), Leisure(green = 30, sport = 40, reach = 12)))
+        put(BuildingType.SKATE_PARK, Spec(300, 2.0, leisure = Leisure(sport = 25, reach = 5)))
+        put(BuildingType.REC_CENTRE, Spec(2_500, 18.0, leisure = Leisure(sport = 50, culture = 15, reach = 10)))
+
+        // Culture: some come into fashion and go out again.
+        put(BuildingType.BANDSTAND, Spec(200, 1.0, leisure = Leisure(green = 10, culture = 35, reach = 5, fadesFrom = 1930, fadedBy = 1965, fadesTo = 40)))
+        put(BuildingType.VARIETY_THEATRE, Spec(2_000, 10.0, leisure = Leisure(culture = 50, reach = 10, fadesFrom = 1925, fadedBy = 1950, fadesTo = 50)))
+        put(BuildingType.PICTURE_PALACE, Spec(2_500, 12.0, leisure = Leisure(culture = 60, reach = 12, risesFrom = 1915, peak = 1935, fadesFrom = 1955, fadedBy = 1985, fadesTo = 60)))
+        put(BuildingType.MULTIPLEX, Spec(3_000, 14.0, leisure = Leisure(culture = 55, reach = 14)))
+        put(BuildingType.OPERA_HOUSE, Spec(10_000, 50.0, leisure = Leisure(culture = 70, reach = 16), draw = 20.0))
+        put(BuildingType.MUSEUM, Spec(7_000, 35.0, leisure = Leisure(culture = 50, reach = 16), draw = 25.0))
+        put(BuildingType.ART_GALLERY, Spec(4_000, 20.0, leisure = Leisure(culture = 45, reach = 12), draw = 12.0))
+        put(BuildingType.CONCERT_HALL, Spec(12_000, 55.0, leisure = Leisure(culture = 70, reach = 18), draw = 15.0))
+        put(BuildingType.ZOO, Spec(12_000, 60.0, Green(2, 110, 20, 2), Leisure(green = 40, culture = 40, reach = 16), draw = 40.0))
+        put(BuildingType.FAIRGROUND, Spec(2_500, 15.0, leisure = Leisure(culture = 40, reach = 12, fadesFrom = 1950, fadedBy = 1970, fadesTo = 50), draw = 15.0))
+        put(BuildingType.AMUSEMENT_PARK, Spec(15_000, 70.0, leisure = Leisure(culture = 55, reach = 14), draw = 45.0))
+        put(BuildingType.DRIVE_IN, Spec(1_500, 6.0, leisure = Leisure(culture = 40, reach = 14, fadesFrom = 1975, fadedBy = 1990, fadesTo = 20)))
+        put(BuildingType.AQUARIUM, Spec(14_000, 60.0, leisure = Leisure(culture = 45, reach = 16), draw = 35.0))
+        put(BuildingType.CONVENTION_CENTRE, Spec(25_000, 90.0, leisure = Leisure(culture = 20, reach = 10), draw = 40.0))
     }
 
     /** [t]'s numbers, or null for a building whose numbers are its own code's. */

@@ -259,7 +259,7 @@ enum class Glyph {
     Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
     Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance, Sack, Glass, Hat,
     Person, Briefcase, Wrench, Calendar, Snow, Gavel, Tag, Check, Warn, Building, Cable, Phone, Mast,
-    Anchor, Ship, Suitcase, Bridge, Plane, Speaker, Book,
+    Anchor, Ship, Suitcase, Bridge, Plane, Speaker, Book, Ball, Mask,
 }
 
 /** The drawing for [tool]. */
@@ -288,8 +288,8 @@ fun serviceGlyph(group: ServiceGroup): Glyph = when (group) {
     ServiceGroup.Health -> Glyph.Cross
     ServiceGroup.Schools -> Glyph.Cap
     ServiceGroup.Parks -> Glyph.Tree
-    ServiceGroup.Sport -> Glyph.Target
-    ServiceGroup.Culture -> Glyph.Book
+    ServiceGroup.Sport -> Glyph.Ball
+    ServiceGroup.Culture -> Glyph.Mask
     ServiceGroup.Waste -> Glyph.Bin
 }
 
@@ -512,6 +512,21 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
         Glyph.Arrows -> {
             line(3f, 8f, 19f, 8f); drawPath(path(21f, 8f, 16f, 4f, 16f, 12f), c)
             line(5f, 16f, 21f, 16f); drawPath(path(3f, 16f, 8f, 12f, 8f, 20f), c)
+        }
+        Glyph.Ball -> {
+            // A football: a ring, a patch in the middle and seams out from it.
+            drawCircle(c, 9 * u, Offset(12 * u, 12 * u), style = Stroke(1.8f * u))
+            drawPath(path(12f, 8.5f, 15.3f, 11f, 14f, 15f, 10f, 15f, 8.7f, 11f), c)
+            line(12f, 8.5f, 12f, 3.5f, 1.4f * u); line(15.3f, 11f, 20f, 9.5f, 1.4f * u); line(8.7f, 11f, 4f, 9.5f, 1.4f * u)
+            line(14f, 15f, 17f, 19.5f, 1.4f * u); line(10f, 15f, 7f, 19.5f, 1.4f * u)
+        }
+        Glyph.Mask -> {
+            // A theatre mask: a face, its eyes and a smile cut out.
+            drawPath(path(4f, 4f, 20f, 4f, 20f, 11f, 17f, 18f, 12f, 21f, 7f, 18f, 4f, 11f), c)
+            val hole = c.copy(alpha = 0.25f)
+            drawOval(hole, Offset(7 * u, 8 * u), Size(3.5f * u, 2.5f * u))
+            drawOval(hole, Offset(13.5f * u, 8 * u), Size(3.5f * u, 2.5f * u))
+            drawArc(hole, 20f, 140f, false, Offset(8 * u, 10 * u), Size(8 * u, 6 * u), style = Stroke(1.6f * u))
         }
         Glyph.Target -> {
             drawCircle(c, 9 * u, Offset(12 * u, 12 * u), style = Stroke(1.8f * u))
