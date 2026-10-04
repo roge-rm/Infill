@@ -872,11 +872,14 @@
     <string name="value_running">Running</string>
     <string name="value_built">Built %1$d</string>
     <string name="action_renovate">Renovate</string>
+    <string name="action_bring_up_to_date">Bring up to date</string>
     <string name="action_scrubbers">Fit scrubbers</string>
     <string name="action_bulldoze">Bulldoze</string>
     <string name="action_renew">Renew</string>
     <string name="action_lines">Lines</string>
     <string name="pill_worn">Worn out</string>
+    <!-- A service of an older kind: the newer kind's name and the year it came. -->
+    <string name="pill_newer_kind">Dated: %1$s since %2$d</string>
     <string name="pill_no_road">No road</string>
     <string name="pill_short_of_stock">Short of stock</string>
     <string name="label_unemployed">Out of work</string>
@@ -1033,6 +1036,21 @@
     <string name="carbon_heating">Heating</string>
     <string name="overlay_carbon">Carbon</string>
     <string name="cooling_centre">Cooling centre</string>
+    <!-- Newer kinds of the services, which take the older kinds' place as the years go by. -->
+    <string name="elementary_school">Elementary school</string>
+    <string name="community_school">Community school</string>
+    <string name="composite_high">Composite high school</string>
+    <string name="branch_library">Branch library</string>
+    <string name="media_library">Media library</string>
+    <string name="health_centre">Health centre</string>
+    <string name="community_health">Community health centre</string>
+    <string name="general_hospital">General hospital</string>
+    <string name="medical_centre">Medical centre</string>
+    <string name="care_home">Care home</string>
+    <string name="motor_fire_station">Motor fire hall</string>
+    <string name="fire_hall">Fire and rescue hall</string>
+    <string name="precinct">Police precinct</string>
+    <string name="community_policing">Community police office</string>
     <string name="cool_roofs">Cool roofs and paving</string>
     <string name="green_roofs">Green roofs</string>
     <!--

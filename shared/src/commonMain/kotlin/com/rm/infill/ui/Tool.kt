@@ -528,6 +528,8 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
         rail: RailKind, water: WaterKind, transit: TransitKind, map: CityMap, junction: JunctionKind = JunctionKind.Lights,
         district: Int = NEW_DISTRICT, phone: PhoneKind = PhoneKind.Copper, port: PortKind = PortKind.Wharf, bridge: BridgeKind? = null, tunnel: Boolean = false,
         air: AirKind = AirKind.Airfield,
+        /** The newest kind of a building the town can put up, for a tray that shows the first of a line. */
+        newest: (BuildingType) -> BuildingType = { it },
     ): Action? = when (tool) {
         Tool.Air -> Action.PlaceBuilding(air.type, x1, y1)
         Tool.Port -> Action.PlaceBuilding(portBuilding(map, port, x1, y1), x1, y1)
@@ -552,7 +554,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
         Tool.Services -> when {
             service == ServiceKind.Park -> Action.PlaceParks(x0, y0, x1, y1)
             service.type == null -> Action.PlantStreetTrees(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
-            else -> Action.PlaceBuilding(service.type, x1, y1)
+            else -> Action.PlaceBuilding(newest(service.type), x1, y1)
         }
         Tool.Inspect -> null
         Tool.Road -> {

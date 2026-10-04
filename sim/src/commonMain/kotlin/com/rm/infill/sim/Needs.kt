@@ -36,7 +36,7 @@ object Needs {
 
     /** What [type] needs, with the year each comes in; nothing for what grows on zoned land, or for the utilities themselves. */
     fun of(type: BuildingType): List<Pair<Need, Int>> = when {
-        type.school || type == BuildingType.LIBRARY -> SCHOOL
+        type.school || type.root == BuildingType.LIBRARY -> SCHOOL
         type.health -> HEALTH
         type == BuildingType.JAIL -> JAIL
         type.justice -> POLICE

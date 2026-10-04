@@ -260,6 +260,8 @@ object Balance {
     const val NURSING_SAVES = 30
     const val LIBRARY_REACH = 10
     const val LIBRARY_SCHOOLING = 15
+    /** However many libraries are near, in percent of one fresh library: the best a newer kind gives. */
+    const val LIBRARY_MOST = 133
     const val COLLEGE_PLACES = 600
     const val COLLEGE_REACH = 30
     const val COLLEGE_OFFICES = 8
@@ -312,6 +314,17 @@ object Balance {
     const val WORN_SERVICE = 60
     const val RENOVATE_SHARE = 30
     const val RENOVATE_DAYS = 30
+
+    /**
+     * A service of an older kind (see [Lineage]): it loses DATE_STEP percent
+     * for each newer kind, coming in over DATE_RAMP_YEARS from the year it
+     * came, to no less than DATE_FLOOR. Renovating it into the newest kind
+     * costs UPGRADE_SHARE percent of the new kind's price.
+     */
+    const val DATE_STEP = 20
+    const val DATE_RAMP_YEARS = 20
+    const val DATE_FLOOR = 50
+    const val UPGRADE_SHARE = 60
     /** A service runs at no less than this share of its strength, however short of staff the town is. */
     const val LEAST_STAFF = 30
 

@@ -317,6 +317,7 @@ object Prices {
         BuildingType.COOLING_CENTRE -> 1_500L
         BuildingType.LIBRARY -> 1_500L
         BuildingType.COLLEGE -> 25_000L
-        else -> 0L
+        // A newer kind of a service by its own price.
+        else -> Lineage.kindOf(type).price
     }
 }

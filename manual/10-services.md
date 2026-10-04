@@ -15,9 +15,15 @@ Services also need power, water, a phone and later broadband as the years go by.
 
 Schools and doctors take more than they have room for, up to 140%, and each person gets less when they're crowded.
 
+## Newer kinds
+
+As the decades go by, newer kinds of most services come in: the schoolhouse gives way to the elementary school in 1930, the doctor's clinic to the health centre in 1950, and so on. A newer kind stands on the same ground as the one before it, takes in more, reaches further and costs a little more to run. The tray always offers the newest kind the town can build.
+
+Older ones keep working, but they date: a fifth less for each newer kind, coming on over twenty years from when it came, down to half. The inspect card says **Dated** and names the newer kind. **Bring up to date** renovates it into the newest, where it stands, for 60% of the new kind's price and a month closed.
+
 ## Police and justice
 
-- **Police station** patrols the area around it, hears a few cases and holds a few prisoners.
+- **Police station** patrols the area around it, hears a few cases and holds a few prisoners. **Police precinct** (1935) patrols further, and **Community police office** (1995) further again.
 - **Police headquarters** (1920) also has detectives who go after rackets across the whole town.
 - **Courthouse** hears many more cases.
 - **Jail** holds 400, and lowers land value next to it.
@@ -28,7 +34,7 @@ Police cover cuts theft and vice. Arrests become cases if there are courts to he
 
 ## Fire
 
-- **Fire hall** covers the area around it.
+- **Fire hall** covers the area around it. **Motor fire hall** (1915) reaches further, and **Fire and rescue hall** (1975) further again.
 - **Volunteer fire hall** is cheap and does half as much.
 - **Ladder company** (1905) reaches the upper floors. High buildings need it as well as a fire hall, and towers can't be built without it.
 
@@ -36,20 +42,20 @@ Fires start in zoned buildings, more in works and in early wooden buildings, and
 
 ## Health
 
-- **Clinic** looks after 1,500 people nearby.
-- **Hospital** looks after 12,000 across a wide area.
+- **Clinic** looks after 1,500 people nearby. **Health centre** (1950) looks after more, and **Community health centre** (2000) more again.
+- **Hospital** looks after 12,000 across a wide area. **General hospital** (1940) and **Medical centre** (1980) look after more and reach further.
 - **Ambulance station** (1910) saves lives within reach by road.
-- **Nursing home** cares for the elderly nearby.
+- **Nursing home** cares for the elderly nearby. **Care home** (1975) has more room.
 - **Cooling centre** (1960) takes in the elderly in a heat wave.
 
 Health also comes from mains water and the sewer, wealth, parks nearby, clean air and no smog. Pollution, grime, crowded tenements, dumps and brownfield make it worse. People in poor health die younger, and homes with very poor health lose appeal.
 
 ## Schools
 
-- **School** teaches the children nearby.
-- **High school** (1910) teaches the teenagers, over a wider area.
+- **School** teaches the children nearby. **Elementary school** (1930) and **Community school** (2005) take more, from further away.
+- **High school** (1910) teaches the teenagers, over a wider area. **Composite high school** (1960) takes more.
 - **College** turns some who'd stop at school into graduates, and draws offices.
-- **Library** gives the schooling nearby a boost.
+- **Library** gives the schooling nearby a boost. **Branch library** (1955) and **Media library** (2005) give more.
 
 Schooling builds up over years. Children who grow up schooled become the workers that shops, offices and later works need.
 

@@ -322,7 +322,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         // Wide buildings reach in from the columns to the left.
         for (ty in y0 until min(y1 + SPRITE_ROWS, map.height)) for (tx in max(0, x0 - WIDEST + 1) until x1) {
             val i = map.index(tx, ty)
-            val type = (map.buildingType[i].toInt() and 0xff)
+            val type = map.buildingType[i].toInt()
             if (type != 0) {
                 val (ax, ay) = anchor(tx, ty)
                 if (ax != tx || ty != bottom(tx, ty)) continue
@@ -368,7 +368,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
      */
     private fun spriteAt(tx: Int, ty: Int, anchorOnly: Boolean): Int? {
         val i = map.index(tx, ty)
-        val type = (map.buildingType[i].toInt() and 0xff)
+        val type = map.buildingType[i].toInt()
         if (type != 0) {
             val (ax, ay) = anchor(tx, ty)
             if (anchorOnly && (ax != tx || ay != ty)) return null
@@ -427,7 +427,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
      * same variant, it takes its next variant instead, so a row of them varies.
      */
     private fun buildingSprite(x: Int, y: Int): Int {
-        val type = (map.buildingType[map.index(x, y)].toInt() and 0xff) - 1
+        val type = map.buildingType[map.index(x, y)].toInt() - 1
         val t = BuildingType.entries[type]
         // A building still going up is its site, dug or framed.
         val site = map.site[map.index(x, y)].toInt()
@@ -464,7 +464,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         return v
     }
 
-    private fun sameType(x: Int, y: Int, type: Int) = map.inside(x, y) && (map.buildingType[map.index(x, y)].toInt() and 0xff) - 1 == type
+    private fun sameType(x: Int, y: Int, type: Int) = map.inside(x, y) && map.buildingType[map.index(x, y)].toInt() - 1 == type
 
     /** Variants worked out during one bake. */
     private val shown = HashMap<Int, Int>()
@@ -504,7 +504,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             if (!map.inside(nx, ny)) return false
             val j = map.index(nx, ny)
             if (map.phone[j] == kind) return true
-            val type = (map.buildingType[j].toInt() and 0xff) - 1
+            val type = map.buildingType[j].toInt() - 1
             return type == BuildingType.EXCHANGE.ordinal || type == BuildingType.CELL_TOWER.ordinal
         }
         var m = 0
@@ -534,7 +534,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         if (!map.inside(x, y)) return false
         val i = map.index(x, y)
         if (map.building[i] == 0) return map.power[i] == kind
-        val type = (map.buildingType[i].toInt() and 0xff) - 1
+        val type = map.buildingType[i].toInt() - 1
         if (type < 0) return false
         val t = BuildingType.entries[type]
         return Generation.station(t) || t == BuildingType.SUBSTATION

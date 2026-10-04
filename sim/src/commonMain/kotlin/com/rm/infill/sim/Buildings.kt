@@ -281,25 +281,50 @@ enum class BuildingType(
     HIGH_SCHOOL(Zone.NONE, 0, 16, width = 3, height = 2, year = 1910, life = 60),
     CLINIC(Zone.NONE, 0, 4, life = 40),
     HOSPITAL(Zone.NONE, 0, 60, width = 3, height = 3, life = 50),
+
+    /**
+     * The newer kinds of the town's services, each in the footprint of the
+     * one before it (see [Lineage]): the schoolhouse becomes an elementary
+     * school, then a community school open in the evenings; the high school a
+     * composite high; the library a branch library, then a media library.
+     */
+    ELEMENTARY_SCHOOL(Zone.NONE, 0, 10, width = 2, height = 2, year = 1930, life = 50),
+    COMMUNITY_SCHOOL(Zone.NONE, 0, 12, width = 2, height = 2, year = 2005, life = 50),
+    COMPOSITE_HIGH(Zone.NONE, 0, 20, width = 3, height = 2, year = 1960, life = 60),
+    BRANCH_LIBRARY(Zone.NONE, 0, 5, year = 1955, life = 60),
+    MEDIA_LIBRARY(Zone.NONE, 0, 6, year = 2005, life = 50),
+
+    /** The doctor's clinic becomes a health centre, then a community health centre; the hospital a general hospital, then a medical centre; the nursing home a care home. */
+    HEALTH_CENTRE(Zone.NONE, 0, 6, year = 1950, life = 40),
+    COMMUNITY_HEALTH(Zone.NONE, 0, 8, year = 2000, life = 40),
+    GENERAL_HOSPITAL(Zone.NONE, 0, 80, width = 3, height = 3, year = 1940, life = 50),
+    MEDICAL_CENTRE(Zone.NONE, 0, 110, width = 3, height = 3, year = 1980, life = 50),
+    CARE_HOME(Zone.NONE, 0, 26, width = 2, height = 2, year = 1975, life = 50),
+
+    /** The horse-drawn fire station becomes a motor fire station, then a fire hall; the police station a precinct, then a community police office. */
+    MOTOR_FIRE_STATION(Zone.NONE, 0, 14, width = 2, height = 2, year = 1915, life = 50),
+    FIRE_HALL(Zone.NONE, 0, 16, width = 2, height = 2, year = 1975, life = 50),
+    PRECINCT(Zone.NONE, 0, 12, width = 2, height = 1, year = 1935, life = 50),
+    COMMUNITY_POLICING(Zone.NONE, 0, 12, width = 2, height = 1, year = 1995, life = 50),
     ;
 
     /** A building the city runs rather than one that grows on zoned land. */
-    val service get() = this == PARK || justice || fire || school || health || this == LIBRARY
+    val service get() = this == PARK || justice || fire || school || health || root == LIBRARY
 
     /** Keeps the peace: police, courts and jails. */
-    val justice get() = this == POLICE_STATION || this == POLICE_HQ || this == COURTHOUSE || this == JAIL
+    val justice get() = root == POLICE_STATION || this == POLICE_HQ || this == COURTHOUSE || this == JAIL
 
     /** Has police on patrol from it. */
-    val patrols get() = this == POLICE_STATION || this == POLICE_HQ
+    val patrols get() = root == POLICE_STATION || this == POLICE_HQ
 
     /** Fights fires. */
-    val fire get() = this == FIRE_STATION || this == VOLUNTEER_HALL || this == LADDER_COMPANY
+    val fire get() = root == FIRE_STATION || this == VOLUNTEER_HALL || this == LADDER_COMPANY
 
     /** Teaches. */
-    val school get() = this == SCHOOL || this == HIGH_SCHOOL || this == COLLEGE
+    val school get() = root == SCHOOL || root == HIGH_SCHOOL || this == COLLEGE
 
     /** Looks after people's health. */
-    val health get() = this == CLINIC || this == HOSPITAL || this == NURSING_HOME || this == AMBULANCE_STATION || this == COOLING_CENTRE
+    val health get() = root == CLINIC || root == HOSPITAL || root == NURSING_HOME || this == AMBULANCE_STATION || this == COOLING_CENTRE
 
     /** Passengers board here. */
     val station get() = this == STATION || this == STATION_NS
@@ -336,7 +361,8 @@ enum class BuildingType(
 
     /**
      * The building this one is a bigger or smaller kind of, for what its work
-     * needs, how its ground sheds rain and the like; itself for the rest.
+     * needs, how its ground sheds rain and the like; for a newer kind of a
+     * service, the first of its line; itself for the rest.
      */
     val like: BuildingType get() = when (this) {
         VILLA_DEEP, VILLA_WIDE, MANSION -> LARGE_HOUSE
@@ -360,7 +386,8 @@ enum class BuildingType(
         SHOPS_AND_FLATS_DEEP, SHOPS_AND_FLATS_WIDE, PARADE_BLOCK -> MAIN_STREET_FLATS
         MIXED_SLAB_DEEP, MIXED_SLAB_WIDE, MIXED_COURT -> MIXED_BLOCK
         MARKET_GARDEN, ORCHARD_DEEP, ORCHARD_WIDE -> FARM
-        else -> this
+        // A newer kind of a service stands in for the first of its line.
+        else -> root
     }
 
     /** Grows food on the land: a farm, a market garden or an orchard. */
@@ -405,6 +432,9 @@ enum class BuildingType(
 
     /** The rung below, the first choice there, or null if this is the first. */
     val previous: BuildingType? get() = rung(zone, stage - 1).let { r -> r.firstOrNull { (it.density == Density.RURAL) == (density == Density.RURAL) } ?: r.firstOrNull() }
+
+    /** The first kind of its [Lineage], whose role it has: itself for most. */
+    val root: BuildingType get() = Lineage.rootOf(this)
 
     /** Takes more than one lot. */
     val large get() = width > 1 || height > 1

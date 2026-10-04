@@ -592,7 +592,8 @@ fun serviceChoices(city: City, group: ServiceGroup): List<Choice<ServiceKind>> =
     when {
         k.type == null -> Choice(k, stringResource(k.title), ChoiceIcon(intArrayOf(Atlas.ROAD_STREET + ACROSS, Atlas.STREET_TREES)), perTile(Prices.STREET_TREE))
         k.type == BuildingType.PARK -> Choice(k, stringResource(k.title), building(k.type), perTile(Prices.PARK))
-        else -> Choice(k, stringResource(k.title), building(k.type), buildingDetail(k.type))
+        // A line of kinds shows the newest the town can build.
+        else -> city.newest(k.type).let { t -> Choice(k, stringResource(if (t == k.type) k.title else buildingName(t)), building(t), buildingDetail(t)) }
     }
 }
 

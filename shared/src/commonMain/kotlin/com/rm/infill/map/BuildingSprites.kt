@@ -156,6 +156,20 @@ internal object BuildingSprites {
                 BuildingType.NURSING_HOME -> Atlas.NURSING_HOME to Atlas.NURSING_HOME_COUNT
                 BuildingType.COOLING_CENTRE -> Atlas.COOLING_CENTRE to Atlas.COOLING_CENTRE_COUNT
                 BuildingType.LIBRARY -> Atlas.LIBRARY to Atlas.LIBRARY_COUNT
+                BuildingType.ELEMENTARY_SCHOOL -> Atlas.ELEMENTARY_SCHOOL to Atlas.ELEMENTARY_SCHOOL_COUNT
+                BuildingType.COMMUNITY_SCHOOL -> Atlas.COMMUNITY_SCHOOL to Atlas.COMMUNITY_SCHOOL_COUNT
+                BuildingType.COMPOSITE_HIGH -> Atlas.COMPOSITE_HIGH to Atlas.COMPOSITE_HIGH_COUNT
+                BuildingType.BRANCH_LIBRARY -> Atlas.BRANCH_LIBRARY to Atlas.BRANCH_LIBRARY_COUNT
+                BuildingType.MEDIA_LIBRARY -> Atlas.MEDIA_LIBRARY to Atlas.MEDIA_LIBRARY_COUNT
+                BuildingType.HEALTH_CENTRE -> Atlas.HEALTH_CENTRE to Atlas.HEALTH_CENTRE_COUNT
+                BuildingType.COMMUNITY_HEALTH -> Atlas.COMMUNITY_HEALTH to Atlas.COMMUNITY_HEALTH_COUNT
+                BuildingType.GENERAL_HOSPITAL -> Atlas.GENERAL_HOSPITAL to Atlas.GENERAL_HOSPITAL_COUNT
+                BuildingType.MEDICAL_CENTRE -> Atlas.MEDICAL_CENTRE to Atlas.MEDICAL_CENTRE_COUNT
+                BuildingType.CARE_HOME -> Atlas.CARE_HOME to Atlas.CARE_HOME_COUNT
+                BuildingType.MOTOR_FIRE_STATION -> Atlas.MOTOR_FIRE_STATION to Atlas.MOTOR_FIRE_STATION_COUNT
+                BuildingType.FIRE_HALL -> Atlas.FIRE_HALL to Atlas.FIRE_HALL_COUNT
+                BuildingType.PRECINCT -> Atlas.PRECINCT to Atlas.PRECINCT_COUNT
+                BuildingType.COMMUNITY_POLICING -> Atlas.COMMUNITY_POLICING to Atlas.COMMUNITY_POLICING_COUNT
                 BuildingType.COLLEGE -> Atlas.COLLEGE to Atlas.COLLEGE_COUNT
                 BuildingType.POLICE_HQ -> Atlas.POLICE_HQ to Atlas.POLICE_HQ_COUNT
                 BuildingType.EXCHANGE -> Atlas.EXCHANGE to Atlas.EXCHANGE_COUNT

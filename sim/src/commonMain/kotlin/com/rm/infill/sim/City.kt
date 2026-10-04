@@ -352,7 +352,7 @@ class City(
                 for (b in renovations(action)) {
                     val i = m.index(b.x, b.y)
                     if (i !in changes) changes += i
-                    cost += Prices.of(b.type) * Balance.RENOVATE_SHARE / 100
+                    cost += renovationPrice(b)
                 }
             }
             is Action.RemoveTransit -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
@@ -773,10 +773,15 @@ class City(
     }
 
     /** Puts [b]'s age and closure back to [built] and [outage], for undo and redo. */
-    private fun reopen(b: Building, built: Int, outage: Int) {
+    private fun reopen(b: Building, built: Int, outage: Int, type: BuildingType) {
         b.built = built
         b.outage = outage
         if (outage > 0) outages += b.id else outages -= b.id
+        if (b.type != type) {
+            b.type = type
+            stamp(b)
+            forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { townChanges += it }
+        }
     }
 
     /** The worn services with a tile under [action]'s rectangle, which it renovates. */
@@ -790,7 +795,11 @@ class City(
     /** Whether [b] is a service worn enough to renovate, and open. */
     fun renovatable(b: Building): Boolean =
         b.type.zone == Zone.NONE && (b.type.service || Needs.of(b.type).isNotEmpty()) && b.outage == 0 && b.underway == 0 &&
-            (b.type.life > 0 && Ageing.wear(monthNow - b.built, b.type.life) >= Balance.RENEWABLE_WEAR || unmet(b).any { it.second })
+            (b.type.life > 0 && Ageing.wear(monthNow - b.built, b.type.life) >= Balance.RENEWABLE_WEAR || unmet(b).any { it.second } || outdated(b))
+
+    /** What renovating [b] costs: a share of a newer kind's price to bring it up to date, or of its own to make it good. */
+    fun renovationPrice(b: Building): Long =
+        if (outdated(b)) Prices.of(newest(b.type)) * Balance.UPGRADE_SHARE / 100 else Prices.of(b.type) * Balance.RENOVATE_SHARE / 100
 
     /** Whether what was laid on tile [i] in [laid], expected to last [life] years, is worn enough to relay. */
     private fun worn(laid: ShortArray, i: Int, life: Int): Boolean = Ageing.wear(monthNow - laid[i], life) >= Balance.RENEWABLE_WEAR
@@ -1161,7 +1170,7 @@ class City(
         /** The stations with scrubbers before and after. */
         val scrubbedBefore: Set<Int>,
         val scrubbedAfter: Set<Int>,
-        /** Each building renovated: its id, and when it was built and how long it's shut, before and after. */
+        /** Each building renovated: its id, when it was built and how long it's shut, before and after, and its kind before and after. */
         val renovated: List<IntArray> = emptyList(),
         /** The phone lines on the tiles, before and after. */
         val utilBefore: LongArray = LongArray(0),
@@ -1303,12 +1312,19 @@ class City(
                 // A renovated service is as good as new, once it opens again.
                 val b = buildings[m.building[i]]
                 if (b != null && b.x == i % m.width && b.y == i / m.width && renovatable(b)) {
-                    val was = intArrayOf(b.id, b.built, b.outage, 0, 0)
+                    val was = intArrayOf(b.id, b.built, b.outage, 0, 0, b.type.ordinal, 0)
+                    // An older kind comes back as the newest, in the same place.
+                    if (outdated(b)) {
+                        b.type = newest(b.type)
+                        stamp(b)
+                        forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { townChanges += it }
+                    }
                     b.built = now
                     b.outage = Balance.RENOVATE_DAYS
                     outages += b.id
                     was[3] = b.built
                     was[4] = b.outage
+                    was[6] = b.type.ordinal
                     renovated += was
                 }
                 val (bits, _) = renewal(i)
@@ -1538,7 +1554,7 @@ class City(
         districts.clear()
         districts += e.districtsBefore.map { it.copy() }
         for (b in buildings.values) b.scrubbed = b.id in e.scrubbedBefore
-        for (r in e.renovated) buildings[r[0]]?.let { reopen(it, r[1], r[2]) }
+        for (r in e.renovated) buildings[r[0]]?.let { reopen(it, r[1], r[2], BuildingType.entries[r[5]]) }
         updateTransit()
         funds += e.cost
         redoable.addLast(e)
@@ -1574,7 +1590,7 @@ class City(
         districts.clear()
         districts += e.districtsAfter.map { it.copy() }
         for (b in buildings.values) b.scrubbed = b.id in e.scrubbedAfter
-        for (r in e.renovated) buildings[r[0]]?.let { reopen(it, r[3], r[4]) }
+        for (r in e.renovated) buildings[r[0]]?.let { reopen(it, r[3], r[4], BuildingType.entries[r[6]]) }
         updateTransit()
         funds -= e.cost
         undoable.addLast(e)
@@ -1761,7 +1777,7 @@ class City(
     private fun stamp(b: Building) {
         forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { i ->
             map.building[i] = b.id
-            map.buildingType[i] = (b.type.ordinal + 1).toByte()
+            map.buildingType[i] = (b.type.ordinal + 1).toShort()
             map.buildingVariant[i] = b.variant.toByte()
             map.fire[i] = min(b.burning, 127).toByte()
             map.forSale[i] = b.people?.empty == true
@@ -1788,7 +1804,7 @@ class City(
     private fun restamp(tiles: IntArray) {
         for (i in tiles) {
             val b = buildings[map.building[i]]
-            map.buildingType[i] = if (b == null) 0 else (b.type.ordinal + 1).toByte()
+            map.buildingType[i] = if (b == null) 0 else (b.type.ordinal + 1).toShort()
             map.buildingVariant[i] = if (b == null) 0 else b.variant.toByte()
             map.fire[i] = if (b == null) 0 else min(b.burning, 127).toByte()
             map.forSale[i] = b?.people?.empty == true
@@ -2436,7 +2452,7 @@ class City(
         val park = if (year >= Balance.PARK_COOLS_YEAR) 100 + Balance.PARK_COOLS_MORE else 100
         val green = SummedArea(m.width, m.height) {
             when {
-                (m.buildingType[it].toInt() and 0xff) - 1 == BuildingType.PARK.ordinal -> park
+                m.buildingType[it].toInt() - 1 == BuildingType.PARK.ordinal -> park
                 m.terrain[it] == Terrain.TREES || m.terrain[it] == Terrain.WATER || m.streetTrees[it].toInt() != 0 -> 100
                 m.building[it] != 0 && greenRoof(it) -> Balance.GREEN_ROOF_GREEN
                 else -> 0
@@ -3384,7 +3400,7 @@ class City(
      * they are. Either way it's as much as the funding and the staff allow.
      */
     private fun updateServices() {
-        fun of(t: BuildingType) = buildings.values.filter { it.type == t }.sortedBy { it.id }
+        fun of(t: BuildingType) = buildings.values.filter { it.type.root == t }.sortedBy { it.id }
         val motor = year >= Balance.MOTOR_FIRE_YEAR
         cover(buildings.values.filter { it.type.patrols }.sortedBy { it.id }, year >= Balance.PATROL_CAR_YEAR, Balance.POLICE_REACH, Balance.POLICE_RESPONSE_FULL, Balance.POLICE_RESPONSE_MOST, policeFunding, 100, map.policeCover)
         // Fire halls, and volunteer halls at half the strength.
@@ -3407,8 +3423,10 @@ class City(
         for (b in stations) {
             val strong = strengthOf(b, funding) * share / 100
             if (strong <= 0) continue
-            if (drive) responseCover(listOf(b), full, most, strong, each)
-            else Effects.cover(map, listOf(b), reach * strong / 100, each)
+            // A newer kind reaches further: on foot, by distance; driving, by the time it allows.
+            val further = Lineage.kindOf(b.type).reach
+            if (drive) responseCover(listOf(b), full * further / 100, most * further / 100, strong, each)
+            else Effects.cover(map, listOf(b), reach * further / 100 * strong / 100, each)
             for (i in 0 until map.size) if ((each[i].toInt() and 0xff) > (out[i].toInt() and 0xff)) out[i] = each[i]
         }
     }
@@ -3771,11 +3789,17 @@ class City(
 
     /** How well [b] works, in percent: for its age, fully until its expected life and less past it, and for what it needs. */
     fun condition(b: Building): Int {
-        val fit = fit(b)
+        val fit = fit(b) * Lineage.dated(b.type, year) / 100
         if (b.type.life == 0) return fit
         val wear = Ageing.wear(monthNow - b.built, b.type.life)
         return (if (wear <= 100) 100 else max(Balance.WORN_SERVICE, 100 - (wear - 100) / 2)) * fit / 100
     }
+
+    /** The newest kind in [t]'s line the town can put up now, or [t] itself if none newer has come. */
+    fun newest(t: BuildingType): BuildingType = Lineage.lineOf(t).lastOrNull { allows(it) } ?: t
+
+    /** Whether a newer kind of [b] has come that the town can build, so renovating brings it up to date. */
+    fun outdated(b: Building): Boolean = newest(b.type) != b.type && Lineage.lineOf(b.type).indexOf(newest(b.type)) > Lineage.lineOf(b.type).indexOf(b.type)
 
     /** Whether [b] has [need] where it stands: the line, the main or the service reaching it. */
     fun reaches(b: Building, need: Need): Boolean {
@@ -5642,12 +5666,14 @@ class City(
      */
     private fun allot(type: BuildingType, places: Int, reach: Int, funding: Int, homes: List<Building>, need: (Building) -> Int): HashMap<Int, Int> {
         val got = HashMap<Int, Int>()
-        val strong = strength(type, funding)
-        val r = reach * strong / 100
         for (place in buildings.values.sortedBy { it.id }) {
-            if (place.type != type || place.underway > 0 || place.outage > 0) continue
+            if (place.type.root != type || place.underway > 0 || place.outage > 0) continue
+            // Each kind in the line by its own numbers: a newer kind takes in more and reaches further.
+            val kind = Lineage.kindOf(place.type)
+            val strong = strength(place.type, funding)
+            val r = reach * kind.reach / 100 * strong / 100
             val good = condition(place)
-            val room = places * strong / 100 * good / 100
+            val room = places * kind.serves / 100 * strong / 100 * good / 100
             var left = room * Balance.OVERFILL / 100
             val cx = place.x + place.type.width / 2
             val cy = place.y + place.type.height / 2
@@ -5691,13 +5717,16 @@ class City(
         val nursing = allot(BuildingType.NURSING_HOME, Balance.NURSING_PLACES, Balance.NURSING_REACH, healthFunding, homes) { it.people!!.elderly }
         val cooling = allot(BuildingType.COOLING_CENTRE, Balance.COOLING_PLACES, Balance.COOLING_REACH, healthFunding, homes) { it.people!!.elderly }
         val college = allot(BuildingType.COLLEGE, Balance.COLLEGE_PLACES, Balance.COLLEGE_REACH, schoolFunding, homes) { it.people!!.children / Balance.TEENS }
+        // Each library by its kind and how well it works: a newer kind teaches more, a dated one less.
         val libraries = SummedArea(m.width, m.height) { j ->
             val b = buildings[m.building[j]]
-            if (b != null && b.type == BuildingType.LIBRARY && b.x == j % m.width && b.y == j / m.width && b.outage == 0 && b.underway == 0) 1 else 0
+            if (b != null && b.type.root == BuildingType.LIBRARY && b.x == j % m.width && b.y == j / m.width && b.outage == 0 && b.underway == 0) {
+                Lineage.kindOf(b.type).serves * condition(b) / 100
+            } else 0
         }
-        val parks = SummedArea(m.width, m.height) { if ((m.buildingType[it].toInt() and 0xff) - 1 == BuildingType.PARK.ordinal) 1 else 0 }
+        val parks = SummedArea(m.width, m.height) { if (m.buildingType[it].toInt() - 1 == BuildingType.PARK.ordinal) 1 else 0 }
         val fouled = if (m.brownfield.any { it.toInt() != 0 }) SummedArea(m.width, m.height) { m.brownfield[it].toInt() } else null
-        val dumpsNear = SummedArea(m.width, m.height) { if ((m.buildingType[it].toInt() and 0xff) - 1 == BuildingType.DUMP.ordinal) 1 else 0 }
+        val dumpsNear = SummedArea(m.width, m.height) { if (m.buildingType[it].toInt() - 1 == BuildingType.DUMP.ordinal) 1 else 0 }
         s.pupils = pupils.values.sum()
         s.highSchoolPupils = teens.values.sum()
         s.cared = clinic.values.sum() + hospital.values.sum()
@@ -5709,7 +5738,8 @@ class City(
             // School: the share of the children with a place, which their schooling follows.
             val kids = h.children
             // A library nearby teaches some more, at school and after.
-            val library = if (libraries.around(b.x, b.y, Balance.LIBRARY_REACH) > 0) Balance.LIBRARY_SCHOOLING * strength(BuildingType.LIBRARY, schoolFunding) / 100 else 0
+            val library = Balance.LIBRARY_SCHOOLING * min(libraries.around(b.x, b.y, Balance.LIBRARY_REACH), Balance.LIBRARY_MOST) / 100 *
+                strength(BuildingType.LIBRARY, schoolFunding) / 100
             val atSchool = if (kids == 0) 0 else min(100, (pupils[b.id] ?: 0) * 100 / kids + library)
             h.schooling = towards(h.schooling, atSchool, Balance.SCHOOLING_PACE)
             val older = kids / Balance.TEENS
@@ -5814,12 +5844,15 @@ class City(
         var places = 0
         var highPlaces = 0
         var carePlaces = 0
-        for (b in buildings.values) when (b.type) {
-            BuildingType.SCHOOL -> places += Balance.SCHOOL_PLACES * schoolFunding / 100
-            BuildingType.HIGH_SCHOOL -> highPlaces += Balance.HIGH_SCHOOL_PLACES * schoolFunding / 100
-            BuildingType.CLINIC -> carePlaces += Balance.CLINIC_CARES * healthFunding / 100
-            BuildingType.HOSPITAL -> carePlaces += Balance.HOSPITAL_CARES * healthFunding / 100
-            else -> {}
+        for (b in buildings.values) {
+            val more = Lineage.kindOf(b.type).serves
+            when (b.type.root) {
+                BuildingType.SCHOOL -> places += Balance.SCHOOL_PLACES * more / 100 * schoolFunding / 100
+                BuildingType.HIGH_SCHOOL -> highPlaces += Balance.HIGH_SCHOOL_PLACES * more / 100 * schoolFunding / 100
+                BuildingType.CLINIC -> carePlaces += Balance.CLINIC_CARES * more / 100 * healthFunding / 100
+                BuildingType.HOSPITAL -> carePlaces += Balance.HOSPITAL_CARES * more / 100 * healthFunding / 100
+                else -> {}
+            }
         }
         s.schoolPlaces = places
         s.highSchoolPlaces = highPlaces
@@ -6295,7 +6328,7 @@ class City(
 
     /** How much a tile soaks up pollution: 2 for park or woods, 1 for street trees. */
     private fun greenWeight(i: Int): Int = when {
-        map.terrain[i] == Terrain.TREES || (map.buildingType[i].toInt() and 0xff) - 1 == BuildingType.PARK.ordinal -> 2
+        map.terrain[i] == Terrain.TREES || map.buildingType[i].toInt() - 1 == BuildingType.PARK.ordinal -> 2
         map.streetTrees[i].toInt() != 0 -> 1
         else -> 0
     }
@@ -6309,7 +6342,7 @@ class City(
             val x = sx + (tx - sx) * k / steps
             val y = sy + (ty - sy) * k / steps
             val i = map.index(x, y)
-            if (map.terrain[i] == Terrain.TREES || (map.buildingType[i].toInt() and 0xff) - 1 == BuildingType.PARK.ordinal) return amount * Balance.BELT_PASSES / 100
+            if (map.terrain[i] == Terrain.TREES || map.buildingType[i].toInt() - 1 == BuildingType.PARK.ordinal) return amount * Balance.BELT_PASSES / 100
         }
         return amount
     }
@@ -6779,7 +6812,7 @@ class City(
                     if (map.powered[i]) powered++
                 }
                 if ((b.type.zone == Zone.COMMERCIAL || b.type.zone == Zone.OFFICE) && Density.rank(b.type.density) >= Density.rank(Density.HIGH) && b.underway == 0) s.downtown++
-                if (b.type == BuildingType.HIGH_SCHOOL) s.highSchools++
+                if (b.type.root == BuildingType.HIGH_SCHOOL) s.highSchools++
             }
             s.onMains = if (residents == 0) 0 else onMains * 100 / residents
             s.onSewer = if (residents == 0) 0 else onSewer * 100 / residents
@@ -7076,8 +7109,8 @@ class City(
         var shops = 0.0
         var offices = 0.0
         var works = 0.0
-        var police = 0
-        var fire = 0
+        var police = 0.0
+        var fire = 0.0
         var parks = 0
         var plants = 0.0
         var stations = 0
@@ -7091,15 +7124,16 @@ class City(
         var policeExtra = 0.0
         val days = daysIn(if (month == 0) 11 else month - 1, year).toDouble()
         for (b in buildings.values) {
-            when (b.type) {
-                BuildingType.SCHOOL -> schools += Balance.SCHOOL_UPKEEP
-                BuildingType.HIGH_SCHOOL -> schools += Balance.HIGH_SCHOOL_UPKEEP
-                BuildingType.CLINIC -> care += Balance.CLINIC_UPKEEP
+            val dearer = Lineage.kindOf(b.type).upkeep / 100.0
+            when (b.type.root) {
+                BuildingType.SCHOOL -> schools += Balance.SCHOOL_UPKEEP * dearer
+                BuildingType.HIGH_SCHOOL -> schools += Balance.HIGH_SCHOOL_UPKEEP * dearer
+                BuildingType.CLINIC -> care += Balance.CLINIC_UPKEEP * dearer
                 BuildingType.COOLING_CENTRE -> care += Balance.COOLING_UPKEEP
-                BuildingType.HOSPITAL -> care += Balance.HOSPITAL_UPKEEP
-                BuildingType.NURSING_HOME -> care += Balance.NURSING_UPKEEP
+                BuildingType.HOSPITAL -> care += Balance.HOSPITAL_UPKEEP * dearer
+                BuildingType.NURSING_HOME -> care += Balance.NURSING_UPKEEP * dearer
                 BuildingType.AMBULANCE_STATION -> care += Balance.AMBULANCE_UPKEEP
-                BuildingType.LIBRARY -> schools += Balance.LIBRARY_UPKEEP
+                BuildingType.LIBRARY -> schools += Balance.LIBRARY_UPKEEP * dearer
                 BuildingType.COLLEGE -> schools += Balance.COLLEGE_UPKEEP
                 BuildingType.VOLUNTEER_HALL -> fireExtra += Balance.VOLUNTEER_UPKEEP
                 BuildingType.EXCHANGE -> phoneUpkeep += Balance.EXCHANGE_UPKEEP
@@ -7143,8 +7177,9 @@ class City(
                     shops += b.type.capacity * worth * margin / 100.0 * taxOf(b, commercialTax)
                 }
                 b.type.zone == Zone.INDUSTRIAL || b.type.zone == Zone.FARMLAND -> works += b.type.capacity * worth * taxOf(b, industrialTax)
-                b.type == BuildingType.POLICE_STATION -> police++
-                b.type == BuildingType.FIRE_STATION -> fire++
+                // Newer kinds cost more to run, by their share of the first's upkeep.
+                b.type.root == BuildingType.POLICE_STATION -> police += Lineage.kindOf(b.type).upkeep / 100.0
+                b.type.root == BuildingType.FIRE_STATION -> fire += Lineage.kindOf(b.type).upkeep / 100.0
                 b.type == BuildingType.PARK -> parks++
                 Generation.station(b.type) || b.type == BuildingType.SUBSTATION -> plants += when (b.type) {
                     BuildingType.OIL_PLANT -> Balance.OIL_PLANT_UPKEEP

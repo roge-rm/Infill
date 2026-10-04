@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.rm.infill.res.action_bring_up_to_date
+import com.rm.infill.res.pill_newer_kind
 import com.rm.infill.res.pill_nonconforming
 import com.rm.infill.res.pill_upset
 import com.rm.infill.res.need_internet
@@ -384,8 +386,13 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
     if (city.renovatable(b)) {
         val renew = Action.RenewArea(b.x, b.y, b.x, b.y)
         val plan = city.plan(renew)
-        if (plan.ok) actions += ActionItem(Glyph.Wrench, stringResource(Res.string.action_renovate), moneyText(plan.cost)) { onAction(renew) }
-        if (city.condition(b) < 100) pills += PillItem(Glyph.Warn, stringResource(Res.string.pill_worn), Tone.Warn)
+        // An older kind is brought up to date as the newest; anything else is made good as it is.
+        val newer = city.outdated(b)
+        if (plan.ok) actions += ActionItem(Glyph.Wrench, stringResource(if (newer) Res.string.action_bring_up_to_date else Res.string.action_renovate), moneyText(plan.cost)) { onAction(renew) }
+        if (newer) {
+            val kind = city.newest(t)
+            pills += PillItem(Glyph.Hourglass, stringResource(Res.string.pill_newer_kind, stringResource(buildingName(kind)), kind.year), Tone.Warn)
+        } else if (city.condition(b) < 100) pills += PillItem(Glyph.Warn, stringResource(Res.string.pill_worn), Tone.Warn)
     }
     if ((t == BuildingType.COAL_PLANT || t == BuildingType.OIL_PLANT) && !b.scrubbed && city.allowsScrubbers()) {
         val fit = Action.FitScrubbers(b.x, b.y)

@@ -25,6 +25,20 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rm.infill.res.elementary_school
+import com.rm.infill.res.community_school
+import com.rm.infill.res.composite_high
+import com.rm.infill.res.branch_library
+import com.rm.infill.res.media_library
+import com.rm.infill.res.health_centre
+import com.rm.infill.res.community_health
+import com.rm.infill.res.general_hospital
+import com.rm.infill.res.medical_centre
+import com.rm.infill.res.care_home
+import com.rm.infill.res.motor_fire_station
+import com.rm.infill.res.fire_hall
+import com.rm.infill.res.precinct
+import com.rm.infill.res.community_policing
 import com.rm.infill.res.cooling_centre
 import com.rm.infill.res.international_airport
 import com.rm.infill.res.airport
@@ -398,6 +412,20 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.NURSING_HOME -> Res.string.nursing_home
     BuildingType.COOLING_CENTRE -> Res.string.cooling_centre
     BuildingType.LIBRARY -> Res.string.library
+    BuildingType.ELEMENTARY_SCHOOL -> Res.string.elementary_school
+    BuildingType.COMMUNITY_SCHOOL -> Res.string.community_school
+    BuildingType.COMPOSITE_HIGH -> Res.string.composite_high
+    BuildingType.BRANCH_LIBRARY -> Res.string.branch_library
+    BuildingType.MEDIA_LIBRARY -> Res.string.media_library
+    BuildingType.HEALTH_CENTRE -> Res.string.health_centre
+    BuildingType.COMMUNITY_HEALTH -> Res.string.community_health
+    BuildingType.GENERAL_HOSPITAL -> Res.string.general_hospital
+    BuildingType.MEDICAL_CENTRE -> Res.string.medical_centre
+    BuildingType.CARE_HOME -> Res.string.care_home
+    BuildingType.MOTOR_FIRE_STATION -> Res.string.motor_fire_station
+    BuildingType.FIRE_HALL -> Res.string.fire_hall
+    BuildingType.PRECINCT -> Res.string.precinct
+    BuildingType.COMMUNITY_POLICING -> Res.string.community_policing
     BuildingType.COLLEGE -> Res.string.college
     BuildingType.POLICE_HQ -> Res.string.police_hq
     BuildingType.EXCHANGE -> Res.string.exchange

@@ -269,7 +269,7 @@ class CityMap(val width: Int, val height: Int) {
      * tile, kept in step with the city's buildings. The map is drawn from these,
      * on another thread, so it never has to look at the buildings themselves.
      */
-    val buildingType = ByteArray(size)
+    val buildingType = ShortArray(size)
     val buildingVariant = ByteArray(size)
 
     /** Homes standing empty for sale. Follows from the buildings. */

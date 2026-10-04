@@ -72,7 +72,9 @@ class DeepServicesTest {
         val c = street(1990)
         // Age alone; what it needs is tested apart.
         c.needsApply = false
-        assertTrue(c.apply(Action.PlaceBuilding(BuildingType.FIRE_STATION, 10, 10)).ok)
+        // The kind of its year, so it's worn and not dated.
+        val kind = c.newest(BuildingType.FIRE_STATION)
+        assertTrue(c.apply(Action.PlaceBuilding(kind, 10, 10)).ok)
         c.tick()
         val b = c.buildingAt(10, 10)!!
         assertEquals(100, c.condition(b))
@@ -85,7 +87,7 @@ class DeepServicesTest {
         val funds = c.funds
         val plan = c.apply(Action.RenewArea(b.x, b.y, b.x, b.y))
         assertTrue(plan.ok)
-        assertTrue(plan.cost >= Prices.of(BuildingType.FIRE_STATION) * Balance.RENOVATE_SHARE / 100)
+        assertTrue(plan.cost >= Prices.of(kind) * Balance.RENOVATE_SHARE / 100)
         assertEquals(funds - plan.cost, c.funds)
         assertEquals(100, c.condition(b))
         assertEquals(Balance.RENOVATE_DAYS, b.outage)
@@ -106,7 +108,7 @@ class DeepServicesTest {
     @Test
     fun aNewServiceIsNotRenovated() {
         val c = street(1990)
-        assertTrue(c.apply(Action.PlaceBuilding(BuildingType.POLICE_STATION, 10, 10)).ok)
+        assertTrue(c.apply(Action.PlaceBuilding(c.newest(BuildingType.POLICE_STATION), 10, 10)).ok)
         c.tick()
         assertTrue(!c.apply(Action.RenewArea(10, 10, 11, 10)).ok)
     }

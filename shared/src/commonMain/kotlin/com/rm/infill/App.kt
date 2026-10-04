@@ -866,7 +866,7 @@ private fun GameScreen(
         // What the drag would do, worked out again as it moves.
         val preview = remember(drag, tool, zoneKind, densityKind, bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, phoneKind, portKind, bridgeKind, tunnelling, airKind, game.revision) {
             drag?.let { d ->
-                d.action(tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind)?.let { Preview(it, game.plan(it), d.x1, d.y1) }
+                d.action(tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map, junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind, city::newest)?.let { Preview(it, game.plan(it), d.x1, d.y1) }
             }
         }
         val costText = preview?.let {
@@ -1019,7 +1019,7 @@ private fun GameScreen(
 
         fun actionOf(d: ToolDrag) = d.action(
             tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map,
-            junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind,
+            junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind, city::newest,
         )
 
         /** Lets go of the drag: does what it's for. */

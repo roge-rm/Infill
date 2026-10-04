@@ -13,25 +13,25 @@ Dirt roads, wells and septic tanks, and power for those who can get it.
 
 Needs 1,500 people, and mains water or a railway station.
 
-Avenues and boulevards, offices, mixed use, districts, high schools, ambulances, police headquarters, sewage works, the subway, buses and trolleybuses, oil power, high-voltage lines, incinerators, docks and the airfield.
+Avenues and boulevards, offices, mixed use, districts, high schools, ambulances, police headquarters, sewage works, the subway, buses and trolleybuses, oil power, high-voltage lines, incinerators, docks and the airfield. Later, the motor fire hall (1915), the elementary school (1930) and the police precinct (1935).
 
 ## Motor age, from 1940
 
 Needs 8,000 people, 60% on mains water, 60% on the sewer, and power to three quarters of the buildings.
 
-Towers, highways and interchanges, gas power, the airport, the freight terminal, the container port, cooling centres, and ductile iron and concrete pipes.
+Towers, highways and interchanges, gas power, the airport, the freight terminal, the container port, cooling centres, and ductile iron and concrete pipes. The general hospital (1940), the health centre (1950), the branch library (1955) and the composite high school (1960).
 
 ## Renewal, from 1970
 
 Needs 25,000 people, high-density shops or offices, a high school, and traffic flowing at 75% or better.
 
-Nuclear power, river turbines, treatment plants, recycling, the international airport, phone masts and plastic pipes.
+Nuclear power, river turbines, treatment plants, recycling, the international airport, phone masts and plastic pipes. The care home and the fire and rescue hall (1975), the medical centre (1980) and the community police office (1995).
 
 ## Infill, from 2000
 
 Needs three quarters of the land along the roads built on.
 
-Wind and solar farms, tidal turbines, offshore wind, and the tallest towers.
+Wind and solar farms, tidal turbines, offshore wind, and the tallest towers. The community health centre (2000), the community school and the media library (2005).
 
 ## Future, from 2030
 
