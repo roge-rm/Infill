@@ -370,25 +370,73 @@ enum class BuildingType(
     DRIVE_IN(Zone.NONE, 0, 6, width = 3, height = 3, year = 1950),
     AQUARIUM(Zone.NONE, 0, 30, width = 3, height = 2, year = 1990, life = 50),
     CONVENTION_CENTRE(Zone.NONE, 0, 60, width = 3, height = 3, year = 1975, life = 50),
+
+    /**
+     * The civic buildings: a town hall (a city hall from 1925, a civic
+     * centre from 1970), one to a town, whose clerks make the town's laws
+     * cheaper to keep; a post office; a cemetery (a memorial garden from
+     * 1970); and a fountain, a clock tower and a war memorial (from 1920).
+     */
+    TOWN_HALL(Zone.NONE, 0, 20, width = 2, height = 2, life = 80),
+    CITY_HALL(Zone.NONE, 0, 40, width = 2, height = 2, year = 1925, life = 80),
+    CIVIC_CENTRE(Zone.NONE, 0, 60, width = 2, height = 2, year = 1970, life = 60),
+    POST_OFFICE(Zone.NONE, 0, 10, width = 2, height = 1, life = 60),
+    CEMETERY(Zone.NONE, 0, 2, width = 3, height = 3),
+    MEMORIAL_GARDEN(Zone.NONE, 0, 2, width = 3, height = 3, year = 1970),
+    FOUNTAIN(Zone.NONE, 0, 0),
+    CLOCK_TOWER(Zone.NONE, 0, 0),
+    WAR_MEMORIAL(Zone.NONE, 0, 0, year = 1920),
+
+    /**
+     * More schooling: a kindergarten (from 1920), a junior high (from 1930)
+     * that takes the younger teens off the high schools, a vocational school
+     * for a trade (from 1920), a central library (from 1910), a community
+     * college (from 1965), a university (from 1950) and a research campus
+     * (from 2000) that draws offices.
+     */
+    KINDERGARTEN(Zone.NONE, 0, 3, year = 1920, life = 40),
+    JUNIOR_HIGH(Zone.NONE, 0, 12, width = 2, height = 2, year = 1930, life = 50),
+    VOCATIONAL_SCHOOL(Zone.NONE, 0, 16, width = 2, height = 2, year = 1920, life = 50),
+    CENTRAL_LIBRARY(Zone.NONE, 0, 12, width = 2, height = 2, year = 1910, life = 80),
+    COMMUNITY_COLLEGE(Zone.NONE, 0, 30, width = 2, height = 2, year = 1965, life = 50),
+    UNIVERSITY(Zone.NONE, 0, 150, width = 4, height = 4, year = 1950, life = 80),
+    RESEARCH_CAMPUS(Zone.NONE, 0, 120, width = 3, height = 3, year = 2000, life = 50),
+
+    /** More health: a sanatorium for consumptives, until antibiotics (1955); a public health office (from 1910) that heads off epidemics. */
+    SANATORIUM(Zone.NONE, 0, 30, width = 3, height = 2, life = 50),
+    PUBLIC_HEALTH_OFFICE(Zone.NONE, 0, 12, width = 2, height = 1, year = 1910, life = 50),
+
+    /** More police and fire: a police box on the beat (1925 to 1970), traffic police (from 1930), and a fireboat station on the water (from 1910). */
+    POLICE_BOX(Zone.NONE, 0, 1, year = 1925),
+    TRAFFIC_POLICE(Zone.NONE, 0, 10, width = 2, height = 1, year = 1930, life = 50),
+    FIREBOAT_STATION(Zone.NONE, 0, 12, width = 2, height = 2, year = 1910, life = 50),
     ;
 
     /** A building the city runs rather than one that grows on zoned land. */
-    val service get() = this == PARK || justice || fire || school || health || root == LIBRARY
+    val service get() = this == PARK || justice || fire || school || health || root == LIBRARY || this == CENTRAL_LIBRARY || this == RESEARCH_CAMPUS || civic
 
     /** Keeps the peace: police, courts and jails. */
-    val justice get() = root == POLICE_STATION || this == POLICE_HQ || this == COURTHOUSE || this == JAIL
+    val justice get() = root == POLICE_STATION || this == POLICE_HQ || this == COURTHOUSE || this == JAIL || this == POLICE_BOX || this == TRAFFIC_POLICE
 
     /** Has police on patrol from it. */
-    val patrols get() = root == POLICE_STATION || this == POLICE_HQ
+    val patrols get() = root == POLICE_STATION || this == POLICE_HQ || this == POLICE_BOX
 
     /** Fights fires. */
-    val fire get() = root == FIRE_STATION || this == VOLUNTEER_HALL || this == LADDER_COMPANY
+    val fire get() = root == FIRE_STATION || this == VOLUNTEER_HALL || this == LADDER_COMPANY || this == FIREBOAT_STATION
 
     /** Teaches. */
-    val school get() = root == SCHOOL || root == HIGH_SCHOOL || this == COLLEGE
+    val school get() = root == SCHOOL || root == HIGH_SCHOOL || this == COLLEGE || this == KINDERGARTEN || this == JUNIOR_HIGH ||
+        this == VOCATIONAL_SCHOOL || college
+
+    /** Takes school-leavers on to be educated: a college, community college or university. */
+    val college get() = this == COLLEGE || this == COMMUNITY_COLLEGE || this == UNIVERSITY
+
+    /** Run by the town hall's own budget: the hall itself and the post office. */
+    val civic get() = root == TOWN_HALL || this == POST_OFFICE
 
     /** Looks after people's health. */
-    val health get() = root == CLINIC || root == HOSPITAL || root == NURSING_HOME || this == AMBULANCE_STATION || this == COOLING_CENTRE
+    val health get() = root == CLINIC || root == HOSPITAL || root == NURSING_HOME || this == AMBULANCE_STATION || this == COOLING_CENTRE ||
+        this == SANATORIUM || this == PUBLIC_HEALTH_OFFICE
 
     /** Passengers board here. */
     val station get() = this == STATION || this == STATION_NS
@@ -476,7 +524,7 @@ enum class BuildingType(
     val inWater get() = this == RIVER_TURBINE || this == TIDAL_TURBINE || this == OFFSHORE_WIND
 
     /** Has to be beside water. */
-    val onWater get() = this == PUMPING_STATION || outfall || this == STORM_OUTFALL || this == HYDRO_PLANT
+    val onWater get() = this == PUMPING_STATION || outfall || this == STORM_OUTFALL || this == HYDRO_PLANT || this == FIREBOAT_STATION
 
     /** Where the sewers come out. */
     val outfall get() = this == OUTFALL || this == SEWAGE_WORKS || this == TREATMENT_PLANT

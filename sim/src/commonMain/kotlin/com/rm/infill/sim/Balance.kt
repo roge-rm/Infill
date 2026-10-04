@@ -266,6 +266,49 @@ object Balance {
     const val COLLEGE_REACH = 30
     const val COLLEGE_OFFICES = 8
 
+    // Civic buildings. The share of the ordinances' cost a town hall, city hall and civic centre save,
+    // in percent. A post office's reach and the appeal it lends shops and offices.
+    val HALL_SAVES = intArrayOf(10, 15, 20)
+    const val POST_REACH = 10
+    const val POST_APPEAL = 3
+
+    // More schooling. The little ones are a share of a home's children (one in this), as teens are; a
+    // kindergarten's places and reach, and the schooling it adds. A junior high's places and reach: it
+    // takes the younger half of the teens. A vocational school's places and reach. A central library's
+    // reach and the schooling it adds, over the local library's. The universities' and community
+    // colleges' places and reach, and a research campus's reach and the appeal it lends offices.
+    const val LITTLE = 4
+    const val KINDERGARTEN_PLACES = 60
+    const val KINDERGARTEN_REACH = 8
+    const val KINDERGARTEN_SCHOOLING = 10
+    const val JUNIOR_PLACES = 300
+    const val JUNIOR_REACH = 14
+    const val VOCATIONAL_PLACES = 300
+    const val VOCATIONAL_REACH = 20
+    const val CENTRAL_REACH = 24
+    const val CENTRAL_SCHOOLING = 8
+    const val UNIVERSITY_PLACES = 1_500
+    const val UNIVERSITY_REACH = 40
+    const val COMMUNITY_COLLEGE_PLACES = 300
+    const val COMMUNITY_COLLEGE_REACH = 20
+    const val CAMPUS_REACH = 20
+    const val CAMPUS_OFFICES = 10
+
+    // More health. A sanatorium's reach, the health it adds and how much less an epidemic spreads near
+    // it, in percent. With a public health office, the share of outbreaks that still start and of
+    // the homes they'd have reached.
+    const val SANATORIUM_REACH = 16
+    const val SANATORIUM_HEALTH = 4
+    const val SANATORIUM_SPREAD = 40
+    const val HEALTH_OFFICE_OUTBREAKS = 50
+    const val HEALTH_OFFICE_SPREAD = 70
+
+    // More police and fire. How far a fireboat reaches, and how near the water what it covers has to be.
+    // How long the crossings hold traffic up with traffic police on point duty, in percent.
+    const val FIREBOAT_REACH = 20
+    const val FIREBOAT_SHORE = 3
+    const val POINT_DUTY = 75
+
     // Upkeep a month.
     const val VOLUNTEER_UPKEEP = 8.0
     const val LADDER_UPKEEP = 40.0

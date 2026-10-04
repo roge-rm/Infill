@@ -1163,6 +1163,35 @@
     <string name="leisure_value">%1$d, %2$d expected</string>
     <string name="leisure_sport">Sport</string>
     <string name="leisure_culture">Culture</string>
+    <!-- The civic buildings, and the newer kinds of school, health, police and fire. -->
+    <string name="town_hall">Town hall</string>
+    <string name="city_hall">City hall</string>
+    <string name="civic_centre">Civic centre</string>
+    <string name="post_office">Post office</string>
+    <string name="cemetery">Cemetery</string>
+    <string name="memorial_garden">Memorial garden</string>
+    <string name="fountain">Fountain</string>
+    <string name="clock_tower">Clock tower</string>
+    <string name="war_memorial">War memorial</string>
+    <string name="kindergarten">Kindergarten</string>
+    <string name="junior_high">Junior high</string>
+    <string name="vocational_school">Vocational school</string>
+    <string name="central_library">Central library</string>
+    <string name="community_college">Community college</string>
+    <string name="university">University</string>
+    <string name="research_campus">Research campus</string>
+    <string name="sanatorium">Sanatorium</string>
+    <string name="public_health_office">Public health office</string>
+    <string name="police_box">Police box</string>
+    <string name="traffic_police">Traffic police</string>
+    <string name="fireboat_station">Fireboat station</string>
+    <!-- The tab of civic buildings under Services. -->
+    <string name="services_civic">Civic</string>
+    <!-- Placing a second town hall. -->
+    <string name="only_one">The town has its hall already</string>
+    <string name="upkeep_civic">Civic buildings</string>
+    <!-- Inspecting the town hall: the share it takes off what the ordinances cost. -->
+    <string name="label_hall_saves">Saves on ordinances</string>
     <!-- Newer kinds of the services, which take the older kinds' place as the years go by. -->
     <string name="elementary_school">Elementary school</string>
     <string name="community_school">Community school</string>

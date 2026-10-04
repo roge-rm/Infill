@@ -7192,6 +7192,841 @@ def convention_centre(look, v):
         d.rectangle([gx + 1, gy - 10, gx + 5, gy - 7], [c("#c0392b"), c("#3c78a8"), c("#f2c94c"), c("#3f8a4a")][k % 4])
     return b
 
+# Civic buildings: the town hall and its successors, a post office, a cemetery and a memorial garden, a fountain, a clock
+# tower and a war memorial.
+
+
+def clock_face(d, cx, cy, r=3):
+    """A round clock face with its hands at ten to two."""
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], c("#f2f2ea"), OUTLINE)
+    d.line([cx, cy, cx - 1, cy - r + 1], OUTLINE)
+    d.line([cx, cy, cx + r - 1, cy - 1], OUTLINE)
+
+
+def flagpole(b, x, y, height, col=c("#c0392b")):
+    """A flag on a pole standing at tile pixel x, y."""
+    d = b.d
+    top = b.lift
+    d.line([x, y + top, x, y + top - height], c("#d0d0d0"))
+    d.rectangle([x + 1, y + top - height, x + 5, y + top - height + 3], col)
+    b.casters.append((1, x, y - 1, x + 1, y, height))
+
+
+def paving(b, look, x0, y0, x1, y1, col=c("#c8c0b0")):
+    """Paved ground, laid in slabs."""
+    d = b.d
+    top = b.lift
+    d.rectangle([x0, y0 + top, x1, y1 + top], SNOW_GROUND if look == "snow" else col)
+    if look != "snow":
+        for xx in range(x0 + 4, x1, 5):
+            d.line([xx, y0 + top, xx, y1 + top], shade(col, 0.93))
+        for yy in range(y0 + 4, y1, 5):
+            d.line([x0, yy + top, x1, yy + top], shade(col, 0.93))
+
+
+def town_hall(look, v):
+    """A town hall of 1900 on 2 by 2 tiles: two storeys of stone or brick round a door under a pediment, a clock cupola on
+    the roof and a flag; or a frontier hall of white boards under a steep roof."""
+    b = Building(2, 2, height=2 * STOREY + 22)
+    d = b.d
+    rng = random.Random(15000 + v)
+    lawn_box(b, look, 0, 40, 63, 63, rng)
+    paving(b, look, 26, 40, 37, 63)
+    roof, wall = b.box(6, 10, 57, 38, 2 * STOREY + 4)
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    if v == 0:
+        d.rectangle(wall, c("#d8cfb8"))
+        for yy in range(y0 + 3, y1, 4):
+            d.line([x0 + 1, yy, x1 - 1, yy], shade(c("#d8cfb8"), 0.92))
+    elif v == 1:
+        brick(d, wall, c("#9a4a36"))
+        d.rectangle([x0, y0 + STOREY + 2, x1, y0 + STOREY + 3], STONE)
+    else:
+        siding(d, wall, c("#ece6d6"))
+    windows(d, wall, 2, glass=c("#46586a"), sill=TRIM, every=6, width=2, height=4, skip=[(cx - 7, cx + 7)])
+    d.rectangle([cx - 3, y1 - 7, cx + 3, y1], c("#4a3226"))
+    d.polygon([(cx - 7, y1 - 8), (cx, y1 - 13), (cx + 7, y1 - 8)], TRIM, OUTLINE)
+    d.rectangle([cx - 7, y1 + 1, cx + 7, y1 + 2], STONE)
+    d.rectangle(wall, outline=OUTLINE)
+    if v == 2:
+        gable_ew(d, roof, SHINGLE[1], look)
+    else:
+        flat_roof(b.img, roof, look, rng, [("stack", 6, 4), ("stack", 44, 4)], parapet=STONE)
+        cornice(d, wall, STONE)
+    # The clock cupola over the door.
+    croof, cwall = b.box(cx - 5, 18, cx + 5, 28, 2 * STOREY + 16)
+    d.rectangle(cwall, TRIM)
+    clock_face(d, cx, cwall[1] + 5)
+    d.rectangle(cwall, outline=OUTLINE)
+    rx0, ry0, rx1, ry1 = croof
+    d.polygon([(rx0, ry1), (cx, ry0 - 6), (rx1, ry1)], SNOW_ROOF[0] if look == "snow" else c("#5b6a6a"), OUTLINE)
+    flagpole(b, 52, 46, 16)
+    return b
+
+
+def city_hall(look, v):
+    """A city hall of the 1920s on 2 by 2 tiles: four storeys of pale stone, a row of columns up the front, and a dome or a
+    tall clock tower over the middle."""
+    b = Building(2, 2, height=4 * STOREY + 26)
+    d = b.d
+    rng = random.Random(15100 + v)
+    paving(b, look, 0, 44, 63, 63)
+    for x in (10, 53):
+        tree_at(b, look, v, x, 58, 4, rng)
+    roof, wall = b.box(4, 8, 59, 42, 4 * STOREY)
+    col = [c("#ddd5c2"), c("#c8b898")][v % 2]
+    d.rectangle(wall, col)
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    windows(d, wall, 4, glass=c("#46586a"), sill=TRIM, every=5, width=2, height=3, skip=[(cx - 12, cx + 12)])
+    d.rectangle([cx - 12, y0, cx + 12, y1], c("#e8e0cc"))
+    for xx in range(cx - 10, cx + 11, 4):
+        d.line([xx, y0 + 4, xx, y1], c("#c8c0ac"))
+    d.rectangle([cx - 3, y1 - 6, cx + 3, y1], c("#3a2e26"))
+    d.rectangle([cx - 14, y1 + 1, cx + 14, y1 + 3], STONE)
+    d.rectangle(wall, outline=OUTLINE)
+    cornice(d, wall, STONE)
+    flat_roof(b.img, roof, look, rng, [("hatch", 6, 6), ("hatch", 44, 6)], parapet=STONE)
+    if v == 0:
+        # A dome on a drum.
+        droof, dwall = b.box(cx - 8, 16, cx + 8, 30, 4 * STOREY + 10)
+        d.rectangle(dwall, col)
+        for xx in range(dwall[0] + 2, dwall[2], 3):
+            d.line([xx, dwall[1] + 1, xx, dwall[3] - 1], c("#46586a"))
+        d.rectangle(dwall, outline=OUTLINE)
+        d.pieslice([cx - 9, droof[1] - 10, cx + 9, droof[1] + 8], 180, 360, SNOW_ROOF[0] if look == "snow" else c("#6e8f86"), OUTLINE)
+        d.line([cx, droof[1] - 10, cx, droof[1] - 14], c("#b08a3a"))
+    else:
+        troof, twall = b.box(cx - 5, 18, cx + 5, 28, 4 * STOREY + 22)
+        d.rectangle(twall, col)
+        clock_face(d, cx, twall[1] + 5)
+        for yy in range(twall[1] + 11, twall[3] - 2, 5):
+            d.rectangle([cx - 1, yy, cx + 1, yy + 2], c("#46586a"))
+        d.rectangle(twall, outline=OUTLINE)
+        rx0, ry0, rx1, ry1 = troof
+        d.polygon([(rx0, ry1), (cx, ry0 - 8), (rx1, ry1)], SNOW_ROOF[0] if look == "snow" else c("#5b6a6a"), OUTLINE)
+    flagpole(b, 6, 50, 18)
+    return b
+
+
+def civic_centre(look, v):
+    """A civic centre of the 1970s on 2 by 2 tiles: a council chamber and an office block of concrete and glass over a paved
+    plaza; or a hall on stilts with its chamber standing out from it."""
+    b = Building(2, 2, height=5 * STOREY + 8)
+    d = b.d
+    rng = random.Random(15200 + v)
+    paving(b, look, 0, 0, 63, 63, c("#bdb8ac"))
+    concrete = c("#b4b0a6")
+    if v == 0:
+        roof, wall = b.box(6, 6, 34, 30, 5 * STOREY)
+        d.rectangle(wall, concrete)
+        ribbon_windows(d, wall, 5, glass=GLASS_DARK, gap=4)
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, roof, look, rng, [("vent", 4, 4), ("hatch", 16, 10)], parapet=c("#8a8a84"))
+        roof, wall = b.box(38, 18, 58, 38, 2 * STOREY + 2)
+        d.rectangle(wall, concrete)
+        for xx in range(wall[0] + 2, wall[2] - 1, 3):
+            d.line([xx, wall[1] + 2, xx, wall[3] - 2], shade(concrete, 0.85))
+        d.rectangle(wall, outline=OUTLINE)
+        rx0, ry0, rx1, ry1 = roof
+        d.polygon([(rx0, ry1), (rx0 + 4, ry0), (rx1 - 4, ry0), (rx1, ry1)], SNOW_ROOF[0] if look == "snow" else c("#7a7c80"), OUTLINE)
+    else:
+        roof, wall = b.box(4, 8, 59, 34, 4 * STOREY)
+        x0, y0, x1, y1 = wall
+        d.rectangle([x0, y0, x1, y1 - 7], concrete)
+        ribbon_windows(d, [x0, y0, x1, y1 - 7], 3, glass=GLASS_DARK, gap=5)
+        for xx in range(x0 + 4, x1, 10):
+            d.rectangle([xx, y1 - 7, xx + 2, y1], shade(concrete, 0.8))
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, roof, look, rng, [("vent", 6, 4), ("vent", 40, 4)], parapet=c("#8a8a84"))
+        rx0, ry0, rx1, ry1 = roof
+        mx = (rx0 + rx1) // 2
+        d.ellipse([mx - 9, ry0 + 4, mx + 9, ry1 - 4], SNOW_ROOF[0] if look == "snow" else c("#8a6a4a"), OUTLINE)
+    # A pool in the plaza.
+    gx, gy = b.ground(14, 50)
+    d.rectangle([gx, gy, gx + 16, gy + 6], c("#8a8a84"))
+    d.rectangle([gx + 1, gy + 1, gx + 15, gy + 5], c("#5a8fbf") if look != "snow" else c("#dfe8ef"))
+    flagpole(b, 48, 52, 14, c("#2a4a8a"))
+    return b
+
+
+def post_office(look, v):
+    """A post office on 2 by 1 tiles: brick with a stone band and its sign over the doors, a post box out front; or a low
+    pale one of the 1950s with a long counter window."""
+    b = Building(2, 1, height=2 * STOREY + 6)
+    d = b.d
+    rng = random.Random(15300 + v)
+    paving(b, look, 0, 26, 63, 31)
+    if v == 0:
+        roof, wall = b.box(3, 5, 60, 25, 2 * STOREY + 4)
+        brick(d, wall, c("#9a4a36"))
+        x0, y0, x1, y1 = wall
+        d.rectangle([x0, y0 + 2, x1, y0 + 5], STONE)
+        windows(d, wall, 2, sill=TRIM, every=6, skip_door=True)
+        flat_roof(b.img, roof, look, rng, [("stack", 6, 3), ("stack", 50, 3)], parapet=STONE)
+    else:
+        roof, wall = b.box(3, 8, 60, 25, STOREY + 6)
+        d.rectangle(wall, PALE_BRICK)
+        x0, y0, x1, y1 = wall
+        d.rectangle([x0 + 4, y0 + 3, x1 - 12, y1 - 3], GLASS_NEW)
+        flat_roof(b.img, roof, look, rng, [("vent", 6, 4)], parapet=c("#8a8a84"))
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    d.rectangle([cx - 10, y0 + 1, cx + 10, y0 + 4], c("#c0392b"))
+    for xx in range(cx - 8, cx + 9, 2):
+        d.point((xx, y0 + 2), c("#f2e6a0"))
+    d.rectangle([cx - 3, y1 - 6, cx + 3, y1], c("#3a2e26"))
+    d.rectangle(wall, outline=OUTLINE)
+    # The post box, and a van.
+    gx, gy = b.ground(48, 28)
+    d.rectangle([gx, gy - 4, gx + 2, gy], c("#c0392b"), OUTLINE)
+    if v == 1:
+        gx, gy = b.ground(8, 27)
+        d.rectangle([gx, gy, gx + 7, gy + 3], c("#c0392b"))
+        d.rectangle([gx + 5, gy, gx + 7, gy + 1], GLASS_DARK)
+    return b
+
+
+def headstones(b, look, x0, y0, x1, y1, rng, every=5):
+    """Rows of headstones on the grass, some leaning."""
+    d = b.d
+    top = b.lift
+    for yy in range(y0, y1, every):
+        for xx in range(x0 + rng.randint(0, 2), x1, 4):
+            if rng.random() < 0.15:
+                continue
+            col = rng.choice([c("#b8b4aa"), c("#a8a49a"), c("#d0ccc0"), c("#8a8a84")])
+            d.rectangle([xx, yy + top - 2, xx + 1, yy + top], col)
+            d.point((xx, yy + top + 1), c("#4a5a3a") if look != "snow" else c("#c8d0d6"))
+
+
+def cemetery(look, v):
+    """A cemetery on 3 by 3 tiles: rows of headstones in the grass between gravel paths and old trees, behind a wall, with a
+    stone chapel; or a family vault and yews; or a plain one with a lych gate."""
+    b = Building(3, 3, height=3 * STOREY)
+    d = b.d
+    rng = random.Random(15400 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 95, 95, rng)
+    d.rectangle([0, top, 95, top + 95], outline=c("#8a8274"))
+    d.rectangle([1, top + 1, 94, top + 94], outline=c("#a49c8c"))
+    path_line(b, look, [(47, 95), (47, 6)], 3)
+    path_line(b, look, [(6, 50), (89, 50)], 3)
+    headstones(b, look, 6, 8, 43, 46, rng)
+    headstones(b, look, 52, 8, 90, 46, rng)
+    headstones(b, look, 6, 56, 43, 92, rng)
+    if v == 0:
+        roof, wall = b.box(58, 58, 86, 76, STOREY + 6)
+        d.rectangle(wall, STONE)
+        wx0, wy0, wx1, wy1 = wall
+        d.rectangle([(wx0 + wx1) // 2 - 2, wy1 - 6, (wx0 + wx1) // 2 + 2, wy1], c("#4a3226"))
+        d.rectangle(wall, outline=OUTLINE)
+        gable_ew(d, roof, SHINGLE[2], look)
+        rx0, ry0, rx1, ry1 = roof
+        d.line([rx0 + 3, ry0 - 1, rx0 + 3, ry0 - 6], c("#5a5a5a"))
+        d.line([rx0 + 1, ry0 - 4, rx0 + 5, ry0 - 4], c("#5a5a5a"))
+        for (x, y) in ((24, 30), (70, 22), (20, 74)):
+            tree_at(b, look, v, x, y, 6, rng)
+    elif v == 1:
+        roof, wall = b.box(60, 62, 80, 76, STOREY + 2)
+        d.rectangle(wall, c("#c8c0ac"))
+        for xx in range(wall[0] + 3, wall[2] - 1, 4):
+            d.line([xx, wall[1] + 1, xx, wall[3]], c("#a8a090"))
+        d.rectangle(wall, outline=OUTLINE)
+        d.polygon([(roof[0], roof[3]), ((roof[0] + roof[2]) // 2, roof[1] - 3), (roof[2], roof[3])], SNOW_ROOF[0] if look == "snow" else c("#9a9488"), OUTLINE)
+        for (x, y) in ((40, 24), (56, 24), (40, 70), (88, 88), (10, 52)):
+            tree_at(b, look, v, x, y, 4, rng, conifer_tree=True)
+    else:
+        headstones(b, look, 52, 56, 90, 92, rng)
+        roof, wall = b.box(42, 86, 52, 92, STOREY)
+        d.rectangle(wall, c("#6b4a30"))
+        d.rectangle([wall[0] + 3, wall[1] + 2, wall[2] - 3, wall[3]], c("#2a2a2a"))
+        gable_ew(d, roof, SHINGLE[1], look)
+        for (x, y) in ((14, 28), (82, 30), (30, 80)):
+            tree_at(b, look, v, x, y, 6, rng)
+    return b
+
+
+def memorial_garden(look, v):
+    """A memorial garden of the 1970s on 3 by 3 tiles: lawns along winding paths, flower beds, benches and a pond, with the
+    old stones gathered along the wall."""
+    b = Building(3, 3, height=LIFT)
+    d = b.d
+    rng = random.Random(15500 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 95, 95, rng)
+    d.rectangle([0, top, 95, top + 95], outline=c("#a49c8c"))
+    if v == 0:
+        path_line(b, look, [(47, 95), (40, 70), (56, 48), (44, 24), (52, 4)], 3)
+        pond(b, look, 70, 66, 12, 8, rng)
+        flowers(b, look, 12, 40, 32, 46, rng, 16)
+        flowers(b, look, 60, 20, 84, 26, rng, 16)
+        trees = ((18, 18), (80, 44), (22, 76), (72, 88))
+    else:
+        path_line(b, look, [(0, 47), (30, 40), (66, 54), (95, 47)], 3)
+        path_line(b, look, [(47, 95), (47, 50)], 3)
+        d.ellipse([36, top + 38, 58, top + 60], PATH if look != "snow" else c("#e6ecf0"))
+        d.rectangle([45, top + 44, 49, top + 52], c("#b8b4aa"), OUTLINE)
+        flowers(b, look, 14, 64, 34, 70, rng, 16)
+        flowers(b, look, 60, 64, 82, 70, rng, 16)
+        pond(b, look, 22, 20, 10, 7, rng)
+        trees = ((74, 18), (86, 82), (10, 86), (58, 26))
+    # The old stones along the north wall.
+    for xx in range(4, 92, 4):
+        d.rectangle([xx, top + 2, xx + 1, top + 4], c("#b8b4aa"))
+    for (x, y) in ((30, 60), (64, 36)):
+        bench(b, x, y)
+    for (x, y) in trees:
+        tree_at(b, look, v, x, y, 6, rng)
+    return b
+
+
+def fountain(look, v):
+    """A fountain on one tile: a round stone basin on a little paved square with water leaping from the middle; a square pool
+    with jets; or a tiered one, its water falling from bowl to bowl."""
+    b = Building(height=LIFT + 6)
+    d = b.d
+    rng = random.Random(15600 + v)
+    top = b.lift
+    paving(b, look, 0, 0, 31, 31)
+    water = c("#5a8fbf") if look != "snow" else c("#dfe8ef")
+    if v == 1:
+        d.rectangle([5, top + 7, 26, top + 26], c("#a8a090"), OUTLINE)
+        d.rectangle([7, top + 9, 24, top + 24], water)
+        if look != "snow":
+            for (x, y) in ((11, 13), (20, 13), (11, 20), (20, 20)):
+                d.line([x, top + y, x, top + y - 4], c("#d8ecf8"))
+    else:
+        d.ellipse([4, top + 6, 27, top + 27], c("#a8a090"), OUTLINE)
+        d.ellipse([6, top + 8, 25, top + 25], water)
+        d.rectangle([14, top + 10, 17, top + 18], c("#c8c0ac"), OUTLINE)
+        if v == 2:
+            d.ellipse([10, top + 8, 21, top + 13], c("#c8c0ac"), OUTLINE)
+            d.ellipse([12, top + 3, 19, top + 7], c("#c8c0ac"), OUTLINE)
+        if look != "snow":
+            d.line([15, top + 10, 15, top + 1], c("#d8ecf8"))
+            d.line([16, top + 10, 16, top + 2], c("#bfe0f4"))
+    for (x, y) in ((2, 29), (24, 29)):
+        bench(b, x, y)
+    b.casters.append((1, 13, 14, 18, 18, 8))
+    return b
+
+
+def clock_tower(look, v):
+    """A clock tower on one tile: tall and square, of stone or brick, its faces near the top under a pointed roof, on a little
+    square."""
+    b = Building(height=6 * STOREY + 10)
+    d = b.d
+    rng = random.Random(15700 + v)
+    paving(b, look, 0, 0, 31, 31)
+    roof, wall = b.box(10, 10, 21, 21, 6 * STOREY)
+    col = [c("#d8cfb8"), c("#9a4a36")][v % 2]
+    if v == 0:
+        d.rectangle(wall, col)
+    else:
+        brick(d, wall, col)
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    clock_face(d, cx, y0 + 5, 4)
+    for yy in range(y0 + 12, y1 - 4, 6):
+        d.rectangle([cx - 1, yy, cx + 1, yy + 3], c("#46586a"))
+    d.rectangle([cx - 2, y1 - 5, cx + 2, y1], c("#3a2e26"))
+    d.rectangle(wall, outline=OUTLINE)
+    rx0, ry0, rx1, ry1 = roof
+    d.polygon([(rx0, ry1), ((rx0 + rx1) // 2, ry0 - 9), (rx1, ry1)], SNOW_ROOF[0] if look == "snow" else [c("#5b6a6a"), SHINGLE[2]][v % 2], OUTLINE)
+    for (x, y) in ((3, 28), (24, 6)):
+        bench(b, x, y)
+    if v == 1:
+        tree_at(b, look, v, 5, 8, 4, rng)
+    return b
+
+
+def war_memorial(look, v):
+    """A war memorial on one tile: a stone cenotaph on its steps, wreaths of poppies at its foot, in a ring of lawn; or a
+    tall cross with the names on a low wall behind it."""
+    b = Building(height=3 * STOREY + 6)
+    d = b.d
+    rng = random.Random(15800 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 31, 31, rng)
+    path_line(b, look, [(15, 31), (15, 24)], 4)
+    d.rectangle([8, top + 14, 23, top + 24], c("#c8c0ac"), OUTLINE)
+    d.rectangle([10, top + 16, 21, top + 22], c("#d8d0bc"))
+    if v == 0:
+        roof, wall = b.box(12, 15, 19, 20, 3 * STOREY)
+        d.rectangle(wall, c("#e0d8c4"))
+        d.rectangle(wall, outline=OUTLINE)
+        d.rectangle(roof, c("#ece4d0"), OUTLINE)
+    else:
+        d.rectangle([4, top + 6, 27, top + 9], c("#b8b0a0"), OUTLINE)
+        for xx in range(6, 26, 2):
+            d.point((xx, top + 7), c("#6a6a66"))
+        roof, wall = b.box(14, 16, 17, 19, 3 * STOREY + 2)
+        d.rectangle(wall, c("#e0d8c4"))
+        d.rectangle(wall, outline=OUTLINE)
+        wx = (wall[0] + wall[2]) // 2
+        d.rectangle([wx - 4, wall[1] + 3, wx + 4, wall[1] + 5], c("#e0d8c4"), OUTLINE)
+    if look != "snow":
+        for x in (10, 20):
+            d.ellipse([x, top + 23, x + 3, top + 26], c("#c0392b"))
+            d.point((x + 1, top + 24), c("#2a2a2a"))
+    return b
+
+
+# More schooling: a kindergarten, a junior high, a vocational school, a central library, a community college, a university
+# and a research campus.
+
+
+def kindergarten(look, v):
+    """A kindergarten on one tile: a low cottage with bright trim and a fenced sandpit and swing in the yard; or a single
+    storey of the 1960s with big windows and a coloured door."""
+    b = Building(height=STOREY + 12)
+    d = b.d
+    rng = random.Random(15900 + v)
+    schoolyard(b, look, 2, 20, 29, 31)
+    roof, wall = b.box(4, 4, 27, 18, STOREY + 4)
+    trim = [c("#e0584a"), c("#3a8ad0"), c("#f2c94c")][v % 3]
+    if v == 0:
+        siding(d, wall, c("#f2e6c8"))
+        windows(d, wall, 1, glass=c("#46586a"), sill=trim, every=5, width=2, height=3, skip_door=True)
+        door(d, wall, trim)
+        d.rectangle(wall, outline=OUTLINE)
+        gable_ew(d, roof, SHINGLE[0], look)
+    else:
+        d.rectangle(wall, PALE_BRICK)
+        x0, y0, x1, y1 = wall
+        d.rectangle([x0 + 2, y0 + 2, x1 - 8, y1 - 2], GLASS_NEW)
+        d.rectangle([x1 - 6, y0 + 2, x1 - 3, y1], trim)
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, roof, look, rng, [("vent", 4, 3)], parapet=trim)
+    if look != "snow":
+        gx, gy = b.ground(20, 23)
+        d.rectangle([gx, gy, gx + 6, gy + 4], c("#e8d8a0"), c("#8a6a4a"))
+    return b
+
+
+def junior_high(look, v):
+    """A junior high of the 1930s on 2 by 2 tiles: two storeys of brick in an L round a yard, tall windows and a stone door
+    surround; or a long pale block of the 1950s with a gym at one end."""
+    b = Building(2, 2, height=2 * STOREY + 8)
+    d = b.d
+    rng = random.Random(16000 + v)
+    schoolyard(b, look, 30, 34, 61, 61)
+    lawn_box(b, look, 2, 50, 28, 61, rng)
+    if v == 0:
+        roof, wall = b.box(4, 6, 59, 30, 2 * STOREY + 4)
+        brick(d, wall, c("#a0503a"))
+        windows(d, wall, 2, glass=c("#46586a"), sill=TRIM, every=5, width=3, height=4, skip_door=True)
+        x0, y0, x1, y1 = wall
+        cx = (x0 + x1) // 2
+        d.rectangle([cx - 4, y0, cx + 4, y1], STONE)
+        d.rectangle([cx - 2, y1 - 6, cx + 2, y1], c("#4a3226"))
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, roof, look, rng, [("stack", 6, 4), ("hatch", 30, 10)], parapet=STONE)
+        roof, wall = b.box(4, 30, 26, 48, 2 * STOREY + 4)
+        brick(d, wall, c("#a0503a"))
+        windows(d, wall, 2, glass=c("#46586a"), sill=TRIM, every=5, width=3, height=4)
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, roof, look, rng, [("vent", 4, 4)], parapet=STONE)
+    else:
+        roof, wall = b.box(4, 8, 44, 30, 2 * STOREY + 2)
+        d.rectangle(wall, PALE_BRICK)
+        ribbon_windows(d, wall, 2, glass=GLASS_DARK, gap=4)
+        door(d, wall, c("#3a4f6a"))
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, roof, look, rng, [("vent", 6, 4), ("vent", 30, 6)], parapet=c("#8a8a84"))
+        hall(b, look, 46, 6, 60, 30, 2 * STOREY + 6, c("#d8d0c0"), "barrel", storeys=1, entrance=False)
+        roof, wall = b.box(4, 32, 22, 46, STOREY + 4)
+        d.rectangle(wall, PALE_BRICK)
+        ribbon_windows(d, wall, 1, glass=GLASS_DARK)
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, roof, look, rng, [], parapet=c("#8a8a84"))
+    return b
+
+
+def vocational_school(look, v):
+    """A vocational school on 2 by 2 tiles: a classroom block in front, and behind it the workshops under a saw-tooth roof
+    with a yard of timber and an old engine to learn on."""
+    b = Building(2, 2, height=2 * STOREY + 8)
+    d = b.d
+    rng = random.Random(16100 + v)
+    yard_col = c("#9a8e78") if look != "snow" else SNOW_GROUND
+    gx0, gy0 = b.ground(2, 2)
+    gx1, gy1 = b.ground(61, 61)
+    d.rectangle([gx0, gy0, gx1, gy1], yard_col)
+    # The workshops: a saw-tooth roof, its glass facing north.
+    roof, wall = b.box(4, 4, 59, 26, STOREY + 6)
+    d.rectangle(wall, c("#8a4a3a") if v == 0 else c("#9a9a92"))
+    d.rectangle([wall[0] + 4, wall[1] + 2, wall[0] + 14, wall[3]], c("#4a4a50"))
+    d.rectangle([wall[2] - 14, wall[1] + 2, wall[2] - 4, wall[3]], c("#4a4a50"))
+    d.rectangle(wall, outline=OUTLINE)
+    rx0, ry0, rx1, ry1 = roof
+    tooth = 6
+    for yy in range(ry0, ry1, tooth):
+        d.rectangle([rx0, yy, rx1, min(ry1, yy + tooth - 2)], SNOW_ROOF[0] if look == "snow" else c("#6a6c70"))
+        d.rectangle([rx0, min(ry1, yy + tooth - 2), rx1, min(ry1, yy + tooth - 1)], c("#9ab8c8"))
+    d.rectangle(roof, outline=OUTLINE)
+    # The classrooms in front.
+    roof, wall = b.box(6, 34, 46, 52, 2 * STOREY + 2)
+    if v == 0:
+        brick(d, wall, c("#a0503a"))
+        windows(d, wall, 2, glass=c("#46586a"), sill=TRIM, every=5, width=3, height=4, skip_door=True)
+    else:
+        d.rectangle(wall, PALE_BRICK)
+        ribbon_windows(d, wall, 2, glass=GLASS_DARK, gap=4)
+    door(d, wall, c("#3a2e26"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, rng, [("vent", 6, 4)], parapet=STONE if v == 0 else c("#8a8a84"))
+    # Timber stacked in the yard, and an engine.
+    gx, gy = b.ground(50, 36)
+    for k in range(3):
+        d.rectangle([gx, gy + k * 3, gx + 9, gy + k * 3 + 1], TIMBER)
+    gx, gy = b.ground(50, 50)
+    d.rectangle([gx, gy, gx + 7, gy + 4], c("#c0392b") if v == 0 else c("#2e4a3a"))
+    d.rectangle([gx + 5, gy, gx + 7, gy + 2], GLASS_DARK)
+    return b
+
+
+def central_library(look, v):
+    """A central library on 2 by 2 tiles: a grand stone hall with columns, wide steps and a reading room under a dome; or a
+    glass and stone library of the 1990s round a tall atrium."""
+    b = Building(2, 2, height=3 * STOREY + 20)
+    d = b.d
+    rng = random.Random(16200 + v)
+    paving(b, look, 0, 44, 63, 63)
+    for x in (8, 55):
+        tree_at(b, look, v, x, 58, 4, rng)
+    if v == 0:
+        roof, wall = b.box(4, 6, 59, 42, 3 * STOREY + 2)
+        d.rectangle(wall, c("#ddd5c2"))
+        x0, y0, x1, y1 = wall
+        cx = (x0 + x1) // 2
+        windows(d, wall, 3, glass=c("#46586a"), sill=TRIM, every=6, skip=[(cx - 14, cx + 14)])
+        for xx in range(cx - 12, cx + 13, 4):
+            d.line([xx, y0 + 4, xx, y1], c("#c8c0ac"))
+        d.polygon([(cx - 15, y0 + 4), (cx, y0 - 4), (cx + 15, y0 + 4)], c("#e8e0cc"), OUTLINE)
+        d.rectangle([cx - 3, y1 - 6, cx + 3, y1], c("#3a2e26"))
+        d.rectangle([cx - 16, y1 + 1, cx + 16, y1 + 4], STONE)
+        d.rectangle(wall, outline=OUTLINE)
+        cornice(d, wall, STONE)
+        flat_roof(b.img, roof, look, rng, [("skylight", 6, 6), ("skylight", 44, 6)], parapet=STONE)
+        mx = (roof[0] + roof[2]) // 2
+        my = (roof[1] + roof[3]) // 2
+        d.pieslice([mx - 10, my - 12, mx + 10, my + 6], 180, 360, SNOW_ROOF[0] if look == "snow" else c("#6e8f86"), OUTLINE)
+        d.ellipse([mx - 2, my - 13, mx + 2, my - 10], c("#d8d0bc"), OUTLINE)
+    else:
+        roof, wall = b.box(4, 6, 40, 42, 3 * STOREY + 2)
+        d.rectangle(wall, c("#c8c0ac"))
+        windows(d, wall, 3, glass=GLASS_DARK, every=5, width=3, height=4, skip_door=True)
+        door(d, wall, c("#3a4f6a"))
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, roof, look, rng, [("vent", 6, 4)], parapet=c("#8a8a84"))
+        roof, wall = b.box(40, 12, 59, 42, 3 * STOREY + 8)
+        d.rectangle(wall, GLASS_NEW)
+        for xx in range(wall[0] + 3, wall[2], 4):
+            d.line([xx, wall[1], xx, wall[3]], c("#d8d8d0"))
+        d.rectangle(wall, outline=OUTLINE)
+        rx0, ry0, rx1, ry1 = roof
+        d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#a8c4d4"), OUTLINE)
+        for yy in range(ry0 + 3, ry1, 4):
+            d.line([rx0 + 1, yy, rx1 - 1, yy], c("#d8d8d0"))
+    return b
+
+
+def community_college(look, v):
+    """A community college of the 1960s and 70s on 2 by 2 tiles: low blocks of concrete and glass round a courtyard, and a
+    car park for those who drive in."""
+    b = Building(2, 2, height=2 * STOREY + 8)
+    d = b.d
+    rng = random.Random(16300 + v)
+    parking(b, look, 2, 50, 61, 61, 16300 + v)
+    col = [c("#b4b0a6"), c("#c8a888")][v % 2]
+    for box in ((4, 4, 59, 18), (4, 20, 18, 46), (46, 20, 59, 46)):
+        roof, wall = b.box(*box, 2 * STOREY + 2)
+        d.rectangle(wall, col)
+        ribbon_windows(d, wall, 2, glass=GLASS_DARK, gap=5)
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, roof, look, rng, [("vent", 4, 3)], parapet=c("#8a8a84"))
+    lawn_box(b, look, 20, 20, 44, 46, rng)
+    path_line(b, look, [(32, 46), (32, 20)])
+    tree_at(b, look, v, 26, 34, 4, rng)
+    if v == 1:
+        tree_at(b, look, v, 40, 30, 4, rng)
+    return b
+
+
+def university(look, v):
+    """A university on 4 by 4 tiles: old halls of stone round a quadrangle with a library dome and a bell tower, and a
+    modern science block beside them; or brick halls, a chapel and playing fields."""
+    b = Building(4, 4, height=6 * STOREY + 12)
+    d = b.d
+    rng = random.Random(16400 + v)
+    lawn_box(b, look, 0, 0, 127, 127, rng)
+    wall_col = [c("#c9b893"), c("#8e4a3a")][v % 2]
+    roof_col = SHINGLE[2] if v == 0 else SHINGLE[0]
+
+    def range_(x0, y0, x1, y1, storeys, gable=True):
+        roof, wall = b.box(x0, y0, x1, y1, storeys * STOREY + 2)
+        if v == 0:
+            d.rectangle(wall, wall_col)
+            for yy in range(wall[1] + 3, wall[3], 4):
+                d.line([wall[0] + 1, yy, wall[2] - 1, yy], shade(wall_col, 0.92))
+        else:
+            brick(d, wall, wall_col)
+        windows(d, wall, storeys, glass=c("#46586a"), sill=TRIM, every=5, width=2, height=4)
+        d.rectangle(wall, outline=OUTLINE)
+        if gable:
+            gable_ew(d, roof, roof_col, look)
+        else:
+            flat_roof(b.img, roof, look, rng, [("stack", 4, 4)], parapet=STONE)
+        return roof, wall
+
+    # The quad: halls on the north, west and east, open to the south.
+    range_(8, 6, 82, 26, 3)
+    range_(8, 28, 24, 74, 3, gable=False)
+    range_(66, 28, 82, 74, 3, gable=False)
+    qx0, qy0 = b.ground(28, 30)
+    qx1, qy1 = b.ground(62, 74)
+    if look != "snow":
+        d.rectangle([qx0, qy0, qx1, qy1], c("#8db866"))
+        d.line([qx0, qy0, qx1, qy1], PATH)
+        d.line([qx1, qy0, qx0, qy1], PATH)
+    # The bell tower over the north hall.
+    troof, twall = b.box(40, 12, 50, 22, 6 * STOREY + 4)
+    d.rectangle(twall, wall_col)
+    clock_face(d, (twall[0] + twall[2]) // 2, twall[1] + 5)
+    d.rectangle(twall, outline=OUTLINE)
+    rx0, ry0, rx1, ry1 = troof
+    d.polygon([(rx0, ry1), ((rx0 + rx1) // 2, ry0 - 8), (rx1, ry1)], SNOW_ROOF[0] if look == "snow" else c("#5a6a70"), OUTLINE)
+    if v == 0:
+        # The library under its dome, and a science block of the sixties.
+        roof, wall = b.box(88, 10, 120, 40, 3 * STOREY)
+        d.rectangle(wall, wall_col)
+        windows(d, wall, 3, glass=c("#46586a"), sill=TRIM, every=6)
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, roof, look, rng, [], parapet=STONE)
+        mx, my = (roof[0] + roof[2]) // 2, (roof[1] + roof[3]) // 2
+        d.pieslice([mx - 11, my - 12, mx + 11, my + 8], 180, 360, SNOW_ROOF[0] if look == "snow" else c("#6e8f86"), OUTLINE)
+        roof, wall = b.box(88, 50, 122, 100, 5 * STOREY)
+        d.rectangle(wall, c("#b4b0a6"))
+        ribbon_windows(d, wall, 5, glass=GLASS_DARK, gap=4)
+        d.rectangle(wall, outline=OUTLINE)
+        flat_roof(b.img, roof, look, rng, [("vent", 6, 6), ("hatch", 20, 20)], parapet=c("#8a8a84"))
+        parking(b, look, 8, 110, 80, 122, 16400)
+    else:
+        # A chapel, and playing fields.
+        roof, wall = b.box(92, 12, 108, 44, 2 * STOREY + 6)
+        brick(d, wall, wall_col)
+        for yy in range(wall[1] + 2, wall[3] - 2, 4):
+            d.rectangle([wall[0] + 3, yy, wall[0] + 4, yy + 2], c("#5a4a8a"))
+        d.rectangle(wall, outline=OUTLINE)
+        gable_ew(d, roof, SHINGLE[2], look)
+        pitch(b, look, 88, 56, 124, 120)
+        pitch(b, look, 8, 86, 76, 122)
+    for (x, y) in ((32, 90), (60, 86), (4, 100)) if v == 0 else ((84, 50), (4, 80), (84, 124)):
+        tree_at(b, look, v, x, y, 5, rng)
+    return b
+
+
+def research_campus(look, v):
+    """A research campus of the 2000s on 3 by 3 tiles: glass buildings with green roofs set in lawns round a pond, linked by
+    paths, and a car park under solar panels; or a curving block round a court."""
+    b = Building(3, 3, height=4 * STOREY + 6)
+    d = b.d
+    rng = random.Random(16500 + v)
+    lawn_box(b, look, 0, 0, 95, 95, rng)
+    parking(b, look, 2, 80, 93, 93, 16500 + v)
+    gx0, gy0 = b.ground(2, 80)
+    solar_rows(d, gx0 + 2, gy0 + 6, gx0 + 88, gy0 + 12, look)
+    if v == 0:
+        boxes = ((6, 6, 40, 30, 4), (54, 6, 90, 26, 3), (6, 44, 34, 72, 3))
+        pond(b, look, 68, 54, 14, 10, rng)
+    else:
+        boxes = ((6, 6, 90, 22, 4), (6, 24, 22, 72, 3), (74, 24, 90, 72, 3))
+        pond(b, look, 48, 50, 14, 10, rng)
+    for (x0, y0, x1, y1, storeys) in boxes:
+        roof, wall = b.box(x0, y0, x1, y1, storeys * STOREY + 2)
+        d.rectangle(wall, GLASS_NEW)
+        for xx in range(wall[0] + 3, wall[2], 4):
+            d.line([xx, wall[1], xx, wall[3]], c("#d8d8d0"))
+        d.rectangle(wall, outline=OUTLINE)
+        rx0, ry0, rx1, ry1 = roof
+        d.rectangle(roof, c("#d8d8d0"), OUTLINE)
+        green_patch(d, rx0 + 2, ry0 + 2, rx1 - 2, ry1 - 2, look)
+    path_line(b, look, [(47, 80), (47, 36), (20, 36)], 3)
+    for (x, y) in ((44, 66), (88, 40), (30, 40)):
+        tree_at(b, look, v, x, y, 4, rng)
+    return b
+
+
+# More health: a sanatorium and a public health office.
+
+
+def sanatorium(look, v):
+    """A sanatorium on 3 by 2 tiles: a long building facing the sun with open balconies along each storey for the patients'
+    beds, set among lawns and pines."""
+    b = Building(3, 2, height=3 * STOREY + 8)
+    d = b.d
+    rng = random.Random(16600 + v)
+    lawn_box(b, look, 0, 0, 95, 63, rng)
+    roof, wall = b.box(6, 8, 89, 30, 3 * STOREY + 2)
+    col = [c("#ece6d6"), c("#d8c8a8")][v % 2]
+    d.rectangle(wall, col)
+    x0, y0, x1, y1 = wall
+    per = (y1 - y0 + 1) // 3
+    for k in range(3):
+        yy = y0 + k * per
+        d.rectangle([x0 + 2, yy + 1, x1 - 2, yy + per - 2], c("#6a6a66"))
+        for xx in range(x0 + 4, x1 - 2, 4):
+            d.line([xx, yy + 1, xx, yy + per - 2], col)
+        d.line([x0 + 2, yy + per - 2, x1 - 2, yy + per - 2], TRIM)
+    d.rectangle(wall, outline=OUTLINE)
+    if v == 0:
+        gable_ew(d, roof, SHINGLE[0], look)
+    else:
+        flat_roof(b.img, roof, look, rng, [("stack", 10, 4), ("stack", 70, 4)], parapet=STONE)
+    path_line(b, look, [(48, 63), (48, 34)], 3)
+    for x in range(10, 90, 18):
+        bench(b, x, 40)
+    for (x, y) in ((8, 54), (24, 56), (72, 54), (88, 56), (4, 6)):
+        tree_at(b, look, v, x, y, 4, rng, conifer_tree=True)
+    return b
+
+
+def public_health_office(look, v):
+    """A public health office on 2 by 1 tiles: a plain block of brick or pale stone with its name over the door, a white van
+    for the inspectors and a sign with a cross."""
+    b = Building(2, 1, height=2 * STOREY + 6)
+    d = b.d
+    rng = random.Random(16700 + v)
+    paving(b, look, 0, 26, 63, 31)
+    roof, wall = b.box(3, 5, 60, 25, 2 * STOREY + 4)
+    if v == 0:
+        brick(d, wall, c("#a8885a"))
+        windows(d, wall, 2, sill=TRIM, every=5, skip_door=True)
+    else:
+        d.rectangle(wall, c("#e0dccf"))
+        ribbon_windows(d, wall, 2, glass=GLASS_DARK, gap=4)
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    d.rectangle([cx - 3, y1 - 6, cx + 3, y1], c("#3a4f6a"))
+    d.rectangle([x1 - 8, y0 + 1, x1 - 3, y0 + 6], c("#ffffff"))
+    d.line([x1 - 6, y0 + 1, x1 - 6, y0 + 6], c("#2a7a5a"))
+    d.line([x1 - 8, y0 + 3, x1 - 3, y0 + 3], c("#2a7a5a"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, rng, [("vent", 6, 4), ("hatch", 30, 8)], parapet=STONE if v == 0 else c("#8a8a84"))
+    gx, gy = b.ground(8, 27)
+    d.rectangle([gx, gy, gx + 7, gy + 3], c("#f2f2ea"), OUTLINE)
+    d.point((gx + 3, gy + 1), c("#2a7a5a"))
+    return b
+
+
+# More police and fire: a police box, traffic police and a fireboat station.
+
+
+def police_box(look, v):
+    """A police box on a street corner, on one tile: a little blue wooden box with a lamp on top and a telephone for the
+    constable on the beat; or a stone pillar with its lamp and its phone."""
+    b = Building(height=2 * STOREY + 6)
+    d = b.d
+    paving(b, look, 0, 0, 31, 31, c("#b8b0a0"))
+    if v == 0:
+        roof, wall = b.box(12, 12, 19, 19, 2 * STOREY)
+        d.rectangle(wall, c("#22407a"))
+        x0, y0, x1, y1 = wall
+        d.rectangle([x0 + 1, y0 + 1, x1 - 1, y0 + 2], c("#101820"))
+        for yy in range(y0 + 4, y1 - 1, 3):
+            d.line([x0 + 1, yy, x1 - 1, yy], c("#2e5090"))
+        d.rectangle(wall, outline=OUTLINE)
+        d.rectangle(roof, c("#1e3868"), OUTLINE)
+    else:
+        roof, wall = b.box(13, 13, 18, 18, 2 * STOREY - 2)
+        d.rectangle(wall, c("#8a8a84"))
+        d.rectangle([wall[0] + 1, wall[1] + 3, wall[2] - 1, wall[1] + 5], c("#22407a"))
+        d.rectangle(wall, outline=OUTLINE)
+        d.rectangle(roof, c("#7a7a74"), OUTLINE)
+    rx = (roof[0] + roof[2]) // 2
+    d.rectangle([rx - 1, roof[1] - 3, rx + 1, roof[1] - 1], c("#a8c4ff"), OUTLINE)
+    return b
+
+
+def traffic_police(look, v):
+    """Traffic police on 2 by 1 tiles: a station with garage doors for the patrol cars and motorcycles lined up out front, and
+    a striped barrier; or one of the 1960s with a glass front and a radio mast."""
+    b = Building(2, 1, height=2 * STOREY + 10)
+    d = b.d
+    rng = random.Random(16800 + v)
+    paving(b, look, 0, 24, 63, 31, c("#8e8a80"))
+    roof, wall = b.box(3, 4, 60, 22, 2 * STOREY + 2)
+    if v == 0:
+        brick(d, wall, c("#8a4a3a"))
+        windows(d, wall, 2, sill=TRIM, every=5, skip=[(wall[0] + 30, wall[2])])
+    else:
+        d.rectangle(wall, c("#d8d0c0"))
+        ribbon_windows(d, [wall[0], wall[1], wall[0] + 28, wall[3]], 2, glass=GLASS_DARK, gap=4)
+    x0, y0, x1, y1 = wall
+    for k in range(2):
+        gx = x0 + 32 + k * 12
+        d.rectangle([gx, y1 - 8, gx + 9, y1], c("#5a5a60"))
+        for yy in range(y1 - 7, y1, 2):
+            d.line([gx + 1, yy, gx + 8, yy], c("#6a6a70"))
+    d.rectangle([x0 + 2, y0 + 1, x0 + 26, y0 + 2], c("#2a4a8a"))
+    d.rectangle(wall, outline=OUTLINE)
+    flat_roof(b.img, roof, look, rng, [("hatch", 10, 6)], parapet=STONE)
+    if v == 1:
+        rx0, ry0, rx1, ry1 = roof
+        d.line([rx1 - 6, ry0 + 3, rx1 - 6, ry0 - 10], c("#c0c0c0"))
+        d.line([rx1 - 9, ry0 - 7, rx1 - 3, ry0 - 7], c("#c0c0c0"))
+    # Motorcycles and a car.
+    gx, gy = b.ground(6, 26)
+    for k in range(4):
+        d.rectangle([gx + k * 4, gy, gx + k * 4 + 1, gy + 3], c("#e8e8e8"))
+        d.point((gx + k * 4, gy + 1), c("#2a4a8a"))
+    gx, gy = b.ground(30, 26)
+    d.rectangle([gx, gy, gx + 7, gy + 3], c("#f2f2ea"), OUTLINE)
+    d.line([gx + 1, gy + 1, gx + 6, gy + 1], c("#2a4a8a"))
+    d.line([2, b.lift + 30, 20, b.lift + 30], c("#f2f2ea"))
+    for xx in range(3, 20, 4):
+        d.line([xx, b.lift + 30, xx + 1, b.lift + 30], c("#c0392b"))
+    return b
+
+
+def fireboat_station(look, v):
+    """A fireboat station on 2 by 2 tiles: a boathouse of brick or timber with its doors open to a slipway, a hose tower,
+    and the red fireboat moored at the pier."""
+    b = Building(2, 2, height=4 * STOREY + 6)
+    d = b.d
+    rng = random.Random(16900 + v)
+    top = b.lift
+    # The pier and the water it reaches out over.
+    d.rectangle([0, top + 40, 63, top + 63], c("#5a8fbf") if look != "snow" else c("#dfe8ef"))
+    d.rectangle([4, top + 40, 22, top + 62], TIMBER)
+    for yy in range(top + 42, top + 62, 3):
+        d.line([4, yy, 22, yy], shade(TIMBER, 0.85))
+    # The fireboat beside it.
+    d.polygon([(28, top + 46), (52, top + 46), (56, top + 51), (52, top + 56), (28, top + 56)], c("#c0392b"), OUTLINE)
+    d.rectangle([34, top + 48, 44, top + 54], c("#f2f2ea"), OUTLINE)
+    d.line([46, top + 51, 52, top + 48], c("#d9b44a"))
+    # The boathouse.
+    paving(b, look, 0, 0, 63, 39, c("#8e8a80"))
+    roof, wall = b.box(4, 6, 46, 36, 2 * STOREY + 4)
+    if v == 0:
+        brick(d, wall, c("#9a4a36"))
+    else:
+        siding(d, wall, c("#d8c8a8"))
+    x0, y0, x1, y1 = wall
+    d.rectangle([x0 + 4, y1 - 9, x0 + 18, y1], c("#6a1a1a"))
+    windows(d, wall, 2, sill=TRIM, every=6, skip=[(x0 + 2, x0 + 20)])
+    d.rectangle(wall, outline=OUTLINE)
+    gable_ew(d, roof, SHINGLE[2] if v == 0 else SHINGLE[1], look)
+    troof, twall = b.box(50, 8, 58, 16, 4 * STOREY + 4)
+    brick(d, twall, c("#9a4a36"))
+    d.rectangle(twall, outline=OUTLINE)
+    d.rectangle(troof, SNOW_ROOF[0] if look == "snow" else c("#5b5f6b"), OUTLINE)
+    return b
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -7236,6 +8071,14 @@ BUILDINGS = [
     ("opera_house", opera_house, 2), ("museum", museum, 2), ("art_gallery", art_gallery, 2), ("concert_hall", concert_hall, 2),
     ("zoo", zoo, 4), ("fairground", fairground, 2), ("amusement_park", amusement_park, 2), ("drive_in", drive_in, 2),
     ("aquarium", aquarium, 2), ("convention_centre", convention_centre, 2),
+    # Civic buildings, and the rest of schooling, health, police and fire.
+    ("town_hall", town_hall, 3), ("city_hall", city_hall, 2), ("civic_centre", civic_centre, 2), ("post_office", post_office, 2),
+    ("cemetery", cemetery, 3), ("memorial_garden", memorial_garden, 2), ("fountain", fountain, 3), ("clock_tower", clock_tower, 2),
+    ("war_memorial", war_memorial, 2), ("kindergarten", kindergarten, 2), ("junior_high", junior_high, 2),
+    ("vocational_school", vocational_school, 2), ("central_library", central_library, 2), ("community_college", community_college, 2),
+    ("university", university, 2), ("research_campus", research_campus, 2), ("sanatorium", sanatorium, 2),
+    ("public_health_office", public_health_office, 2), ("police_box", police_box, 2), ("traffic_police", traffic_police, 2),
+    ("fireboat_station", fireboat_station, 2),
     ("police_hq", police_hq, 1), ("courthouse", courthouse, 2), ("jail", jail, 1),
     ("farmstead", farmstead, 4), ("country_house", country_house, 3), ("acreage_home", acreage_home, 3),
     ("crossroads_store", crossroads_store, 3), ("roadhouse", roadhouse, 3),

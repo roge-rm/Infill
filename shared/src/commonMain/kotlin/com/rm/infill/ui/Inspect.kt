@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.rm.infill.res.label_hall_saves
 import com.rm.infill.res.label_leisure
 import com.rm.infill.res.leisure_value
 import com.rm.infill.res.action_bring_up_to_date
@@ -304,6 +305,7 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
             )
         }
         if (t.patrols) stats += StatItem(Glyph.Cuffs, stringResource(Res.string.label_arrests), b.served.toString())
+        if (t.root == BuildingType.TOWN_HALL) stats += StatItem(Glyph.Gavel, stringResource(Res.string.label_hall_saves), stringResource(Res.string.percent, city.hallSaves()))
     }
 
     // What it makes, and from where.

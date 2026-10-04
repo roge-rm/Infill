@@ -10,7 +10,7 @@
 7. [Power](07-power.md) - power stations, lines, losses, the peak, and the wind and sun.
 8. [Water, drains and garbage](08-water-and-waste.md) - wells and mains, pressure, sewers and foul water, storms and floods, and garbage.
 9. [Phones and the internet](09-phones.md) - exchanges, lines, masts and broadband.
-10. [Services](10-services.md) - police and justice, fire, health, schools and waste, and how their cover works.
+10. [Services](10-services.md) - police and justice, fire, health, schools, civic buildings and waste, and how their cover works.
 11. [Leisure and parks](11-leisure-and-parks.md) - what people want to do near home, and the parks, sport and culture that give it.
 12. [People](12-people.md) - households, ages, schooling, wealth, work, health and getting about.
 13. [Money](13-money.md) - taxes, income, upkeep and the budget.

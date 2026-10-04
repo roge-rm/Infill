@@ -25,6 +25,27 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rm.infill.res.town_hall
+import com.rm.infill.res.city_hall
+import com.rm.infill.res.civic_centre
+import com.rm.infill.res.post_office
+import com.rm.infill.res.cemetery
+import com.rm.infill.res.memorial_garden
+import com.rm.infill.res.fountain
+import com.rm.infill.res.clock_tower
+import com.rm.infill.res.war_memorial
+import com.rm.infill.res.kindergarten
+import com.rm.infill.res.junior_high
+import com.rm.infill.res.vocational_school
+import com.rm.infill.res.central_library
+import com.rm.infill.res.community_college
+import com.rm.infill.res.university
+import com.rm.infill.res.research_campus
+import com.rm.infill.res.sanatorium
+import com.rm.infill.res.public_health_office
+import com.rm.infill.res.police_box
+import com.rm.infill.res.traffic_police
+import com.rm.infill.res.fireboat_station
 import com.rm.infill.res.sports_ground
 import com.rm.infill.res.lit_fields
 import com.rm.infill.res.public_baths
@@ -479,6 +500,27 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.DRIVE_IN -> Res.string.drive_in
     BuildingType.AQUARIUM -> Res.string.aquarium
     BuildingType.CONVENTION_CENTRE -> Res.string.convention_centre
+    BuildingType.TOWN_HALL -> Res.string.town_hall
+    BuildingType.CITY_HALL -> Res.string.city_hall
+    BuildingType.CIVIC_CENTRE -> Res.string.civic_centre
+    BuildingType.POST_OFFICE -> Res.string.post_office
+    BuildingType.CEMETERY -> Res.string.cemetery
+    BuildingType.MEMORIAL_GARDEN -> Res.string.memorial_garden
+    BuildingType.FOUNTAIN -> Res.string.fountain
+    BuildingType.CLOCK_TOWER -> Res.string.clock_tower
+    BuildingType.WAR_MEMORIAL -> Res.string.war_memorial
+    BuildingType.KINDERGARTEN -> Res.string.kindergarten
+    BuildingType.JUNIOR_HIGH -> Res.string.junior_high
+    BuildingType.VOCATIONAL_SCHOOL -> Res.string.vocational_school
+    BuildingType.CENTRAL_LIBRARY -> Res.string.central_library
+    BuildingType.COMMUNITY_COLLEGE -> Res.string.community_college
+    BuildingType.UNIVERSITY -> Res.string.university
+    BuildingType.RESEARCH_CAMPUS -> Res.string.research_campus
+    BuildingType.SANATORIUM -> Res.string.sanatorium
+    BuildingType.PUBLIC_HEALTH_OFFICE -> Res.string.public_health_office
+    BuildingType.POLICE_BOX -> Res.string.police_box
+    BuildingType.TRAFFIC_POLICE -> Res.string.traffic_police
+    BuildingType.FIREBOAT_STATION -> Res.string.fireboat_station
     BuildingType.PLAYGROUND -> Res.string.playground
     BuildingType.TOWN_SQUARE -> Res.string.town_square
     BuildingType.PLAZA -> Res.string.plaza

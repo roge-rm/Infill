@@ -287,6 +287,7 @@ fun serviceGlyph(group: ServiceGroup): Glyph = when (group) {
     ServiceGroup.Fire -> Glyph.Flame
     ServiceGroup.Health -> Glyph.Cross
     ServiceGroup.Schools -> Glyph.Cap
+    ServiceGroup.Civic -> Glyph.Civic
     ServiceGroup.Parks -> Glyph.Tree
     ServiceGroup.Sport -> Glyph.Ball
     ServiceGroup.Culture -> Glyph.Mask

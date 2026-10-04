@@ -55,7 +55,17 @@ object Lineage {
         listOf(Kind(BuildingType.PUBLIC_BATHS), Kind(BuildingType.SWIMMING_POOL), Kind(BuildingType.AQUATIC_CENTRE)),
         listOf(Kind(BuildingType.VARIETY_THEATRE), Kind(BuildingType.PICTURE_PALACE), Kind(BuildingType.MULTIPLEX)),
         listOf(Kind(BuildingType.FAIRGROUND), Kind(BuildingType.AMUSEMENT_PARK)),
+        listOf(Kind(BuildingType.TOWN_HALL), Kind(BuildingType.CITY_HALL), Kind(BuildingType.CIVIC_CENTRE)),
+        listOf(Kind(BuildingType.CEMETERY), Kind(BuildingType.MEMORIAL_GARDEN)),
+        // A police box is a beat's worth of a station: a constable and a telephone.
+        listOf(Kind(BuildingType.POLICE_BOX, serves = 30, reach = 45)),
     )
+
+    /** The year a kind with nothing after it went out all the same: the sanatorium with antibiotics, the police box with the patrol car's radio. */
+    private val retired = mapOf(BuildingType.SANATORIUM to 1955, BuildingType.POLICE_BOX to 1970)
+
+    /** Whether [t] has gone out by [year], so it's no longer built. */
+    fun retired(t: BuildingType, year: Int): Boolean = retired[t]?.let { year >= it } == true
 
     private val kinds = arrayOfNulls<Kind>(BuildingType.entries.size)
     private val line = arrayOfNulls<List<Kind>>(BuildingType.entries.size)
@@ -93,6 +103,8 @@ object Lineage {
      * calendar that dates a building, whatever the town's era.
      */
     fun dated(t: BuildingType, year: Int): Int {
+        // Gone out with nothing after it: dated as if by one newer kind.
+        retired[t]?.let { if (year >= it) return maxOf(Balance.DATE_FLOOR, 100 - Balance.DATE_STEP * minOf(year - it, Balance.DATE_RAMP_YEARS) / Balance.DATE_RAMP_YEARS) }
         val l = line[t.ordinal] ?: return 100
         var lost = 0
         for (k in l.subList(l.indexOfFirst { it.type == t } + 1, l.size)) {

@@ -32,15 +32,17 @@ object Needs {
     private val DOCKS = of(Need.POWER to 1920, Need.PHONE to 1930)
     private val CONTAINER = of(Need.POWER to 1966, Need.WATER to 1966, Need.PHONE to 1966, Need.BROADBAND to 2000)
     private val AIRFIELD = of(Need.PHONE to 1940)
+    private val CIVIC = of(Need.PHONE to 1910, Need.POWER to 1920, Need.BROADBAND to 2000)
     private val AIRPORT = of(Need.POWER to 1950, Need.WATER to 1950, Need.PHONE to 1950, Need.BROADBAND to 2000)
 
     /** What [type] needs, with the year each comes in; nothing for what grows on zoned land, or for the utilities themselves. */
     fun of(type: BuildingType): List<Pair<Need, Int>> = when {
-        type.school || type.root == BuildingType.LIBRARY -> SCHOOL
+        type.school || type.root == BuildingType.LIBRARY || type == BuildingType.CENTRAL_LIBRARY || type == BuildingType.RESEARCH_CAMPUS -> SCHOOL
         type.health -> HEALTH
         type == BuildingType.JAIL -> JAIL
         type.justice -> POLICE
         type.fire -> FIRE
+        type.civic -> CIVIC
         type.station -> STATION
         type.terminal -> TERMINAL
         type.yard -> YARD

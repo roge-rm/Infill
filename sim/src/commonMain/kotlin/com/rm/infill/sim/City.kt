@@ -586,6 +586,7 @@ class City(
             action is Action.PlaceBuilding && action.type.inWater && cutsOffPort(changes) -> Problem.CutsOffPort
             (action is Action.BuildRoad || action is Action.BuildRail) && cutsOffPort(lowDecks.filter { it in changes }) -> Problem.CutsOffPort
             action is Action.PlaceBuilding && action.type.onWater && !besideWater(action.type, action.x, action.y) -> Problem.NeedsWater
+            action is Action.PlaceBuilding && action.type.root == BuildingType.TOWN_HALL && buildings.values.any { it.type.root == BuildingType.TOWN_HALL } -> Problem.OnlyOne
             action is Action.PlaceBuilding && action.type == BuildingType.TRAM_DEPOT && besideTram(action.type, action.x, action.y).isEmpty() -> Problem.NeedsTramTrack
             action is Action.PlaceBuilding && action.type == BuildingType.SUBWAY_STATION && m.inside(action.x, action.y) &&
                 m.subway[m.index(action.x, action.y)].toInt() == 0 -> Problem.NeedsTunnel
@@ -2799,9 +2800,13 @@ class City(
         val crowded = homes.filter { it.type == BuildingType.TENEMENT || it.type == BuildingType.APARTMENTS || it.type == BuildingType.APARTMENT_COURT }
             .sumOf { it.people?.size ?: 0 } * 100 / max(1, stats.population)
         val cared = min(100, stats.cared * 100 / max(1, stats.population))
-        if (!disaster(Balance.EPIDEMIC_PPM * (100 + crowded * 3) / 100 * (100 - cared) / 100)) return
+        val watched = if (healthOffice()) Balance.HEALTH_OFFICE_OUTBREAKS else 100
+        if (!disaster(Balance.EPIDEMIC_PPM * (100 + crowded * 3) / 100 * (100 - cared) / 100 * watched / 100)) return
         startEpidemic(3 + rng.nextInt(3), 25 + rng.nextInt(21))
     }
+
+    /** Whether a public health office is at work: one is enough for the whole town. */
+    private fun healthOffice() = buildings.values.any { it.type == BuildingType.PUBLIC_HEALTH_OFFICE && strengthOf(it, healthFunding) > 0 }
 
     /** An epidemic for [months], striking a home in a hundred [strength] times a month at worst. */
     internal fun startEpidemic(months: Int, strength: Int) {
@@ -2896,7 +2901,7 @@ class City(
     fun allows(road: RoadType): Boolean = everything || (year >= road.year && era >= Era.of(road.year))
 
     /** Whether the town can put down [type] yet, the same way. */
-    fun allows(type: BuildingType): Boolean = everything || (year >= type.year && era >= Era.of(type.year))
+    fun allows(type: BuildingType): Boolean = everything || (year >= type.year && era >= Era.of(type.year) && !Lineage.retired(type, year))
 
     /** Whether lots can be zoned at [density] yet: towers come with the motor age. */
     /** Whether districts can be drawn in this era: from the streetcar age, once the town's past a village. */
@@ -2921,8 +2926,15 @@ class City(
         ordinances[o.ordinal] = on
     }
 
-    /** What the ordinances in force cost a month, by the town's people. */
-    fun ordinanceCost(): Long = Ordinance.entries.filter { has(it) }.sumOf { it.cost(stats.population) }
+    /** What the ordinances in force cost a month, by the town's people, less what the town hall saves. */
+    fun ordinanceCost(): Long {
+        val full = Ordinance.entries.filter { has(it) }.sumOf { it.cost(stats.population) }
+        return (full * (100 - hallSaves()) + 99) / 100
+    }
+
+    /** The share of the ordinances' cost the town hall's clerks save, in percent: more for a newer hall, less for a worn or dated one. */
+    fun hallSaves(): Int = buildings.values.filter { it.type.root == BuildingType.TOWN_HALL && it.underway == 0 && it.outage == 0 }
+        .maxOfOrNull { Balance.HALL_SAVES[Lineage.lineOf(it.type).indexOf(it.type)] * condition(it) / 100 } ?: 0
 
     /**
      * What the ordinances in force bring in a month: licence fees from the
@@ -3095,6 +3107,9 @@ class City(
     // ---- traffic ----------------------------------------------------------------
 
     private val traffic = Traffic(map)
+
+    /** Whether traffic police are on point duty at the crossings. */
+    val pointDuty: Boolean get() = traffic.directed < 100
 
     // ---- goods ---------------------------------------------------------------------
 
@@ -3474,6 +3489,19 @@ class City(
         val volunteers = ByteArray(map.size)
         cover(of(BuildingType.VOLUNTEER_HALL), motor, Balance.FIRE_REACH, Balance.FIRE_RESPONSE_FULL, Balance.FIRE_RESPONSE_MOST, fireFunding, Balance.VOLUNTEER_STRENGTH, volunteers)
         for (i in 0 until map.size) if ((volunteers[i].toInt() and 0xff) > (map.fireCover[i].toInt() and 0xff)) map.fireCover[i] = volunteers[i]
+        // Fireboats reach along the water, to what's near it.
+        val boats = of(BuildingType.FIREBOAT_STATION)
+        if (boats.isNotEmpty()) {
+            val afloat = ByteArray(map.size)
+            cover(boats, false, Balance.FIREBOAT_REACH, Balance.FIRE_RESPONSE_FULL, Balance.FIRE_RESPONSE_MOST, fireFunding, 100, afloat)
+            val water = SummedArea(map.width, map.height) { if (map.terrain[it] == Terrain.WATER) 1 else 0 }
+            for (i in 0 until map.size) {
+                if ((afloat[i].toInt() and 0xff) <= (map.fireCover[i].toInt() and 0xff)) continue
+                if (water.around(i % map.width, i / map.width, Balance.FIREBOAT_SHORE) > 0) map.fireCover[i] = afloat[i]
+            }
+        }
+        // Traffic police on point duty keep the crossings moving.
+        traffic.directed = if (of(BuildingType.TRAFFIC_POLICE).any { strengthOf(it, policeFunding) > 0 }) Balance.POINT_DUTY else 100
         cover(of(BuildingType.LADDER_COMPANY), motor, Balance.FIRE_REACH, Balance.FIRE_RESPONSE_FULL, Balance.FIRE_RESPONSE_MOST, fireFunding, 100, map.ladderCover)
         cover(of(BuildingType.AMBULANCE_STATION), true, Balance.FIRE_REACH, Balance.FIRE_RESPONSE_FULL, Balance.FIRE_RESPONSE_MOST, healthFunding, 100, map.ambulanceCover)
     }
@@ -3485,6 +3513,7 @@ class City(
      * comes into its own as it grows.
      */
     internal fun updateLeisure() {
+        findCivic()
         val m = map
         m.leisureGreen.fill(0)
         m.leisureSport.fill(0)
@@ -3869,8 +3898,19 @@ class City(
         return (h.workersAt(Education.EDUCATED) * share + (b.id * 37 + monthNow * 11).mod(100)) / 100
     }
 
-    /** The colleges, for offices to be near. */
-    private val colleges get() = buildings.values.filter { it.type == BuildingType.COLLEGE && it.underway == 0 }
+    /** The colleges and universities, research campuses and post offices, for offices and shops to be near: worked out each month. */
+    private var colleges = emptyList<Building>()
+    private var campuses = emptyList<Building>()
+    private var postOffices = emptyList<Building>()
+
+    private fun findCivic() {
+        val standing = buildings.values.filter { it.underway == 0 && it.outage == 0 }
+        colleges = standing.filter { it.type.college }
+        campuses = standing.filter { it.type == BuildingType.RESEARCH_CAMPUS }
+        postOffices = standing.filter { it.type == BuildingType.POST_OFFICE }
+    }
+
+    private fun near(list: List<Building>, x: Int, y: Int, reach: Int) = list.any { abs(it.x - x) + abs(it.y - y) <= reach }
 
     /**
      * Percent of last month's arrests that stuck: heard in court and the
@@ -3940,11 +3980,13 @@ class City(
         // What each place can hear and hold, as its funding, staff and age allow.
         val places = buildings.values.filter { it.type.justice && it.underway == 0 }.sortedBy { it.id }
         fun hears(b: Building) = when {
+            b.type == BuildingType.POLICE_BOX -> 0
             b.type.patrols -> Balance.LOCKUP_CASES
             b.type == BuildingType.COURTHOUSE -> Balance.COURT_CASES
             else -> 0
         } * strengthOf(b, policeFunding) / 100
         fun holds(b: Building) = when {
+            b.type == BuildingType.POLICE_BOX -> 0
             b.type.patrols -> Balance.CELLS
             b.type == BuildingType.JAIL -> Balance.JAIL_PLACES
             else -> 0
@@ -5906,12 +5948,25 @@ class City(
         var deaths = 0
         var emptied = 0
         val pupils = allot(BuildingType.SCHOOL, Balance.SCHOOL_PLACES, Balance.SCHOOL_REACH, schoolFunding, homes) { it.people!!.children }
-        val teens = allot(BuildingType.HIGH_SCHOOL, Balance.HIGH_SCHOOL_PLACES, Balance.HIGH_SCHOOL_REACH, schoolFunding, homes) { it.people!!.children / Balance.TEENS }
+        // The little ones at kindergarten; the younger teens at a junior high, and the rest at high school.
+        val little = allot(BuildingType.KINDERGARTEN, Balance.KINDERGARTEN_PLACES, Balance.KINDERGARTEN_REACH, schoolFunding, homes) { (it.people!!.children + Balance.LITTLE - 1) / Balance.LITTLE }
+        val junior = allot(BuildingType.JUNIOR_HIGH, Balance.JUNIOR_PLACES, Balance.JUNIOR_REACH, schoolFunding, homes) { (it.people!!.children / Balance.TEENS + 1) / 2 }
+        val teens = allot(BuildingType.HIGH_SCHOOL, Balance.HIGH_SCHOOL_PLACES, Balance.HIGH_SCHOOL_REACH, schoolFunding, homes) { it.people!!.children / Balance.TEENS - (junior[it.id] ?: 0) }
+        for ((id, n) in junior) teens[id] = (teens[id] ?: 0) + n
+        // A trade for those who'd leave school with none.
+        val trades = allot(BuildingType.VOCATIONAL_SCHOOL, Balance.VOCATIONAL_PLACES, Balance.VOCATIONAL_REACH, schoolFunding, homes) { it.people!!.children / Balance.TEENS }
         val clinic = allot(BuildingType.CLINIC, Balance.CLINIC_CARES, Balance.CLINIC_REACH, healthFunding, homes) { it.people!!.size }
         val hospital = allot(BuildingType.HOSPITAL, Balance.HOSPITAL_CARES, Balance.HOSPITAL_REACH, healthFunding, homes) { it.people!!.size - (clinic[it.id] ?: 0) }
         val nursing = allot(BuildingType.NURSING_HOME, Balance.NURSING_PLACES, Balance.NURSING_REACH, healthFunding, homes) { it.people!!.elderly }
         val cooling = allot(BuildingType.COOLING_CENTRE, Balance.COOLING_PLACES, Balance.COOLING_REACH, healthFunding, homes) { it.people!!.elderly }
         val college = allot(BuildingType.COLLEGE, Balance.COLLEGE_PLACES, Balance.COLLEGE_REACH, schoolFunding, homes) { it.people!!.children / Balance.TEENS }
+        for ((type, places, reach) in listOf(
+            Triple(BuildingType.UNIVERSITY, Balance.UNIVERSITY_PLACES, Balance.UNIVERSITY_REACH),
+            Triple(BuildingType.COMMUNITY_COLLEGE, Balance.COMMUNITY_COLLEGE_PLACES, Balance.COMMUNITY_COLLEGE_REACH),
+        )) {
+            val more = allot(type, places, reach, schoolFunding, homes) { it.people!!.children / Balance.TEENS - (college[it.id] ?: 0) }
+            for ((id, n) in more) college[id] = (college[id] ?: 0) + n
+        }
         // Each library by its kind and how well it works: a newer kind teaches more, a dated one less.
         val libraries = SummedArea(m.width, m.height) { j ->
             val b = buildings[m.building[j]]
@@ -5919,6 +5974,14 @@ class City(
                 Lineage.kindOf(b.type).serves * condition(b) / 100
             } else 0
         }
+        // A central library reaches across town, and a sanatorium takes in the consumptive.
+        fun placed(type: BuildingType) = SummedArea(m.width, m.height) { j ->
+            val b = buildings[m.building[j]]
+            if (b != null && b.type == type && b.x == j % m.width && b.y == j / m.width && b.outage == 0 && b.underway == 0) condition(b) else 0
+        }
+        val central = if (buildings.values.any { it.type == BuildingType.CENTRAL_LIBRARY }) placed(BuildingType.CENTRAL_LIBRARY) else null
+        val sanatoria = if (buildings.values.any { it.type == BuildingType.SANATORIUM }) placed(BuildingType.SANATORIUM) else null
+        val watched = healthOffice()
         val fouled = if (m.brownfield.any { it.toInt() != 0 }) SummedArea(m.width, m.height) { m.brownfield[it].toInt() } else null
         val dumpsNear = SummedArea(m.width, m.height) { if (m.buildingType[it].toInt() - 1 == BuildingType.DUMP.ordinal) 1 else 0 }
         s.pupils = pupils.values.sum()
@@ -5932,9 +5995,14 @@ class City(
             // School: the share of the children with a place, which their schooling follows.
             val kids = h.children
             // A library nearby teaches some more, at school and after.
-            val library = Balance.LIBRARY_SCHOOLING * min(libraries.around(b.x, b.y, Balance.LIBRARY_REACH), Balance.LIBRARY_MOST) / 100 *
+            var library = Balance.LIBRARY_SCHOOLING * min(libraries.around(b.x, b.y, Balance.LIBRARY_REACH), Balance.LIBRARY_MOST) / 100 *
                 strength(BuildingType.LIBRARY, schoolFunding) / 100
-            val atSchool = if (kids == 0) 0 else min(100, (pupils[b.id] ?: 0) * 100 / kids + library)
+            if (central != null) library += Balance.CENTRAL_SCHOOLING * min(central.around(b.x, b.y, Balance.CENTRAL_REACH), 100) / 100 *
+                strength(BuildingType.CENTRAL_LIBRARY, schoolFunding) / 100
+            // A start at kindergarten.
+            val young = (kids + Balance.LITTLE - 1) / Balance.LITTLE
+            val kinder = if (young == 0) 0 else Balance.KINDERGARTEN_SCHOOLING * min(100, (little[b.id] ?: 0) * 100 / young) / 100
+            val atSchool = if (kids == 0) 0 else min(100, (pupils[b.id] ?: 0) * 100 / kids + library + kinder)
             val pace = Balance.SCHOOLING_PACE * (if (has(Ordinance.SCHOOL_MEALS)) Balance.MEALS_SCHOOLING else 100) / 100
             h.schooling = towards(h.schooling, atSchool, pace)
             val older = kids / Balance.TEENS
@@ -5958,6 +6026,9 @@ class City(
             if (has(Ordinance.SCHOOL_MEALS) && h.children > 0) target += Balance.MEALS_HEALTH
             if (has(Ordinance.FLUORIDATION) && m.watered[i]) target += Balance.FLUORIDE_HEALTH
             if (has(Ordinance.SMOKING_BAN)) target += Balance.SMOKING_HEALTH
+            // Rest and fresh air for the consumptive.
+            val sanatorium = sanatoria?.let { min(100, it.around(b.x, b.y, Balance.SANATORIUM_REACH)) } ?: 0
+            target += Balance.SANATORIUM_HEALTH * sanatorium / 100
             // Smog, fouled land or a dump next door, and garbage nobody takes.
             target -= stats.smog / Balance.SMOG_HEALTH
             if (fouled != null && fouled.around(b.x, b.y, 2) > 0) target -= Balance.CONTAMINATED_HEALTH
@@ -5995,6 +6066,8 @@ class City(
                 var chance = epidemicStrength * crowd / 100 * (100 - careShare) / 100
                 if (m.watered[i]) chance = chance * 70 / 100
                 if (m.sewered[i]) chance = chance * 70 / 100
+                if (watched) chance = chance * Balance.HEALTH_OFFICE_SPREAD / 100
+                chance = chance * (100 - Balance.SANATORIUM_SPREAD * sanatorium / 100) / 100
                 if (rng.nextInt(100) < chance) {
                     h.health = max(5, h.health - Balance.EPIDEMIC_HEALTH)
                     childDied = min(h.children - grown, childDied + flow(h.children, Balance.EPIDEMIC_CHILD_DEATHS))
@@ -6005,9 +6078,10 @@ class City(
             // Each child grown up has had the schooling the home's children get, as far as chance goes.
             // College takes some of those who'd have stopped at school on to be educated.
             val atCollege = if (older == 0) 0 else min(100, (college[b.id] ?: 0) * 100 / older)
+            val atTrade = if (older == 0) 0 else min(100, (trades[b.id] ?: 0) * 100 / older)
             repeat(grown) {
                 val level = when {
-                    rng.nextInt(100) >= h.schooling -> Education.UNSCHOOLED
+                    rng.nextInt(100) >= h.schooling -> if (atTrade > 0 && rng.nextInt(100) < atTrade) Education.SCHOOLED else Education.UNSCHOOLED
                     rng.nextInt(100) >= h.highSchooling -> if (rng.nextInt(100) < atCollege) Education.EDUCATED else Education.SCHOOLED
                     else -> Education.EDUCATED
                 }
@@ -6457,6 +6531,7 @@ class City(
                 // Stock from the town's own works and farms, or none at all if nothing can get in.
                 buildings[m.building[i]]?.let { score += it.local * Balance.LOCAL_APPEAL / 100 }
                 if (access[i] >= 0 && traffic.freightStuck[access[i]]) score -= Balance.FREIGHT_STUCK
+                if (near(postOffices, x, y, Balance.POST_REACH)) score += Balance.POST_APPEAL
                 // A theatre or a cinema brings people out to the shops round it.
                 score += min(Balance.CULTURE_SHOPS_MOST, (m.leisureCulture[i].toInt() and 0xff) / Balance.CULTURE_SHOPS)
                 // Laws on opening hours, noise, smoking and driving in.
@@ -6476,7 +6551,9 @@ class City(
                 score += amenity(comms >= Phone.SERVICE_PHONE, Balance.PHONE_APPEAL, 1905, 1940, Balance.PHONE_NEEDED)
                 score += amenity(comms >= Phone.SERVICE_BROADBAND, Balance.BROADBAND_APPEAL, 1995, 2000, Balance.BROADBAND_NEEDED)
                 // A college nearby, for the people and the ideas.
-                if (colleges.any { abs(it.x - x) + abs(it.y - y) <= Balance.COLLEGE_REACH }) score += Balance.COLLEGE_OFFICES
+                if (near(colleges, x, y, Balance.COLLEGE_REACH)) score += Balance.COLLEGE_OFFICES
+                if (near(campuses, x, y, Balance.CAMPUS_REACH)) score += Balance.CAMPUS_OFFICES
+                if (near(postOffices, x, y, Balance.POST_REACH)) score += Balance.POST_APPEAL
                 buildings[m.building[i]]?.let { score += ageAppeal(it) }
                 if (access[i] >= 0) score += min(Balance.PASSING_TRADE, traffic.lastFootfall[access[i]] / Balance.TRIPS_PER_PASSING_POINT)
                 score += min(Balance.CULTURE_OFFICES_MOST, (m.leisureCulture[i].toInt() and 0xff) / Balance.CULTURE_OFFICES)
@@ -7350,9 +7427,21 @@ class City(
         var fireExtra = 0.0
         var phoneUpkeep = 0.0
         var policeExtra = 0.0
+        var civic = 0.0
         val days = daysIn(if (month == 0) 11 else month - 1, year).toDouble()
         for (b in buildings.values) {
             val dearer = Lineage.kindOf(b.type).upkeep / 100.0
+            // The rest by their specs, under the funding for what they do; the civic buildings have none.
+            Specs.of(b.type)?.takeIf { it.fund != Fund.PARKS }?.let {
+                when (it.fund) {
+                    Fund.SCHOOLS -> schools += it.upkeep
+                    Fund.HEALTH -> care += it.upkeep
+                    Fund.POLICE -> policeExtra += it.upkeep
+                    Fund.FIRE -> fireExtra += it.upkeep
+                    Fund.CIVIC -> civic += it.upkeep
+                    Fund.PARKS -> {}
+                }
+            }
             when (b.type.root) {
                 BuildingType.SCHOOL -> schools += Balance.SCHOOL_UPKEEP * dearer
                 BuildingType.HIGH_SCHOOL -> schools += Balance.HIGH_SCHOOL_UPKEEP * dearer
@@ -7410,7 +7499,7 @@ class City(
                 b.type.root == BuildingType.FIRE_STATION -> fire += Lineage.kindOf(b.type).upkeep / 100.0
                 b.type == BuildingType.PARK -> parks += 1.0
                 // Green space, sport and culture, all under the parks funding.
-                b.type.green || b.type.leisure -> parks += Specs.of(b.type)!!.upkeep / Balance.PARK_UPKEEP
+                (b.type.green || b.type.leisure) && Specs.of(b.type)!!.fund == Fund.PARKS -> parks += Specs.of(b.type)!!.upkeep / Balance.PARK_UPKEEP
                 Generation.station(b.type) || b.type == BuildingType.SUBSTATION -> plants += when (b.type) {
                     BuildingType.OIL_PLANT -> Balance.OIL_PLANT_UPKEEP
                     BuildingType.GAS_PLANT -> Balance.GAS_PLANT_UPKEEP
@@ -7538,7 +7627,8 @@ class City(
         disasterBill = 0
         s.schoolUpkeep = (schools * schoolFunding / 100).roundToLong()
         s.healthUpkeep = (care * healthFunding / 100).roundToLong()
-        s.upkeep = s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost + s.phoneUpkeep + s.portUpkeep + s.neighbourCost + s.ordinanceCost
+        s.civicUpkeep = civic.roundToLong()
+        s.upkeep = s.civicUpkeep + s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost + s.phoneUpkeep + s.portUpkeep + s.neighbourCost + s.ordinanceCost
         funds += s.income - s.upkeep
     }
 
@@ -7805,6 +7895,8 @@ class City(
         w.count(passed.size)
         for (o in passed) w.string(o.name)
         w.long(s.ordinanceCost); w.long(s.ordinanceIncome)
+        // Since version 38: the civic buildings' upkeep.
+        w.long(s.civicUpkeep)
     }
 
     companion object {
@@ -8126,6 +8218,7 @@ class City(
                     }
                     c.stats.ordinanceCost = r.long(); c.stats.ordinanceIncome = r.long()
                 }
+                if (version >= 38) c.stats.civicUpkeep = r.long()
                 c.updateNetworks()
                 c.markContainerTrains()
                 c.updateAirports()
@@ -8204,6 +8297,7 @@ class Stats {
 
     /** What the ordinances in force cost and brought in last month. */
     var ordinanceCost = 0L
+    var civicUpkeep = 0L
     var ordinanceIncome = 0L
 
     /** The people by age, adults' schooling and wealth. */

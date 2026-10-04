@@ -1,5 +1,24 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.services_civic
+import com.rm.infill.res.town_hall
+import com.rm.infill.res.post_office
+import com.rm.infill.res.cemetery
+import com.rm.infill.res.fountain
+import com.rm.infill.res.clock_tower
+import com.rm.infill.res.war_memorial
+import com.rm.infill.res.kindergarten
+import com.rm.infill.res.junior_high
+import com.rm.infill.res.vocational_school
+import com.rm.infill.res.central_library
+import com.rm.infill.res.community_college
+import com.rm.infill.res.university
+import com.rm.infill.res.research_campus
+import com.rm.infill.res.sanatorium
+import com.rm.infill.res.public_health_office
+import com.rm.infill.res.police_box
+import com.rm.infill.res.traffic_police
+import com.rm.infill.res.fireboat_station
 import com.rm.infill.res.sports_ground
 import com.rm.infill.res.public_baths
 import com.rm.infill.res.tennis_courts
@@ -314,6 +333,7 @@ enum class ServiceGroup(val title: StringResource, val leisure: Boolean = false)
     Fire(Res.string.services_fire),
     Health(Res.string.services_health),
     Schools(Res.string.services_schools),
+    Civic(Res.string.services_civic),
     Waste(Res.string.services_waste),
     Parks(Res.string.services_parks, leisure = true),
     Sport(Res.string.leisure_sport, leisure = true),
@@ -326,9 +346,12 @@ enum class ServiceKind(val title: StringResource, val type: BuildingType?, val g
     PoliceHq(Res.string.police_hq, BuildingType.POLICE_HQ, ServiceGroup.Police),
     Courthouse(Res.string.courthouse, BuildingType.COURTHOUSE, ServiceGroup.Police),
     Jail(Res.string.jail, BuildingType.JAIL, ServiceGroup.Police),
+    PoliceBox(Res.string.police_box, BuildingType.POLICE_BOX, ServiceGroup.Police),
+    TrafficPolice(Res.string.traffic_police, BuildingType.TRAFFIC_POLICE, ServiceGroup.Police),
     Fire(Res.string.fire_station, BuildingType.FIRE_STATION, ServiceGroup.Fire),
     Volunteers(Res.string.volunteer_hall, BuildingType.VOLUNTEER_HALL, ServiceGroup.Fire),
     Ladders(Res.string.ladder_company, BuildingType.LADDER_COMPANY, ServiceGroup.Fire),
+    Fireboat(Res.string.fireboat_station, BuildingType.FIREBOAT_STATION, ServiceGroup.Fire),
     Park(Res.string.park, BuildingType.PARK, ServiceGroup.Parks),
     StreetTrees(Res.string.street_trees, null, ServiceGroup.Parks),
     Playground(Res.string.playground, BuildingType.PLAYGROUND, ServiceGroup.Parks),
@@ -366,12 +389,27 @@ enum class ServiceKind(val title: StringResource, val type: BuildingType?, val g
     School(Res.string.school, BuildingType.SCHOOL, ServiceGroup.Schools),
     HighSchool(Res.string.high_school, BuildingType.HIGH_SCHOOL, ServiceGroup.Schools),
     Library(Res.string.library, BuildingType.LIBRARY, ServiceGroup.Schools),
+    Kindergarten(Res.string.kindergarten, BuildingType.KINDERGARTEN, ServiceGroup.Schools),
+    JuniorHigh(Res.string.junior_high, BuildingType.JUNIOR_HIGH, ServiceGroup.Schools),
+    Vocational(Res.string.vocational_school, BuildingType.VOCATIONAL_SCHOOL, ServiceGroup.Schools),
+    CentralLibrary(Res.string.central_library, BuildingType.CENTRAL_LIBRARY, ServiceGroup.Schools),
     College(Res.string.college, BuildingType.COLLEGE, ServiceGroup.Schools),
+    CommunityCollege(Res.string.community_college, BuildingType.COMMUNITY_COLLEGE, ServiceGroup.Schools),
+    University(Res.string.university, BuildingType.UNIVERSITY, ServiceGroup.Schools),
+    ResearchCampus(Res.string.research_campus, BuildingType.RESEARCH_CAMPUS, ServiceGroup.Schools),
     Clinic(Res.string.clinic, BuildingType.CLINIC, ServiceGroup.Health),
     Hospital(Res.string.hospital, BuildingType.HOSPITAL, ServiceGroup.Health),
     Ambulance(Res.string.ambulance_station, BuildingType.AMBULANCE_STATION, ServiceGroup.Health),
     Nursing(Res.string.nursing_home, BuildingType.NURSING_HOME, ServiceGroup.Health),
     Cooling(Res.string.cooling_centre, BuildingType.COOLING_CENTRE, ServiceGroup.Health),
+    Sanatorium(Res.string.sanatorium, BuildingType.SANATORIUM, ServiceGroup.Health),
+    HealthOffice(Res.string.public_health_office, BuildingType.PUBLIC_HEALTH_OFFICE, ServiceGroup.Health),
+    TownHall(Res.string.town_hall, BuildingType.TOWN_HALL, ServiceGroup.Civic),
+    PostOffice(Res.string.post_office, BuildingType.POST_OFFICE, ServiceGroup.Civic),
+    Cemetery(Res.string.cemetery, BuildingType.CEMETERY, ServiceGroup.Civic),
+    Fountain(Res.string.fountain, BuildingType.FOUNTAIN, ServiceGroup.Civic),
+    ClockTower(Res.string.clock_tower, BuildingType.CLOCK_TOWER, ServiceGroup.Civic),
+    WarMemorial(Res.string.war_memorial, BuildingType.WAR_MEMORIAL, ServiceGroup.Civic),
     Dump(Res.string.dump, BuildingType.DUMP, ServiceGroup.Waste),
     Incinerator(Res.string.incinerator, BuildingType.INCINERATOR, ServiceGroup.Waste),
     Recycling(Res.string.recycling, BuildingType.RECYCLING, ServiceGroup.Waste),

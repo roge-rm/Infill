@@ -936,11 +936,14 @@ internal class Traffic(private val map: CityMap) {
     }
 
 
+    /** How long the crossings hold traffic up, in percent: less with traffic police on point duty. */
+    var directed = 100
+
     /** Seconds to get through the crossing at [b], if it is one, by its control and how busy it is. */
     fun junctionWait(b: Int, road: RoadType): Int {
         val control = map.control[b]
         if (control == Junction.NONE) return 0
-        return Junction.wait(control, road.capacity, max(lastVolume[b], volume[b]))
+        return Junction.wait(control, road.capacity, max(lastVolume[b], volume[b])) * directed / 100
     }
 
     private fun edge(a: Int): Boolean {

@@ -210,6 +210,27 @@ internal object BuildingSprites {
                 BuildingType.DRIVE_IN -> Atlas.DRIVE_IN to Atlas.DRIVE_IN_COUNT
                 BuildingType.AQUARIUM -> Atlas.AQUARIUM to Atlas.AQUARIUM_COUNT
                 BuildingType.CONVENTION_CENTRE -> Atlas.CONVENTION_CENTRE to Atlas.CONVENTION_CENTRE_COUNT
+                BuildingType.TOWN_HALL -> Atlas.TOWN_HALL to Atlas.TOWN_HALL_COUNT
+                BuildingType.CITY_HALL -> Atlas.CITY_HALL to Atlas.CITY_HALL_COUNT
+                BuildingType.CIVIC_CENTRE -> Atlas.CIVIC_CENTRE to Atlas.CIVIC_CENTRE_COUNT
+                BuildingType.POST_OFFICE -> Atlas.POST_OFFICE to Atlas.POST_OFFICE_COUNT
+                BuildingType.CEMETERY -> Atlas.CEMETERY to Atlas.CEMETERY_COUNT
+                BuildingType.MEMORIAL_GARDEN -> Atlas.MEMORIAL_GARDEN to Atlas.MEMORIAL_GARDEN_COUNT
+                BuildingType.FOUNTAIN -> Atlas.FOUNTAIN to Atlas.FOUNTAIN_COUNT
+                BuildingType.CLOCK_TOWER -> Atlas.CLOCK_TOWER to Atlas.CLOCK_TOWER_COUNT
+                BuildingType.WAR_MEMORIAL -> Atlas.WAR_MEMORIAL to Atlas.WAR_MEMORIAL_COUNT
+                BuildingType.KINDERGARTEN -> Atlas.KINDERGARTEN to Atlas.KINDERGARTEN_COUNT
+                BuildingType.JUNIOR_HIGH -> Atlas.JUNIOR_HIGH to Atlas.JUNIOR_HIGH_COUNT
+                BuildingType.VOCATIONAL_SCHOOL -> Atlas.VOCATIONAL_SCHOOL to Atlas.VOCATIONAL_SCHOOL_COUNT
+                BuildingType.CENTRAL_LIBRARY -> Atlas.CENTRAL_LIBRARY to Atlas.CENTRAL_LIBRARY_COUNT
+                BuildingType.COMMUNITY_COLLEGE -> Atlas.COMMUNITY_COLLEGE to Atlas.COMMUNITY_COLLEGE_COUNT
+                BuildingType.UNIVERSITY -> Atlas.UNIVERSITY to Atlas.UNIVERSITY_COUNT
+                BuildingType.RESEARCH_CAMPUS -> Atlas.RESEARCH_CAMPUS to Atlas.RESEARCH_CAMPUS_COUNT
+                BuildingType.SANATORIUM -> Atlas.SANATORIUM to Atlas.SANATORIUM_COUNT
+                BuildingType.PUBLIC_HEALTH_OFFICE -> Atlas.PUBLIC_HEALTH_OFFICE to Atlas.PUBLIC_HEALTH_OFFICE_COUNT
+                BuildingType.POLICE_BOX -> Atlas.POLICE_BOX to Atlas.POLICE_BOX_COUNT
+                BuildingType.TRAFFIC_POLICE -> Atlas.TRAFFIC_POLICE to Atlas.TRAFFIC_POLICE_COUNT
+                BuildingType.FIREBOAT_STATION -> Atlas.FIREBOAT_STATION to Atlas.FIREBOAT_STATION_COUNT
                 BuildingType.COLLEGE -> Atlas.COLLEGE to Atlas.COLLEGE_COUNT
                 BuildingType.POLICE_HQ -> Atlas.POLICE_HQ to Atlas.POLICE_HQ_COUNT
                 BuildingType.EXCHANGE -> Atlas.EXCHANGE to Atlas.EXCHANGE_COUNT

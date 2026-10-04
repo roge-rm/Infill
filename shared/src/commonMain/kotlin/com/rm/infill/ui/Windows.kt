@@ -7,6 +7,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.rm.infill.res.upkeep_civic
 import com.rm.infill.res.ordinances
 import com.rm.infill.res.law_from
 import com.rm.infill.res.law_cost
@@ -488,6 +489,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit, onOrdinances: () -> Unit 
                 if (s.portUpkeep > 0) Triple(Glyph.Anchor, Res.string.upkeep_ports, s.portUpkeep) else null,
                 if (s.neighbourCost > 0) Triple(Glyph.Arrows, Res.string.upkeep_next_door, s.neighbourCost) else null,
                 if (s.ordinanceCost > 0) Triple(Glyph.Gavel, Res.string.ordinance_cost, s.ordinanceCost) else null,
+                if (s.civicUpkeep > 0) Triple(Glyph.Civic, Res.string.upkeep_civic, s.civicUpkeep) else null,
             )
             // Every bar against the biggest, in or out.
             val most = maxOf(1L, (income + upkeep).maxOf { it.third })

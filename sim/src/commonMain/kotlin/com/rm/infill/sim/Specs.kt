@@ -46,16 +46,19 @@ class Leisure(
     }
 }
 
+/** Which of the town's budgets keeps a building: parks and leisure, schools, health, police, fire, or the town hall's own. */
+enum class Fund { PARKS, SCHOOLS, HEALTH, POLICE, FIRE, CIVIC }
+
 /**
  * The numbers for the buildings that are described by what they do rather
  * than by code of their own: their [price], [upkeep] a month (scaled by
  * the parks funding for green space), what they do as [green] space, the
  * [leisure] they give, the visitors they [draw], and whether they're
- * [painted] a tile at a time.
+ * [painted] a tile at a time, and the budget it comes out of, its [fund].
  */
 class Spec(
     val price: Long, val upkeep: Double, val green: Green? = null, val leisure: Leisure? = null,
-    val draw: Double = 0.0, val painted: Boolean = false,
+    val draw: Double = 0.0, val painted: Boolean = false, val fund: Fund = Fund.PARKS,
 )
 
 object Specs {
@@ -111,6 +114,33 @@ object Specs {
         put(BuildingType.DRIVE_IN, Spec(1_500, 6.0, leisure = Leisure(culture = 40, reach = 14, fadesFrom = 1975, fadedBy = 1990, fadesTo = 20)))
         put(BuildingType.AQUARIUM, Spec(14_000, 60.0, leisure = Leisure(culture = 45, reach = 16), draw = 35.0))
         put(BuildingType.CONVENTION_CENTRE, Spec(25_000, 90.0, leisure = Leisure(culture = 20, reach = 10), draw = 40.0))
+
+        // Civic: the hall and the post office out of the town hall's budget, the rest kept with the parks.
+        put(BuildingType.TOWN_HALL, Spec(3_000, 30.0, fund = Fund.CIVIC))
+        put(BuildingType.CITY_HALL, Spec(5_000, 45.0, draw = 4.0, fund = Fund.CIVIC))
+        put(BuildingType.CIVIC_CENTRE, Spec(7_000, 60.0, draw = 4.0, fund = Fund.CIVIC))
+        put(BuildingType.POST_OFFICE, Spec(900, 12.0, fund = Fund.CIVIC))
+        put(BuildingType.CEMETERY, Spec(1_500, 4.0, Green(2, 110, 10, 0), Leisure(green = 10, reach = 4)))
+        put(BuildingType.MEMORIAL_GARDEN, Spec(2_000, 6.0, Green(2, 120, 5, 3), Leisure(green = 30, culture = 10, reach = 6)))
+        put(BuildingType.FOUNTAIN, Spec(400, 2.0, Green(0, 120, 60, 4), Leisure(green = 10, culture = 20, reach = 4)))
+        put(BuildingType.CLOCK_TOWER, Spec(1_200, 2.0, leisure = Leisure(culture = 25, reach = 6), draw = 3.0))
+        put(BuildingType.WAR_MEMORIAL, Spec(600, 1.0, leisure = Leisure(green = 5, culture = 20, reach = 5)))
+
+        // Schooling.
+        put(BuildingType.KINDERGARTEN, Spec(500, 8.0, fund = Fund.SCHOOLS))
+        put(BuildingType.JUNIOR_HIGH, Spec(2_500, 40.0, fund = Fund.SCHOOLS))
+        put(BuildingType.VOCATIONAL_SCHOOL, Spec(3_000, 50.0, fund = Fund.SCHOOLS))
+        put(BuildingType.CENTRAL_LIBRARY, Spec(5_000, 35.0, draw = 6.0, fund = Fund.SCHOOLS))
+        put(BuildingType.COMMUNITY_COLLEGE, Spec(9_000, 70.0, fund = Fund.SCHOOLS))
+        put(BuildingType.UNIVERSITY, Spec(45_000, 300.0, draw = 15.0, fund = Fund.SCHOOLS))
+        put(BuildingType.RESEARCH_CAMPUS, Spec(30_000, 120.0, fund = Fund.SCHOOLS))
+
+        // Health, police and fire.
+        put(BuildingType.SANATORIUM, Spec(4_000, 45.0, fund = Fund.HEALTH))
+        put(BuildingType.PUBLIC_HEALTH_OFFICE, Spec(2_000, 30.0, fund = Fund.HEALTH))
+        put(BuildingType.POLICE_BOX, Spec(150, 4.0, fund = Fund.POLICE))
+        put(BuildingType.TRAFFIC_POLICE, Spec(1_800, 35.0, fund = Fund.POLICE))
+        put(BuildingType.FIREBOAT_STATION, Spec(3_500, 50.0, fund = Fund.FIRE))
     }
 
     /** [t]'s numbers, or null for a building whose numbers are its own code's. */

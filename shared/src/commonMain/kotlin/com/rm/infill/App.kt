@@ -23,6 +23,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.unit.Density
 import com.rm.infill.ui.airChoices
 import com.rm.infill.ui.AirKind
+import com.rm.infill.res.only_one
 import com.rm.infill.res.event_ordinance_ended
 import com.rm.infill.res.event_ordinance_available
 import com.rm.infill.res.dig_tunnel
@@ -886,6 +887,7 @@ private fun GameScreen(
             else if (it.plan.problem == Problem.NeedsTunnel) stringResource(Res.string.needs_tunnel)
             else if (it.plan.problem == Problem.NoSeaRoute) stringResource(Res.string.no_sea_route)
             else if (it.plan.problem == Problem.CutsOffPort) stringResource(Res.string.cuts_off_port)
+            else if (it.plan.problem == Problem.OnlyOne) stringResource(Res.string.only_one)
             else stringResource(Res.string.money, groupThousands(it.plan.cost))
         } ?: ""
 
@@ -992,6 +994,7 @@ private fun GameScreen(
                 Problem.NoRoute -> Message(Res.string.no_route)
                 Problem.NoSeaRoute -> Message(Res.string.no_sea_route)
                 Problem.CutsOffPort -> Message(Res.string.cuts_off_port)
+                Problem.OnlyOne -> Message(Res.string.only_one)
                 else -> message
             }
         }

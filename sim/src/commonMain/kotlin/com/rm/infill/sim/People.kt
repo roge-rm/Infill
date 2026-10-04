@@ -170,6 +170,18 @@ object Demography {
         BuildingType.LIBRARY -> intArrayOf(0, 40, 60)
         BuildingType.COLLEGE -> intArrayOf(10, 30, 60)
         BuildingType.MUSEUM, BuildingType.OPERA_HOUSE, BuildingType.ART_GALLERY, BuildingType.CONCERT_HALL -> intArrayOf(0, 40, 60)
+        BuildingType.TOWN_HALL -> intArrayOf(10, 50, 40)
+        BuildingType.POST_OFFICE -> intArrayOf(30, 70, 0)
+        BuildingType.KINDERGARTEN, BuildingType.JUNIOR_HIGH -> intArrayOf(0, 25, 75)
+        BuildingType.VOCATIONAL_SCHOOL -> intArrayOf(10, 60, 30)
+        BuildingType.CENTRAL_LIBRARY -> intArrayOf(0, 40, 60)
+        BuildingType.COMMUNITY_COLLEGE -> intArrayOf(10, 35, 55)
+        BuildingType.UNIVERSITY -> intArrayOf(5, 25, 70)
+        BuildingType.RESEARCH_CAMPUS -> intArrayOf(0, 20, 80)
+        BuildingType.SANATORIUM -> intArrayOf(20, 50, 30)
+        BuildingType.PUBLIC_HEALTH_OFFICE -> intArrayOf(0, 40, 60)
+        BuildingType.POLICE_BOX, BuildingType.TRAFFIC_POLICE -> intArrayOf(20, 80, 0)
+        BuildingType.FIREBOAT_STATION -> intArrayOf(30, 70, 0)
         else -> intArrayOf(40, 60, 0)
     }
 
