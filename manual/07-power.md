@@ -41,6 +41,8 @@ The tray offers the newest kind. An older station makes a little less as newer k
 
 The grid runs the cheapest power first: wind, sun, water and tide, then nuclear, coal, gas and oil. Coal and oil cost least from the town's own mines and wells, and bringing them in costs less with a port. **Fit scrubbers** (from 1970) cuts a coal or oil station's smoke to 30%.
 
+A station's stacks smoke, and its cooling towers steam, as hard as it's running, so you can see which ones the grid is using. One standing idle shows none. Coal smoke goes grey with scrubbers or under smoke abatement or the clean air act.
+
 ## Lines
 
 - **Power line** carries power from a station to the zones, up to 8 MW a line.

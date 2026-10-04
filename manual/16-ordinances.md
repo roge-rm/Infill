@@ -3,7 +3,7 @@
 
 **Ordinances** in the budget, or the U key, opens the town's laws. Each is a switch: on puts it in force across the whole town, off repeals it. District policies are for one part of town; ordinances are for all of it.
 
-Each law costs something every month for every thousand people, shown beside it at the town's size now, and some bring money in. A law can only be passed once its year has come and the town is in that year's era. Laws whose years haven't come say when they will. A town hall cuts what they all cost (see Services). History ends some, and a law that's had its day is repealed by itself, with a word in the news. A new law the town can pass is in the news too.
+Each law costs something every month for every thousand people, shown beside it at the town's size now, and some bring money in. A law can only be passed once its year has come and the town is in that year's era. Laws whose years haven't come say when they will, and ones waiting on the town's era name it. A town hall cuts what they all cost (see Services). History ends some, and a law that's had its day is repealed by itself, with a word in the news. A new law the town can pass is in the news too.
 
 ## Safety
 

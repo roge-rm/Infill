@@ -16,9 +16,10 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Carts and, as the years go on, more and more cars along the straight runs
- * of road. A road has more of them the busier it was last month, and they go
- * slower. They keep to the right, and fill both lanes of a one-way road.
+ * Carts and, as the years go on, more and more cars along the runs of road
+ * and through their junctions. A road has more of them the busier it was
+ * last month, and they go slower. They keep to the right, and fill both
+ * lanes of a one-way road.
  * [most] is how many there can be in a lane on one tile. At the level
  * [crossings] a train is on, the road is clear and traffic waits either side.
  * A road shut for works has nothing on it.
@@ -44,73 +45,127 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
         val across = road(x - 1, y) || road(x + 1, y)
         val down = road(x, y - 1) || road(x, y + 1)
         val heading = map.roadHeading[i].toInt()
-        if (across && down) {
-            // Round a bend of a two-way road, each lane in from one side and out the other; junctions stay clear.
-            val ways = (0 until 4).filter { road(x + Heading.DX[it + 1], y + Heading.DY[it + 1]) }
-            if (ways.size != 2 || heading != 0) continue
-            val a = map.index(x + Heading.DX[ways[0] + 1], y + Heading.DY[ways[0] + 1])
-            val b = map.index(x + Heading.DX[ways[1] + 1], y + Heading.DY[ways[1] + 1])
-            // As busy as the busier road either side, so what comes up to the bend is seen going round it.
-            val busy = maxOf(map.congestion[i].toInt() and 0xff, map.congestion[a].toInt() and 0xff, map.congestion[b].toInt() and 0xff)
-            if (busy == 0) continue
-            val slots = min(most, 1 + busy / 96)
-            val speed = BASE_SPEED * (1f - min(0.75f, busy / 340f))
-            for (lane in 0..1) for (k in 0 until slots) {
-                val seed = x * 7919 + y * 104729 + lane * 31 + k * 977
-                if (k == 0 && unit(seed) * 128f > busy + 16) continue
-                val along = (time * speed + (k + unit(seed * 3) * 0.5f) / slots) % 1f
-                val (cx, cy, angle) = if (lane == 0) pointThrough(a, i, b, along, map.width, LANE) else pointThrough(b, i, a, along, map.width, LANE)
-                vehicle(camera.tileToScreen(cx, cy, size), t, angle, unit(seed * 5) < cars, seed)
-            }
-            continue
-        }
-        // Along straight runs. Each lane's cars are spaced down the whole row or column and move along it
-        // together, so a car carries on from tile to tile; how busy a tile is decides which of them show on it.
-        val busy = map.congestion[i].toInt() and 0xff
-        if (busy == 0 || !across && !down) continue
-        val want = min(most.toFloat(), (busy + 16) / 96f)
-        val gap = 1f / most
-        for (lane in 0..1) {
-            val dir = when {
-                heading != 0 -> heading
-                across -> if (lane == 0) Heading.EAST.toInt() else Heading.WEST.toInt()
-                else -> if (lane == 0) Heading.NORTH.toInt() else Heading.SOUTH.toInt()
-            }
-            // The right-hand lane for each way, both lanes on a one-way road.
-            val side = if (heading != 0) (if (lane == 0) NEAR else FAR) else if (dir == Heading.EAST.toInt() || dir == Heading.NORTH.toInt()) NEAR else FAR
-            val forward = dir == Heading.EAST.toInt() || dir == Heading.SOUTH.toInt()
-            // Waiting at a crossing just ahead: queued up to it.
-            val ax = x + Heading.DX[dir]
-            val ay = y + Heading.DY[dir]
-            if (crossings.isNotEmpty() && map.inside(ax, ay) && map.index(ax, ay) in crossings) {
-                for (k in 0 until min(most, 1 + busy / 96)) {
-                    val seed = x * 7919 + y * 104729 + lane * 31 + k * 977
-                    val u = if (forward) 0.8f - k * 0.3f else 0.2f + k * 0.3f
-                    val cx = if (across) x + u else x + side
-                    val cy = if (across) y + side else y + u
+        // One direction of travel's lanes across tile x, y, for the stretch of tile from [lo] to [hi] along it.
+        // Each lane's cars are spaced down the whole row or column and move along it together, so a car carries
+        // on from tile to tile and through junctions; how busy a tile is decides which of them show on it.
+        fun stream(across: Boolean, way: Int, busy: Int, lo: Float, hi: Float, queue: Boolean, stem: Int = -1) {
+            val want = min(most.toFloat(), (busy + 16) / 96f)
+            val gap = 1f / most
+            for (lane in 0..1) {
+                val dir = when {
+                    way != 0 -> way
+                    across -> if (lane == 0) Heading.EAST.toInt() else Heading.WEST.toInt()
+                    else -> if (lane == 0) Heading.NORTH.toInt() else Heading.SOUTH.toInt()
+                }
+                // The right-hand lane for each way, both lanes on a one-way road.
+                val side = if (way != 0) (if (lane == 0) NEAR else FAR) else if (dir == Heading.EAST.toInt() || dir == Heading.NORTH.toInt()) NEAR else FAR
+                val forward = dir == Heading.EAST.toInt() || dir == Heading.SOUTH.toInt()
+                // Waiting at a crossing just ahead: queued up to it.
+                val ax = x + Heading.DX[dir]
+                val ay = y + Heading.DY[dir]
+                if (queue && crossings.isNotEmpty() && map.inside(ax, ay) && map.index(ax, ay) in crossings) {
+                    for (k in 0 until min(most, 1 + busy / 96)) {
+                        val seed = x * 7919 + y * 104729 + lane * 31 + k * 977
+                        val u = if (forward) 0.8f - k * 0.3f else 0.2f + k * 0.3f
+                        val cx = if (across) x + u else x + side
+                        val cy = if (across) y + side else y + u
+                        vehicle(camera.tileToScreen(cx, cy, size), t, DEGREES[dir], unit(seed * 5) < cars, seed)
+                    }
+                    continue
+                }
+                val line = if (across) y * 2 + lane else LINES + x * 2 + lane
+                val speed = speeds.getOrPut(if (across) y else LINES + x) { lineSpeed(map, across, if (across) y else x) }
+                // Where the lane's cars are now, wrapped so it stays exact however long the game runs.
+                val shift = ((if (forward) time * speed.toDouble() else -time * speed.toDouble()) + unit(line * 7) * gap).mod(gap * WRAP.toDouble()).toFloat()
+                val start = (if (across) x else y) + lo
+                val end = (if (across) x else y) + hi
+                var j = ceil((start - shift) / gap).toInt()
+                while (true) {
+                    val pos = j * gap + shift
+                    if (pos >= end) break
+                    // Which car this is, the same all along the lane.
+                    val seed = line * 104729 + j.mod(WRAP) * 977
+                    j++
+                    if (unit(seed) * most > want) continue
+                    if (stem >= 0) {
+                        // The end of a side street at a junction: in round the corner onto the cross road, or out
+                        // of it round the corner, left or right, to the right of the way it's going.
+                        val into = (pos - (if (across) x else y)).let { if (forward) it else 1f - it }
+                        val inbound = map.index(x - Heading.DX[dir], y - Heading.DY[dir]) == stem
+                        val exits = (0 until 4).map { map.index(x + Heading.DX[it + 1], y + Heading.DY[it + 1]) }
+                            .filter { it != stem && road(it % map.width, it / map.width) && turnable(map, i, it, inbound) }
+                        if (exits.isEmpty()) continue
+                        val other = exits[(unit(seed * 11) * exits.size).toInt().coerceAtMost(exits.size - 1)]
+                        val offset = (side - 0.5f) * (if (dir == Heading.EAST.toInt() || dir == Heading.NORTH.toInt()) 1f else -1f)
+                        val (cx, cy, angle) = if (inbound) pointThrough(stem, i, other, into, map.width, offset) else pointThrough(other, i, stem, into, map.width, offset)
+                        vehicle(camera.tileToScreen(cx, cy, size), t, angle, unit(seed * 5) < cars, seed)
+                        continue
+                    }
+                    val cx = if (across) pos else x + side
+                    val cy = if (across) y + side else pos
                     vehicle(camera.tileToScreen(cx, cy, size), t, DEGREES[dir], unit(seed * 5) < cars, seed)
+                }
+            }
+        }
+        fun busyAt(x: Int, y: Int) = if (road(x, y)) map.congestion[map.index(x, y)].toInt() and 0xff else 0
+        if (across && down) {
+            val ways = (0 until 4).filter { road(x + Heading.DX[it + 1], y + Heading.DY[it + 1]) }
+            if (ways.size == 2 && heading == 0) {
+                // Round a bend of a two-way road, each lane in from one side and out the other.
+                val a = map.index(x + Heading.DX[ways[0] + 1], y + Heading.DY[ways[0] + 1])
+                val b = map.index(x + Heading.DX[ways[1] + 1], y + Heading.DY[ways[1] + 1])
+                // As busy as the busier road either side, so what comes up to the bend is seen going round it.
+                val busy = maxOf(map.congestion[i].toInt() and 0xff, map.congestion[a].toInt() and 0xff, map.congestion[b].toInt() and 0xff)
+                if (busy == 0) continue
+                val slots = min(most, 1 + busy / 96)
+                val speed = BASE_SPEED * (1f - min(0.75f, busy / 340f))
+                for (lane in 0..1) for (k in 0 until slots) {
+                    val seed = x * 7919 + y * 104729 + lane * 31 + k * 977
+                    if (k == 0 && unit(seed) * 128f > busy + 16) continue
+                    val along = (time * speed + (k + unit(seed * 3) * 0.5f) / slots) % 1f
+                    val (cx, cy, angle) = if (lane == 0) pointThrough(a, i, b, along, map.width, LANE) else pointThrough(b, i, a, along, map.width, LANE)
+                    vehicle(camera.tileToScreen(cx, cy, size), t, angle, unit(seed * 5) < cars, seed)
                 }
                 continue
             }
-            val line = if (across) y * 2 + lane else LINES + x * 2 + lane
-            val speed = speeds.getOrPut(if (across) y else LINES + x) { lineSpeed(map, across, if (across) y else x) }
-            // Where the lane's cars are now, wrapped so it stays exact however long the game runs.
-            val shift = ((if (forward) time * speed.toDouble() else -time * speed.toDouble()) + unit(line * 7) * gap).mod(gap * WRAP.toDouble()).toFloat()
-            val start = if (across) x else y
-            var j = ceil((start - shift) / gap).toInt()
-            while (true) {
-                val pos = j * gap + shift
-                if (pos >= start + 1) break
-                // Which car this is, the same all along the lane.
-                val seed = line * 104729 + j.mod(WRAP) * 977
-                j++
-                if (unit(seed) * most > want) continue
-                val cx = if (across) pos else x + side
-                val cy = if (across) y + side else pos
-                vehicle(camera.tileToScreen(cx, cy, size), t, DEGREES[dir], unit(seed * 5) < cars, seed)
+            if (ways.size == 2) continue
+            // A junction: each road's streams carry on across it, as busy as the road either side, so the cars
+            // seen coming up to it go on through. A side street that stops here turns its cars onto the cross road.
+            for (axis in 0..1) {
+                val row = axis == 0
+                val before = if (row) road(x - 1, y) else road(x, y - 1)
+                val after = if (row) road(x + 1, y) else road(x, y + 1)
+                val busy = if (row) max(busyAt(x - 1, y), busyAt(x + 1, y)) else max(busyAt(x, y - 1), busyAt(x, y + 1))
+                if (busy == 0) continue
+                val from = if (row) (if (before) x - 1 else x + 1) else x
+                val fromY = if (row) y else (if (before) y - 1 else y + 1)
+                // One-way only if the road beside runs one way along this axis.
+                val way = map.roadHeading[map.index(from, fromY)].toInt()
+                val along = if (row) way == Heading.EAST.toInt() || way == Heading.WEST.toInt() else way == Heading.NORTH.toInt() || way == Heading.SOUTH.toInt()
+                val ends = before != after
+                stream(row, if (along) way else 0, busy, 0f, 1f, queue = false, stem = if (ends) map.index(from, fromY) else -1)
             }
+            continue
         }
+        // Along straight runs.
+        val busy = map.congestion[i].toInt() and 0xff
+        if (busy == 0 || !across && !down) continue
+        stream(across, heading, busy, 0f, 1f, queue = true)
     }
+}
+
+/**
+ * Whether a car can turn at junction [here] onto the road at [other], or in
+ * from it when [inbound] is false: not against the way a one-way road runs.
+ */
+private fun turnable(map: CityMap, here: Int, other: Int, inbound: Boolean): Boolean {
+    val h = map.roadHeading[other].toInt()
+    if (h == 0) return true
+    val dx = other % map.width - here % map.width
+    val dy = other / map.width - here / map.width
+    val sx = if (inbound) dx else -dx
+    val sy = if (inbound) dy else -dy
+    return Heading.DX[h] == sx && Heading.DY[h] == sy
 }
 
 /** How fast traffic goes along a whole row or column of road, slower the busier it is, in tiles a second. */

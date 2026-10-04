@@ -279,6 +279,9 @@ internal object BuildingSprites {
     /** How many ways a building type's ordinal can look. */
     fun variants(type: Int): Int = count[type]
 
+    /** Whether any of a building type's sprites has a stack that smokes or steams. */
+    fun smokes(type: Int): Boolean = (0 until count[type]).any { Atlas.plumeCount[first[type] + it] > 0 }
+
     /** The sprite for a building type's ordinal and one of its [variants], within a look. */
     fun sprite(type: Int, variant: Int): Int = first[type] + variant % count[type]
 }

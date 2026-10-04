@@ -1147,6 +1147,7 @@
     <string name="ordinances_summary">%1$d in force: %2$s a month, %3$s in</string>
     <!-- An ordinance not yet possible: the year it can first be passed. -->
     <string name="law_from">From %1$d</string>
+    <string name="law_era">Era: %1$s</string>
     <!-- What an ordinance costs a month at the town's size now. -->
     <string name="law_cost">%1$s a month</string>
     <string name="law_free">No cost</string>

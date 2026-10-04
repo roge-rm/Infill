@@ -22,6 +22,9 @@ class Playtest {
     private val years = System.getenv("PLAYTEST_YEARS")?.toIntOrNull() ?: 120
     private val only = System.getenv("PLAYTEST_TOWNS")?.split(",")?.toSet()
 
+    /** Years to save each town in, in July, as name-year.infill beside the results. */
+    private val saveIn = System.getenv("PLAYTEST_SAVES")?.split(",")?.mapNotNull { it.trim().toIntOrNull() }?.toSet().orEmpty()
+
     private val towns = listOf<Pair<String, () -> Unit>>(
         "grid" to { play("grid", 11, TerrainOptions(water = 10, trees = 30, river = false)) },
         "river" to { play("river", 23, TerrainOptions(water = 30, trees = 40, river = true)) },
@@ -53,9 +56,11 @@ class Playtest {
         p.start()
         val end = c.year + years
         var lastYear = c.year
+        val saved = HashSet<Int>()
         while (c.year < end) {
             repeat(Balance.DEMAND_DAYS) { c.tick() }
             p.week()
+            if (c.year in saveIn && c.month >= 6 && saved.add(c.year)) File(dir, "$name-${c.year}.infill").writeBytes(SaveGame.write(c))
             if (c.year != lastYear) {
                 csv.println(p.row())
                 csv.flush()

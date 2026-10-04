@@ -44,7 +44,10 @@ import kotlin.math.sqrt
  * them wherever [bakeDispatcher] says and hands them back with [store].
  */
 internal class MapRenderer(private val map: CityMap, private val atlas: TileAtlas, private val graphics: Graphics) {
-    class Request(val key: Long, val cx: Int, val cy: Int, val level: Int, val look: Int, val sun: Sun?, val version: Int)
+    class Request(val key: Long, val cx: Int, val cy: Int, val level: Int, val look: Int, val sun: Sun?, val version: Int) {
+        /** The buildings with stacks whose top left tile is in the chunk, as pairs of map index and look-free sprite. */
+        var plumes = IntArray(0)
+    }
 
     private class Entry(val cx: Int, val cy: Int, val level: Int, val image: ImageBitmap, var used: Long, val version: Int)
 
@@ -76,6 +79,13 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
 
     /** How many times each chunk has changed. A bitmap baked at an older count is out of date. */
     private val versions = IntArray(chunksX * chunksY)
+
+    /** Each chunk's buildings with stacks, from its newest bake, and the version that was baked at. */
+    private val plumes = arrayOfNulls<IntArray>(chunksX * chunksY)
+    private val plumeVersions = IntArray(chunksX * chunksY) { -1 }
+
+    /** The buildings with stacks in a chunk, as pairs of map index and look-free sprite; empty until it's baked. */
+    fun plumes(cx: Int, cy: Int): IntArray = plumes[cy * chunksX + cx] ?: NO_PLUMES
 
     /** The atlas level for a zoom, never sharper than [Graphics.sharpest] allows. */
     fun levelFor(tilePx: Float): Int = THRESHOLDS.indexOfFirst { tilePx >= it }.coerceAtLeast(graphics.sharpest)
@@ -182,6 +192,11 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
      */
     fun store(request: Request, image: ImageBitmap): Boolean {
         baking -= request.key
+        val c = request.cy * chunksX + request.cx
+        if (request.version >= plumeVersions[c]) {
+            plumes[c] = request.plumes
+            plumeVersions[c] = request.version
+        }
         val old = cache[request.key]
         if (old != null) {
             if (old.version > request.version) return false
@@ -217,6 +232,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         val y1 = min(y0 + CHUNK, map.height)
         val base = r.look * Atlas.PER_LOOK
         shown.clear()
+        val stacks = ArrayList<Int>()
 
         // The ground.
         for (ty in y0 until y1) for (tx in x0 until x1) {
@@ -326,7 +342,12 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             if (type != 0) {
                 val (ax, ay) = anchor(tx, ty)
                 if (ax != tx || ty != bottom(tx, ty)) continue
-                surface.blend(base + buildingSprite(ax, ay), (ax - x0) * s, (ay - y0) * s)
+                val sprite = buildingSprite(ax, ay)
+                surface.blend(base + sprite, (ax - x0) * s, (ay - y0) * s)
+                if (ax >= x0 && ay in y0 until y1 && Atlas.plumeCount[sprite] > 0) {
+                    stacks += map.index(ax, ay)
+                    stacks += sprite
+                }
                 if (map.forSale[i]) surface.blend(base + Atlas.FOR_SALE, (ax - x0) * s, (ay - y0) * s)
                 continue
             }
@@ -341,6 +362,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 else if (map.phone[i].toInt() != 0 && !map.duct(i)) surface.blend(base + phoneSprite(tx, ty), (tx - x0) * s, (ty - y0) * s)
             }
         }
+        r.plumes = stacks.toIntArray()
         return surface.finish()
     }
 
@@ -1039,6 +1061,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
 
         /** One-way roads get an arrow every this many tiles. */
         private const val ARROW_EVERY = 3
+
+        private val NO_PLUMES = IntArray(0)
 
         const val CHUNK = 16
         const val TILE = 32

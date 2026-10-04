@@ -32,6 +32,7 @@ import com.rm.infill.res.edge_link_title
 import com.rm.infill.res.upkeep_civic
 import com.rm.infill.res.ordinances
 import com.rm.infill.res.law_from
+import com.rm.infill.res.law_era
 import com.rm.infill.res.law_cost
 import com.rm.infill.res.law_free
 import com.rm.infill.res.ordinances_summary
@@ -1534,6 +1535,8 @@ fun OrdinancesWindow(game: GameState, onClose: () -> Unit) {
                         }
                         Text(
                             when {
+                                // Past its year but waiting on its era.
+                                !can && !on && city.year >= o.from -> stringResource(Res.string.law_era, stringResource(eraName(Era.of(o.from))))
                                 !can && !on -> stringResource(Res.string.law_from, o.from)
                                 cost == 0L -> stringResource(Res.string.law_free)
                                 else -> stringResource(Res.string.law_cost, moneyText(cost))

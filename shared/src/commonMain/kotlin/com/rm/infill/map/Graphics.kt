@@ -39,6 +39,13 @@ class Graphics(val level: GraphicsLevel) {
     }
     val smoke = level == GraphicsLevel.High
 
+    /** Puffs at a time over each stack of a working station or works, rising and drifting. */
+    val plumes = when (level) {
+        GraphicsLevel.Low -> 0
+        GraphicsLevel.Medium -> 4
+        GraphicsLevel.High -> 7
+    }
+
     /** The sharpest atlas used: 0 is 32 px a tile, 1 is 16. */
     val sharpest = if (level == GraphicsLevel.Low) 1 else 0
 

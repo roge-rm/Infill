@@ -16,6 +16,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -120,11 +121,23 @@ fun MapView(
     var travelTime by remember { mutableFloatStateOf(0f) }
     val paceNow by rememberUpdatedState(pace)
     val fires = game.city.burningNow > 0
+    // How hard each building with stacks is going, looked over every couple of seconds while the town's free.
+    var plumes by remember(game.city) { mutableStateOf<Map<Int, Int>>(emptyMap()) }
+    LaunchedEffect(game.city, graphics.plumes) {
+        if (graphics.plumes == 0) {
+            plumes = emptyMap()
+            return@LaunchedEffect
+        }
+        while (true) {
+            game.tryLocked { plumesOf(game.city) }?.let { plumes = it }
+            delay(SURVEY_EVERY_MS)
+        }
+    }
     val traffic = graphics.vehicles > 0 && game.city.stats.population > 0
     val trains = graphics.trains > 0 && game.city.trainRoutes.isNotEmpty()
     val ships = graphics.trains > 0 && game.city.shipRoutes.isNotEmpty()
     val planes = graphics.trains > 0 && game.city.airTier > 0
-    val animate = running && (fires || traffic || trains || ships || planes || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
+    val animate = running && (fires || plumes.isNotEmpty() || traffic || trains || ships || planes || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
     // Worked out through the town's traffic, which the sim changes as it goes: only when the town's free,
     // keeping the last lot meanwhile.
     val lastFocus = remember { arrayOfNulls<IntArray>(1) }
@@ -330,6 +343,7 @@ fun MapView(
             drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped)
             drawTransit(map, camera, travelTime, game.city.lineStates())
         }
+        drawPlumes(renderer, map, camera, plumes, weather, weatherTime, graphics.plumes)
         if (fires) drawFires(map, camera, weather, weatherTime)
         drawWeather(weather, camera, clouds, travelTime, weatherTime, sun.strength, graphics)
         // Modulate rather than Multiply: the same for an opaque tint, and Android before 10 has only this one.

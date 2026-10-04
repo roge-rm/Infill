@@ -299,6 +299,7 @@ object Manual {
             ManualBlock(ManualKind.Bullet, "**Floating offshore wind** (2030) and **Tidal array** (2035)."),
             ManualBlock(ManualKind.Para, "The tray offers the newest kind. An older station makes a little less as newer kinds come in, and **Bring up to date** on its inspect card rebuilds it as the newest."),
             ManualBlock(ManualKind.Para, "The grid runs the cheapest power first: wind, sun, water and tide, then nuclear, coal, gas and oil. Coal and oil cost least from the town's own mines and wells, and bringing them in costs less with a port. **Fit scrubbers** (from 1970) cuts a coal or oil station's smoke to 30%."),
+            ManualBlock(ManualKind.Para, "A station's stacks smoke, and its cooling towers steam, as hard as it's running, so you can see which ones the grid is using. One standing idle shows none. Coal smoke goes grey with scrubbers or under smoke abatement or the clean air act."),
             ManualBlock(ManualKind.Heading, "Lines"),
             ManualBlock(ManualKind.Bullet, "**Power line** carries power from a station to the zones, up to 8 MW a line."),
             ManualBlock(ManualKind.Bullet, "**High-voltage line** (1920) carries power between parts of town without feeding anything along the way. It joins the ordinary lines at a **Substation**, which passes 20 MW, or at a station beside it."),
@@ -556,7 +557,7 @@ object Manual {
         )),
         ManualSection("ordinances", "Ordinances", "Town-wide laws: what each does, what it costs, and the years history gives it.", listOf(
             ManualBlock(ManualKind.Para, "**Ordinances** in the budget, or the U key, opens the town's laws. Each is a switch: on puts it in force across the whole town, off repeals it. District policies are for one part of town; ordinances are for all of it."),
-            ManualBlock(ManualKind.Para, "Each law costs something every month for every thousand people, shown beside it at the town's size now, and some bring money in. A law can only be passed once its year has come and the town is in that year's era. Laws whose years haven't come say when they will. A town hall cuts what they all cost (see Services). History ends some, and a law that's had its day is repealed by itself, with a word in the news. A new law the town can pass is in the news too."),
+            ManualBlock(ManualKind.Para, "Each law costs something every month for every thousand people, shown beside it at the town's size now, and some bring money in. A law can only be passed once its year has come and the town is in that year's era. Laws whose years haven't come say when they will, and ones waiting on the town's era name it. A town hall cuts what they all cost (see Services). History ends some, and a law that's had its day is repealed by itself, with a word in the news. A new law the town can pass is in the news too."),
             ManualBlock(ManualKind.Heading, "Safety"),
             ManualBlock(ManualKind.Bullet, "**Building code** (1900): fewer fires start, and they spread less."),
             ManualBlock(ManualKind.Bullet, "**Youth curfew** (1900 to 1970): less theft, and quieter shops at night."),
@@ -651,7 +652,7 @@ object Manual {
         ManualSection("settings-and-sound", "Settings and sound", "The settings, and what you hear.", listOf(
             ManualBlock(ManualKind.Para, "**Settings** is on the first screen and in the menu. Settings are kept on this phone and change as you go.", "**Settings** is on the first screen and in the menu. Settings are kept in this browser and change as you go."),
             ManualBlock(ManualKind.Heading, "Display"),
-            ManualBlock(ManualKind.Bullet, "**Graphics**: **Low** leaves out shadows, weather, vehicles, trains, ships and planes. **Medium** has fixed shadows and some of the rest. **High** has it all, with shadows that follow the sun."),
+            ManualBlock(ManualKind.Bullet, "**Graphics**: **Low** leaves out shadows, weather, vehicles, trains, ships, planes and smoke from stacks. **Medium** has fixed shadows and some of the rest. **High** has it all, with shadows that follow the sun."),
             ManualBlock(ManualKind.Bullet, "**Theme**: **Auto**, **Light** or **Dark**."),
             ManualBlock(ManualKind.Bullet, "**Tools on their side**: where the toolbar goes when it runs down the side of the screen, away from the camera or always on the left or right."),
             ManualBlock(ManualKind.Bullet, "**Size of controls and text**: from 100% to 130%."),

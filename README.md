@@ -17,14 +17,14 @@ Dan (rm)
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="screenshots/downtown.png" width="100%" alt="Downtown"></td>
-    <td align="center" width="33%"><img src="screenshots/country.png" width="100%" alt="The country"></td>
-    <td align="center" width="33%"><img src="screenshots/people.png" width="100%" alt="The people"></td>
+    <td align="center" width="33%"><img src="screenshots/streetcar.png" width="100%" alt="A streetcar town in 1930"></td>
+    <td align="center" width="33%"><img src="screenshots/town.png" width="100%" alt="A town in 2010"></td>
+    <td align="center" width="33%"><img src="screenshots/power.png" width="100%" alt="Power stations by the lake"></td>
   </tr>
   <tr>
-    <td align="center" width="33%"><img src="screenshots/traffic.png" width="100%" alt="Traffic"></td>
-    <td align="center" width="33%"><img src="screenshots/freight.png" width="100%" alt="Freight by rail"></td>
-    <td align="center" width="33%"><img src="screenshots/underground.png" width="100%" alt="Underground"></td>
+    <td align="center" width="33%"><img src="screenshots/leisure.png" width="100%" alt="Parks and sport"></td>
+    <td align="center" width="33%"><img src="screenshots/eras.png" width="100%" alt="A new era, then and now"></td>
+    <td align="center" width="33%"><img src="screenshots/ordinances.png" width="100%" alt="Ordinances"></td>
   </tr>
 </table>
 
