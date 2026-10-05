@@ -240,7 +240,7 @@
     <string name="goal_land_built">%1$d% of the zoned land built on</string>
     <string name="goal_kept_up">%1$d% of roads, pipes and track within their life</string>
     <string name="goal_flow">Traffic flowing at %1$d% or better</string>
-    <string name="goal_green_trips">%1$d% of commutes on foot or by transit</string>
+    <string name="goal_green_trips">%1$d% of commutes on foot, by bicycle or by transit</string>
     <string name="goal_met">✓</string>
     <string name="goal_not_met">–</string>
     <string name="material_cast_iron">Cast iron main</string>
@@ -675,6 +675,7 @@
     <string name="demand_brought_in">Goods brought in that could be made here</string>
     <string name="demand_town_size">The town's size</string>
     <string name="demand_airports">Airports</string>
+    <string name="demand_working_from_home">Working from home</string>
     <string name="demand_tax">The tax rate</string>
     <string name="tax">Tax</string>
     <string name="tax_shared_offices">The same tax as offices.</string>
@@ -1095,6 +1096,23 @@
     <string name="climate_coastal">Coastal</string>
     <string name="climate_dry">Dry</string>
     <string name="goal_low_carbon">Carbon down to %1$d kg a person a month</string>
+    <string name="goal_net_zero">Net zero: carbon down to %1$d kg a person a month</string>
+    <string name="legacy_goals">Legacy</string>
+    <string name="legacy_big_city">a city of 100,000</string>
+    <string name="legacy_net_zero">net zero</string>
+    <string name="legacy_car_light">most trips without a car</string>
+    <string name="legacy_kept_up">everything kept up</string>
+    <string name="event_legacy_met">Legacy goal met: %1$s</string>
+    <string name="event_working_from_home">More people work from home now: offices want fewer in</string>
+    <plurals name="event_converted">
+        <item quantity="one">A building turned into homes</item>
+        <item quantity="other">%1$s buildings turned into homes</item>
+    </plurals>
+    <plurals name="event_sea_rising">
+        <item quantity="one">The sea has risen: high tides reach a tile inland where there's no embankment</item>
+        <item quantity="other">The sea has risen: high tides reach %1$s tiles inland where there's no embankment</item>
+    </plurals>
+    <string name="convert_to_homes">Convert to homes</string>
     <string name="series_carbon">Carbon</string>
     <string name="series_leisure">Leisure</string>
     <string name="label_warming">Warmer than it was</string>

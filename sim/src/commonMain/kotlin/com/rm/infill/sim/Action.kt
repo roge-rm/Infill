@@ -75,6 +75,9 @@ sealed interface Action {
         override fun hashCode() = tiles.contentHashCode()
     }
 
+    /** Turns the offices and old works in the rectangle into homes of the same size. */
+    data class ConvertToHomes(val x0: Int, val y0: Int, val x1: Int, val y1: Int) : Action
+
     /** A cycle lane along the roads on [tiles], map indices in order. */
     data class BuildCycleLane(val tiles: IntArray) : Action {
         override fun equals(other: Any?) = other is BuildCycleLane && tiles.contentEquals(other.tiles)

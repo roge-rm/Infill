@@ -62,6 +62,24 @@ enum class GoalKind {
 
     /** How close the town's carbon a person is to [Balance.FUTURE_CARBON], in percent: 100 there or under. */
     LowCarbon,
+
+    /** How close it is to [Balance.NET_ZERO_CARBON] a person, in percent: 100 there or under. */
+    NetZero,
+}
+
+/** Office work done from home: offices want fewer people in from 2020. */
+object Remote {
+    private val years = intArrayOf(2019, 2020, 2022, 2030)
+    private val shares = intArrayOf(0, 30, 25, 20)
+
+    /** Percent of office work done from home in [year]: none before 2020, a lot that year, settling to a fifth. */
+    fun share(year: Int): Int {
+        if (year <= years.first()) return shares.first()
+        for (k in 1 until years.size) {
+            if (year <= years[k]) return shares[k - 1] + (shares[k] - shares[k - 1]) * (year - years[k - 1]) / (years[k] - years[k - 1])
+        }
+        return shares.last()
+    }
 }
 
 /**

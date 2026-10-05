@@ -740,6 +740,7 @@ private fun demandSourceName(source: com.rm.infill.sim.DemandSource) = when (sou
     com.rm.infill.sim.DemandSource.BROUGHT_IN -> Res.string.demand_brought_in
     com.rm.infill.sim.DemandSource.TOWN_SIZE -> Res.string.demand_town_size
     com.rm.infill.sim.DemandSource.AIRPORTS -> Res.string.demand_airports
+    com.rm.infill.sim.DemandSource.WORKING_FROM_HOME -> Res.string.demand_working_from_home
     com.rm.infill.sim.DemandSource.TAX -> Res.string.demand_tax
 }
 
@@ -1164,6 +1165,8 @@ fun EraWindow(game: GameState, era: Era, onChronicle: () -> Unit, onClose: () ->
                 add(stringResource(Res.string.zone_office) to ChoiceIcon(buildingIcon(BuildingType.OFFICES).sprites, back = zoneColour(com.rm.infill.sim.Zone.OFFICE)))
             }
             if (era == Era.MOTOR) add(stringResource(Res.string.density_tower) to ChoiceIcon(glyph = Glyph.Tower))
+            if (era == Era.of(Balance.CONVERT_YEAR)) add(stringResource(Res.string.convert_to_homes) to ChoiceIcon(glyph = Glyph.Building))
+            if (era == Era.of(Balance.CYCLE_LANE_YEAR)) add(stringResource(Res.string.cycle_lane) to ChoiceIcon(glyph = Glyph.Bike))
         }
         if (brings.isNotEmpty()) {
             Section(stringResource(Res.string.era_brings), Glyph.Plus) {
@@ -1182,6 +1185,14 @@ fun EraWindow(game: GameState, era: Era, onChronicle: () -> Unit, onClose: () ->
         if (next != null && era == city.era) {
             Section(stringResource(Res.string.era_next, stringResource(eraName(next)), next.year), Glyph.Target) {
                 for (goal in city.goals(next)) GoalRow(goal)
+            }
+        }
+        // After the last era, the legacy goals; one met once stays met.
+        if (next == null && era == city.era) {
+            Section(stringResource(Res.string.legacy_goals), Glyph.Star) {
+                for ((k, goal) in city.legacyGoals().withIndex()) {
+                    GoalRow(if (city.legacyMet and (1 shl k) != 0 && !goal.met) Goal(goal.kind, goal.need, goal.need) else goal)
+                }
             }
         }
     }
@@ -1220,6 +1231,15 @@ private fun goalText(goal: Goal): String = when (goal.kind) {
     GoalKind.GreenTrips -> stringResource(Res.string.goal_green_trips, goal.need)
     GoalKind.Flow -> stringResource(Res.string.goal_flow, goal.need)
     GoalKind.LowCarbon -> stringResource(Res.string.goal_low_carbon, Balance.FUTURE_CARBON.toInt())
+    GoalKind.NetZero -> stringResource(Res.string.goal_net_zero, Balance.NET_ZERO_CARBON.toInt())
+}
+
+/** A legacy goal's name, by its place in [com.rm.infill.sim.City.legacyGoals]. */
+fun legacyName(k: Int): StringResource = when (k) {
+    0 -> Res.string.legacy_big_city
+    1 -> Res.string.legacy_net_zero
+    2 -> Res.string.legacy_car_light
+    else -> Res.string.legacy_kept_up
 }
 
 /** How far the town is towards a goal: a count, a share, or a tick. */

@@ -180,6 +180,22 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             if (byWater(BuildingType.STORM_OUTFALL, Pipe.STORM)) note("storm outfall after a flood costing ${s.floodCost}")
         }
         if (AdviceKind.DEBT in kinds) return
+        // Lots without power or water: lines and pipes round the block the advice points at.
+        for (a in c.advice) if (a.x >= 0 && (a.kind == AdviceKind.NO_POWER || a.kind == AdviceKind.NO_WATER || a.kind == AdviceKind.NO_SEWER)) {
+            val bi = a.x / S
+            val bj = a.y / S
+            for (edge in listOf(
+                side(bi * S, bj * S, bi * S + S, bj * S), side(bi * S, bj * S + S, bi * S + S, bj * S + S),
+                side(bi * S, bj * S, bi * S, bj * S + S), side(bi * S + S, bj * S, bi * S + S, bj * S + S),
+            )) {
+                val streets = edge.filter { it in 0 until m.size && m.road[it] != Road.NONE }.toIntArray()
+                when (a.kind) {
+                    AdviceKind.NO_POWER -> if (powerUp) wire(streets)
+                    AdviceKind.NO_WATER -> if (mainsUp) lay(streets, m.waterPipe) { Action.BuildPipe(it, Pipe.WATER) }
+                    else -> if (sewerUp) lay(streets, m.sewerPipe) { Action.BuildPipe(it, Pipe.SEWER) }
+                }
+            }
+        }
         if (!powerUp && (s.population > 0 || c.funds > 8000)) power()
         if (AdviceKind.POWER_SHORT in kinds || AdviceKind.NO_POWER in kinds) power()
         val next = c.era.next
@@ -382,6 +398,7 @@ class Player(private val c: City, private val withRail: Boolean, private val not
     private fun upzone(zone: Byte): Boolean {
         if (zone == Zone.FARMLAND) return false
         val top = when {
+            zone != Zone.INDUSTRIAL && c.allowsDensity(Density.TOWER) && c.era >= Era.RENEWAL -> Density.TOWER
             c.era >= Era.MOTOR -> Density.HIGH
             c.era >= Era.STREETCAR -> Density.MEDIUM
             else -> return false
@@ -500,8 +517,8 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             else -> BuildingType.COAL_PLANT
         }
         if (powerUp && weeks % 8 != 0) return
-        // Out east if there's room, else in any block kept back.
-        if (!place(type, utility = true) && !place(type)) return
+        // Out east if there's room, else in any block kept back, else clear the outermost block of works or homes for it.
+        if (!place(type, utility = true) && !place(type) && !(powerUp && clearFor(type))) return
         if (!powerUp) {
             powerUp = true
             note("power: lines along ${segments.size} streets")
@@ -510,6 +527,25 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             val lined = (0 until m.size).count { m.road[it] != Road.NONE && m.power[it] != Power.NONE }
             note("lines on $lined of $roads street tiles")
         }
+    }
+
+    /** Clears the zoned block furthest out, works before homes, and puts [first] there. */
+    private fun clearFor(first: BuildingType): Boolean {
+        val type = c.newest(first)
+        var best: Pair<Int, Int>? = null
+        fun rank(i: Int, j: Int) = (if (zoneOf[i][j] == Zone.INDUSTRIAL) 1000 else 0) + abs(i - centre) + abs(j - centre)
+        for (i in 1 until n - 1) for (j in 1 until n - 1) {
+            if (use[i][j] != Use.ZONE || zoneOf[i][j] !in listOf(Zone.INDUSTRIAL, Zone.RESIDENTIAL)) continue
+            if (best == null || rank(i, j) > rank(best.first, best.second)) best = i to j
+        }
+        val (i, j) = best ?: return false
+        val clear = Action.Bulldoze(i * S + 1, j * S + 1, i * S + S - 1, j * S + S - 1)
+        val cost = c.plan(clear).cost + c.plan(Action.PlaceBuilding(type, 0, 0)).cost
+        if (!afford(cost, 10_000)) return false
+        if (!act("clearing for ${type.name}", clear)) return false
+        use[i][j] = Use.UTILITY
+        note("cleared block $i,$j for ${type.name}")
+        return fit(type, i, j)
     }
 
     /** Power lines along [tiles] where there aren't any yet. */

@@ -74,6 +74,86 @@ class City(
         else -> false
     }
 
+    /** The legacy goals met, by bit in [legacyGoals] order. Once met, always met. */
+    var legacyMet = 0
+        private set
+
+    /**
+     * Goals once the Future era's come, so there's always something to work
+     * toward: a big city, net zero, most trips without a car, and everything
+     * kept up.
+     */
+    fun legacyGoals(): List<Goal> {
+        val s = stats
+        return listOf(
+            Goal(GoalKind.People, s.population, Balance.LEGACY_PEOPLE),
+            Goal(GoalKind.NetZero, netZero(), 100),
+            Goal(GoalKind.GreenTrips, s.greenTrips, Balance.LEGACY_GREEN_TRIPS),
+            Goal(GoalKind.KeptUp, s.keptUp, Balance.LEGACY_KEPT_UP),
+        )
+    }
+
+    /** How near the town's carbon a person is to net zero, in percent. */
+    private fun netZero(): Int {
+        val s = stats
+        if (s.population == 0) return 0
+        val perPerson = s.carbon * 1000 / s.population
+        return if (perPerson <= Balance.NET_ZERO_CARBON) 100 else (Balance.NET_ZERO_CARBON * 100 / perPerson).toInt()
+    }
+
+    /** Each month in the Future era: a legacy goal newly met is news, and stays met. */
+    private fun legacyMonth() {
+        if (era != Era.FUTURE) return
+        for ((k, g) in legacyGoals().withIndex()) {
+            if (legacyMet and (1 shl k) != 0 || !g.met) continue
+            legacyMet = legacyMet or (1 shl k)
+            events += CityEvent(EventKind.LegacyMet, -1, -1, null, count = k)
+        }
+    }
+
+    /**
+     * How far the sea has risen, in centimetres: from 2030, faster the
+     * warmer the world is.
+     */
+    fun seaRise(at: Int = year): Int =
+        if (at < Balance.SEA_RISE_FROM) 0 else (at - Balance.SEA_RISE_FROM) * (Balance.SEA_RISE_MM + warming / Balance.SEA_RISE_WARMING) / 10
+
+    /** How many tiles in from the sea the high tides reach over land with no bank. */
+    fun tideReach(at: Int = year): Int = seaRise(at) / Balance.TIDE_CM
+
+    /**
+     * Each month on a coast: the high tides over the unbanked land the risen
+     * sea reaches, and news in the January they first reach further.
+     */
+    private fun tides() {
+        val reach = tideReach()
+        if (reach == 0) return
+        val m = map
+        val sea = seaTiles()
+        if (sea.none { it }) return
+        if (month == 0 && reach > tideReach(year - 1)) events += CityEvent(EventKind.SeaRising, -1, -1, null, count = reach)
+        val steps = IntArray(m.size) { -1 }
+        val queue = ArrayDeque<Int>()
+        for (i in 0 until m.size) if (sea[i]) { steps[i] = 0; queue.addLast(i) }
+        while (queue.isNotEmpty()) {
+            val i = queue.removeFirst()
+            if (steps[i] == reach) continue
+            for (k in 0 until 4) {
+                val nx = i % m.width + DX[k]
+                val ny = i / m.width + DY[k]
+                if (!m.inside(nx, ny)) continue
+                val j = m.index(nx, ny)
+                if (steps[j] >= 0 || m.bank[j].toInt() != 0 || m.terrain[j] == Terrain.WATER) continue
+                steps[j] = steps[i] + 1
+                if (Balance.TIDE_FLOOD > (m.flood[j].toInt() and 0xff)) {
+                    m.flood[j] = Balance.TIDE_FLOOD.toByte()
+                    floodsStanding = true
+                }
+                queue.addLast(j)
+            }
+        }
+    }
+
     /** Each month: any landmark newly earned is news, and can be built from then on. */
     private fun landmarkMonth() {
         for ((k, t) in LANDMARKS.withIndex()) {
@@ -393,6 +473,10 @@ class City(
                         cost += Balance.LANE_PRICE
                     }
                 }
+            }
+            is Action.ConvertToHomes -> for (b in conversions(action)) {
+                forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { changes += it }
+                cost += Balance.CONVERT_PER_PLACE * homeFor(b.type)!!.capacity
             }
             is Action.BuildCycleLane -> for (i in action.tiles) {
                 val road = RoadType.of(m.road[i])
@@ -935,6 +1019,28 @@ class City(
         }
     }
 
+    /** The offices and old works with a tile under [action]'s rectangle that have a home to become. */
+    private fun conversions(action: Action.ConvertToHomes): List<Building> {
+        if (!everything && year < Balance.CONVERT_YEAR) return emptyList()
+        val ids = HashSet<Int>()
+        forRect(action.x0, action.y0, action.x1, action.y1) { i -> if (map.building[i] != 0) ids += map.building[i] }
+        return ids.sorted().mapNotNull { buildings[it] }.filter { it.underway == 0 && it.burning == 0 && homeFor(it.type) != null }
+    }
+
+    /**
+     * The home an office or works of [type] becomes: the one with the most
+     * room on the same footprint that the year allows, no denser than the
+     * office, and up to high density for works.
+     */
+    fun homeFor(type: BuildingType): BuildingType? {
+        if (type.zone != Zone.OFFICE && type.zone != Zone.INDUSTRIAL) return null
+        val most = if (type.zone == Zone.INDUSTRIAL) Density.rank(Density.HIGH) else Density.rank(type.density)
+        return BuildingType.entries.filter {
+            it.zone == Zone.RESIDENTIAL && it.width == type.width && it.height == type.height && it.year <= year &&
+                Density.rank(it.density) in Density.rank(Density.LOW)..most
+        }.maxByOrNull { it.capacity }
+    }
+
     /** The worn services with a tile under [action]'s rectangle, which it renovates. */
     private fun renovations(action: Action.RenewArea): List<Building> {
         val m = map
@@ -1456,6 +1562,21 @@ class City(
             is Action.RemoveLine -> lines.removeAll { it.id == action.id }
             is Action.BuildLane -> for (i in plan.changes) m.lane[i] = 1
             is Action.BuildCycleLane -> for (i in plan.changes) m.cycleLane[i] = 1
+            is Action.ConvertToHomes -> {
+                val going = conversions(action)
+                for (b in going) {
+                    val home = homeFor(b.type)!!
+                    removed += b
+                    removeBuilding(b)
+                    forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) {
+                        m.zone[it] = Zone.RESIDENTIAL
+                        m.density[it] = home.density
+                    }
+                    added += addBuilding(home, b.x, b.y, rng.nextInt(1000), underway = maxOf(1, home.buildDays * Balance.CONVERT_DAYS / 100))
+                }
+                going.firstOrNull()?.let { events += CityEvent(EventKind.Converted, it.x, it.y, null, count = going.size) }
+                zonesChanged = true
+            }
             is Action.SetJunction -> for (i in plan.changes) m.junction[i] = action.control
             is Action.BuildWire -> for (i in plan.changes) {
                 if (m.wire[i].toInt() != 0) startWorks(i, Broken.WIRE, queued++ / Balance.WORKS_PER_DAY)
@@ -2126,6 +2247,7 @@ class City(
         between()
         epidemic()
         medicine()
+        if (month == 0 && year == Balance.REMOTE_YEAR && stats.population > 0) events += CityEvent(EventKind.WorkingFromHome, -1, -1, null)
         between()
         workSeams()
         spreadWoods()
@@ -2168,6 +2290,8 @@ class City(
         between()
         opinion()
         landmarkMonth()
+        legacyMonth()
+        tides()
         challengeMonth()
         between()
         carbon()
@@ -6220,7 +6344,7 @@ class City(
         if (!force && dice.nextInt(1_000_000) >= Balance.SURGE_PPM * (100 + warming * 10) / 100 * disasterLevel / 2) return
         val sea = seaTiles()
         if (sea.none { it }) return
-        val reach = 1 + warming / 10
+        val reach = 1 + warming / 10 + tideReach()
         val steps = IntArray(m.size) { -1 }
         val queue = ArrayDeque<Int>()
         for (i in 0 until m.size) if (sea[i]) { steps[i] = 0; queue.addLast(i) }
@@ -7909,6 +8033,8 @@ class City(
         val fromWorks: Double,
         val offices: Double,
         val airOffices: Double,
+        /** Office work done from home, taken off what the offices want. */
+        val remote: Double,
         val spendingJobs: Double,
         val settlers: Double,
         val workersNeeded: Double,
@@ -7940,6 +8066,7 @@ class City(
         // Office work grows with the town and with the century.
         val perHundred = Balance.OFFICES_1900 + (Balance.OFFICES_2000 - Balance.OFFICES_1900) * (years / 100.0).coerceIn(0.0, 1.0)
         val offices = Balance.OFFICE_BASE + s.population * perHundred / 100.0
+        val remote = offices * Remote.share(year) / 100.0
         val airOffices = airportsNow.sumOf { Balance.AIR_OFFICES[it.type.airTier] * fit(it) / 100 }.toDouble()
         // The shops answer what people spend, more the better off they are.
         val spendingJobs = s.spending / Balance.RESIDENTS_PER_SHOP_JOB.toDouble()
@@ -7949,7 +8076,7 @@ class City(
         val workersPerResident = if (s.population == 0) Balance.LABOUR_SHARE else (s.workers.toDouble() / s.population).coerceIn(0.25, 0.6)
         // Work over the border counts as jobs here for those who live here; jobs here done by commuters don't need homes.
         val workersNeeded = (jobs + s.commutersOut - s.commutersIn) / workersPerResident
-        return DemandInputs(market, fromLand, fromWorks, offices, airOffices, spendingJobs, settlers, workersNeeded)
+        return DemandInputs(market, fromLand, fromWorks, offices, airOffices, remote, spendingJobs, settlers, workersNeeded)
     }
 
     /**
@@ -7987,7 +8114,7 @@ class City(
             if (allowsZone(Zone.OFFICE)) {
                 zone(
                     Zone.OFFICE, commercialTax,
-                    DemandSource.TOWN_SIZE to d.offices, DemandSource.AIRPORTS to d.airOffices,
+                    DemandSource.TOWN_SIZE to d.offices, DemandSource.AIRPORTS to d.airOffices, DemandSource.WORKING_FROM_HOME to -d.remote,
                     DemandSource.JOBS_HERE to -s.officeJobs.toDouble(), DemandSource.GOING_UP to -s.officeJobsComing.toDouble(),
                 )
             } else {
@@ -8016,7 +8143,7 @@ class City(
         val farmGap = d.market * Balance.FARM_MARKET + d.fromLand - s.farmJobs
         s.farmDemand = taxed(farmGap - s.farmJobsComing, industrialTax)
         // No office work's wanted until offices come in; before then it's done in the shops and banks.
-        val officeGap = if (allowsZone(Zone.OFFICE)) d.offices + d.airOffices - s.officeJobs else 0.0
+        val officeGap = if (allowsZone(Zone.OFFICE)) d.offices + d.airOffices - d.remote - s.officeJobs else 0.0
         s.officeDemand = taxed(officeGap - s.officeJobsComing, commercialTax)
         // Shoppers from next door want shops here; shoppers going next door don't.
         val shopGap = d.spendingJobs - s.shopJobs.toDouble() + s.shoppingIn - s.shoppingOut
@@ -9050,6 +9177,8 @@ class City(
         // Since version 49: cycle lanes, and the people walking and cycling.
         w.layer(map.cycleLane)
         traffic.writeCycling(w)
+        // Since version 50: the legacy goals met.
+        w.int(legacyMet)
     }
 
     companion object {
@@ -9428,6 +9557,7 @@ class City(
                                 r.layer(c.map.cycleLane)
                                 c.traffic.readCycling(r)
                             }
+                            if (version >= 50) c.legacyMet = r.int()
                         }
                     }
                 } else {
@@ -9782,7 +9912,7 @@ class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int, va
 }
 
 
-enum class EventKind { FirstBuilt, Milestone, OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut, MedicalAdvance, Drought, StormSurge, WorkedOut, ChallengeWon, ChallengeLost, LandmarkEarned, Protest, Petition, PetitionMet, PetitionLapsed, GrantOffered, GrantPaid, GrantLapsed, ElectionWon, ElectionLost }
+enum class EventKind { FirstBuilt, Milestone, OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut, MedicalAdvance, Drought, StormSurge, WorkedOut, ChallengeWon, ChallengeLost, LandmarkEarned, Protest, Petition, PetitionMet, PetitionLapsed, GrantOffered, GrantPaid, GrantLapsed, ElectionWon, ElectionLost, WorkingFromHome, Converted, SeaRising, LegacyMet }
 
 /** Something that happened, kept in the town's chronicle: [event] in [year] and [month] (0 is January). */
 class Story(val year: Int, val month: Int, val event: CityEvent)

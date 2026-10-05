@@ -78,6 +78,8 @@ enum class DemandSource {
     TOWN_SIZE,
     /** Offices: work the airports bring. */
     AIRPORTS,
+    /** Offices: work done from home instead. */
+    WORKING_FROM_HOME,
     /** What the tax rate adds or takes off. */
     TAX,
 }

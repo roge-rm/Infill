@@ -88,6 +88,10 @@ From 1960, works and mines that close leave brownfield behind, and nothing grows
 
 **Dig out water** turns empty land into water, at $80 a tile. Zoning, trees and pipes on it go. Homes and offices near the new water are worth more, as they are by any shore.
 
+## Converting to homes
+
+From 1970, **Convert to homes** under **Bulldoze**, dragged over offices or old works, turns each into homes of the same size: the roomiest the year allows, no denser than the office, and up to high density for works. The lots are zoned for homes, and the work takes a while. It costs $40 for each person the homes will hold.
+
 ## Farmland
 
 Farmland grows what's under it: a mine on iron ore or coal, an oil well on oil, a woodlot in trees, and a farm on open land. A farm off good soil grows half as much. The **Land** view shows what's in the ground.

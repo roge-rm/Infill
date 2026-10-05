@@ -1103,6 +1103,14 @@ object Balance {
     // Bus and tram lanes: what they cost a tile, the share of the road left for cars, and the wait at a crossing for what uses them.
     const val LANE_PRICE = 60L
 
+    /** Office work starts to be done from home this year. */
+    const val REMOTE_YEAR = 2020
+
+    /** Offices and old works can be turned into homes from this year, at so much a place, the work taking this share of building new. */
+    const val CONVERT_YEAR = 1970
+    const val CONVERT_PER_PLACE = 40L
+    const val CONVERT_DAYS = 60
+
     /** A cycle lane: what it costs a tile, and the year they come in. */
     const val CYCLE_LANE_PRICE = 40L
     const val CYCLE_LANE_YEAR = 1970
@@ -1160,6 +1168,26 @@ object Balance {
     const val RENEWAL_PEOPLE = 25_000
     const val INFILL_LAND = 85
     const val FUTURE_KEPT_UP = 90
+
+    /** The legacy goals after the Future era: people, trips without a car in percent, and roads, pipes and track kept up in percent. */
+    const val LEGACY_PEOPLE = 100_000
+    const val LEGACY_GREEN_TRIPS = 60
+    const val LEGACY_KEPT_UP = 98
+
+    /** Net zero: kilograms of carbon a person a month the town has to get down to. */
+    const val NET_ZERO_CARBON = 100L
+
+    /**
+     * The sea rises from [SEA_RISE_FROM] by [SEA_RISE_MM] millimetres a year,
+     * and a millimetre more for each [SEA_RISE_WARMING] tenths of a degree of
+     * warming. Each [TIDE_CM] centimetres, the high tides reach a tile further
+     * inland over land without a bank, flooding it to [TIDE_FLOOD].
+     */
+    const val SEA_RISE_FROM = 2030
+    const val SEA_RISE_MM = 6
+    const val SEA_RISE_WARMING = 5
+    const val TIDE_CM = 15
+    const val TIDE_FLOOD = 96
     const val FUTURE_GREEN_TRIPS = 33
 
     // What homes expect as the years go by: mains water, the sewer and power go

@@ -56,6 +56,7 @@ private val HEADLINES = setOf(
     EventKind.MedicalAdvance, EventKind.Drought, EventKind.StormSurge, EventKind.WorkedOut,
     EventKind.ChallengeWon, EventKind.ChallengeLost, EventKind.LandmarkEarned,
     EventKind.Protest, EventKind.GrantOffered, EventKind.GrantPaid, EventKind.ElectionWon, EventKind.ElectionLost,
+    EventKind.WorkingFromHome, EventKind.SeaRising, EventKind.LegacyMet,
 )
 
 /** The most months the full chronicle shows at once, newest first. */

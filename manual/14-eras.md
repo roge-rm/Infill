@@ -25,7 +25,7 @@ Towers, highways and interchanges, gas power, the airport, the freight terminal,
 
 Needs 25,000 people, high-density shops or offices, a high school, and traffic flowing at 55% or better.
 
-Nuclear power, river turbines, treatment plants, recycling, the international airport, phone masts and plastic pipes. The care home and the fire and rescue hall (1975), the medical centre (1980) and the community police office (1995).
+Nuclear power, river turbines, treatment plants, recycling, the international airport, phone masts and plastic pipes. The care home and the fire and rescue hall (1975), the medical centre (1980) and the community police office (1995). Cycle lanes, and **Convert to homes** under **Bulldoze** (see Zones and growth).
 
 ## Infill, from 2000
 
@@ -33,11 +33,17 @@ Needs 85% of the zoned land built on.
 
 Wind and solar farms, tidal turbines, offshore wind, and the tallest towers. The community health centre (2000), the community school and the media library (2005).
 
+From 2020 people work from home: that year three in ten office jobs move home, settling to one in five, so the offices want fewer people and some stand empty. The Demand window shows it.
+
 ## Future, from 2030
 
-Needs nine tenths of the roads, pipes and track within their life, a third of commutes on foot or by transit, and carbon down to 500 kg a person a month.
+Needs nine tenths of the roads, pipes and track within their life, a third of commutes on foot, by bicycle or by transit, and carbon down to 500 kg a person a month.
 
 Batteries.
+
+## Legacy
+
+After the Future era there are four more goals, in the era's window: a city of 100,000, net zero (carbon down to 100 kg a person a month), most trips without a car (60%), and everything kept up (98% of roads, pipes and track within their life). Each is news when it's met, goes in the town's story, and stays met.
 
 ## Ageing
 

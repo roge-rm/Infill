@@ -59,6 +59,10 @@ import com.rm.infill.res.event_grant_paid
 import com.rm.infill.res.event_grant_lapsed
 import com.rm.infill.res.event_election_won
 import com.rm.infill.res.event_election_lost
+import com.rm.infill.res.event_working_from_home
+import com.rm.infill.res.event_converted
+import com.rm.infill.res.event_sea_rising
+import com.rm.infill.res.event_legacy_met
 import com.rm.infill.sim.CityEvent
 import com.rm.infill.sim.Disease
 import com.rm.infill.sim.EventKind
@@ -148,6 +152,10 @@ internal fun messageOf(e: CityEvent): Message? =
         EventKind.GrantLapsed -> Message(Res.string.event_grant_lapsed, com.rm.infill.ui.grantNoun(com.rm.infill.sim.GrantKind.entries[e.count]))
         EventKind.ElectionWon -> Message(Res.string.event_election_won)
         EventKind.ElectionLost -> Message(Res.string.event_election_lost)
+        EventKind.WorkingFromHome -> Message(Res.string.event_working_from_home)
+        EventKind.Converted -> Message(null, counted = Res.plurals.event_converted, count = e.count, x = e.x, y = e.y)
+        EventKind.SeaRising -> Message(null, counted = Res.plurals.event_sea_rising, count = e.count)
+        EventKind.LegacyMet -> Message(Res.string.event_legacy_met, com.rm.infill.ui.legacyName(e.count))
     }
 
 /** [m] as text. */

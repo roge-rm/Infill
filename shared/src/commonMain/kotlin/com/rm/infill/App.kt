@@ -1607,7 +1607,7 @@ private fun GameScreen(
                             trayFolded, fold, trayWidth, serviceTabs(city, leisure = true), leisureKind.group,
                             { g -> if (g is ServiceGroup) leisureKind = lastService[g] ?: servicesIn(city, leisure = true).first { it.group == g } },
                         )
-                        Tool.Bulldoze -> ChoiceTray(atlas, bulldozeChoices(), bulldozeKind, { bulldozeKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
+                        Tool.Bulldoze -> ChoiceTray(atlas, bulldozeChoices(city), bulldozeKind, { bulldozeKind = it }, trayFolded, fold, trayWidth, tabs, tool, onTab)
                     }
                 }
                 if (!sideTools) {

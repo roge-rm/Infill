@@ -40,6 +40,10 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
             rect(a.x0, a.y0, a.x1, a.y1, camera, ROAD_FILL, BULLDOZE_EDGE)
             for (i in p.plan.changes) drawRect(FILL_TILE, at(i), tile)
         }
+        is Action.ConvertToHomes -> {
+            rect(a.x0, a.y0, a.x1, a.y1, camera, RENEW_FILL, RENEW_EDGE)
+            for (i in p.plan.changes) drawRect(RENEW_TILE, at(i), tile)
+        }
         is Action.DigWater -> {
             rect(a.x0, a.y0, a.x1, a.y1, camera, ROAD_FILL, BULLDOZE_EDGE)
             for (i in p.plan.changes) drawRect(DIG_TILE, at(i), tile)
