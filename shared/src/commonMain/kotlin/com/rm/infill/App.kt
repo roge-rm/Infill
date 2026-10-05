@@ -73,6 +73,9 @@ import com.rm.infill.sim.SaveGame
 import com.rm.infill.ui.LoadWindow
 import com.rm.infill.ui.MenuWindow
 import com.rm.infill.ui.DisastersWindow
+import com.rm.infill.ui.AchievementsWindow
+import com.rm.infill.ui.Achievements
+import com.rm.infill.res.achievement_earned
 import com.rm.infill.ui.NewCityScreen
 import com.rm.infill.ui.SettingsWindow
 import com.rm.infill.ui.StartScreen
@@ -449,6 +452,7 @@ private fun Screens(settings: Settings) {
     var regionFile by remember { mutableStateOf<String?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
     var disastersOpen by remember { mutableStateOf(false) }
+    var achievementsOpen by remember { mutableStateOf(false) }
     val mapPhoto = remember { MapPhoto() }
     var menuOpen by remember { mutableStateOf(false) }
     val notice = remember { mutableStateOf<Message?>(null) }
@@ -700,6 +704,7 @@ private fun Screens(settings: Settings) {
             onMain = { autosave(); menuOpen = false; screen = Screen.Start },
             onClose = { menuOpen = false },
             onDisasters = game?.let { { disastersOpen = true } },
+            onAchievements = { achievementsOpen = true; menuOpen = false },
             onShare = game?.let { g ->
                 {
                     menuOpen = false
@@ -736,6 +741,7 @@ private fun Screens(settings: Settings) {
         }, { loadOpen = false }, regions, ::openRegion, onOpenFile = ::openTown)
     }
     if (settingsOpen) SettingsWindow(settings) { settingsOpen = false }
+    if (achievementsOpen) AchievementsWindow { achievementsOpen = false }
     if (disastersOpen) game?.let { g ->
         DisastersWindow(g, onStarted = { disastersOpen = false; menuOpen = false }, onClose = { disastersOpen = false })
     }
@@ -883,6 +889,11 @@ private fun GameScreen(
         val tint = remember(skyTint, weather) { weatherTint(skyTint, weather) }
 
         /** Tells of what's happened: a message, or a new era, which stops the clock. */
+        /** Says so when the town earns an achievement, now or with [e]. */
+        fun achievements(e: CityEvent? = null) {
+            Achievements.check(city, e).firstOrNull()?.let { message = Message(Res.string.achievement_earned, arg = it.title) }
+        }
+
         fun showEvent(e: CityEvent) {
             Sounds.event(e.kind)
             // A challenge met, or its time out: the era card says how it went.
@@ -897,7 +908,9 @@ private fun GameScreen(
                 return
             }
             message = messageOf(e)
+            achievements(e)
         }
+
 
         // Time runs at the chosen speed while the game isn't paused, a few days a frame at most.
         LaunchedEffect(paused, speed) {
@@ -919,7 +932,12 @@ private fun GameScreen(
                 if (owed > 0 && working?.isActive != true) {
                     val lot = owed
                     owed = 0
-                    working = launch { if (game.advance(lot, ::showEvent)) onNewMonth() }
+                    working = launch {
+                        if (game.advance(lot, ::showEvent)) {
+                            onNewMonth()
+                            achievements()
+                        }
+                    }
                 }
             }
         }

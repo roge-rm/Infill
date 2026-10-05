@@ -91,3 +91,7 @@ The town saves itself at the start of each month and whenever you leave the app,
 **Share this town** in the menu sends the town as an `.infill` file, by whatever the phone offers, or downloads it in a browser. **Open a town**, at the top of **Load**, opens one from a file, keeps it with your saves and starts it. **Picture of the town** in the menu shares what the map shows now, without the buttons, as a PNG.
 
 To bring a town over from another device on Android without opening it, you can also copy its `.infill` file into `Android/data/com.rm.infill/files/import` on the phone. It shows up in **Load** the next time the list opens.
+
+## Achievements
+
+**Achievements** in the menu lists 17 things to earn across all your towns: the size of a town, each era, a hundred years, the landmarks, the challenges, the legacy goals and seeing the overseer out. They're kept with the settings, so they stay with you whatever town you play. A sandbox earns none.

@@ -535,6 +535,7 @@ fun MenuWindow(
     /** Sending the town as a file, and a picture of it, when there's a town. */
     onShare: (() -> Unit)? = null,
     onPicture: (() -> Unit)? = null,
+    onAchievements: () -> Unit = {},
 ) {
     Window(Res.string.menu, onClose, Glyph.List) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -546,6 +547,7 @@ fun MenuWindow(
             if (onShare != null) BigButton(stringResource(Res.string.share_town), glyph = Glyph.Arrows, onClick = onShare)
             if (onPicture != null) BigButton(stringResource(Res.string.town_picture), glyph = Glyph.Target, onClick = onPicture)
             if (onDisasters != null) BigButton(stringResource(Res.string.disasters), glyph = Glyph.Flame, onClick = onDisasters)
+            BigButton(stringResource(Res.string.achievements), glyph = Glyph.Star, onClick = onAchievements)
             LocalHelp.current?.let { help -> BigButton(stringResource(Res.string.help), glyph = Glyph.Book) { help(null) } }
             BigButton(stringResource(Res.string.main_screen), glyph = Glyph.Building, onClick = onMain)
         }
