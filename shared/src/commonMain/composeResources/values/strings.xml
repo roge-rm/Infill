@@ -1113,6 +1113,14 @@
         <item quantity="other">The sea has risen: high tides reach %1$s tiles inland where there's no embankment</item>
     </plurals>
     <string name="convert_to_homes">Convert to homes</string>
+    <string name="start_disaster">Start a disaster</string>
+    <string name="disaster_fire">A fire</string>
+    <string name="disaster_flood">A flood</string>
+    <string name="disaster_gale">A gale</string>
+    <string name="disaster_storm_surge">A storm surge</string>
+    <string name="disaster_earthquake">An earthquake</string>
+    <string name="disaster_epidemic">An epidemic</string>
+    <string name="disaster_accident">An industrial accident</string>
     <string name="series_carbon">Carbon</string>
     <string name="series_leisure">Leisure</string>
     <string name="label_warming">Warmer than it was</string>

@@ -71,6 +71,7 @@ import com.rm.infill.sim.SaveError
 import com.rm.infill.sim.SaveGame
 import com.rm.infill.ui.LoadWindow
 import com.rm.infill.ui.MenuWindow
+import com.rm.infill.ui.DisastersWindow
 import com.rm.infill.ui.NewCityScreen
 import com.rm.infill.ui.SettingsWindow
 import com.rm.infill.ui.StartScreen
@@ -445,6 +446,7 @@ private fun Screens(settings: Settings) {
     var region by remember { mutableStateOf<Region?>(null) }
     var regionFile by remember { mutableStateOf<String?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
+    var disastersOpen by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     val notice = remember { mutableStateOf<Message?>(null) }
     var savesChanged by remember { mutableIntStateOf(0) }
@@ -678,6 +680,7 @@ private fun Screens(settings: Settings) {
             onSettings = { settingsOpen = true },
             onMain = { autosave(); menuOpen = false; screen = Screen.Start },
             onClose = { menuOpen = false },
+            onDisasters = game?.let { { disastersOpen = true } },
             onRegion = game?.city?.region?.let { file ->
                 {
                     autosave()
@@ -697,6 +700,9 @@ private fun Screens(settings: Settings) {
         }, { loadOpen = false }, regions, ::openRegion)
     }
     if (settingsOpen) SettingsWindow(settings) { settingsOpen = false }
+    if (disastersOpen) game?.let { g ->
+        DisastersWindow(g, onStarted = { disastersOpen = false; menuOpen = false }, onClose = { disastersOpen = false })
+    }
     // Android's back button: close what's open, or step back a screen. From the start screen it leaves.
     BackButton(enabled = menuOpen || loadOpen || settingsOpen || screen == Screen.New || screen == Screen.Region) {
         when {

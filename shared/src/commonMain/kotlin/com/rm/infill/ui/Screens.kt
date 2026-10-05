@@ -90,6 +90,7 @@ import com.rm.infill.res.disasters_fewer
 import com.rm.infill.res.disasters_normal
 import com.rm.infill.res.earthquakes
 import com.rm.infill.res.*
+import com.rm.infill.GameState
 import com.rm.infill.sim.Climate
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.TownNames
@@ -473,6 +474,45 @@ fun LoadWindow(
     }
 }
 
+/** Starting a disaster on purpose: one button each, greyed where the town hasn't what it needs. */
+@Composable
+fun DisastersWindow(game: GameState, onStarted: () -> Unit, onClose: () -> Unit) {
+    game.revision
+    Window(Res.string.start_disaster, onClose, Glyph.Flame) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (kind in com.rm.infill.sim.DisasterKind.entries) {
+                val can = game.city.canStart(kind)
+                BigButton(stringResource(disasterName(kind)), enabled = can, glyph = disasterGlyph(kind)) {
+                    if (can) {
+                        game.startDisaster(kind)
+                        onStarted()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun disasterName(kind: com.rm.infill.sim.DisasterKind): StringResource = when (kind) {
+    com.rm.infill.sim.DisasterKind.FIRE -> Res.string.disaster_fire
+    com.rm.infill.sim.DisasterKind.FLOOD -> Res.string.disaster_flood
+    com.rm.infill.sim.DisasterKind.GALE -> Res.string.disaster_gale
+    com.rm.infill.sim.DisasterKind.STORM_SURGE -> Res.string.disaster_storm_surge
+    com.rm.infill.sim.DisasterKind.EARTHQUAKE -> Res.string.disaster_earthquake
+    com.rm.infill.sim.DisasterKind.EPIDEMIC -> Res.string.disaster_epidemic
+    com.rm.infill.sim.DisasterKind.ACCIDENT -> Res.string.disaster_accident
+}
+
+private fun disasterGlyph(kind: com.rm.infill.sim.DisasterKind): Glyph = when (kind) {
+    com.rm.infill.sim.DisasterKind.FIRE -> Glyph.Flame
+    com.rm.infill.sim.DisasterKind.FLOOD -> Glyph.Rain
+    com.rm.infill.sim.DisasterKind.GALE -> Glyph.Smoke
+    com.rm.infill.sim.DisasterKind.STORM_SURGE -> Glyph.Anchor
+    com.rm.infill.sim.DisasterKind.EARTHQUAKE -> Glyph.Warn
+    com.rm.infill.sim.DisasterKind.EPIDEMIC -> Glyph.Cross
+    com.rm.infill.sim.DisasterKind.ACCIDENT -> Glyph.Crate
+}
+
 /** A region in the load list: its file, name, how many towns and room for how many. */
 data class RegionRow(val file: String, val name: String, val towns: Int, val room: Int)
 
@@ -487,6 +527,8 @@ fun MenuWindow(
     onClose: () -> Unit,
     /** Back to the region's map, for a town in one. */
     onRegion: (() -> Unit)? = null,
+    /** Starting a disaster, when there's a town. */
+    onDisasters: (() -> Unit)? = null,
 ) {
     Window(Res.string.menu, onClose, Glyph.List) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -495,6 +537,7 @@ fun MenuWindow(
             BigButton(stringResource(Res.string.load), glyph = Glyph.List, onClick = onLoad)
             BigButton(stringResource(Res.string.new_city), glyph = Glyph.Plus, onClick = onNew)
             BigButton(stringResource(Res.string.settings), glyph = Glyph.Auto, onClick = onSettings)
+            if (onDisasters != null) BigButton(stringResource(Res.string.disasters), glyph = Glyph.Flame, onClick = onDisasters)
             LocalHelp.current?.let { help -> BigButton(stringResource(Res.string.help), glyph = Glyph.Book) { help(null) } }
             BigButton(stringResource(Res.string.main_screen), glyph = Glyph.Building, onClick = onMain)
         }

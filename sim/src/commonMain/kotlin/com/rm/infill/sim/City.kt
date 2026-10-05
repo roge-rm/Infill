@@ -3147,33 +3147,79 @@ class City(
                 if (disaster((Balance.NUCLEAR_PPM + Balance.NUCLEAR_WEAR_PPM * wear / 100 * wear / 100) / safer)) nuclearAccident(b)
                 continue
             }
-            val heavy = t.like == BuildingType.MILL || t.like == BuildingType.WAREHOUSE || t.like == BuildingType.FACTORY || t == BuildingType.WORKS ||
-                t == BuildingType.MINE || t == BuildingType.COLLIERY ||
-                t.root == BuildingType.COAL_PLANT || t.root == BuildingType.OIL_PLANT || t.root == BuildingType.GAS_PLANT
-            if (!heavy) continue
+            if (!heavy(t)) continue
             val wear = Ageing.wear(monthNow - b.built, if (t.life > 0) t.life else 40)
             var crowd = 0
             forRect(b.x - 2, b.y - 2, b.x + t.width + 1, b.y + t.height + 1) { j -> if (buildings[map.building[j]]?.type?.zone == Zone.INDUSTRIAL) crowd++ }
             if (!disaster(Balance.ACCIDENT_PPM * (100 + wear) / 100 * (4 + crowd / 4) / 4)) continue
-            events += CityEvent(EventKind.IndustrialAccident, b.x, b.y, t)
-            if (rng.nextInt(2) == 0) {
-                // An explosion: the fire spreads, and works are lost, a power station badly damaged.
-                for (k in 0 until 4) buildings[neighbour(b, k)]?.let { if (it.type.zone != Zone.NONE && it.burning == 0) ignite(it) }
-                if (t.zone == Zone.NONE) damage(b, Balance.MEND_EXPLOSION)
-                else {
-                    forRect(b.x, b.y, b.x + t.width - 1, b.y + t.height - 1) { map.brownfield[it] = 1; townChanges += it }
-                    removeBuilding(b)
-                    networksChanged()
-                }
-            } else {
-                // A spill: the land round about fouled, and the water if it reaches it.
-                forRect(b.x - 1, b.y - 1, b.x + t.width, b.y + t.height) { j ->
-                    if (map.terrain[j] == Terrain.WATER) map.foul[j] = min(255, (map.foul[j].toInt() and 0xff) + Balance.SPILL_FOUL).toByte()
-                    else if (map.building[j] == 0 || map.building[j] == b.id) map.brownfield[j] = 1
-                    townChanges += j
-                }
-                disasterBill += Prices.CLEAN_UP * t.width * t.height * 4
+            accident(b)
+        }
+    }
+
+    /** Heavy works, where accidents happen: mills, warehouses, factories, mines and fuel-burning power stations. */
+    private fun heavy(t: BuildingType) = t.like == BuildingType.MILL || t.like == BuildingType.WAREHOUSE || t.like == BuildingType.FACTORY || t == BuildingType.WORKS ||
+        t == BuildingType.MINE || t == BuildingType.COLLIERY ||
+        t.root == BuildingType.COAL_PLANT || t.root == BuildingType.OIL_PLANT || t.root == BuildingType.GAS_PLANT
+
+    /** Whether [kind] can be started here: a storm surge needs the sea, an accident heavy works, a fire a building. */
+    fun canStart(kind: DisasterKind): Boolean = when (kind) {
+        DisasterKind.STORM_SURGE -> seaTiles().any { it }
+        DisasterKind.ACCIDENT -> buildings.values.any { it.underway == 0 && heavy(it.type) }
+        DisasterKind.FIRE -> buildings.values.any { it.underway == 0 && it.type.zone != Zone.NONE && it.burning == 0 }
+        else -> stats.population > 0
+    }
+
+    /**
+     * Starts [kind] now, whatever the disaster setting, near the middle of
+     * town. Says whether it could.
+     */
+    fun startDisaster(kind: DisasterKind): Boolean {
+        if (!canStart(kind)) return false
+        val dice = Rng(seed * 7_919 + monthNow * 31L + day + kind.ordinal)
+        val all = buildings.values.filter { it.underway == 0 }.sortedBy { it.id }
+        // The middle of town: the average place of its buildings.
+        val cx = if (all.isEmpty()) map.width / 2 else all.sumOf { it.x } / all.size
+        val cy = if (all.isEmpty()) map.height / 2 else all.sumOf { it.y } / all.size
+        fun nearMiddle(list: List<Building>): Building? = list.sortedBy { abs(it.x - cx) + abs(it.y - cy) }.take(Balance.DISASTER_CHOICES).let {
+            if (it.isEmpty()) null else it[dice.nextInt(it.size)]
+        }
+        when (kind) {
+            DisasterKind.FIRE -> ignite(nearMiddle(all.filter { it.type.zone != Zone.NONE && it.burning == 0 }) ?: return false)
+            DisasterKind.FLOOD -> {
+                river = 100
+                rainfall(Balance.DISASTER_DOWNPOUR)
+                overflowRivers()
             }
+            DisasterKind.GALE -> gale()
+            DisasterKind.STORM_SURGE -> stormSurge(force = true)
+            DisasterKind.EARTHQUAKE -> quake(cx, cy)
+            DisasterKind.EPIDEMIC -> startEpidemic(4, 40, if (year < Balance.CURE_YEAR) Disease.entries[dice.nextInt(Disease.entries.size)] else Disease.INFLUENZA)
+            DisasterKind.ACCIDENT -> accident(nearMiddle(all.filter { heavy(it.type) }) ?: return false)
+        }
+        return true
+    }
+
+    /** An accident at works [b]: an explosion that spreads fire and loses the works, or a spill that fouls the ground and water. */
+    private fun accident(b: Building) {
+        val t = b.type
+        events += CityEvent(EventKind.IndustrialAccident, b.x, b.y, t)
+        if (rng.nextInt(2) == 0) {
+            // An explosion: the fire spreads, and works are lost, a power station badly damaged.
+            for (k in 0 until 4) buildings[neighbour(b, k)]?.let { if (it.type.zone != Zone.NONE && it.burning == 0) ignite(it) }
+            if (t.zone == Zone.NONE) damage(b, Balance.MEND_EXPLOSION)
+            else {
+                forRect(b.x, b.y, b.x + t.width - 1, b.y + t.height - 1) { map.brownfield[it] = 1; townChanges += it }
+                removeBuilding(b)
+                networksChanged()
+            }
+        } else {
+            // A spill: the land round about fouled, and the water if it reaches it.
+            forRect(b.x - 1, b.y - 1, b.x + t.width, b.y + t.height) { j ->
+                if (map.terrain[j] == Terrain.WATER) map.foul[j] = min(255, (map.foul[j].toInt() and 0xff) + Balance.SPILL_FOUL).toByte()
+                else if (map.building[j] == 0 || map.building[j] == b.id) map.brownfield[j] = 1
+                townChanges += j
+            }
+            disasterBill += Prices.CLEAN_UP * t.width * t.height * 4
         }
     }
 
@@ -9919,6 +9965,9 @@ class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int, va
     var containers = false
 }
 
+
+/** The disasters the player can start on purpose. */
+enum class DisasterKind { FIRE, FLOOD, GALE, STORM_SURGE, EARTHQUAKE, EPIDEMIC, ACCIDENT }
 
 enum class EventKind { FirstBuilt, Milestone, OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut, MedicalAdvance, Drought, StormSurge, WorkedOut, ChallengeWon, ChallengeLost, LandmarkEarned, Protest, Petition, PetitionMet, PetitionLapsed, GrantOffered, GrantPaid, GrantLapsed, ElectionWon, ElectionLost, WorkingFromHome, Converted, SeaRising, LegacyMet }
 

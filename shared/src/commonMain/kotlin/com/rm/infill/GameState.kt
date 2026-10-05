@@ -146,6 +146,9 @@ class GameState(val city: City) {
     /** Passes or repeals a town-wide law. */
     fun setOrdinance(o: com.rm.infill.sim.Ordinance, on: Boolean) = setting { city.setOrdinance(o, on) }
 
+    /** Starts a disaster now, if the town has what it needs for one. */
+    fun startDisaster(kind: com.rm.infill.sim.DisasterKind) = setting { city.startDisaster(kind) }
+
     /** The guided first town's step, -1 to put it away. */
     fun setGuide(step: Int) = setting { city.guide = step }
 

@@ -1370,6 +1370,10 @@ object Balance {
     const val DROUGHT_AT = 60
     const val DROUGHT_CUT = 50
     const val SURGE_PPM = 200_000
+
+    /** A disaster started on purpose strikes one of the so many buildings nearest the middle of town; a flood comes with this much rain. */
+    const val DISASTER_CHOICES = 20
+    const val DISASTER_DOWNPOUR = 60
     const val TREE_ODDS = 24
 
     /** Years new land from filled-in water shows raw before it's greened over. */

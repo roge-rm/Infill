@@ -13,6 +13,8 @@ The weather matters: wind and sun drive the wind and solar farms, rain fills the
 
 **Disasters** in Settings sets them to **Normal**, **Fewer** (half as often) or **Off**.
 
+**Disasters** in the menu starts one now, near the middle of town, whatever the setting: a fire, a flood, a gale, a storm surge on a map with sea, an earthquake, an epidemic or an industrial accident where there are works.
+
 - **A gale**, from October to March, brings down overhead lines, wires and trees. Long bridges close for wind, whatever the setting.
 - **A blizzard** snows the roads in for a few days. Only walkers, the subway and trains get about. Each bus garage clears them a day sooner.
 - **A heat wave** is hard on the elderly in hot homes. It comes whatever the setting, as weather, and pushes up the power peak, but with disasters off no one dies of it.
