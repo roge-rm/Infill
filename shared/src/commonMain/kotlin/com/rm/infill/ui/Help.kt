@@ -1,5 +1,8 @@
 package com.rm.infill.ui
 
+import com.rm.infill.res.manual_language
+import org.jetbrains.compose.resources.stringResource
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -39,7 +42,9 @@ import com.rm.infill.ui.theme.Infill
  */
 @Composable
 fun HelpWindow(onClose: () -> Unit, start: String? = null) {
-    var reading by remember { mutableStateOf(start?.let { t -> Manual.sections.firstOrNull { it.id == t } }) }
+    // The manual in the language the game's in.
+    val sections = Manual.sections(stringResource(Res.string.manual_language))
+    var reading by remember { mutableStateOf(start?.let { t -> sections.firstOrNull { it.id == t } }) }
     var page by remember { mutableStateOf<ManualSection?>(null) }
     val desktop = platform.onDesktop
     val open = page ?: reading
@@ -55,7 +60,7 @@ fun HelpWindow(onClose: () -> Unit, start: String? = null) {
     if (open == null) {
         Window(Res.string.help, onClose, Glyph.Book) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (section in Manual.sections) ContentsRow(section.title, section.summary(desktop)) { reading = section }
+                for (section in sections) ContentsRow(section.title, section.summary(desktop)) { reading = section }
             }
         }
         return

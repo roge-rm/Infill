@@ -98,7 +98,38 @@ DESKTOP_SENTENCES = {
 }
 
 
-def for_desktop(text, headings, used):
+# The same for the French manual in manual/fr/. A tap there is only ever
+# "touchez", "toucher" or "touché", since "la touche" is a keyboard's key.
+DESKTOP_WORDS_FR = [
+    (re.compile(r"\b([Tt])ouchez deux fois\b"), lambda m: ("D" if m.group(1) == "T" else "d") + "ouble-cliquez"),
+    # "Touchez-la" is "cliquez dessus".
+    (re.compile(r"\b([Tt])ouchez-(le|la|les)\b"), lambda m: ("C" if m.group(1) == "T" else "c") + "liquez dessus"),
+    # One clicks on something: "touchez la carte" is "cliquez sur la carte".
+    (re.compile(r"\b([Tt])ouch(ez|er) (?=(le|la|les|l'|l’|un|une|des|ce|cet|cette|ces|son|sa|ses|votre|vos|\*\*)\b)"),
+     lambda m: ("C" if m.group(1) == "T" else "c") + "liqu" + m.group(2) + " sur "),
+    (re.compile(r"\b([Tt])ouch(ez|er|é|ée|és|ées)\b"),
+     lambda m: ("C" if m.group(1) == "T" else "c") + "liqu" + m.group(2)),
+]
+
+DESKTOP_SENTENCES_FR = {
+    "Sur un téléphone tenu à la verticale, la barre tient sur deux lignes, autour de la caméra, et annuler et rétablir s'y trouvent.":
+        "Dans une fenêtre étroite, la barre tient sur deux lignes, et annuler et rétablir s'y trouvent.",
+    'Avec un outil choisi, un doigt construit et deux doigts déplacent et zooment la carte.':
+        'Avec un outil choisi, le bouton gauche de la souris construit.',
+    'Les bâtiments se placent là où vous levez le doigt.':
+        'Les bâtiments se placent là où vous relâchez le bouton.',
+    "Avec **Inspecter**, un doigt déplace la carte et toucher ouvre une fiche sur ce qui s'y trouve\xa0:":
+        "Avec **Inspecter**, glisser déplace la carte et un clic ouvre une fiche sur ce qui s'y trouve\xa0:",
+}
+
+# Each language: its folder, its word rules and its whole sentences.
+LANGUAGES = {
+    "en": (SRC, DESKTOP_WORDS, DESKTOP_SENTENCES),
+    "fr": (SRC / "fr", DESKTOP_WORDS_FR, DESKTOP_SENTENCES_FR),
+}
+
+
+def for_desktop(text, headings, used, words=DESKTOP_WORDS, sentences=DESKTOP_SENTENCES):
     """Returns [text] as the desktop says it, None if it's the same, or "" to leave it out.
 
     [headings] are the section heading and subheading it's under.
@@ -110,7 +141,7 @@ def for_desktop(text, headings, used):
     out = text
     kept = {}
     # A replaced sentence is already in desktop words, so keep the word rules off it.
-    for n, (phone, desktop) in enumerate(DESKTOP_SENTENCES.items()):
+    for n, (phone, desktop) in enumerate(sentences.items()):
         if phone in out:
             kept[f"\x01{n}\x01"] = desktop
             out = out.replace(phone, f"\x01{n}\x01")
@@ -119,7 +150,7 @@ def for_desktop(text, headings, used):
         if phrase in out:
             kept[f"\x00{i}\x00"] = phrase
             out = out.replace(phrase, f"\x00{i}\x00")
-    for pattern, swap in DESKTOP_WORDS:
+    for pattern, swap in words:
         out = pattern.sub(swap, out)
     for mark, phrase in kept.items():
         out = out.replace(mark, phrase)
@@ -202,7 +233,8 @@ def section_id(path):
     head, _, rest = stem.partition("-")
     return rest if head.isdigit() and rest else stem
 
-def kotlin(files, sections, used):
+def kotlin(languages):
+    """The app's Manual.kt from [languages]: code -> (files, sections, used, words, sentences)."""
     q = lambda s: '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$") + '"'
     out = [
         "package com.rm.infill.ui",
@@ -238,11 +270,16 @@ def kotlin(files, sections, used):
         "}",
         "",
         "object Manual {",
-        "    val sections: List<ManualSection> = listOf(",
+        "    /** The manual in [language], a code like \"fr\", or in English if it hasn't been put into that one. */",
+        "    fun sections(language: String): List<ManualSection> = when (language) {",
+    ] + [f"        {q(code)} -> {code}" for code in languages if code != "en"] + [
+        "        else -> en",
+        "    }",
+        "",
     ]
     kinds = {HEADING: "Heading", PARA: "Para", BULLET: "Bullet", STEP: "Step", SUBHEADING: "Subheading"}
 
-    def emit(path, title, summary, blocks, kids, pad):
+    def emit(path, title, summary, blocks, kids, pad, used, words, sentences):
         out.append(f"{pad}ManualSection({q(section_id(path))}, {q(unlink(title))}, {q(unlink(summary))}, listOf(")
         heading, sub = title, None
         for kind, text, only in blocks:
@@ -256,22 +293,25 @@ def kotlin(files, sections, used):
                 shown = unlink(text)
                 # A heading is judged on its own, since PHONE_ONLY names the heading.
                 under = (heading, None) if kind == HEADING else (heading, sub)
-                desktop = for_desktop(shown, under, used)
+                desktop = for_desktop(shown, under, used, words, sentences)
             extra = f", {q(desktop)}" if desktop is not None else ""
             out.append(f"{pad}    ManualBlock(ManualKind.{kinds[kind]}, {q(shown)}{extra}),")
-        desk = for_desktop(unlink(summary), (title,), used)
+        desk = for_desktop(unlink(summary), (title,), used, words, sentences)
         tail = f", desktopSummary = {q(desk)}" if desk is not None else ""
         if not kids:
             out.append(f"{pad}){tail}),")
             return
         out.append(f"{pad}), listOf(")
         for kid, (t, s2, b2) in kids:
-            emit(kid, t, s2, b2, [], pad + "    ")
+            emit(kid, t, s2, b2, [], pad + "    ", used, words, sentences)
         out.append(f"{pad}){tail}),")
 
-    for path, ((title, summary, blocks), kids) in zip(files, sections):
-        emit(path, title, summary, blocks, kids, "        ")
-    out += ["    )", "}", ""]
+    for code, (files, sections, used, words, sentences) in languages.items():
+        out.append(f"    private val {code}: List<ManualSection> = listOf(")
+        for path, ((title, summary, blocks), kids) in zip(files, sections):
+            emit(path, title, summary, blocks, kids, "        ", used, words, sentences)
+        out.append("    )")
+    out += ["}", ""]
     return "\n".join(out)
 
 
@@ -301,19 +341,25 @@ def indexed(files, sections, path=INDEX, prefix=""):
 
 
 def main():
-    files = sorted(p for p in SRC.glob("*.md") if p.name != "README.md")
-    if not files:
-        sys.exit("gen_manual: manual/ has no sections")
-    sections = [(parse(p), children_of(p)) for p in files]
-    used = set()
-    text = kotlin(files, sections, used)
-    lost = [phone for phone in DESKTOP_SENTENCES if phone not in used]
-    if lost:
-        print("  FAIL manual: a sentence the desktop wording replaces is no longer in manual/:")
-        for phone in lost:
-            print(f"       {phone}")
-        print("       update DESKTOP_SENTENCES in tools/gen_manual.py to match")
-        sys.exit(1)
+    languages = {}
+    for code, (folder, words, sentences) in LANGUAGES.items():
+        files = sorted(p for p in folder.glob("*.md") if p.name != "README.md")
+        if not files:
+            if code == "en":
+                sys.exit("gen_manual: manual/ has no sections")
+            continue
+        languages[code] = (files, [(parse(p), children_of(p)) for p in files], set(), words, sentences)
+    text = kotlin(languages)
+    for code, (_, _, used, _, sentences) in languages.items():
+        lost = [phone for phone in sentences if phone not in used]
+        if lost:
+            print(f"  FAIL manual: a sentence the desktop wording replaces is no longer in the {code} manual:")
+            for phone in lost:
+                print(f"       {phone}")
+            print("       update the desktop sentences in tools/gen_manual.py to match")
+            sys.exit(1)
+    # The contents lists and the counts are of the English manual.
+    files, sections, _, _, _ = languages["en"]
     index = indexed(files, sections)
     top = indexed(files, sections, TOP, "manual/")
     words = sum(len(t.split()) for (_, _, bs), _ in sections for _, t, only in bs if not only)

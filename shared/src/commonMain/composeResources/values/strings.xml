@@ -6,9 +6,12 @@
         text, and add the language to Settings.LANGUAGES. Keep the %1$s and %1$d
         marks: they're filled with names and numbers, and can be moved about
         or swapped. A string that takes another string's words says which.
-        The manual in manual/ is separate.
+        The manual in manual/ is translated in manual/xx/, and tools/gen_manual.py
+        needs the language added to LANGUAGES. French: see tools/glossary-fr.md.
     -->
     <string name="app_name">Infill</string>
+    <!-- The manual the Help shows: the language its words are in, as a code. -->
+    <string name="manual_language" translatable="false">en</string>
 
     <string name="tool_inspect">Inspect</string>
     <string name="tool_bulldoze">Bulldoze</string>

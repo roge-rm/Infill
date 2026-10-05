@@ -223,7 +223,7 @@ class Settings(private val store: Platform) {
          * The choice shows in Settings once there's more than one, and the
          * manual's Settings section gets a line for it then.
          */
-        val LANGUAGES = linkedMapOf("en" to "English")
+        val LANGUAGES = linkedMapOf("en" to "English", "fr" to "Français")
         private const val SCALE = "ui_scale"
         private const val DISASTERS = "disasters"
         private const val DAY_DOLLARS = "day_dollars"

@@ -1,0 +1,1637 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The game in Canadian French. See values/strings.xml and tools/glossary-fr.md. -->
+    <string name="manual_language" translatable="false">fr</string>
+    <!--
+        The game's words, in English (Canadian spelling). To translate, copy this
+        file to values-xx/strings.xml (xx the language's code), translate the
+        text, and add the language to Settings.LANGUAGES. Keep the %1$s and %1$d
+        marks: they're filled with names and numbers, and can be moved about
+        or swapped. A string that takes another string's words says which.
+        The manual in manual/ is separate.
+    -->
+    <string name="app_name">Infill</string>
+
+    <string name="tool_inspect">Inspecter</string>
+    <string name="tool_bulldoze">Démolir</string>
+    <string name="tool_road">Route</string>
+    <string name="tool_rail">Rail</string>
+    <string name="tool_water">Eau</string>
+    <string name="water_main">Aqueduc</string>
+    <string name="sewer">Égout</string>
+    <string name="storm_drain">Égout pluvial</string>
+    <string name="pumping_station">Station de pompage</string>
+    <string name="well_field">Champ de puits</string>
+    <string name="water_tower">Château d'eau</string>
+    <string name="sewer_outfall">Émissaire d'égout</string>
+    <string name="storm_pond">Bassin de rétention</string>
+    <string name="storm_outfall">Émissaire pluvial</string>
+    <string name="remove_pipes">Retirer les conduites</string>
+    <string name="embankment">Digue</string>
+    <string name="event_river_flood">La rivière sort de son lit</string>
+    <string name="inspect_river_high">La rivière est haute</string>
+    <string name="event_sickness">Maladie après l'inondation</string>
+    <string name="upkeep_flood">Nettoyage après inondation</string>
+    <string name="inspect_shut">Fermé par l'inondation</string>
+    <string name="inspect_flooded_before">Ce lieu a déjà été inondé</string>
+    <string name="road_with_pipes">Avec des conduites dessous</string>
+    <string name="needs_water">Doit être au bord de l'eau</string>
+    <string name="event_flooding">Inondation dans les rues</string>
+    <string name="inspect_flooded">Inondé</string>
+    <string name="inspect_foul">Eaux usées dans l'eau</string>
+    <string name="upkeep_water">Eau et égouts</string>
+    <string name="rail_track">Voie</string>
+    <string name="station">Gare</string>
+    <string name="freight_yard">Gare de triage</string>
+    <string name="inspect_crossing">Passage à niveau</string>
+    <string name="inspect_linked">Trains vers l'extérieur et de l'extérieur</string>
+    <string name="inspect_not_linked">Aucune ligne jusqu'au bord de la carte</string>
+    <string name="needs_track">Doit être au bord de la voie</string>
+    <string name="upkeep_rail">Chemins de fer</string>
+    <string name="tool_zone">Zonage</string>
+    <string name="tool_power">Électricité</string>
+    <string name="tool_services">Services</string>
+    <string name="police_station">Poste de police</string>
+    <string name="fire_station">Caserne de pompiers</string>
+    <string name="park">Parc</string>
+    <string name="power_line">Ligne électrique</string>
+    <string name="coal_plant">Centrale au charbon</string>
+
+    <string name="zone_residential">Résidentiel</string>
+    <string name="zone_commercial">Commercial</string>
+    <string name="zone_industrial">Industriel</string>
+
+    <string name="not_enough_money">Pas assez d'argent</string>
+
+    <string name="inspect_grass">Herbe</string>
+    <string name="inspect_trees">Arbres</string>
+    <string name="inspect_water">Eau</string>
+    <string name="road_dirt">Chemin de terre</string>
+    <string name="road_gravel">Route de gravier</string>
+    <string name="road_lane">Ruelle</string>
+    <string name="road_street">Rue</string>
+    <string name="road_one_way_street">Rue à sens unique</string>
+    <string name="road_avenue">Avenue</string>
+    <string name="road_one_way_avenue">Avenue à sens unique</string>
+    <string name="road_boulevard">Boulevard</string>
+    <string name="inspect_zone_residential">Zonage résidentiel</string>
+    <string name="inspect_zone_commercial">Zonage commercial</string>
+    <string name="inspect_zone_industrial">Zonage industriel</string>
+    <string name="close">Fermer</string>
+    <string name="undo">Annuler</string>
+    <string name="redo">Rétablir</string>
+    <string name="nothing_to_undo">Rien à annuler</string>
+
+    <string name="town_built_there">Impossible d'annuler, la ville a construit ici depuis</string>
+    <string name="blocked">Quelque chose bloque le passage</string>
+
+    <string name="building_cottage">Maisonnette</string>
+    <string name="building_tower_block">Tour d'habitation</string>
+    <string name="building_slender_tower">Tour élancée</string>
+    <string name="building_farmstead">Ferme</string>
+    <string name="building_country_house">Maison de campagne</string>
+    <string name="building_acreage_home">Maison sur grand terrain</string>
+    <string name="building_cabin">Chalet</string>
+    <string name="building_smallholding">Petite ferme</string>
+    <string name="building_villa">Villa</string>
+    <string name="building_mansion">Manoir</string>
+    <string name="building_terrace">Maisons en rangée</string>
+    <string name="building_court_tenements">Cour d'immeubles ouvriers</string>
+    <string name="building_slab">Barre d'appartements</string>
+    <string name="building_storefronts">Devantures</string>
+    <string name="building_covered_market">Marché couvert</string>
+    <string name="building_arcade">Galerie marchande</string>
+    <string name="building_emporium">Grand magasin général</string>
+    <string name="building_store_block">Îlot de magasins</string>
+    <string name="building_feed_store">Meunerie</string>
+    <string name="building_lumber_yard">Cour à bois</string>
+    <string name="building_brickworks">Briqueterie</string>
+    <string name="building_sheds">Hangars à marchandises</string>
+    <string name="building_storehouses">Entrepôts</string>
+    <string name="building_foundry">Fonderie</string>
+    <string name="building_machine_shop">Atelier d'usinage</string>
+    <string name="building_chambers">Immeuble de bureaux ancien</string>
+    <string name="building_office_park">Parc de bureaux</string>
+    <string name="building_office_row">Rangée de bureaux</string>
+    <string name="building_office_court">Bureaux sur cour</string>
+    <string name="building_slim_offices">Bureaux étroits</string>
+    <string name="building_office_slab">Barre de bureaux</string>
+    <string name="building_twin_shophouses">Boutiques avec logement</string>
+    <string name="building_corner_parade">Commerces de coin</string>
+    <string name="building_shops_and_flats">Commerces et appartements</string>
+    <string name="building_parade_block">Immeuble de prestige</string>
+    <string name="building_mixed_slab">Appartements sur commerces</string>
+    <string name="building_mixed_court">Immeuble sur cour</string>
+    <string name="building_market_garden">Ferme maraîchère</string>
+    <string name="building_orchard">Verger</string>
+    <string name="building_hotel_tower">Tour d'hôtel</string>
+    <string name="building_crossroads_store">Magasin de carrefour</string>
+    <string name="building_roadhouse">Relais routier</string>
+    <string name="building_skyscraper">Gratte-ciel</string>
+    <string name="building_supertall">Très grande tour</string>
+    <string name="building_house">Maison</string>
+    <string name="building_large_house">Grande maison</string>
+    <string name="building_tenement">Immeuble ouvrier</string>
+    <string name="building_general_store">Magasin général</string>
+    <string name="building_shop">Boutique</string>
+    <string name="building_bank">Banque</string>
+    <string name="building_hotel">Hôtel</string>
+    <string name="building_workshop">Atelier</string>
+    <string name="building_mill">Moulin</string>
+    <string name="building_warehouse">Entrepôt</string>
+    <string name="building_factory">Usine</string>
+    <plurals name="riders">
+        <item quantity="one">%1$d passager le mois dernier</item>
+        <item quantity="other">%1$d passagers le mois dernier</item>
+    </plurals>
+    <plurals name="residents">
+        <item quantity="one">%1$d habitant</item>
+        <item quantity="other">%1$d habitants</item>
+    </plurals>
+    <plurals name="jobs">
+        <item quantity="one">%1$d emploi</item>
+        <item quantity="other">%1$d emplois</item>
+    </plurals>
+    <plurals name="places">
+        <item quantity="one">%1$d place</item>
+        <item quantity="other">%1$d places</item>
+    </plurals>
+    <plurals name="for_sale_months">
+        <item quantity="one">Vide et à vendre depuis un mois</item>
+        <item quantity="other">Vide et à vendre depuis %1$d mois</item>
+    </plurals>
+    <string name="for_sale">Vide et à vendre</string>
+    <string name="wealth_poor">Pauvre</string>
+    <string name="wealth_middle">Moyen</string>
+    <string name="wealth_well_off">Aisé</string>
+    <string name="health_poor">mauvaise</string>
+    <string name="health_fair">passable</string>
+    <string name="health_good">bonne</string>
+    <string name="school">École</string>
+    <string name="high_school">École secondaire</string>
+    <string name="clinic">Clinique</string>
+    <string name="hospital">Hôpital</string>
+    <string name="upkeep_schools">Écoles</string>
+    <string name="upkeep_health">Soins de santé</string>
+    <string name="overlay_schooling">Scolarité</string>
+    <string name="overlay_health">Santé</string>
+    <string name="overlay_wealth">Richesse</string>
+    <string name="people">Habitants</string>
+    <string name="children">Enfants</string>
+    <string name="adults">Adultes</string>
+    <string name="elderly">Aînés</string>
+    <string name="born">Naissances</string>
+    <string name="died">Décès</string>
+    <string name="moved_in">Arrivées</string>
+    <string name="moved_out">Départs</string>
+    <string name="empty_homes">Logements à vendre</string>
+    <string name="health">Santé</string>
+    <string name="homes_by_wealth">Richesse</string>
+    <string name="work_by_schooling">Emploi selon la scolarité</string>
+    <string name="unschooled">Aucune</string>
+    <string name="schooled">Primaire</string>
+    <string name="educated">Secondaire</string>
+    <string name="school_places">Places à l'école</string>
+    <string name="high_school_places">Places au secondaire</string>
+    <string name="care_places">Soins</string>
+    <string name="schools_and_care">Écoles et soins</string>
+    <string name="density_low">Faible densité</string>
+    <string name="density_medium">Densité moyenne</string>
+    <string name="density_high">Haute densité</string>
+    <string name="density_rural">Rural</string>
+    <string name="density_tower">Tours</string>
+    <string name="building_row_houses">Maisons en rangée</string>
+    <string name="building_apartments">Appartements</string>
+    <string name="building_apartment_court">Appartements sur cour</string>
+    <string name="building_main_street">Îlot de rue principale</string>
+    <string name="building_office_block">Immeuble de bureaux</string>
+    <string name="building_department_store">Grand magasin</string>
+    <string name="building_works">Usine</string>
+    <plurals name="loads_a_month">
+        <item quantity="one">%1$s chargement par mois</item>
+        <item quantity="other">%1$s chargements par mois</item>
+    </plurals>
+    <plurals name="going_up">
+        <item quantity="one">En construction, encore un jour</item>
+        <item quantity="other">En construction, encore %1$d jours</item>
+    </plurals>
+    <string name="era_township">Bourgade</string>
+    <string name="era_streetcar">Ville du tramway</string>
+    <string name="era_motor">Ère de l'automobile</string>
+    <string name="era_renewal">Rénovation urbaine</string>
+    <string name="era_infill">Densification</string>
+    <string name="era_future">Avenir</string>
+    <string name="era_township_line">Chemins de terre, puits et fosses septiques, et l'électricité pour qui peut l'avoir.</string>
+    <string name="era_streetcar_line">Les rues pavées, l'aqueduc et les égouts arrivent, et la ville pousse en hauteur autant qu'en largeur.</string>
+    <string name="era_motor_line">L'automobile est arrivée. Les logements sans aqueduc, sans égout ou sans électricité perdent du terrain, et les gens aisés regardent vers la périphérie.</string>
+    <string name="era_renewal_line">Le vieux centre est usé et les usines ferment. Que faut-il dégager, et que faut-il garder?</string>
+    <string name="era_infill_line">La ville n'a plus de place pour s'étendre. Elle pousse en hauteur et vers l'intérieur.</string>
+    <string name="era_future_line">Ce qui vient ensuite.</string>
+    <string name="era_brings">Nouveau</string>
+    <string name="era_next">Ensuite&#160;: %1$s, pas avant %2$d</string>
+    <plurals name="goal_people">
+        <item quantity="one">%1$s habitant</item>
+        <item quantity="other">%1$s habitants</item>
+    </plurals>
+    <string name="goal_mains_or_station">L'aqueduc ou une gare</string>
+    <string name="goal_on_mains">%1$d&#160;% des habitants branchés à l'aqueduc</string>
+    <string name="goal_on_sewer">%1$d&#160;% des habitants branchés à l'égout</string>
+    <string name="goal_powered">%1$d&#160;% des bâtiments avec l'électricité</string>
+    <string name="goal_downtown">Commerces ou bureaux en haute densité</string>
+    <string name="goal_high_school">Une école secondaire</string>
+    <string name="goal_land_built">%1$d&#160;% des terrains zonés construits</string>
+    <string name="goal_kept_up">%1$d&#160;% des routes, conduites et voies dans leur durée de vie</string>
+    <string name="goal_flow">Fluidité de la circulation à %1$d&#160;% ou plus</string>
+    <string name="goal_green_trips">%1$d&#160;% des trajets domicile-travail à pied, à vélo ou en transport en commun</string>
+    <string name="goal_met">✓</string>
+    <string name="goal_not_met">–</string>
+    <string name="material_cast_iron">Conduite en fonte</string>
+    <string name="material_wood">Conduite en bois</string>
+    <string name="material_ductile_iron">Conduite en fonte ductile</string>
+    <string name="material_plastic_main">Conduite en plastique</string>
+    <string name="material_brick">Égout en brique</string>
+    <string name="material_concrete_sewer">Égout en béton</string>
+    <string name="material_plastic_sewer">Égout en plastique</string>
+    <string name="material_clay_drain">Égout pluvial en argile</string>
+    <string name="material_concrete_drain">Égout pluvial en béton</string>
+    <string name="material_plastic_drain">Égout pluvial en plastique</string>
+    <string name="laid">Posé en %1$d</string>
+    <string name="track">Voie</string>
+    <plurals name="mend_main">
+        <item quantity="one">La conduite a éclaté, un jour de réparation</item>
+        <item quantity="other">La conduite a éclaté, %1$d jours de réparation</item>
+    </plurals>
+    <plurals name="mend_sewer">
+        <item quantity="one">L'égout s'est effondré, un jour de réparation</item>
+        <item quantity="other">L'égout s'est effondré, %1$d jours de réparation</item>
+    </plurals>
+    <plurals name="mend_drain">
+        <item quantity="one">L'égout pluvial s'est effondré, un jour de réparation</item>
+        <item quantity="other">L'égout pluvial s'est effondré, %1$d jours de réparation</item>
+    </plurals>
+    <plurals name="mend_road">
+        <item quantity="one">Chaussée brisée, un jour de réparation</item>
+        <item quantity="other">Chaussée brisée, %1$d jours de réparation</item>
+    </plurals>
+    <plurals name="mend_track">
+        <item quantity="one">Voie brisée, un jour de réparation</item>
+        <item quantity="other">Voie brisée, %1$d jours de réparation</item>
+    </plurals>
+    <plurals name="works_on">
+        <item quantity="one">En réfection, encore un jour</item>
+        <item quantity="other">En réfection, encore %1$d jours</item>
+    </plurals>
+    <string name="works_waiting">En attente de réfection</string>
+    <plurals name="renovating">
+        <item quantity="one">En rénovation, encore un jour</item>
+        <item quantity="other">En rénovation, encore %1$d jours</item>
+    </plurals>
+    <string name="volunteer_hall">Caserne de pompiers volontaires</string>
+    <string name="ladder_company">Caserne avec grande échelle</string>
+    <string name="ambulance_station">Poste d'ambulances</string>
+    <string name="nursing_home">Foyer de soins</string>
+    <string name="library">Bibliothèque</string>
+    <string name="college">Collège</string>
+    <string name="overlay_ambulance">Ambulances</string>
+    <string name="overlay_theft">Vol</string>
+    <string name="overlay_vice">Vice</string>
+    <string name="overlay_rackets">Extorsion</string>
+    <string name="police_hq">Quartier général de police</string>
+    <string name="courthouse">Palais de justice</string>
+    <string name="jail">Prison</string>
+    <string name="overlay_ladders">Échelles</string>
+    <plurals name="broken_down">
+        <item quantity="one">En panne, un jour de réparation</item>
+        <item quantity="other">En panne, %1$d jours de réparation</item>
+    </plurals>
+    <string name="event_main_burst">Une conduite d'aqueduc a éclaté</string>
+    <string name="event_sewer_collapsed">Un égout s'est effondré</string>
+    <string name="event_track_broken">La voie ferrée s'est brisée</string>
+    <!-- %1$s is a building's name, as the building_ strings have it. -->
+    <string name="event_broke_down">En panne&#160;: %1$s</string>
+    <string name="upkeep_repairs">Réparations</string>
+    <string name="overlay_age">Âge</string>
+    <string name="sewage_works">Usine d'épuration</string>
+    <string name="treatment_plant">Usine de traitement</string>
+    <string name="brownfield">Friche industrielle, à décontaminer</string>
+    <string name="heritage">Patrimoine</string>
+    <string name="tool_transit">Collectif</string>
+    <string name="tram_track">Voie de tramway</string>
+    <string name="tram_stop">Arrêt de tramway</string>
+    <string name="tram_depot">Dépôt de tramways</string>
+    <string name="bus_stop">Arrêt d'autobus</string>
+    <string name="bus_garage">Garage d'autobus</string>
+    <string name="subway">Métro</string>
+    <string name="trolley_wire">Ligne de trolleybus</string>
+    <string name="mode_trolley">En trolleybus</string>
+    <string name="subway_station">Station de métro</string>
+    <string name="remove_transit">Retirer</string>
+    <string name="needs_tram_track">Un dépôt de tramways se construit à côté d'une voie de tramway</string>
+    <string name="needs_tunnel">Une station de métro se construit sur un tunnel de métro</string>
+    <string name="no_service">Aucun service ici pour l'instant</string>
+    <plurals name="stop_riders">
+        <item quantity="one">%1$d montée ou descente le mois dernier</item>
+        <item quantity="other">%1$d montées ou descentes le mois dernier</item>
+    </plurals>
+    <string name="overlay_transit">Transport en commun</string>
+    <string name="commutes">Aller au travail</string>
+    <string name="mode_walk">À pied</string>
+    <string name="mode_car">En voiture</string>
+    <string name="mode_bus">En autobus</string>
+    <string name="mode_tram">En tramway</string>
+    <string name="mode_subway">En métro</string>
+    <string name="mode_train">En train</string>
+    <string name="mode_bike">À vélo</string>
+    <string name="mode_ferry">En traversier</string>
+    <string name="income_fares">Tarifs</string>
+    <string name="upkeep_transit">Transport en commun</string>
+    <string name="bulldoze_clear">Dégager</string>
+    <string name="bulldoze_renew">Refaire l'usé</string>
+    <string name="event_tram_track_broken">Une voie de tramway s'est brisée</string>
+    <string name="event_wire_down">Une ligne de trolleybus est tombée</string>
+    <string name="event_tunnel_shut">Un tunnel de métro est fermé pour réparations</string>
+    <plurals name="mend_tram">
+        <item quantity="one">Voie de tramway brisée, un jour de réparation</item>
+        <item quantity="other">Voie de tramway brisée, %1$d jours de réparation</item>
+    </plurals>
+    <plurals name="mend_wire">
+        <item quantity="one">Ligne tombée, un jour de réparation</item>
+        <item quantity="other">Ligne tombée, %1$d jours de réparation</item>
+    </plurals>
+    <plurals name="mend_tunnel">
+        <item quantity="one">Tunnel fermé, un jour de réparation</item>
+        <item quantity="other">Tunnel fermé, %1$d jours de réparation</item>
+    </plurals>
+    <string name="no_power">Pas d'électricité</string>
+    <string name="inspect_power_line">Ligne électrique</string>
+
+    <string name="overlay">Vue</string>
+    <string name="overlay_none">Simple</string>
+    <string name="overlay_land_value">Valeur foncière</string>
+    <string name="overlay_pollution">Pollution</string>
+    <string name="overlay_crime">Criminalité</string>
+    <string name="overlay_power">Électricité</string>
+    <string name="overlay_police">Police</string>
+    <string name="overlay_fire">Incendie</string>
+    <string name="overlay_traffic">Circulation</string>
+    <string name="overlay_rail">Chemin de fer</string>
+    <string name="overlay_water">Eau</string>
+    <string name="overlay_runoff">Ruissellement</string>
+    <string name="low">Faible</string>
+    <string name="high">Élevé</string>
+
+    <string name="budget">Budget</string>
+    <string name="taxes">Taxes</string>
+    <string name="tax_residential">Logements</string>
+    <string name="tax_commercial">Commerces</string>
+    <string name="tax_industrial">Industrie</string>
+    <string name="funding">Financement</string>
+    <string name="last_month">Mois dernier</string>
+    <string name="upkeep_roads">Routes et lignes</string>
+    <string name="upkeep_power">Centrales</string>
+    <string name="net">Net</string>
+    <string name="percent">%1$d&#160;%</string>
+    <string name="less">Moins</string>
+    <string name="more">Plus</string>
+    <!-- Read out on the − and + buttons beside a setting: "Less Homes". -->
+    <string name="less_of">%1$s, moins</string>
+    <string name="more_of">%1$s, plus</string>
+    <!-- Two things in a list, "trams, buses"; longer lists repeat it. -->
+    <string name="list_join">%1$s, %2$s</string>
+    <!-- A name and its value, as a screen reader says it: "Population 1,200". -->
+    <string name="name_value">%1$s %2$s</string>
+    <string name="name_colon_value">%1$s&#160;: %2$s</string>
+    <!-- A count and what it's made of: "5 · 2 children, 2 grown-ups, 1 old". -->
+    <string name="count_then">%1$d · %2$s</string>
+    <string name="done">Terminé</string>
+
+    <string name="graphs">Graphiques</string>
+    <string name="series_population">Habitants</string>
+    <string name="series_jobs">Emplois</string>
+    <string name="series_funds">Argent</string>
+    <string name="series_income">Revenus</string>
+    <string name="series_upkeep">Entretien</string>
+    <string name="series_crime">Criminalité</string>
+    <string name="series_pollution">Pollution</string>
+    <string name="series_land_value">Valeur foncière</string>
+    <string name="no_history">Les graphiques commencent après le premier mois</string>
+
+    <string name="event_fire">Incendie&#160;: %1$s</string>
+    <string name="event_lost">Détruit par le feu&#160;: %1$s</string>
+    <string name="event_saved">Incendie éteint&#160;: %1$s</string>
+    <string name="event_fire_damage">Dégâts d'incendie&#160;: %1$s</string>
+    <string name="advice_debt">Plus d'argent&#160;: augmentez les taxes ou dépensez moins</string>
+    <string name="advice_power_short">Pas assez d'électricité&#160;: construisez une centrale</string>
+    <string name="advice_water_short">Pas assez d'eau&#160;: construisez une station de pompage</string>
+    <string name="advice_no_way_in">Aucun accès&#160;: menez une route jusqu'au bord de la carte</string>
+    <!-- Over a new town until play is pressed. -->
+    <string name="paused_hint">En pause&#160;: appuyez sur Lecture pour commencer</string>
+    <!-- %1$s is one of advice_homes, advice_shops, advice_works, advice_offices or advice_farms, at the start of the sentence. The six below take them too. -->
+    <string name="advice_zone_more">%1$s en demande&#160;: zonez plus de terrain</string>
+    <string name="advice_no_road">%1$s ne peuvent pas croître&#160;: aucune route jusqu'à leurs lots</string>
+    <string name="advice_no_power">%1$s ne peuvent pas croître&#160;: pas d'électricité</string>
+    <string name="advice_no_water">%1$s ne peuvent pas croître&#160;: pas d'aqueduc</string>
+    <string name="advice_no_sewer">%1$s ne peuvent pas croître&#160;: pas d'égout</string>
+    <string name="advice_no_staff">%1$s ne peuvent pas croître&#160;: pas assez de travailleurs instruits</string>
+    <string name="advice_unappealing">%1$s ne peuvent pas croître&#160;: personne ne veut y construire</string>
+    <string name="advice_leisure">%1$s ne peuvent pas croître&#160;: trop peu à faire autour, construisez des parcs et des loisirs</string>
+    <string name="advice_garbage">Les ordures s'accumulent&#160;: construisez un dépotoir</string>
+    <string name="advice_garbage_far">Les ordures s'accumulent loin des dépotoirs&#160;: construisez un centre de transbordement ou un dépotoir plus près</string>
+    <!-- Settings: the dollars money's shown in. -->
+    <string name="money_shown">Argent</string>
+    <string name="money_of_1900">En dollars de 1900</string>
+    <string name="money_of_the_day">En dollars de l'époque</string>
+    <!-- Graphs: more of the town over time, and how far back. -->
+    <string name="series_health">Santé</string>
+    <string name="series_unemployment">Sans emploi</string>
+    <string name="series_births">Naissances</string>
+    <string name="series_deaths">Décès</string>
+    <string name="series_smog">Smog</string>
+    <string name="graph_recent">20 dernières années</string>
+    <string name="graph_all">Depuis %1$d</string>
+    <!-- Map views: why lots aren't growing, upset over clearings, empty homes, and heritage. -->
+    <string name="overlay_growth">Croissance bloquée</string>
+    <string name="overlay_upset">Mécontents</string>
+    <string name="overlay_vacant">Logements vides</string>
+    <string name="overlay_heritage">Patrimoine</string>
+    <!-- The chronicle: the town's news kept month by month, under the paper of its day. -->
+    <string name="chronicle">Chronique</string>
+    <string name="chronicle_headlines">Manchettes</string>
+    <string name="chronicle_all">Tout</string>
+    <string name="chronicle_empty">Rien pour l'instant</string>
+    <string name="paper_gazette">La Gazette de %1$s</string>
+    <string name="paper_star">L'Étoile de %1$s</string>
+    <string name="paper_feed">%1$s en direct</string>
+    <string name="era_then_and_now">Hier et aujourd'hui</string>
+    <!-- News: a new era begins; the town's first of a kind of building; the town reaches a size. -->
+    <string name="event_era_began">Une nouvelle ère commence&#160;: %1$s</string>
+    <string name="event_first_built">Une première en ville&#160;: %1$s</string>
+    <string name="event_milestone">La ville atteint %1$s habitants</string>
+    <!-- Bonds and debt. A bond's line: what it raised, the year, what it costs a month, and the year it's paid off. -->
+    <string name="bonds">Obligations</string>
+    <string name="bonds_none">Aucune obligation</string>
+    <string name="bond_rating">Cote de crédit&#160;: %1$s</string>
+    <string name="bond_line">%1$s empruntés en %2$d&#160;: %3$s par mois jusqu'en %4$d</string>
+    <!-- The amount, and the interest a year, such as 4.50. -->
+    <string name="sell_bond">Émettre une obligation de %1$s à %2$s&#160;%</string>
+    <string name="overseer_note">La ville est sous tutelle&#160;: rien de neuf ne peut être construit tant qu'elle est endettée</string>
+    <string name="overseen">La tutelle ne le permet pas tant que la ville est endettée</string>
+    <string name="advice_overseen">La ville est sous tutelle&#160;: remboursez la dette pour construire à nouveau</string>
+    <string name="event_overseer_in">Trop endettée, la ville est mise sous tutelle</string>
+    <string name="event_overseer_out">Plus de dette&#160;: la tutelle est levée</string>
+    <string name="event_rating_down">La cote de crédit de la ville est tombée à %1$s</string>
+    <string name="event_rating_up">La cote de crédit de la ville est montée à %1$s</string>
+    <string name="income_trade">Taxe d'affaires sur le commerce</string>
+    <!-- Under the budget: about what next month comes to. -->
+    <string name="next_month">Mois prochain, environ %1$s</string>
+    <!-- Asked when a new road reaches the edge of the map. -->
+    <string name="edge_link_title">Relier à l'extérieur?</string>
+    <string name="edge_link_what">Cette route atteint le bord de la carte. Reliée, elle laisse passer les nouveaux arrivants, les marchandises et les navetteurs.</string>
+    <string name="edge_link_yes">Relier</string>
+    <string name="edge_link_no">Garder en ville</string>
+    <!-- Inspecting a road at the edge of the map. -->
+    <string name="pill_leads_out">Mène hors de la ville</string>
+    <string name="pill_kept_in">Gardée en ville</string>
+    <string name="action_link_out">Relier à l'extérieur</string>
+    <string name="action_keep_in">Garder en ville</string>
+    <string name="advice_flooding">Inondations&#160;: menez les égouts pluviaux vers un émissaire pluvial ou un bassin</string>
+    <string name="advice_homes">Logements</string>
+    <string name="advice_shops">Commerces</string>
+    <string name="advice_works">Usines</string>
+    <string name="advice_offices">Bureaux</string>
+    <string name="advice_farms">Fermes</string>
+    <plurals name="event_forced_out">
+        <item quantity="one">%1$s habitant n'avait nulle part où aller et a quitté la ville</item>
+        <item quantity="other">%1$s habitants n'avaient nulle part où aller et ont quitté la ville</item>
+    </plurals>
+    <plurals name="event_jobs_lost">
+        <item quantity="one">%1$s emploi perdu</item>
+        <item quantity="other">%1$s emplois perdus</item>
+    </plurals>
+    <string name="pill_nonconforming">Non conforme au zonage</string>
+    <string name="pill_upset">Voisins mécontents des démolitions</string>
+
+    <string name="level_none">aucun</string>
+    <string name="level_low">faible</string>
+    <string name="level_medium">moyen</string>
+    <string name="level_high">élevé</string>
+    <string name="on_fire">En feu</string>
+
+    <string name="menu">Menu</string>
+    <string name="continue_town">Continuer %1$s</string>
+    <string name="new_city">Nouvelle ville</string>
+    <string name="load">Charger</string>
+    <string name="save">Enregistrer</string>
+    <string name="saved">Enregistré&#160;: %1$s</string>
+    <string name="settings">Paramètres</string>
+    <string name="main_screen">Écran principal</string>
+    <string name="back">Retour</string>
+    <string name="start">Commencer</string>
+    <string name="city_name">Nom</string>
+    <string name="another_name">Autre nom</string>
+    <string name="seed">Numéro de carte</string>
+    <string name="another_map">Autre carte</string>
+    <string name="water">Eau</string>
+    <string name="woods">Bois</string>
+    <string name="river">Rivière</string>
+    <string name="yes">Oui</string>
+    <string name="no">Non</string>
+    <string name="no_saves">Aucune ville enregistrée</string>
+    <!-- A town's name, for the save the game makes by itself. -->
+    <string name="autosave_of">%1$s (sauvegarde auto)</string>
+    <plurals name="save_line">
+        <item quantity="one">%1$s, %2$s habitant</item>
+        <item quantity="other">%1$s, %2$s habitants</item>
+    </plurals>
+    <string name="delete">Supprimer</string>
+    <string name="load_failed">Impossible de charger cette sauvegarde</string>
+    <string name="graphics">Graphismes</string>
+    <string name="graphics_low">Faible</string>
+    <string name="graphics_medium">Moyen</string>
+    <string name="graphics_high">Élevé</string>
+    <string name="theme">Thème</string>
+    <string name="theme_auto">Auto</string>
+    <string name="kind_town">Une ville seule</string>
+    <string name="commuting_out">Travaillent à côté</string>
+    <string name="commuting_in">Viennent travailler</string>
+    <string name="shopping_out">Magasinent à côté</string>
+    <string name="shopping_in">Clients d'à côté</string>
+    <string name="goods_to_neighbours">Marchandises vers à côté</string>
+    <string name="goods_from_neighbours">Marchandises d'à côté</string>
+    <string name="kind_region">Une région de villes</string>
+    <string name="town_size">Taille de la ville</string>
+    <string name="sea">Mer</string>
+    <string name="sea_none">Aucune</string>
+    <string name="sea_one_side">Un côté</string>
+    <string name="sea_two_sides">Deux côtés</string>
+    <string name="sea_three_sides">Trois côtés</string>
+    <string name="sea_island">Une île</string>
+    <string name="sea_islands">Des îles</string>
+    <string name="sea_coast">Côte</string>
+    <string name="side_north">Nord</string>
+    <string name="side_east">Est</string>
+    <string name="side_south">Sud</string>
+    <string name="side_west">Ouest</string>
+    <string name="tiles_a_side">%1$d cases</string>
+    <string name="region_grid">Villes de la région</string>
+    <string name="grid_of">%1$d sur %2$d</string>
+    <string name="region_name">Nom de la région</string>
+    <string name="play_town">Jouer %1$s</string>
+    <string name="no_town_here">Pas encore de ville ici</string>
+    <string name="found_town">Fonder une ville ici</string>
+    <!-- A square of a region, read out by screen readers: across, then down, from 1. -->
+    <string name="region_square">Case %1$d, %2$d</string>
+    <string name="open_land">Terrain libre</string>
+    <string name="menu_region">Région</string>
+    <string name="region_towns">Région, %1$d villes sur %2$d</string>
+    <string name="tool_side">Côté des outils</string>
+    <string name="tool_side_auto">Loin de la caméra</string>
+    <string name="tool_side_left">Gauche</string>
+    <string name="tool_side_right">Droite</string>
+    <string name="theme_light">Clair</string>
+    <string name="theme_dark">Sombre</string>
+    <!-- What a tap on a piece of news or advice does, read out by screen readers. -->
+    <string name="look_there">Voir l'endroit</string>
+    <!-- The map, as a screen reader names it, with the tool in hand. -->
+    <string name="the_map">Carte</string>
+    <!-- Where the cursor is on the map: across, then down. -->
+    <string name="tile_at">Case %1$d, %2$d</string>
+    <string name="map_no_cursor">Déplacez le curseur pour commencer</string>
+    <!-- A screen reader's longer cursor moves: "Cursor up 8". -->
+    <string name="cursor_far_up">Curseur en haut de %1$d</string>
+    <string name="cursor_far_down">Curseur en bas de %1$d</string>
+    <string name="cursor_far_left">Curseur à gauche de %1$d</string>
+    <string name="cursor_far_right">Curseur à droite de %1$d</string>
+    <!-- Lets go of a road, line or area being laid, without laying it. -->
+    <string name="let_go">Lâcher</string>
+    <string name="language">Langue</string>
+    <!-- The phone's or browser's own language. -->
+    <string name="language_auto">Auto</string>
+    <string name="ui_size">Taille des commandes et du texte</string>
+    <string name="keys">Touches</string>
+    <string name="press_a_key">Appuyez sur une touche</string>
+    <string name="press_a_button">Appuyez sur un bouton</string>
+    <!-- Keys and controller buttons with words on them, as printed on most keyboards and controllers. -->
+    <string name="key_space">Espace</string>
+    <string name="key_esc">Échap</string>
+    <string name="key_enter">Entrée</string>
+    <string name="key_tab">Tab</string>
+    <string name="key_backspace">Retour arrière</string>
+    <string name="key_delete">Suppr</string>
+    <string name="key_num_plus">Num +</string>
+    <string name="key_num_minus">Num -</string>
+    <string name="key_num_enter">Num Entrée</string>
+    <!-- The d-pad and an arrow for which way: "D-pad ↑". -->
+    <string name="pad_dpad">Croix %1$s</string>
+    <string name="controller">Manette</string>
+    <string name="reset_keys">Remettre les touches</string>
+    <string name="key_pan_up">Aller en haut</string>
+    <string name="key_pan_down">Aller en bas</string>
+    <string name="key_pan_left">Aller à gauche</string>
+    <string name="key_pan_right">Aller à droite</string>
+    <string name="key_zoom_in">Zoom avant</string>
+    <string name="key_zoom_out">Zoom arrière</string>
+    <string name="key_back">Retour et menu</string>
+    <string name="key_cursor_up">Curseur en haut</string>
+    <string name="key_cursor_down">Curseur en bas</string>
+    <string name="key_cursor_left">Curseur à gauche</string>
+    <string name="key_cursor_right">Curseur à droite</string>
+    <string name="key_use">Utiliser l'outil</string>
+    <string name="key_tools">Aller aux outils</string>
+    <string name="key_prev_choice">Choix précédent</string>
+    <string name="key_next_choice">Choix suivant</string>
+    <string name="key_prev_tab">Onglet précédent</string>
+    <string name="key_next_tab">Onglet suivant</string>
+
+    <string name="speed">Vitesse</string>
+    <!-- How fast the game goes, read out on the speed button. -->
+    <string name="speed_slow">Lente</string>
+    <string name="speed_normal">Normale</string>
+    <string name="speed_fast">Rapide</string>
+    <string name="speed_faster">Plus rapide</string>
+    <string name="speed_back_to_normal">Retour à la vitesse normale</string>
+    <string name="speed_fastest">Très rapide</string>
+    <!-- On or off, read out on buttons that switch something. -->
+    <string name="state_on">Activé</string>
+    <string name="state_off">Désactivé</string>
+    <string name="era">Ère</string>
+    <!-- How much a zone is wanted, read out for the demand bars: "Residential: wanted". -->
+    <string name="demand_high">en demande</string>
+    <string name="demand_some">un peu en demande</string>
+    <string name="demand_none">stable</string>
+    <string name="demand_over">en trop</string>
+    <string name="temperature">%1$s°</string>
+    <string name="demand">Demande</string>
+    <!-- The Demand window: each zone's demand, in people for homes and jobs for the rest. -->
+    <string name="demand_wanted">Demande&#160;: %1$s</string>
+    <string name="demand_too_much">En trop&#160;: %1$s</string>
+    <string name="demand_steady">À peu près juste</string>
+    <string name="demand_workers_needed">Travailleurs requis par les emplois, avec leur famille</string>
+    <string name="demand_settlers">Nouveaux arrivants</string>
+    <string name="demand_living_here">Habitants actuels</string>
+    <string name="demand_empty_homes">Place dans les logements à vendre</string>
+    <string name="demand_going_up">En construction</string>
+    <string name="demand_spending">Dépenses des habitants</string>
+    <string name="demand_jobs_here">Emplois actuels</string>
+    <string name="demand_market">Le marché extérieur</string>
+    <string name="demand_brought_in">Marchandises importées qu'on pourrait faire ici</string>
+    <string name="demand_town_size">La taille de la ville</string>
+    <string name="demand_airports">Aéroports</string>
+    <string name="demand_working_from_home">Télétravail</string>
+    <string name="demand_tax">Le taux de taxe</string>
+    <string name="tax">Taxe</string>
+    <string name="tax_shared_offices">La même taxe que les bureaux.</string>
+    <string name="tax_shared_shops">La même taxe que les commerces.</string>
+    <string name="tax_shared_farms">La même taxe que les fermes.</string>
+    <string name="tax_shared_works">La même taxe que les usines.</string>
+    <string name="demand_mixed">Les logements au-dessus des commerces poussent quand on demande à la fois des logements et des commerces, et prennent sur les deux.</string>
+    <string name="demand_town">La ville</string>
+    <string name="jobs_spare">Emplois vacants</string>
+    <string name="way_in">Accès</string>
+    <string name="way_in_open">Ouvert</string>
+    <string name="way_in_none">Aucun</string>
+    <plurals name="count_people">
+        <item quantity="one">%1$s habitant</item>
+        <item quantity="other">%1$s habitants</item>
+    </plurals>
+
+    <string name="pause">Pause</string>
+    <string name="play">Jouer</string>
+    <string name="paused">En pause</string>
+
+    <!-- A month from month_short and a year: "Jan 1900". -->
+    <string name="date">%1$s %2$d</string>
+    <!-- How numbers are written: the mark between thousands (20,000) and the decimal mark (2.5). -->
+    <string name="number_group">&#160;</string>
+    <string name="number_decimal">,</string>
+    <string name="money">%1$s&#160;$</string>
+    <string name="money_owed">−%1$s&#160;$</string>
+    <string name="population">Population</string>
+
+    <string-array name="month_short">
+        <item>janv.</item>
+        <item>févr.</item>
+        <item>mars</item>
+        <item>avr.</item>
+        <item>mai</item>
+        <item>juin</item>
+        <item>juill.</item>
+        <item>août</item>
+        <item>sept.</item>
+        <item>oct.</item>
+        <item>nov.</item>
+        <item>déc.</item>
+    </string-array>
+    <!-- M14: power, environment and disasters -->
+    <string name="oil_plant">Centrale au mazout</string>
+    <string name="gas_plant">Centrale au gaz</string>
+    <string name="hydro_plant">Centrale hydroélectrique</string>
+    <string name="nuclear_plant">Centrale nucléaire</string>
+    <string name="substation">Poste électrique</string>
+    <string name="high_line">Ligne à haute tension</string>
+    <string name="dump">Dépotoir</string>
+    <string name="incinerator">Incinérateur</string>
+    <string name="recycling">Centre de recyclage</string>
+    <string name="street_trees">Arbres de rue</string>
+    <string name="event_dump_full">Un dépotoir est plein</string>
+    <string name="event_smog">Smog sur la ville</string>
+    <string name="event_gale">Un coup de vent a abattu des lignes et des arbres</string>
+    <string name="event_blizzard">Une tempête de neige&#160;: les routes sont enneigées</string>
+    <string name="event_heat_wave">Une canicule</string>
+    <!-- %1$s is a building's name, as the building_ strings have it. -->
+    <string name="event_industrial_accident">Accident&#160;: %1$s</string>
+    <string name="event_nuclear_accident">Un accident nucléaire</string>
+    <string name="event_earthquake">Un tremblement de terre</string>
+    <string name="event_epidemic">Une épidémie circule</string>
+    <string name="event_epidemic_over">L'épidémie est finie</string>
+    <string name="megawatts">%1$s MW</string>
+    <string name="kilowatts">%1$s kW</string>
+    <string name="sound">Son</string>
+    <string name="settings_display">Écran</string>
+    <string name="settings_game">Jeu</string>
+    <string name="help">Aide</string>
+    <string name="volume_master">Tout</string>
+    <string name="volume_town">La ville</string>
+    <string name="volume_effects">Outils et alertes</string>
+    <string name="volume_music">Musique</string>
+    <string name="volume_off">Coupé</string>
+    <string name="inspect_garbage">Les ordures s'accumulent</string>
+    <string name="emergency_repairs">Réparations d'urgence</string>
+    <string name="upkeep_garbage">Ordures et arbres de rue</string>
+    <string name="upkeep_disasters">Nettoyage</string>
+    <string name="power">Électricité</string>
+    <string name="power_peak">Pointe</string>
+    <string name="power_short">Manque</string>
+    <string name="garbage">Ordures</string>
+    <string name="garbage_taken">Ramassées</string>
+    <string name="dump_room">Place aux dépotoirs</string>
+    <string name="tonnes">%1$s t</string>
+    <string name="smog">Smog</string>
+    <string name="disasters">Catastrophes</string>
+    <string name="disasters_off">Aucune</string>
+    <string name="disasters_fewer">Moins</string>
+    <string name="disasters_normal">Normales</string>
+    <string name="earthquakes">Séismes</string>
+    <string name="overlay_heat">Chaleur</string>
+    <string name="overlay_garbage">Ordures</string>
+    <string name="snowed_in">Enneigé</string>
+    <plurals name="mend_power">
+        <item quantity="one">Ligne tombée, %1$d jour de réparation</item>
+        <item quantity="other">Ligne tombée, %1$d jours de réparation</item>
+    </plurals>
+    <!-- M12: goods -->
+    <string name="zone_farmland">Agricole</string>
+    <string name="inspect_zone_farmland">Zoné agricole</string>
+    <string name="building_farm">Ferme</string>
+    <string name="building_woodlot">Boisé</string>
+    <string name="building_mine">Mine de fer</string>
+    <string name="building_colliery">Mine de charbon</string>
+    <!-- Goods, written to go inside a sentence: inspect_makes_from and and_also take them. -->
+    <string name="good_food">nourriture</string>
+    <string name="good_timber">bois rond</string>
+    <string name="good_ore">minerai de fer</string>
+    <string name="good_coal">charbon</string>
+    <string name="good_lumber">bois d'œuvre</string>
+    <string name="good_metal">métal</string>
+    <string name="good_goods">marchandises</string>
+    <string name="and_also">%1$s et %2$s</string>
+    <!-- %1$s and %2$s are goods (good_ strings), and %2$s may be two joined by and_also. -->
+    <string name="inspect_makes_from">%1$s à partir de %2$s</string>
+    <string name="inspect_fertile">Bonne terre</string>
+    <string name="inspect_ore">Minerai de fer sous terre</string>
+    <string name="inspect_coal_seam">Une veine de charbon sous terre</string>
+    <string name="overlay_land">Terrain</string>
+    <string name="overlay_goods">Marchandises</string>
+    <string name="building_oil_well">Puits de pétrole</string>
+    <string name="good_oil">pétrole brut</string>
+    <string name="good_fuel">mazout</string>
+    <string name="inspect_oil">Pétrole sous terre</string>
+    <string name="trade">Commerce</string>
+    <string name="trade_out">Marchandises vendues hors de la ville</string>
+    <string name="trade_in">Marchandises importées</string>
+    <string name="zone_office">Bureaux</string>
+    <string name="inspect_zone_office">Zoné bureaux</string>
+    <string name="zone_mixed">Mixte</string>
+    <string name="inspect_zone_mixed">Zoné mixte</string>
+    <string name="building_shophouse">Commerce avec logement</string>
+    <string name="building_main_street_flats">Logements sur commerces</string>
+    <string name="building_mixed_block">Immeuble mixte</string>
+    <string name="building_podium_tower">Tour sur basilaire</string>
+    <string name="label_shop_jobs">Emplois en commerce</string>
+    <string name="building_offices">Bureaux</string>
+    <string name="building_office_building">Immeuble de bureaux</string>
+    <string name="building_office_tower">Tour de bureaux</string>
+    <string name="building_glass_tower">Tour de verre</string>
+    <string name="income_offices">Bureaux</string>
+    <string name="tool_traffic">Circulation</string>
+    <string name="junction_auto">Choix de la ville</string>
+    <string name="junction_free">Sans contrôle</string>
+    <string name="junction_stop">Arrêts</string>
+    <string name="junction_lights">Feux</string>
+    <string name="junction_roundabout">Carrefour giratoire</string>
+    <string name="junction_interchange">Échangeur</string>
+    <string name="overlay_junctions">Intersections</string>
+    <string name="traffic_flow">Fluidité</string>
+    <string name="overlay_trips">Trajets</string>
+    <string name="overlay_reach">Portée</string>
+    <string name="bus_lane">Voie réservée</string>
+    <string name="cycle_lane">Piste cyclable</string>
+    <string name="bus_line">Ligne d'autobus</string>
+    <string name="tram_line">Ligne de tramway</string>
+    <string name="trolley_line">Ligne de trolleybus</string>
+    <string name="lines">Lignes</string>
+    <string name="make_line">Créer la ligne</string>
+    <string name="clear">Effacer</string>
+    <!-- tram_line or bus_line and its number: "Tram line 2". -->
+    <string name="line_name">%1$s %2$d</string>
+    <string name="line_not_running">Hors service&#160;: aucun dépôt ni garage ne la rejoint</string>
+    <string name="line_vehicles">Véhicules</string>
+    <string name="remove">Retirer</string>
+    <string name="no_lines">Aucune ligne pour l'instant</string>
+    <string name="no_route">Aucun chemin entre ces arrêts</string>
+    <string name="inspect_bus_lane">Voie réservée</string>
+    <plurals name="line_stops">
+        <item quantity="one">%1$d arrêt</item>
+        <item quantity="other">%1$d arrêts</item>
+    </plurals>
+    <string name="overlay_line_load">Charge des lignes</string>
+    <string name="tool_districts">Quartiers</string>
+    <string name="new_district">Nouveau quartier</string>
+    <string name="erase_district">Effacer</string>
+    <string name="districts">Quartiers</string>
+    <string name="no_districts">Aucun quartier pour l'instant</string>
+    <string name="district_taxes">Taxes par rapport à la ville</string>
+    <string name="tax_homes">Logements</string>
+    <string name="tax_shops">Commerces et bureaux</string>
+    <string name="tax_works">Usines</string>
+    <string name="height_limit">Hauteur maximale</string>
+    <string name="height_none">Aucune</string>
+    <string name="keep_heritage">Protéger le patrimoine</string>
+    <string name="limit_parking">Limiter le stationnement</string>
+    <string name="no_heavy_industry">Pas d'industrie lourde</string>
+    <string name="free_fares">Transport gratuit</string>
+    <string name="scrubbers">Épurateurs</string>
+    <string name="inspect_scrubbed">Épurateurs installés</string>
+    <string name="no_trucks">Pas de poids lourds</string>
+    <string name="clean_works">Limite de pollution des usines</string>
+    <string name="rent_control">Contrôle des loyers</string>
+    <string name="group_zones">Zonage</string>
+    <string name="services_police">Police</string>
+    <string name="transit_trams">Tramways</string>
+    <string name="transit_buses">Autobus</string>
+    <string name="transit_subway">Métro</string>
+    <string name="water_supply">Eau</string>
+    <string name="water_sewers">Égouts</string>
+    <string name="water_storm">Pluvial</string>
+    <string name="views_town">Ville</string>
+    <string name="services_fire">Incendie</string>
+    <string name="services_health">Santé</string>
+    <string name="services_schools">Écoles</string>
+    <string name="services_parks">Parcs</string>
+    <string name="services_waste">Déchets</string>
+    <string name="group_transport">Transport</string>
+    <string name="group_utilities">Réseaux</string>
+    <string name="choice_building">%1$s · %2$d×%3$d</string>
+    <string name="per_tile">%1$s par case</string>
+    <string name="fold_choices">Voir moins</string>
+    <string name="unfold_choices">Voir tous les choix</string>
+    <string name="close_view">Fermer la vue</string>
+    <string name="tap_again">Touchez de nouveau</string>
+    <string name="label_residents">Habitants</string>
+    <string name="label_wealth">Richesse</string>
+    <string name="label_health">Santé</string>
+    <string name="label_schooling">Scolarité des enfants</string>
+    <string name="label_adults_schooled">Adultes scolarisés</string>
+    <string name="label_commute">Navettage</string>
+    <string name="label_jobs">Emplois</string>
+    <string name="label_staffed">Personnel</string>
+    <string name="label_condition">État</string>
+    <string name="label_pupils">Élèves</string>
+    <string name="label_patients">Patients</string>
+    <string name="label_cases">Causes par mois</string>
+    <string name="label_prisoners">Détenus</string>
+    <string name="label_arrests">Arrestations le mois dernier</string>
+    <string name="label_making">Production</string>
+    <string name="label_makes">Produit</string>
+    <string name="label_from_town">De la ville</string>
+    <string name="label_sold_in_town">Vendu en ville</string>
+    <string name="label_stock">Marchandises de la ville</string>
+    <string name="label_full">Rempli</string>
+    <string name="label_riders">Usagers</string>
+    <string name="label_freight">Chargements par train</string>
+    <string name="label_traffic">Circulation</string>
+    <string name="label_wear">Usure</string>
+    <string name="label_load">Charge à l'heure de pointe</string>
+    <string name="label_lines">Lignes</string>
+    <string name="label_ground">Sous-sol</string>
+    <string name="label_land_value">Valeur foncière</string>
+    <string name="label_crime">Criminalité</string>
+    <string name="label_pollution">Pollution</string>
+    <string name="label_theft">Vol</string>
+    <string name="label_vice">Vice</string>
+    <string name="label_rackets">Racket</string>
+    <string name="label_wait">Attente</string>
+    <string name="value_mains">Aqueduc</string>
+    <string name="value_well">Un puits</string>
+    <string name="value_sewer">Égout</string>
+    <string name="value_septic">Fosse septique</string>
+    <string name="value_ages">%1$d jeunes, %2$d adultes, %3$d aînés</string>
+    <string name="value_minutes">%1$d&#160;min</string>
+    <string name="value_seconds">%1$d&#160;s</string>
+    <string name="value_out_of_reach">Aucun emploi à portée</string>
+    <!-- A part of a whole, both numbers: "40 of 120". -->
+    <string name="value_of">%1$s sur %2$s</string>
+    <string name="value_laid">Posé en %1$d</string>
+    <string name="value_running">En service</string>
+    <string name="value_built">Construit en %1$d</string>
+    <string name="action_renovate">Rénover</string>
+    <string name="action_bring_up_to_date">Moderniser</string>
+    <string name="action_scrubbers">Installer des épurateurs</string>
+    <string name="action_bulldoze">Démolir</string>
+    <string name="action_renew">Renouveler</string>
+    <string name="action_lines">Lignes</string>
+    <string name="pill_worn">Usé</string>
+    <!-- A service of an older kind: the newer kind's name and the year the town could first build it. -->
+    <string name="pill_newer_kind">Désuet&#160;: %1$s, construit depuis %2$d</string>
+    <string name="pill_no_road">Pas de route</string>
+    <string name="pill_short_of_stock">Manque de marchandises</string>
+    <string name="label_unemployed">Sans emploi</string>
+    <string name="label_ages">Âges</string>
+    <string name="label_offences">Infractions</string>
+    <string name="label_arrests_all">Arrestations</string>
+    <string name="label_justice">Arrestations retenues</string>
+    <string name="label_stops">Arrêts</string>
+    <string name="label_round_trip">Aller-retour</string>
+    <string name="justice">Justice</string>
+    <string name="policies">Politiques</string>
+    <plurals name="count_workers">
+        <item quantity="one">%1$s travailleur</item>
+        <item quantity="other">%1$s travailleurs</item>
+    </plurals>
+    <plurals name="count_jobs">
+        <item quantity="one">%1$s emploi</item>
+        <item quantity="other">%1$s emplois</item>
+    </plurals>
+    <string name="power_cable">Câble souterrain</string>
+    <string name="high_cable">Câble haute tension</string>
+    <string name="tool_phone">Téléphone</string>
+    <string name="exchange">Central téléphonique</string>
+    <string name="cell_tower">Antenne cellulaire</string>
+    <string name="copper_line">Ligne téléphonique</string>
+    <string name="copper_duct">Ligne téléphonique en conduit</string>
+    <string name="fibre_line">Ligne de fibre</string>
+    <string name="fibre_duct">Fibre en conduit</string>
+    <string name="remove_phone">Retirer les lignes téléphoniques</string>
+    <string name="overlay_comms">Téléphone et Internet</string>
+    <string name="upkeep_phone">Téléphone</string>
+    <string name="label_phone_lines">Lignes utilisées</string>
+    <string name="label_with_phone">Ont le téléphone</string>
+    <string name="label_with_broadband">Ont la haute vitesse</string>
+    <string name="label_wfh">Télétravail</string>
+    <string name="wind_farm">Parc éolien</string>
+    <string name="solar_farm">Parc solaire</string>
+    <string name="battery">Batteries</string>
+    <string name="pill_calm">Trop peu de vent pour tourner</string>
+    <string name="pill_gale">Arrêté par le coup de vent</string>
+    <string name="pill_dark">Pas de soleil à la pointe du soir</string>
+    <string name="pill_flat">Aucun surplus à stocker</string>
+    <string name="river_turbine">Hydrolienne de rivière</string>
+    <string name="tidal_turbine">Hydroliennes marémotrices</string>
+    <string name="offshore_wind">Éolien en mer</string>
+    <string name="road_highway">Autoroute</string>
+    <string name="road_ramp">Bretelle</string>
+    <string name="tool_port">Ports</string>
+    <string name="wharf">Quai</string>
+    <string name="docks">Docks</string>
+    <string name="container_port">Port à conteneurs</string>
+    <string name="ferry_terminal">Gare de traversiers</string>
+    <string name="no_sea_route">Les navires ne peuvent pas atteindre ce plan d'eau</string>
+    <string name="cuts_off_port">Cela couperait un port de la mer</string>
+    <string name="income_dues">Droits et péages</string>
+    <string name="upkeep_ports">Ports</string>
+    <string name="income_next_door">Vendu aux voisins</string>
+    <string name="upkeep_next_door">Acheté aux voisins</string>
+    <string name="next_door">Voisins</string>
+    <string name="power_bought">Électricité achetée</string>
+    <string name="power_sold">Électricité vendue</string>
+    <string name="water_bought">Eau achetée</string>
+    <string name="water_sold">Eau vendue</string>
+    <plurals name="water_for">
+        <item quantity="one">Pour %1$s personne</item>
+        <item quantity="other">Pour %1$s personnes</item>
+    </plurals>
+    <string name="garbage_sent">Ordures envoyées</string>
+    <string name="garbage_taken_in">Ordures reçues</string>
+    <string name="visitors">Visiteurs</string>
+    <string name="by_road">Par la route</string>
+    <string name="by_rail">Par le train</string>
+    <string name="by_sea">Par la mer</string>
+    <string name="by_air">Par avion</string>
+    <string name="label_visitors">Visiteurs par jour</string>
+    <string name="label_hotel_rooms">Chambres d'hôtel occupées</string>
+    <string name="label_guests">Clients</string>
+    <string name="pill_open_sea">Accessible aux navires</string>
+    <string name="pill_no_sea_route">Coupé de la mer</string>
+    <string name="label_port_loads">Chargements par mois</string>
+    <string name="label_ships">Navires par mois</string>
+    <string name="overlay_visitors">Visiteurs</string>
+    <string name="overlay_leisure">Loisirs</string>
+    <string name="bridge_cheapest">Pont le moins cher</string>
+    <string name="bridge_trestle">Pont à chevalets</string>
+    <string name="bridge_swing">Pont tournant</string>
+    <string name="bridge_truss">Pont en treillis</string>
+    <string name="bridge_lift">Pont levant</string>
+    <string name="bridge_concrete">Pont en béton</string>
+    <string name="bridge_suspension">Pont suspendu</string>
+    <string name="bridge_cable_stayed">Pont à haubans</string>
+    <string name="bridge_plain">Pont</string>
+    <string name="label_bridge_kind">Pont</string>
+    <string name="label_span">Portée</string>
+    <string name="value_tiles">%1$d cases</string>
+    <string name="label_for_ships">Navires</string>
+    <string name="ships_pass_under">Passent dessous</string>
+    <string name="ships_blocked">Ne passent pas</string>
+    <string name="ships_it_opens">S'ouvre pour eux</string>
+    <string name="pill_posted">Pas de camions</string>
+    <string name="pill_unsafe">Fermé, dangereux</string>
+    <string name="pill_gale_shut">Fermé, vent</string>
+    <string name="pill_shut">Fermé</string>
+    <string name="pill_toll">Péage</string>
+    <string name="action_toll_on">Ajouter péage</string>
+    <string name="action_toll_off">Retirer péage</string>
+    <string name="action_shut">Fermer le pont</string>
+    <string name="action_open">Ouvrir le pont</string>
+    <string name="toll_rate">Péage du pont</string>
+    <string name="value_cents">%1$d&#160;¢</string>
+    <string name="event_tunnel_flooded">Un tunnel est inondé, ses pompes n'ont pas d'électricité</string>
+    <string name="event_bridge_shut">Un pont est fermé à cause du vent</string>
+    <string name="dig_tunnel">En tunnel</string>
+    <string name="bulldoze_tunnel">Retirer les tunnels</string>
+    <string name="road_tunnel">Tunnel routier</string>
+    <string name="rail_tunnel">Tunnel ferroviaire</string>
+    <string name="tunnel_under_water">Sous l'eau</string>
+    <string name="tunnel_underpass">Passage inférieur</string>
+    <string name="tunnel_cut_cover">Tranchée couverte</string>
+    <string name="pill_pumps_off">Pompes sans électricité</string>
+    <string name="pill_tunnel_shut">Inondé</string>
+    <string name="tunnel_portal">Entrée de tunnel</string>
+    <string name="freight_terminal">Terminal de fret</string>
+    <string name="airfield">Aérodrome</string>
+    <string name="airport">Aéroport</string>
+    <string name="international_airport">Aéroport international</string>
+    <string name="label_office_draw">Emplois de bureau attirés</string>
+    <string name="overlay_noise">Bruit</string>
+    <string name="tool_air">Aérien</string>
+    <!-- %1$s is one of the need_ strings, which are written to follow it. -->
+    <string name="pill_not_fitted">Non équipé pour %1$s</string>
+    <string name="need_power">l'électricité</string>
+    <string name="need_water">l'eau</string>
+    <string name="need_phone">le téléphone</string>
+    <string name="need_internet">Internet</string>
+    <string name="label_working">Fonctionnel</string>
+    <string name="pill_no_water">Pas d'eau</string>
+    <string name="pill_no_phone">Pas de téléphone</string>
+    <string name="pill_no_internet">Pas d'Internet</string>
+    <string name="climate">Climat</string>
+    <string name="climate_temperate">Tempéré</string>
+    <string name="climate_northern">Nordique</string>
+    <string name="climate_coastal">Côtier</string>
+    <string name="climate_dry">Sec</string>
+    <string name="goal_low_carbon">Carbone réduit à %1$d kg par habitant par mois</string>
+    <string name="goal_net_zero">Carboneutralité&#160;: carbone réduit à %1$d kg par habitant par mois</string>
+    <string name="legacy_goals">Héritage</string>
+    <string name="legacy_big_city">une ville de 100&#160;000 habitants</string>
+    <string name="legacy_net_zero">carboneutralité</string>
+    <string name="legacy_car_light">la plupart des trajets sans auto</string>
+    <string name="legacy_kept_up">tout bien entretenu</string>
+    <string name="event_legacy_met">Objectif d'héritage atteint&#160;: %1$s</string>
+    <string name="event_working_from_home">Plus de gens font du télétravail&#160;: les bureaux veulent moins de monde sur place</string>
+    <plurals name="event_converted">
+        <item quantity="one">Un bâtiment converti en logements</item>
+        <item quantity="other">%1$s bâtiments convertis en logements</item>
+    </plurals>
+    <plurals name="event_sea_rising">
+        <item quantity="one">La mer a monté&#160;: les grandes marées atteignent une case dans les terres là où il n'y a pas de digue</item>
+        <item quantity="other">La mer a monté&#160;: les grandes marées atteignent %1$s cases dans les terres là où il n'y a pas de digue</item>
+    </plurals>
+    <string name="convert_to_homes">Convertir en logements</string>
+    <string name="start_disaster">Déclencher une catastrophe</string>
+    <string name="share_town">Partager cette ville</string>
+    <string name="achievements">Exploits</string>
+    <string name="achievements_count">%1$d sur %2$d obtenus</string>
+    <string name="achievement_earned">Exploit&#160;: %1$s</string>
+    <string name="ach_people_1k">Village</string>
+    <string name="ach_people_1k_detail">1&#160;000 habitants dans une ville</string>
+    <string name="ach_people_10k">Bourg</string>
+    <string name="ach_people_10k_detail">10&#160;000 habitants dans une ville</string>
+    <string name="ach_people_50k">Ville</string>
+    <string name="ach_people_50k_detail">50&#160;000 habitants dans une ville</string>
+    <string name="ach_people_100k">Grande ville</string>
+    <string name="ach_people_100k_detail">100&#160;000 habitants dans une ville</string>
+    <string name="ach_streetcar">Sur les rails</string>
+    <string name="ach_streetcar_detail">Atteindre l'ère Ville du tramway</string>
+    <string name="ach_motor">Ville motorisée</string>
+    <string name="ach_motor_detail">Atteindre l'ère de l'automobile</string>
+    <string name="ach_renewal">Renouvelée</string>
+    <string name="ach_renewal_detail">Atteindre l'ère Rénovation urbaine</string>
+    <string name="ach_infill">Densifiée</string>
+    <string name="ach_infill_detail">Atteindre l'ère Densification</string>
+    <string name="ach_future">L'avenir</string>
+    <string name="ach_future_detail">Atteindre l'ère Avenir</string>
+    <string name="ach_century">Cent ans</string>
+    <string name="ach_century_detail">Jouer une ville de 1900 à 2000</string>
+    <string name="ach_landmark">Monument</string>
+    <string name="ach_landmark_detail">Construire un monument</string>
+    <string name="ach_all_landmarks">À voir absolument</string>
+    <string name="ach_all_landmarks_detail">Construire les six monuments dans une même ville</string>
+    <string name="ach_challenge">Défi relevé</string>
+    <string name="ach_challenge_detail">Gagner un défi</string>
+    <string name="ach_all_challenges">Tous les défis</string>
+    <string name="ach_all_challenges_detail">Gagner chacun des défis</string>
+    <string name="ach_legacy">Héritage</string>
+    <string name="ach_legacy_detail">Atteindre un objectif d'héritage</string>
+    <string name="ach_all_legacy">Héritage complet</string>
+    <string name="ach_all_legacy_detail">Atteindre les quatre objectifs d'héritage dans une même ville</string>
+    <string name="ach_overseer_out">De retour aux commandes</string>
+    <string name="ach_overseer_out_detail">Sortir de la tutelle</string>
+    <string name="town_picture">Photo de la ville</string>
+    <string name="open_town">Ouvrir une ville</string>
+    <string name="not_a_town">Ce fichier n'est pas une ville</string>
+    <string name="disaster_fire">Un incendie</string>
+    <string name="disaster_flood">Une inondation</string>
+    <string name="disaster_gale">Un coup de vent</string>
+    <string name="disaster_storm_surge">Une onde de tempête</string>
+    <string name="disaster_earthquake">Un tremblement de terre</string>
+    <string name="disaster_epidemic">Une épidémie</string>
+    <string name="disaster_accident">Un accident industriel</string>
+    <string name="series_carbon">Carbone</string>
+    <string name="series_leisure">Loisirs</string>
+    <string name="label_warming">Plus chaud qu'avant</string>
+    <string name="value_degrees">%1$s°</string>
+    <string name="label_heat_waves">Canicules l'an dernier</string>
+    <string name="label_floods">Inondations l'an dernier</string>
+    <string name="label_carbon">Carbone le mois dernier</string>
+    <string name="value_tonnes">%1$s&#160;t</string>
+    <string name="carbon_power">Électricité</string>
+    <string name="carbon_traffic">Circulation</string>
+    <string name="carbon_works">Usines</string>
+    <string name="carbon_heating">Chauffage</string>
+    <string name="overlay_carbon">Carbone</string>
+    <string name="cooling_centre">Halte climatisée</string>
+    <!-- Green space, under Leisure. -->
+    <string name="playground">Aire de jeux</string>
+    <string name="town_square">Place publique</string>
+    <string name="plaza">Esplanade</string>
+    <string name="formal_garden">Jardin à la française</string>
+    <string name="city_park">Grand parc</string>
+    <string name="allotments">Jardins communautaires</string>
+    <string name="community_garden">Jardin collectif</string>
+    <string name="pocket_park">Parc de poche</string>
+    <string name="urban_woodland">Boisé</string>
+    <string name="botanical_garden">Jardin botanique</string>
+    <string name="wetland_reserve">Milieu humide protégé</string>
+    <string name="greenway">Corridor vert</string>
+    <string name="dog_park">Parc canin</string>
+    <!-- Sport and culture, under Leisure. -->
+    <string name="sports_ground">Terrain de sport</string>
+    <string name="lit_fields">Terrains éclairés</string>
+    <string name="public_baths">Bains publics</string>
+    <string name="swimming_pool">Piscine</string>
+    <string name="aquatic_centre">Centre aquatique</string>
+    <string name="tennis_courts">Terrains de tennis</string>
+    <string name="ice_rink">Patinoire</string>
+    <string name="ballpark">Stade de baseball</string>
+    <string name="arena">Aréna</string>
+    <string name="stadium">Stade</string>
+    <string name="golf_course">Terrain de golf</string>
+    <string name="skate_park">Planchodrome</string>
+    <string name="rec_centre">Centre de loisirs</string>
+    <string name="bandstand">Kiosque à musique</string>
+    <string name="variety_theatre">Théâtre de variétés</string>
+    <string name="picture_palace">Grand cinéma</string>
+    <string name="multiplex">Multiplexe</string>
+    <string name="opera_house">Opéra</string>
+    <string name="museum">Musée</string>
+    <string name="art_gallery">Musée d'art</string>
+    <string name="concert_hall">Salle de concert</string>
+    <string name="zoo">Zoo</string>
+    <string name="fairground">Fête foraine</string>
+    <string name="amusement_park">Parc d'attractions</string>
+    <string name="drive_in">Ciné-parc</string>
+    <string name="aquarium">Aquarium</string>
+    <string name="convention_centre">Centre des congrès</string>
+    <!-- Ordinances: town-wide laws, each a name and what it does. -->
+    <string name="ordinances">Règlements</string>
+    <string name="ordinances_none">Aucun en vigueur</string>
+    <!-- How many ordinances are in force, what they cost a month and what they bring in. -->
+    <string name="ordinances_summary">%1$d en vigueur&#160;: %2$s par mois, %3$s de revenus</string>
+    <!-- An ordinance not yet possible: the year it can first be passed. -->
+    <string name="law_from">Dès %1$d</string>
+    <string name="law_era">Ère&#160;: %1$s</string>
+    <!-- What an ordinance costs a month at the town's size now. -->
+    <string name="law_cost">%1$s par mois</string>
+    <string name="law_free">Sans frais</string>
+    <string name="ordinance_cost">Règlements</string>
+    <!-- News: an ordinance history has ended, and one the town can now pass. -->
+    <string name="event_ordinance_ended">%1$s a pris fin</string>
+    <string name="event_ordinance_available">Nouveau règlement&#160;: %1$s</string>
+    <string name="topic_safety">Sécurité</string>
+    <string name="topic_health">Santé</string>
+    <string name="topic_morals">Alcool et vie nocturne</string>
+    <string name="topic_environment">Environnement</string>
+    <string name="topic_traffic">Circulation</string>
+    <string name="topic_waste">Déchets</string>
+    <string name="topic_energy">Énergie</string>
+    <string name="topic_culture">Culture</string>
+    <string name="law_building_code">Code du bâtiment</string>
+    <string name="law_building_code_what">Moins d'incendies se déclarent, et ils se propagent moins.</string>
+    <string name="law_public_health_act">Loi sur l'hygiène publique</string>
+    <string name="law_public_health_act_what">Lait et eau inspectés&#160;: les habitants sont en meilleure santé et moins d'enfants meurent.</string>
+    <string name="law_smoke_abatement">Lutte contre la fumée</string>
+    <string name="law_smoke_abatement_what">Les usines rejettent moins de fumée et aiment un peu moins la ville.</string>
+    <string name="law_liquor_licences">Permis d'alcool</string>
+    <string name="law_liquor_licences_what">Un peu moins de vice, et des droits payés par les commerces. Rien tant que la prohibition est en vigueur.</string>
+    <string name="law_sunday_closing">Fermeture le dimanche</string>
+    <string name="law_sunday_closing_what">Moins de vice, et moins de ventes pour les commerces.</string>
+    <string name="law_youth_curfew">Couvre-feu des jeunes</string>
+    <string name="law_youth_curfew_what">Moins de vols, et des commerces plus calmes le soir.</string>
+    <string name="law_tenement_act">Loi sur les logements ouvriers</string>
+    <string name="law_tenement_act_what">Les logements ouvriers surpeuplés ne sont plus insalubres.</string>
+    <string name="law_daylight_saving">Heure avancée</string>
+    <string name="law_daylight_saving_what">Une pointe d'électricité plus basse en soirée.</string>
+    <string name="law_prohibition">Prohibition</string>
+    <string name="law_prohibition_what">Beaucoup moins de vice, mais le crime organisé prospère. Abrogée en 1933.</string>
+    <string name="law_speed_limits">Limites de vitesse</string>
+    <string name="law_speed_limits_what">Des rues plus calmes, et des amendes.</string>
+    <string name="law_parking_meters">Parcomètres</string>
+    <string name="law_parking_meters_what">Un peu moins de gens prennent l'auto, et les parcomètres rapportent.</string>
+    <string name="law_school_meals">Repas scolaires</string>
+    <string name="law_school_meals_what">Les enfants apprennent plus vite et sont en meilleure santé.</string>
+    <string name="law_fluoridation">Fluoration</string>
+    <string name="law_fluoridation_what">Les habitants branchés à l'aqueduc sont en meilleure santé.</string>
+    <string name="law_dog_licences">Licences pour chiens</string>
+    <string name="law_dog_licences_what">Les habitants profitent davantage des parcs, et un peu d'argent entre.</string>
+    <string name="law_noise_bylaw">Règlement sur le bruit</string>
+    <string name="law_noise_bylaw_what">Le bruit compte moins, et les commerces sont un peu moins recherchés.</string>
+    <string name="law_clean_air_act">Loi sur la qualité de l'air</string>
+    <string name="law_clean_air_act_what">Les centrales rejettent un quart de fumée en moins, mais le combustible coûte plus cher.</string>
+    <string name="law_bottle_deposit">Consigne</string>
+    <string name="law_bottle_deposit_what">Moins d'ordures.</string>
+    <string name="law_percent_for_art">1&#160;% pour l'art</string>
+    <string name="law_percent_for_art_what">Plus de culture, et plus de visiteurs.</string>
+    <string name="law_tree_protection">Protection des arbres</string>
+    <string name="law_tree_protection_what">Les boisés absorbent plus de pollution.</string>
+    <string name="law_energy_code">Code de l'énergie</string>
+    <string name="law_energy_code_what">Moins d'électricité consommée.</string>
+    <string name="law_curbside_recycling">Collecte sélective</string>
+    <string name="law_curbside_recycling_what">Moitié plus de recyclage, là où il y a un centre de recyclage.</string>
+    <string name="law_late_licences">Permis de nuit</string>
+    <string name="law_late_licences_what">Plus de clientèle et de culture la nuit, plus de vice, et des droits.</string>
+    <string name="law_heat_plan">Plan canicule</string>
+    <string name="law_heat_plan_what">Moins de personnes âgées et fragiles meurent pendant une canicule.</string>
+    <string name="law_smoking_ban">Interdiction de fumer</string>
+    <string name="law_smoking_ban_what">Les habitants sont en meilleure santé, et les ventes baissent un peu.</string>
+    <string name="law_congestion_charge">Péage urbain</string>
+    <string name="law_congestion_charge_what">Moins d'autos, un peu moins de ventes, et des revenus.</string>
+    <string name="law_carbon_price">Prix du carbone</string>
+    <string name="law_carbon_price_what">Les combustibles fossiles coûtent plus cher, et chaque tonne de carbone rapporte.</string>
+    <string name="tool_leisure">Loisirs</string>
+    <!-- The funding and upkeep of parks, sport and culture together. -->
+    <string name="parks_and_leisure">Parcs et loisirs</string>
+    <string name="label_leisure">Loisirs près de chez soi</string>
+    <!-- The town's leisure near home, and what people expect in the year, both 0 to 100. -->
+    <string name="leisure_value">%1$d, %2$d attendu</string>
+    <string name="leisure_sport">Sport</string>
+    <string name="leisure_culture">Culture</string>
+    <!-- The civic buildings, and the newer kinds of school, health, police and fire. -->
+    <string name="town_hall">Hôtel de ville</string>
+    <string name="city_hall">Grand hôtel de ville</string>
+    <string name="civic_centre">Centre civique</string>
+    <string name="post_office">Bureau de poste</string>
+    <string name="cemetery">Cimetière</string>
+    <string name="memorial_garden">Jardin du souvenir</string>
+    <string name="fountain">Fontaine</string>
+    <string name="clock_tower">Tour de l'horloge</string>
+    <string name="war_memorial">Monument aux morts</string>
+    <string name="kindergarten">Maternelle</string>
+    <string name="junior_high">École intermédiaire</string>
+    <string name="vocational_school">École de métiers</string>
+    <string name="central_library">Bibliothèque centrale</string>
+    <string name="community_college">Cégep</string>
+    <string name="university">Université</string>
+    <string name="research_campus">Campus de recherche</string>
+    <string name="sanatorium">Sanatorium</string>
+    <string name="public_health_office">Bureau de santé publique</string>
+    <string name="police_box">Guérite de police</string>
+    <string name="traffic_police">Police de la circulation</string>
+    <string name="fireboat_station">Poste de bateau-pompe</string>
+    <!-- The tab of civic buildings under Services. -->
+    <string name="services_civic">Civique</string>
+    <!-- Placing a second town hall. -->
+    <string name="only_one">La ville a déjà son hôtel de ville</string>
+    <string name="upkeep_civic">Bâtiments civiques</string>
+    <!-- Inspecting the town hall: the share it takes off what the ordinances cost. -->
+    <string name="label_hall_saves">Économie sur les règlements</string>
+    <!-- Power stations and garbage by era. -->
+    <string name="pulverized_coal">Centrale au charbon pulvérisé</string>
+    <string name="supercritical_coal">Centrale au charbon supercritique</string>
+    <string name="large_oil">Grande centrale au mazout</string>
+    <string name="combined_cycle">Centrale à cycle combiné</string>
+    <string name="hydro_station">Grande centrale hydroélectrique</string>
+    <string name="advanced_reactor">Réacteur avancé</string>
+    <string name="tall_wind">Parc de grandes éoliennes</string>
+    <string name="bifacial_solar">Parc solaire bifacial</string>
+    <string name="floating_offshore">Éolien flottant en mer</string>
+    <string name="tidal_array">Parc d'hydroliennes</string>
+    <string name="hydro_dam">Barrage hydroélectrique</string>
+    <string name="pumped_storage">Stockage par pompage</string>
+    <string name="geothermal">Centrale géothermique</string>
+    <string name="small_reactor">Petit réacteur modulaire</string>
+    <string name="long_storage">Stockage longue durée</string>
+    <string name="sanitary_landfill">Lieu d'enfouissement</string>
+    <string name="waste_to_energy">Usine de valorisation énergétique</string>
+    <string name="materials_recovery">Centre de tri</string>
+    <string name="advanced_sorting">Tri avancé</string>
+    <string name="transfer_station">Centre de transfert</string>
+    <string name="compost_yard">Plateforme de compostage</string>
+    <string name="landfill_gas">Centrale au gaz d'enfouissement</string>
+    <string name="biogas">Usine de biométhanisation</string>
+    <!-- Newer kinds of the services, which take the older kinds' place as the years go by. -->
+    <string name="elementary_school">École primaire</string>
+    <string name="community_school">École communautaire</string>
+    <string name="composite_high">Polyvalente</string>
+    <string name="branch_library">Bibliothèque de quartier</string>
+    <string name="media_library">Médiathèque</string>
+    <string name="health_centre">Centre de santé</string>
+    <string name="community_health">CLSC</string>
+    <string name="general_hospital">Hôpital général</string>
+    <string name="medical_centre">Centre médical</string>
+    <string name="care_home">Résidence pour aînés</string>
+    <string name="motor_fire_station">Caserne motorisée</string>
+    <string name="fire_hall">Caserne incendie et secours</string>
+    <string name="precinct">Poste de police</string>
+    <string name="community_policing">Poste de quartier</string>
+    <string name="cool_roofs">Toits et pavés frais</string>
+    <string name="green_roofs">Toits verts</string>
+    <!--
+        Parts new town and district names are made from. A first part and an
+        ending run together ("Ash" + "ford"); now and then a first part and a
+        word after it ("Cedar Falls"), or a word before a place ("Port Elgin").
+        They needn't be translated word for word: give the language's own.
+    -->
+    <string-array name="town_first">
+        <item>Beau</item>
+        <item>Bel</item>
+        <item>Belle</item>
+        <item>Blanc</item>
+        <item>Bois</item>
+        <item>Bon</item>
+        <item>Brise</item>
+        <item>Castel</item>
+        <item>Cèdre</item>
+        <item>Champ</item>
+        <item>Chêne</item>
+        <item>Clair</item>
+        <item>Clos</item>
+        <item>Cour</item>
+        <item>Érable</item>
+        <item>Fleur</item>
+        <item>Fontaine</item>
+        <item>Fort</item>
+        <item>Franc</item>
+        <item>Frêne</item>
+        <item>Grand</item>
+        <item>Gros</item>
+        <item>Gué</item>
+        <item>Haut</item>
+        <item>Hêtre</item>
+        <item>Lac</item>
+        <item>Long</item>
+        <item>Loup</item>
+        <item>Marais</item>
+        <item>Mont</item>
+        <item>Moulin</item>
+        <item>Neuf</item>
+        <item>Noir</item>
+        <item>Or</item>
+        <item>Orme</item>
+        <item>Perle</item>
+        <item>Pierre</item>
+        <item>Pin</item>
+        <item>Plaine</item>
+        <item>Port</item>
+        <item>Pré</item>
+        <item>Renard</item>
+        <item>Riche</item>
+        <item>Rive</item>
+        <item>Roche</item>
+        <item>Rose</item>
+        <item>Rouge</item>
+        <item>Sable</item>
+        <item>Sault</item>
+        <item>Saule</item>
+        <item>Val</item>
+        <item>Vert</item>
+        <item>Vieux</item>
+        <item>Bourg</item>
+    </string-array>
+    <string-array name="town_endings">
+        <item>ville</item>
+        <item>mont</item>
+        <item>val</item>
+        <item>bourg</item>
+        <item>lieu</item>
+        <item>court</item>
+        <item>pré</item>
+        <item>bois</item>
+        <item>fontaine</item>
+        <item>roche</item>
+        <item>rive</item>
+        <item>champ</item>
+        <item>fort</item>
+        <item>clair</item>
+        <item>vert</item>
+        <item>fonds</item>
+        <item>lac</item>
+        <item>pont</item>
+        <item>chêne</item>
+        <item>port</item>
+        <item>vallon</item>
+        <item>côte</item>
+        <item>mesnil</item>
+        <item>plaine</item>
+    </string-array>
+    <string-array name="town_after">
+        <item>des-Chutes</item>
+        <item>les-Bains</item>
+        <item>du-Moulin</item>
+        <item>des-Rapides</item>
+        <item>du-Lac</item>
+        <item>de-la-Baie</item>
+        <item>du-Ruisseau</item>
+        <item>Station</item>
+        <item>de-la-Traverse</item>
+        <item>du-Nord</item>
+    </string-array>
+    <string-array name="town_before">
+        <item>Saint</item>
+        <item>Mont</item>
+        <item>Fort</item>
+        <item>Port</item>
+        <item>Lac</item>
+        <item>Cap</item>
+    </string-array>
+    <string-array name="town_places">
+        <item>Albert</item>
+        <item>Alfred</item>
+        <item>Laurier</item>
+        <item>Joseph</item>
+        <item>Rémi</item>
+        <item>Hilaire</item>
+        <item>Jérôme</item>
+        <item>Gédéon</item>
+        <item>Côme</item>
+        <item>Lambert</item>
+        <item>Élie</item>
+        <item>Denis</item>
+        <item>Léon</item>
+        <item>Bruno</item>
+        <item>Eustache</item>
+        <item>Honoré</item>
+        <item>Coulonge</item>
+        <item>Prosper</item>
+        <item>Ambroise</item>
+        <item>Michel</item>
+    </string-array>
+    <!-- How a first part and a word after it go together, and a word before a place. -->
+    <!-- Public opinion -->
+    <string name="opinion">Opinion</string>
+    <string name="approval">Approbation</string>
+    <string name="series_approval">Approbation</string>
+    <string name="overlay_mood">Humeur</string>
+    <string name="what_people_think">Ce que pensent les habitants</string>
+    <string name="concern_taxes">Taxes</string>
+    <string name="concern_jobs">Emplois</string>
+    <string name="concern_crime">Criminalité</string>
+    <string name="concern_health">Santé</string>
+    <string name="concern_services">Électricité et eau</string>
+    <string name="concern_leisure">Activités</string>
+    <string name="concern_traffic">Circulation</string>
+    <string name="concern_clearances">Démolitions</string>
+    <string name="concern_air">Qualité de l'air</string>
+    <string name="concern_housing">Logement</string>
+    <string name="advice_unhappy">Les habitants sont mécontents, surtout côté %1$s</string>
+    <string name="petitions">Pétitions</string>
+    <string name="petitions_none">Aucune pétition</string>
+    <string name="petition_until">%1$s, d'ici %2$s</string>
+    <string name="want_park">un parc</string>
+    <string name="want_police">la police</string>
+    <string name="want_fire">une caserne de pompiers</string>
+    <string name="want_water">l'aqueduc</string>
+    <string name="want_sewer">l'égout</string>
+    <string name="want_power">l'électricité</string>
+    <string name="want_transit">un arrêt de tramway ou d'autobus</string>
+    <string name="grant">Subvention</string>
+    <string name="grant_none">Aucune offerte</string>
+    <string name="grant_sewers">%1$s pour les égouts quand %2$d&#160;% des habitants seront raccordés à l'égout, d'ici %3$s. Actuellement %4$d&#160;%.</string>
+    <string name="grant_highways">%1$s pour les autoroutes quand il y aura %2$d cases d'autoroute, d'ici %3$s. Actuellement %4$d.</string>
+    <string name="grant_transit">%1$s pour le transport en commun quand %2$d&#160;% des déplacements se feront autrement qu'en auto, d'ici %3$s. Actuellement %4$d&#160;%.</string>
+    <string name="grant_resilience">%1$s pour les égouts pluviaux quand il y en aura %2$d cases, d'ici %3$s. Actuellement %4$d.</string>
+    <string name="grant_noun_sewers">les égouts</string>
+    <string name="grant_noun_highways">les autoroutes</string>
+    <string name="grant_noun_transit">le transport en commun</string>
+    <string name="grant_noun_resilience">les égouts pluviaux</string>
+    <string name="elections">Élections</string>
+    <string name="hold_elections">Tenir des élections</string>
+    <string name="next_election">Prochaine en novembre %1$d</string>
+    <string name="grants_this_term">Subventions versées durant ce mandat&#160;: %1$d</string>
+    <string name="taxes_capped">Taxes plafonnées à %1$d&#160;% jusqu'à %2$s</string>
+    <string name="district_mood_map">%1$s&#160;: %2$d, %3$s</string>
+    <string name="district_mood">Humeur %1$d, surtout mécontents côté %2$s</string>
+    <string name="protest">Des manifestants bloquent les travaux</string>
+    <string name="event_protest">Les habitants manifestent contre les démolitions</string>
+    <string name="event_petition">Une pétition&#160;: les habitants d'ici veulent %1$s</string>
+    <string name="event_petition_met">Pétition satisfaite&#160;: %1$s</string>
+    <string name="event_petition_lapsed">Pétition ignorée&#160;: %1$s</string>
+    <string name="event_grant_offered">Le gouvernement supérieur offre une subvention pour %1$s</string>
+    <string name="event_grant_paid">La subvention pour %1$s est versée</string>
+    <string name="event_grant_lapsed">La subvention pour %1$s a expiré</string>
+    <string name="event_election_won">Le conseil est réélu</string>
+    <string name="event_election_lost">Le conseil est défait, et les taxes sont plafonnées pendant quatre ans</string>
+    <!-- Living people and land -->
+    <string name="plant_trees">Planter des arbres</string>
+    <string name="shelter">Refuge</string>
+    <string name="topic_housing">Logement</string>
+    <string name="law_social_housing">Logement social</string>
+    <string name="law_social_housing_what">Des logements que la ville loue aux pauvres&#160;: les prix ne les chassent pas des quartiers chers.</string>
+    <string name="event_epidemic_cholera">Le choléra circule</string>
+    <string name="event_epidemic_consumption">La tuberculose se répand dans les logements surpeuplés</string>
+    <string name="event_epidemic_influenza">La grippe circule</string>
+    <string name="event_antibiotics">Les antibiotiques arrivent&#160;: moins de gens meurent d'infections</string>
+    <string name="event_vaccines">Les vaccins arrivent&#160;: moins d'enfants meurent, et les éclosions sont plus rares</string>
+    <string name="event_drought">Une sécheresse&#160;: les puits et les pompes donnent moins</string>
+    <string name="event_storm_surge">Une onde de tempête inonde la rive</string>
+    <string name="event_worked_out">Épuisé et fermé&#160;: %1$s</string>
+    <string name="rough_sleepers">À la rue</string>
+    <string name="sheltered">En refuge</string>
+    <string name="priced_out">Chassés par les prix</string>
+    <string name="advice_rough_sleepers">Des gens dorment dehors&#160;: construisez un refuge</string>
+    <!-- The guided first town -->
+    <string name="show_me_how">Montrez-moi comment commencer</string>
+    <string name="sandbox">Bac à sable</string>
+    <string name="unlimited">Illimité</string>
+    <string name="guide_step">Étape %1$d sur %2$d</string>
+    <string name="guide_road">Touchez Transport, puis Route, et glissez une rue depuis le bord de la carte. Choisissez Relier quand on vous le demande.</string>
+    <string name="guide_homes">Touchez Zonage, choisissez Résidentiel et glissez des logements le long de la rue.</string>
+    <string name="guide_work">Zonez aussi du Commercial et de l'Industriel, pour les emplois.</string>
+    <string name="guide_play">Touchez lecture en haut.</string>
+    <string name="guide_first_homes">Attendez que les premiers logements se construisent. Accélérez avec les flèches à côté de lecture.</string>
+    <string name="guide_power">Dans Réseaux, construisez une Centrale au charbon et glissez une Ligne électrique de celle-ci jusqu'aux zones.</string>
+    <string name="guide_budget">Touchez l'argent en haut pour voir le budget.</string>
+    <string name="guide_done">Voilà pour le début. La ligne sous la barre dit ce dont la ville a besoin ensuite, et l'Aide dans le menu explique le reste.</string>
+    <!-- Challenges -->
+    <string name="kind_challenge">Un défi</string>
+    <string name="challenge">Défi</string>
+    <string name="challenge_by">D'ici la fin de %1$d</string>
+    <string name="challenge_won">Réussi. La ville est à vous pour la suite.</string>
+    <string name="challenge_lost">Pas réussi d'ici la fin de %1$d. Continuez comme vous voulez.</string>
+    <string name="event_challenge_won">Défi réussi&#160;: %1$s</string>
+    <string name="event_challenge_lost">Défi non réussi à temps&#160;: %1$s</string>
+    <string name="challenge_streetcar_suburb">La banlieue du tramway</string>
+    <string name="challenge_streetcar_suburb_line">Une bourgade de 1905, avec des puits et des chemins de terre. Faites-en une ville du tramway.</string>
+    <string name="challenge_river_rises">La rivière monte</string>
+    <string name="challenge_river_rises_line">Une ville riveraine de 1925 inondée chaque printemps. Gardez l'eau dehors sans perdre ses habitants.</string>
+    <string name="challenge_into_the_red">Dans le rouge</string>
+    <string name="challenge_into_the_red_line">Une ville de 1950 si endettée qu'elle est sous tutelle. Reprenez ses comptes en main.</string>
+    <string name="challenge_renewal">Rénovation urbaine</string>
+    <string name="challenge_renewal_line">Une ville de 1970 congestionnée et mécontente, aux taxes trop élevées. Remettez-la en marche et regagnez ses habitants.</string>
+    <string name="challenge_green_city">Ville verte</string>
+    <string name="challenge_green_city_line">Une ville de l'auto en 2005. Sortez la moitié des déplacements de l'auto et gardez les habitants de votre côté.</string>
+    <string name="cgoal_population">%1$s habitants</string>
+    <string name="cgoal_on_mains">%1$d&#160;% des habitants raccordés à l'aqueduc</string>
+    <string name="cgoal_no_floods">Une année complète sans inondation</string>
+    <string name="cgoal_out_of_debt">Plus de dette, et la tutelle levée</string>
+    <string name="cgoal_approval">Approbation de %1$d&#160;% ou plus</string>
+    <string name="cgoal_flow">Fluidité de la circulation à %1$d&#160;% ou mieux</string>
+    <string name="cgoal_green_trips">%1$d&#160;% des déplacements autrement qu'en auto</string>
+    <string name="cgoal_crime">Criminalité près des logements d'au plus %1$s</string>
+    <!-- Landmarks -->
+    <string name="landmarks">Attraits</string>
+    <string name="founders_statue">Statue du fondateur</string>
+    <string name="mayors_mansion">Manoir du maire</string>
+    <string name="exhibition_hall">Salle d'exposition</string>
+    <string name="observation_tower">Tour d'observation</string>
+    <string name="conservatory">Serre</string>
+    <string name="town_museum">Musée de la ville</string>
+    <string name="earned_statue">Obtenue à 1&#160;000 habitants</string>
+    <string name="earned_mansion">Obtenu à 5&#160;000 habitants</string>
+    <string name="earned_exhibition">Obtenue à 20&#160;000 habitants</string>
+    <string name="earned_tower">Obtenue à 40&#160;000 habitants</string>
+    <string name="earned_conservatory">Obtenue à 75&#160;% d'approbation</string>
+    <string name="earned_museum">Obtenu quand la ville a 75 ans</string>
+    <string name="event_landmark">Monument obtenu&#160;: %1$s. Construisez-le dans Loisirs.</string>
+    <string name="fill_water">Remblayer</string>
+    <string name="dig_water">Creuser</string>
+    <string name="town_after_pattern">%1$s-%2$s</string>
+    <string name="town_before_pattern">%1$s-%2$s</string>
+</resources>
