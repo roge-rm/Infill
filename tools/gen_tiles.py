@@ -8870,6 +8870,40 @@ def fireboat_station(look, v):
     return b
 
 
+def ferry_terminal(look, v):
+    """A ferry terminal on 2 by 2 tiles: a waiting hall with a clock over its door, a long canopy over the queue along
+    the front and a gangway frame at the back, on a paved lot. The ferry ties up on the water beside it."""
+    b = Building(2, 2, height=2 * STOREY + 10)
+    d = b.d
+    paving(b, look, 0, 0, 63, 63, c("#9a958a"))
+    # Lines painted for the cars waiting to board.
+    for xx in range(10, 58, 8):
+        d.line([xx, 50, xx, 60], c("#e8e2d0"))
+    roof, wall = b.box(6, 4, 58, 30, STOREY + 6)
+    if v == 0:
+        brick(d, wall, c("#b5653e"))
+    else:
+        siding(d, wall, c("#e0d6bc"))
+    x0, y0, x1, y1 = wall
+    # Doors in the middle, a clock over them.
+    mid = (x0 + x1) // 2
+    d.rectangle([mid - 5, y1 - 9, mid + 5, y1], c("#3a2a1e"), OUTLINE)
+    d.ellipse([mid - 4, y0 + 1, mid + 4, y0 + 9], c("#f4f0e2"), OUTLINE)
+    d.line([mid, y0 + 5, mid, y0 + 2], OUTLINE)
+    d.line([mid, y0 + 5, mid + 2, y0 + 5], OUTLINE)
+    windows(d, wall, 1, sill=TRIM, every=6, skip=[(mid - 7, mid + 7)])
+    d.rectangle(wall, outline=OUTLINE)
+    gable_ew(d, roof, c("#3f6f7a") if v == 0 else SHINGLE[1], look)
+    # A canopy along the front over the queue, on posts.
+    d.rectangle([8, y1 + 2, 56, y1 + 7], c("#2f5f6f"), OUTLINE)
+    for xx in (10, 32, 54):
+        d.line([xx, y1 + 8, xx, y1 + 12], c("#3a3a3a"))
+    # Bollards and a lamp at the corners of the lot.
+    for xx, yy in ((2, 62), (61, 62), (2, 40), (61, 40)):
+        d.rectangle([xx - 1, yy - 2, xx + 1, yy], c("#3a3a3a"))
+    return b
+
+
 BUILDINGS = [
     ("cottage", cottage, 4), ("house", house, 4), ("large_house", large_house, 3), ("tenement", tenement, 3),
     ("general_store", general_store, 6), ("shop", shop, 6), ("hotel", hotel, 4), ("bank", bank, 4),
@@ -8924,6 +8958,7 @@ BUILDINGS = [
     ("university", university, 2), ("research_campus", research_campus, 2), ("sanatorium", sanatorium, 2),
     ("public_health_office", public_health_office, 2), ("police_box", police_box, 2), ("traffic_police", traffic_police, 2),
     ("fireboat_station", fireboat_station, 2),
+    ("ferry_terminal", ferry_terminal, 2),
     ("police_hq", police_hq, 1), ("courthouse", courthouse, 2), ("jail", jail, 1),
     ("farmstead", farmstead, 4), ("country_house", country_house, 3), ("acreage_home", acreage_home, 3),
     ("crossroads_store", crossroads_store, 3), ("roadhouse", roadhouse, 3),

@@ -62,7 +62,7 @@ The whole manual is in the game, under Help, and the book button on most windows
 2. [The screen](manual/02-the-screen.md) - the strip, the tools, the map views, inspecting, undo, the keys, a controller and TalkBack.
 3. [Zones and growth](manual/03-zones-and-growth.md) - what each zone grows, what a lot needs to grow, demand and land value.
 4. [Roads and traffic](manual/04-roads-and-traffic.md) - roads, crossings, bridges and tunnels, and how the town drives on them.
-5. [Transit and rail](manual/05-transit-and-rail.md) - trams, buses, trolleybuses, the subway, and trains.
+5. [Transit and rail](manual/05-transit-and-rail.md) - cycling, trams, buses, trolleybuses, the subway, ferries and trains.
 6. [Ports, airports and trade](manual/06-ports-airports-and-trade.md) - ships, aircraft, goods and the outside market.
 7. [Power](manual/07-power.md) - power stations, lines, losses, the peak, and the wind and sun.
 8. [Water, drains and garbage](manual/08-water-and-waste.md) - wells and mains, pressure, sewers and foul water, storms and floods, and garbage.

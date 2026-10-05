@@ -95,6 +95,8 @@ import com.rm.infill.res.group_zones
 import com.rm.infill.res.tram_line
 import com.rm.infill.res.bus_line
 import com.rm.infill.res.bus_lane
+import com.rm.infill.res.cycle_lane
+import com.rm.infill.res.ferry_terminal
 import com.rm.infill.res.lines
 import com.rm.infill.res.tool_traffic
 import com.rm.infill.res.junction_auto
@@ -227,6 +229,7 @@ import com.rm.infill.res.density_medium
 import com.rm.infill.res.density_high
 import com.rm.infill.res.density_rural
 import com.rm.infill.res.density_tower
+import com.rm.infill.sim.Balance
 import com.rm.infill.sim.Pipe
 import com.rm.infill.sim.Plan
 import com.rm.infill.sim.Port
@@ -307,6 +310,8 @@ enum class TransitKind(
     val wire: Boolean = false,
     /** A lane kept for buses and trams, dragged along a road. */
     val lane: Boolean = false,
+    /** A cycle lane, dragged along a road. */
+    val cycle: Boolean = false,
     /** A line planned by tapping its stops in order: 1 for buses, 2 for trams. */
     val line: Int = 0,
     /** Opens the list of lines. */
@@ -323,6 +328,7 @@ enum class TransitKind(
     TramLine(Res.string.tram_line, line = 2),
     BusLine(Res.string.bus_line, needs = BuildingType.BUS_GARAGE, line = 1),
     Lane(Res.string.bus_lane, lane = true),
+    CycleLane(Res.string.cycle_lane, cycle = true),
     Lines(Res.string.lines, list = true),
     Remove(Res.string.remove_transit),
 }
@@ -337,7 +343,7 @@ enum class TransitGroup(val title: StringResource) {
 /** The tabs [this] shows in: a lane serves trams and buses both, and taking things up and the list of lines are in each they apply to. */
 val TransitKind.groups: List<TransitGroup> get() = when (this) {
     TransitKind.TramTrack, TransitKind.TramStop, TransitKind.Depot, TransitKind.TramLine -> listOf(TransitGroup.Trams)
-    TransitKind.BusStop, TransitKind.Garage, TransitKind.Wire, TransitKind.BusLine -> listOf(TransitGroup.Buses)
+    TransitKind.BusStop, TransitKind.Garage, TransitKind.Wire, TransitKind.BusLine, TransitKind.CycleLane -> listOf(TransitGroup.Buses)
     TransitKind.Subway, TransitKind.Station -> listOf(TransitGroup.Subway)
     TransitKind.Lane, TransitKind.Lines -> listOf(TransitGroup.Trams, TransitGroup.Buses)
     TransitKind.Remove -> TransitGroup.entries
@@ -345,7 +351,13 @@ val TransitKind.groups: List<TransitGroup> get() = when (this) {
 
 /** What the transit tool offers [city] in its era. */
 fun transitKindsIn(city: City): List<TransitKind> =
-    TransitKind.entries.filter { k -> if (k.wire) city.allowsTrolleybuses() else (k.building ?: k.needs)?.let { city.allows(it) } ?: true }
+    TransitKind.entries.filter { k ->
+        when {
+            k.wire -> city.allowsTrolleybuses()
+            k.cycle -> city.everything || city.year >= Balance.CYCLE_LANE_YEAR
+            else -> (k.building ?: k.needs)?.let { city.allows(it) } ?: true
+        }
+    }
 
 /** The kinds of service, each a tab of its own in the services tray, or for [leisure] in the leisure tray. */
 enum class ServiceGroup(val title: StringResource, val leisure: Boolean = false) {
@@ -469,6 +481,7 @@ enum class PortKind(val title: StringResource, val eastWest: BuildingType, val n
     Wharf(Res.string.wharf, BuildingType.WHARF, BuildingType.WHARF_NS),
     Docks(Res.string.docks, BuildingType.DOCKS, BuildingType.DOCKS_NS),
     Container(Res.string.container_port, BuildingType.CONTAINER_PORT, BuildingType.CONTAINER_PORT_NS),
+    Ferry(Res.string.ferry_terminal, BuildingType.FERRY_TERMINAL, BuildingType.FERRY_TERMINAL),
 }
 
 /** What the air tool puts down: each size of airport. */
@@ -696,6 +709,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             transit.stop != 0 -> Action.PlaceStop(x1, y1, transit.stop)
             transit == TransitKind.TramTrack -> Action.BuildTram(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             transit.wire -> Action.BuildWire(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
+            transit.cycle -> Action.BuildCycleLane(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             transit.lane -> Action.BuildLane(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             // Lines are made a stop at a time, and the list is a window.
             transit.line != 0 || transit.list -> null

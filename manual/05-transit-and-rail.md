@@ -1,11 +1,19 @@
 # Transit and rail
-> Trams, buses, trolleybuses, the subway, and trains.
+> Cycling, trams, buses, trolleybuses, the subway, ferries and trains.
 
-People go the quickest way they can. Those with a car can drive, and everyone walks or rides. Transit is how a town gets people to work before the car, and how it keeps the roads moving after.
+People go the quickest way they can. Those with a car can drive, some without one cycle, and everyone walks or rides. Transit is how a town gets people to work before the car, and how it keeps the roads moving after.
 
 ## How people choose
 
 There's no choosing as such. Each trip takes whatever gets there soonest, counting the walk to the stop, the wait and the ride. Walking is slow, a minute a tile. A trip is counted as the best way it used, so someone who walks to the tram is a tram rider.
+
+## Cycling
+
+Some of the people without a car ride a bicycle: a fifth in 1900, a third by the 1930s, fewer once cars and buses take over, and more again from the 1990s. Cycling is more than twice as fast as walking. A busy road slows cyclists down, and they keep off highways.
+
+From 1970, **Cycle lane** in the **Buses** tab of **Transit** is dragged along roads like a bus lane, at $40 a tile. Cyclists on a cycle lane aren't held up by the traffic, and the more of the town's roads have one, the more people cycle. **Remove** takes it up again.
+
+You can see people walking along the streets and cycling at the kerb, more of them where more went by last month.
 
 ## Trams
 
@@ -27,6 +35,10 @@ From 1925, **Trolleybus wire** over a bus line's whole route, joined to a powere
 ## The subway
 
 From the Streetcar era, the **Subway** tab lays **Subway** tunnel under anything but water, and **Subway station** on top. A station needs power and a road. The subway is fast, ignores traffic, and runs in a blizzard.
+
+## Ferries
+
+A **Ferry terminal**, under **Ports**, goes beside water. Ferries run from each terminal to every other one the water joins within 90 tiles, so they can carry people over a river or a bay without a bridge. A ferry is slow and has a wait, but it beats a long way round. From 1920 they take cars too. A terminal costs $3,500 and $45 a month. It needs a road, and like a wharf a phone from 1940 and power from 1950.
 
 ## Lines and vehicles
 

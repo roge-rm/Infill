@@ -1068,6 +1068,10 @@ object Balance {
 
     // Getting about: seconds to cross a tile on foot, by tram and by subway, and what a bus stopping adds a tile.
     const val WALK_TIME = 60
+
+    /** Seconds to cycle across a tile on a clear road, and how much slower in percent on one at capacity without a cycle lane. */
+    const val BIKE_TIME = 25
+    const val BIKE_TRAFFIC = 80
     const val TRAM_TIME = 20
     const val SUBWAY_TIME = 8
     const val BUS_STOPPING = 6
@@ -1098,6 +1102,19 @@ object Balance {
     const val BUS_VEHICLE_UPKEEP = 20.0
     // Bus and tram lanes: what they cost a tile, the share of the road left for cars, and the wait at a crossing for what uses them.
     const val LANE_PRICE = 60L
+
+    /** A cycle lane: what it costs a tile, and the year they come in. */
+    const val CYCLE_LANE_PRICE = 40L
+    const val CYCLE_LANE_YEAR = 1970
+
+    /** How many more in a hundred cycle in a town with cycle lanes on every road, and fewer as fewer have them. */
+    const val CYCLE_LANE_PULL = 15
+
+    /** Ferries: seconds across each tile of water, the wait for one, the furthest they go in tiles, and the year they take cars. */
+    const val FERRY_TILE = 12
+    const val FERRY_WAIT = 600
+    const val FERRY_REACH = 90
+    const val CAR_FERRY_YEAR = 1920
     const val LANE_UPKEEP = 0.2
     const val LANE_CAR_SHARE = 60
     const val LANE_JUNCTION = 3
@@ -1130,6 +1147,8 @@ object Balance {
     const val TUNNEL_UPKEEP = 1.5
     const val STOP_UPKEEP = 1.0
     const val DEPOT_UPKEEP = 40.0
+    const val FERRY_UPKEEP = 45.0
+    const val CYCLE_LANE_UPKEEP = 0.1
     const val GARAGE_UPKEEP = 30.0
     const val SUBWAY_STATION_UPKEEP = 25.0
 

@@ -47,7 +47,7 @@ object Needs {
         type.terminal -> TERMINAL
         type.yard -> YARD
         type == BuildingType.TRAM_DEPOT || type == BuildingType.BUS_GARAGE || type == BuildingType.SUBWAY_STATION -> DEPOT
-        type == BuildingType.WHARF || type == BuildingType.WHARF_NS -> WHARF
+        type == BuildingType.WHARF || type == BuildingType.WHARF_NS || type == BuildingType.FERRY_TERMINAL -> WHARF
         type == BuildingType.DOCKS || type == BuildingType.DOCKS_NS -> DOCKS
         type.portTier == 3 -> CONTAINER
         type == BuildingType.AIRFIELD -> AIRFIELD

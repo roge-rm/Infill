@@ -79,6 +79,7 @@ import org.jetbrains.compose.resources.StringResource
 import com.rm.infill.sim.BridgeKind
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.City
+import com.rm.infill.sim.Balance
 import com.rm.infill.sim.Pipe
 import com.rm.infill.sim.Prices
 import com.rm.infill.sim.RoadType
@@ -451,6 +452,7 @@ fun transitChoices(city: City, group: TransitGroup): List<Choice<TransitKind>> =
         k == TransitKind.BusStop -> ChoiceIcon(intArrayOf(street, Atlas.BUS_STOP))
         k.wire -> ChoiceIcon(intArrayOf(street, Atlas.TROLLEY_WIRE + ACROSS))
         k.lane -> ChoiceIcon(intArrayOf(street), glyph = Glyph.Diamond)
+        k.cycle -> ChoiceIcon(intArrayOf(street), glyph = Glyph.Bike, glyphColour = Color(0xFF3F9A4A))
         k == TransitKind.TramLine -> ChoiceIcon(glyph = Glyph.Route, glyphColour = Color(0xFFD8302F))
         k == TransitKind.BusLine -> ChoiceIcon(glyph = Glyph.Route, glyphColour = Color(0xFF2FA85A))
         k.list -> ChoiceIcon(glyph = Glyph.List)
@@ -463,6 +465,7 @@ fun transitChoices(city: City, group: TransitGroup): List<Choice<TransitKind>> =
         k.stop != 0 -> moneyText(Prices.STOP)
         k.wire -> perTile(Prices.WIRE)
         k == TransitKind.Subway -> perTile(Prices.TUNNEL)
+        k.cycle -> perTile(Balance.CYCLE_LANE_PRICE)
         else -> null
     }
     Choice(k, stringResource(k.title), icon, detail)

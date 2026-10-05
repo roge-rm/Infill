@@ -46,6 +46,15 @@ internal class Traffic(private val map: CityMap) {
     private val stopRiders = IntArray(map.size)
     val lastStopRiders = IntArray(map.size)
 
+    /** People on foot and on bicycles across each road tile this month so far, and last month's, for the map. */
+    private val walkVolume = IntArray(map.size)
+    val lastWalkVolume = IntArray(map.size)
+    private val bikeVolume = IntArray(map.size)
+    val lastBikeVolume = IntArray(map.size)
+
+    /** Percent of those without a car who ride a bicycle, set by the city for its year. */
+    var cycling = 0
+
     /** Workers' trips by [Mode] this month so far, and last month's. */
     private val modes = IntArray(Mode.entries.size)
     val lastModes = IntArray(Mode.entries.size)
@@ -259,6 +268,36 @@ internal class Traffic(private val map: CityMap) {
         for (a in node.indices) for (b in node.indices) if (!passengers[a] || !passengers[b]) times[a][b] = -1
     }
 
+    // The ferries, set by the city whenever they change: each terminal's road tile, and seconds by ferry
+    // between each pair, wait and all (-1 where no ferry runs).
+    private var ferryNode = IntArray(0)
+    private var ferryTimes = emptyArray<IntArray>()
+    private val ferryHere = IntArray(map.size) { -1 }
+
+    /** Whether the ferries take cars as well as people. */
+    private var carFerries = false
+
+    /** Sets the ferries: each terminal's road tile (-1 if none), the seconds between each pair, and whether they take cars. */
+    fun setFerries(node: IntArray, times: Array<IntArray>, cars: Boolean) {
+        ferryNode = node
+        ferryTimes = times
+        carFerries = cars
+        ferryHere.fill(-1)
+        for (k in node.indices) if (node[k] >= 0 && ferryHere[node[k]] < 0) ferryHere[node[k]] = k
+    }
+
+    /** Across the water from terminal tile [a] to the others, in [layer]. */
+    private fun ferryFrom(a: Int, d: Int, st: Int, layer: Int) {
+        val here = ferryHere[a]
+        if (here < 0) return
+        val times = ferryTimes[here]
+        for (k in times.indices) {
+            val b = ferryNode[k]
+            if (times[k] < 0 || k == here || b < 0 || b == a) continue
+            reach(state(layer, b), d + times[k], st)
+        }
+    }
+
     /** Sets the ports ships reach, by the road tile each is reached from (-1 if none). */
     fun setPorts(node: IntArray) {
         harbour.fill(false)
@@ -303,6 +342,10 @@ internal class Traffic(private val map: CityMap) {
         }
         footfall.copyInto(lastFootfall)
         footfall.fill(0)
+        walkVolume.copyInto(lastWalkVolume)
+        walkVolume.fill(0)
+        bikeVolume.copyInto(lastBikeVolume)
+        bikeVolume.fill(0)
         for ((now, last) in listOf(busVolume to lastBusVolume, trolleyVolume to lastTrolleyVolume, tramVolume to lastTramVolume, subwayVolume to lastSubwayVolume, stopRiders to lastStopRiders)) {
             now.copyInto(last)
             now.fill(0)
@@ -406,13 +449,18 @@ internal class Traffic(private val map: CityMap) {
             val sCar = share(carShoppers[k], p)
             val w = share(workers[k] - carWorkers[k], p)
             val s = share(shoppers[k] - carShoppers[k], p)
+            // Some of those without a car ride a bicycle, rounded up or down by the tile, so a few here and there add up right.
+            val round = (origins[k] * 31 + p * 17).mod(100)
+            val wBike = (w * cycling + round) / 100
+            val sBike = (s * cycling + round) / 100
             val f = share(freight[k], p)
             var c = 0
             for (g in 0 until Good.COUNT) {
                 cargo[g] = share(goods[g][k], p)
                 c += cargo[g]
             }
-            if (w + s > 0) send(origins[k], w, s, 0, car = false, null)
+            if (w + s - wBike - sBike > 0) send(origins[k], w - wBike, s - sBike, 0, car = false, null)
+            if (wBike + sBike > 0) send(origins[k], wBike, sBike, 0, car = false, null, bike = true)
             if (wCar + sCar > 0) send(origins[k], wCar, sCar, 0, car = true, null)
             // Freight goes by truck, on its own way round.
             if (f + c > 0) {
@@ -441,10 +489,10 @@ internal class Traffic(private val map: CityMap) {
     /**
      * A single search outward from [start], taking the nearest room first.
      * With a [car], the travellers can drive as well as walk and ride, and
-     * freight goes along; without, they walk and ride. Goods in [cargo] go to
+     * freight goes along; without, they walk and ride, and on a [bike] cycle too. Goods in [cargo] go to
      * the nearest buyers with room for them, or out of town if none is near.
      */
-    private fun send(start: Int, workers: Int, shoppers: Int, freight: Int, car: Boolean, cargo: IntArray?) {
+    private fun send(start: Int, workers: Int, shoppers: Int, freight: Int, car: Boolean, cargo: IntArray?, bike: Boolean = false) {
         var w = workers
         var s = shoppers
         var f = freight
@@ -457,6 +505,7 @@ internal class Traffic(private val map: CityMap) {
         heapSize = 0
         if (w + s > 0) reach(state(WALK, start), 0, -1)
         if (car && !snowedIn) reach(state(CAR, start), 0, -1)
+        if (bike && !snowedIn) reach(state(BIKE, start), 0, -1)
         while (heapSize > 0 && (w > 0 || s > 0 || f > 0 || c > 0)) {
             val d = heapKeys[0]
             val st = pop()
@@ -474,8 +523,8 @@ internal class Traffic(private val map: CityMap) {
             }
             val layer = st / n
             val a = st % n
-            // People get where they're going on foot or by car; the transit layers only carry them between stops.
-            if (layer == WALK || layer == CAR) {
+            // People get where they're going on foot, by bicycle or by car; the transit layers only carry them between stops.
+            if (layer == WALK || layer == CAR || layer == BIKE) {
                 if (w > 0 && jobsLeft[a] > 0) {
                     val t = min(w, jobsLeft[a])
                     jobsLeft[a] -= t
@@ -526,6 +575,7 @@ internal class Traffic(private val map: CityMap) {
             when (layer) {
                 WALK -> walkFrom(a, d, st, net)
                 CAR -> driveFrom(a, d, st)
+                BIKE -> bikeFrom(a, d, st)
                 BUS -> busFrom(a, d, st, net!!)
                 TROLLEY -> trolleyFrom(a, d, st, net!!)
                 TRAM -> tramFrom(a, d, st, net!!)
@@ -581,6 +631,7 @@ internal class Traffic(private val map: CityMap) {
             if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE) continue
             reach(state(WALK, b), d + walkTime(b), st)
         }
+        ferryFrom(a, d, st, WALK)
         // By train to the other stations on the line.
         val here = stopHere[a]
         if (here >= 0) {
@@ -603,8 +654,9 @@ internal class Traffic(private val map: CityMap) {
         if (net.busStop[a] >= 0) reach(state(BUS, a), d + max(0, net.busStop[a] - free), st)
     }
 
-    /** Driving: along the roads the way they run, slowed by traffic. */
+    /** Driving: along the roads the way they run, slowed by traffic, and over on a car ferry. */
     private fun driveFrom(a: Int, d: Int, st: Int) {
+        if (carFerries) ferryFrom(a, d, st, CAR)
         val x = a % map.width
         val y = a / map.width
         for (h in 1..4) {
@@ -626,6 +678,33 @@ internal class Traffic(private val map: CityMap) {
             val time = timeToCross(b, road) + if (tolled[b] && !tolled[a]) (if (truck) 2 * tollSeconds else tollSeconds) else 0
             reach(state(CAR, b), d + if (truck && noTrucks[b]) time * Balance.TRUCK_BAN_SLOW else time, st)
         }
+    }
+
+    /**
+     * Cycling: along any road either way but a highway, slowed on a busy one
+     * without a cycle lane, and over on a ferry.
+     */
+    private fun bikeFrom(a: Int, d: Int, st: Int) {
+        ferryFrom(a, d, st, BIKE)
+        val x = a % map.width
+        val y = a / map.width
+        for (h in 1..4) {
+            val nx = x + Heading.DX[h]
+            val ny = y + Heading.DY[h]
+            if (!map.inside(nx, ny)) continue
+            val b = ny * map.width + nx
+            val road = RoadType.of(map.road[b]) ?: continue
+            if ((road.limited || road.ramp) && map.control[b] != Junction.INTERCHANGE) continue
+            if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE || map.closed(b)) continue
+            reach(state(BIKE, b), d + bikeTime(b, road), st)
+        }
+    }
+
+    /** Seconds to cycle across a tile: slower with the traffic on a busy road, unless it has a cycle lane, and over a level crossing. */
+    private fun bikeTime(b: Int, road: RoadType): Int {
+        var time = Balance.BIKE_TIME + (if (map.rail[b] != Rail.NONE) Balance.CROSSING_DELAY else 0) + junctionWait(b, road) / 2
+        if (map.cycleLane[b].toInt() == 0) time += Balance.BIKE_TIME * min(max(lastVolume[b], volume[b]), capacity(b, road)) / capacity(b, road) * Balance.BIKE_TRAFFIC / 100
+        return if (map.potholed(b)) time * Balance.POTHOLE_SLOW else time
     }
 
     /** Whether a car on road tile [a] can go down into the tunnel whose portal is [b], toward [h]. */
@@ -760,8 +839,23 @@ internal class Traffic(private val map: CityMap) {
                 }
             }
             if (from[st] < 0) routes[head] = at
+            // Across the water between two terminals by ferry.
+            val p0 = from[st]
+            if (p0 >= 0 && p0 / n == layer && boarded[st] < 0 && ferryHere[at] >= 0 && ferryHere[p0 % n] >= 0 &&
+                kotlin.math.abs(at % map.width - p0 % n % map.width) + kotlin.math.abs(at / map.width - p0 % n / map.width) > 1) {
+                riders[at] += trips
+                mode = Mode.FERRY.ordinal
+            }
             when (layer) {
-                WALK -> footfall[at] += trips
+                WALK -> {
+                    footfall[at] += trips
+                    walkVolume[at] += trips
+                }
+                BIKE -> {
+                    footfall[at] += trips
+                    bikeVolume[at] += trips
+                    mode = max(mode, Mode.BIKE.ordinal)
+                }
                 CAR -> {
                     footfall[at] += trips
                     volume[at] += trips
@@ -1061,9 +1155,10 @@ internal class Traffic(private val map: CityMap) {
         for (k in origins.indices) { w.int(carWorkers[k]); w.int(carShoppers[k]) }
     }
 
-    internal fun readTransit(r: SaveReader) {
+    /** [modeCount] is how many kinds of trip the save counted: fewer before bicycles and ferries. */
+    internal fun readTransit(r: SaveReader, modeCount: Int) {
         for (a in arrayOf(footfall, lastFootfall, busVolume, lastBusVolume, trolleyVolume, lastTrolleyVolume, tramVolume, lastTramVolume, subwayVolume, lastSubwayVolume, stopRiders, lastStopRiders)) sparse(r, a)
-        for (a in arrayOf(modes, lastModes)) for (k in a.indices) a[k] = r.int()
+        for (a in arrayOf(modes, lastModes)) for (k in 0 until modeCount) a[k] = r.int()
         networkRiders.clear()
         repeat(r.count()) { networkRiders[r.int()] = r.int() }
         val last = HashMap<Int, Int>()
@@ -1071,6 +1166,15 @@ internal class Traffic(private val map: CityMap) {
         lastNetworkRiders = last
         if (r.count() != origins.size) throw SaveError("the travellers don't add up")
         for (k in origins.indices) { carWorkers[k] = r.int(); carShoppers[k] = r.int() }
+    }
+
+    /** Since save version 49. */
+    internal fun writeCycling(w: SaveWriter) {
+        for (a in arrayOf(walkVolume, lastWalkVolume, bikeVolume, lastBikeVolume)) sparse(w, a)
+    }
+
+    internal fun readCycling(r: SaveReader) {
+        for (a in arrayOf(walkVolume, lastWalkVolume, bikeVolume, lastBikeVolume)) sparse(r, a)
     }
 
     /** Since save version 3. */
@@ -1135,7 +1239,8 @@ internal class Traffic(private val map: CityMap) {
         const val SUBWAY = 4
         const val TROLLEY = 5
         const val UNDER = 6
-        const val LAYERS = 7
+        const val BIKE = 7
+        const val LAYERS = 8
 
         // What a trip's for.
         private const val WORKER = 0

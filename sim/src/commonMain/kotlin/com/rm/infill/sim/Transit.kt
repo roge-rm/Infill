@@ -6,8 +6,26 @@ object Stop {
     const val BUS = 2
 }
 
-/** How a trip was made, by the fastest thing it used. */
-enum class Mode { WALK, CAR, BUS, TROLLEY, TRAM, SUBWAY, TRAIN }
+/** How a trip was made, by the fastest thing it used; a ferry counts over the rest. */
+enum class Mode { WALK, CAR, BUS, TROLLEY, TRAM, SUBWAY, TRAIN, BIKE, FERRY }
+
+/**
+ * Who rides a bicycle, of those without a car to hand, in percent: plenty
+ * in the early years, fewer once cars and buses come, more again from the
+ * 1990s.
+ */
+object Bikes {
+    private val years = intArrayOf(1900, 1920, 1940, 1955, 1970, 1990, 2010, 2030)
+    private val shares = intArrayOf(20, 30, 35, 18, 8, 10, 18, 25)
+
+    fun share(year: Int): Int {
+        if (year <= years.first()) return shares.first()
+        for (k in 1 until years.size) {
+            if (year <= years[k]) return shares[k - 1] + (shares[k] - shares[k - 1]) * (year - years[k - 1]) / (years[k] - years[k - 1])
+        }
+        return shares.last()
+    }
+}
 
 /** Who has a car: next to none in 1905, a fifth of homes by the mid 1920s, most by the 1960s, and the better off sooner. */
 object Cars {

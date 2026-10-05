@@ -75,6 +75,12 @@ sealed interface Action {
         override fun hashCode() = tiles.contentHashCode()
     }
 
+    /** A cycle lane along the roads on [tiles], map indices in order. */
+    data class BuildCycleLane(val tiles: IntArray) : Action {
+        override fun equals(other: Any?) = other is BuildCycleLane && tiles.contentEquals(other.tiles)
+        override fun hashCode() = tiles.contentHashCode()
+    }
+
     /** Paints the rectangle into district [id]: 0 takes it out of any, [NEW_DISTRICT] makes a new one. */
     data class PaintDistrict(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val id: Int) : Action
 
@@ -319,6 +325,7 @@ object Prices {
         BuildingType.OUTFALL -> OUTFALL
         BuildingType.SEWAGE_WORKS -> SEWAGE_WORKS
         BuildingType.TRAM_DEPOT -> TRAM_DEPOT
+        BuildingType.FERRY_TERMINAL -> 3_500L
         BuildingType.BUS_GARAGE -> BUS_GARAGE
         BuildingType.SUBWAY_STATION -> SUBWAY_STATION
         BuildingType.TREATMENT_PLANT -> TREATMENT_PLANT

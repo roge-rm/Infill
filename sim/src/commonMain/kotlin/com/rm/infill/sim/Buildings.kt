@@ -468,6 +468,9 @@ enum class BuildingType(
     COMPOST_YARD(Zone.NONE, 0, 4, width = 2, height = 2, year = 1975),
     LANDFILL_GAS(Zone.NONE, 0, 1, year = 1985, life = 25),
     BIOGAS(Zone.NONE, 0, 4, width = 2, height = 2, year = 2005, life = 25),
+
+    /** A ferry terminal on the shore: ferries run to every other within reach over the water. */
+    FERRY_TERMINAL(Zone.NONE, 0, 10, width = 2, height = 2, life = 50),
     ;
 
     /** A building the city runs rather than one that grows on zoned land. */
@@ -583,7 +586,7 @@ enum class BuildingType(
 
     /** Has to be beside water. */
     val onWater get() = this == PUMPING_STATION || outfall || this == STORM_OUTFALL || root == HYDRO_PLANT || this == FIREBOAT_STATION ||
-        this == HYDRO_DAM || this == PUMPED_STORAGE
+        this == HYDRO_DAM || this == PUMPED_STORAGE || this == FERRY_TERMINAL
 
     /** Where the sewers come out. */
     val outfall get() = this == OUTFALL || this == SEWAGE_WORKS || this == TREATMENT_PLANT

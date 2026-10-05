@@ -261,7 +261,7 @@ enum class Glyph {
     Smoke, Cuffs, Star, Flame, Car, Rain, Cap, Cross, Coins, Hourglass, Heat, Bin, Mountain, Crate,
     Arrows, Target, Pylon, Coin, Diamond, Tree, Bus, Manhole, Ladder, Ambulance, Sack, Glass, Hat,
     Person, Briefcase, Wrench, Calendar, Snow, Gavel, Tag, Check, Warn, Building, Cable, Phone, Mast,
-    Anchor, Ship, Suitcase, Bridge, Plane, Speaker, Book, Ball, Mask,
+    Anchor, Ship, Suitcase, Bridge, Plane, Speaker, Book, Ball, Mask, Bike,
 }
 
 /** The drawing for [tool]. */
@@ -556,6 +556,19 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
             for (k in 0 until 4) drawRect(c.copy(alpha = 0.35f), Offset((4 + k * 4.5f) * u, 8 * u), Size(3.2f * u, 4 * u))
             drawCircle(c, 2.4f * u, Offset(7 * u, 19 * u))
             drawCircle(c, 2.4f * u, Offset(17 * u, 19 * u))
+        }
+        Glyph.Bike -> {
+            // Two wheels, the frame between them and the handlebars.
+            val line = Stroke(1.8f * u, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            drawCircle(c, 4.5f * u, Offset(6 * u, 15 * u), style = line)
+            drawCircle(c, 4.5f * u, Offset(18 * u, 15 * u), style = line)
+            val frame = Path().apply {
+                moveTo(6 * u, 15 * u); lineTo(10 * u, 8 * u); lineTo(16 * u, 8 * u); lineTo(12 * u, 15 * u); close()
+                moveTo(16 * u, 8 * u); lineTo(18 * u, 15 * u)
+                moveTo(15 * u, 5.5f * u); lineTo(17.5f * u, 5.5f * u); moveTo(16 * u, 5.5f * u); lineTo(16 * u, 8 * u)
+                moveTo(9 * u, 6.5f * u); lineTo(11.5f * u, 6.5f * u)
+            }
+            drawPath(frame, c, style = line)
         }
         Glyph.Book -> {
             // An open book: two pages from the spine.

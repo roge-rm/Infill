@@ -394,6 +394,18 @@ class City(
                     }
                 }
             }
+            is Action.BuildCycleLane -> for (i in action.tiles) {
+                val road = RoadType.of(m.road[i])
+                when {
+                    !inMap(i) -> {}
+                    road == null || road.limited || road.ramp -> blocked += i
+                    m.cycleLane[i].toInt() != 0 -> {}
+                    else -> {
+                        changes += i
+                        cost += Balance.CYCLE_LANE_PRICE
+                    }
+                }
+            }
             is Action.PlantStreetTrees -> for (i in action.tiles) {
                 when {
                     !inMap(i) -> {}
@@ -464,7 +476,7 @@ class City(
                 }
             }
             is Action.RemoveTransit -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
-                if (m.tram[i].toInt() != 0 || m.wire[i].toInt() != 0 || m.stop[i].toInt() != 0 || m.subway[i].toInt() != 0 || m.lane[i].toInt() != 0) {
+                if (m.tram[i].toInt() != 0 || m.wire[i].toInt() != 0 || m.stop[i].toInt() != 0 || m.subway[i].toInt() != 0 || m.lane[i].toInt() != 0 || m.cycleLane[i].toInt() != 0) {
                     changes += i
                     cost += Prices.REMOVE_TRANSIT
                 }
@@ -1443,6 +1455,7 @@ class City(
             is Action.SetVehicles -> lines.firstOrNull { it.id == action.id }?.vehicles = action.vehicles
             is Action.RemoveLine -> lines.removeAll { it.id == action.id }
             is Action.BuildLane -> for (i in plan.changes) m.lane[i] = 1
+            is Action.BuildCycleLane -> for (i in plan.changes) m.cycleLane[i] = 1
             is Action.SetJunction -> for (i in plan.changes) m.junction[i] = action.control
             is Action.BuildWire -> for (i in plan.changes) {
                 if (m.wire[i].toInt() != 0) startWorks(i, Broken.WIRE, queued++ / Balance.WORKS_PER_DAY)
@@ -1493,6 +1506,7 @@ class City(
             }
             is Action.RemoveTransit -> for (i in plan.changes) {
                 m.lane[i] = 0
+                m.cycleLane[i] = 0
                 m.tram[i] = 0
                 m.wire[i] = 0
                 m.stop[i] = 0
@@ -1620,6 +1634,7 @@ class City(
                 m.streetTrees[i] = 0
                 m.junction[i] = Junction.AUTO
                 m.lane[i] = 0
+                m.cycleLane[i] = 0
                 m.tram[i] = 0
                 m.wire[i] = 0
                 m.tramLaid[i] = 0
@@ -2008,6 +2023,7 @@ class City(
 
     /** Moves on a day: growth every day, the census and demand each week, and money and grime on the first of each month. */
     fun tick() {
+        traffic.cycling = cyclingShare()
         if (networksDirty) updateNetworks()
         for (b in buildings.values) b.age++
         burnDay()
@@ -2092,6 +2108,7 @@ class City(
         railFlags()
         between()
         updatePorts()
+        updateFerries()
         between()
         updatePathways()
         between()
@@ -2805,7 +2822,7 @@ class City(
         private set
 
     private var nextCallout = 1
-    private val roadRoutes by lazy { RoadRoutes(map) }
+    private val roadRoutes by lazy { Routes(map) { map.road[it] != Road.NONE && !map.closed(it) } }
 
     /** Its own dice, so what the map shows never changes how the town goes. */
     private val calloutRng = Rng(seed xor 0x5e4c1ce5L)
@@ -4691,6 +4708,7 @@ class City(
         }
         updateBridges()
         updatePorts()
+        updateFerries()
         updateWater()
         updatePower()
         updateTransit()
@@ -5165,6 +5183,40 @@ class City(
 
     private val ports get() = buildings.values.filter { it.type.port && it.underway == 0 }
 
+    /** The ferries' ways over the water between each pair of terminals, for drawing them. */
+    var ferryRoutes: List<IntArray> = emptyList()
+        private set
+
+    private val waterRoutes by lazy { Routes(map) { map.terrain[it] == Terrain.WATER } }
+
+    /**
+     * The ferries: from each working terminal to every other within reach
+     * over the water. Cars go too from the 1920s.
+     */
+    private fun updateFerries() {
+        val terminals = buildings.values.filter { it.type == BuildingType.FERRY_TERMINAL && it.underway == 0 && working(it) }.sortedBy { it.id }
+        val n = terminals.size
+        val times = Array(n) { IntArray(n) { -1 } }
+        val routes = ArrayList<IntArray>()
+        // A water tile beside each, where its ferries tie up.
+        val berth = terminals.map { b ->
+            var at = -1
+            for (y in b.y - 1..b.y + b.type.height) for (x in b.x - 1..b.x + b.type.width) {
+                if (at < 0 && map.inside(x, y) && map.terrain[map.index(x, y)] == Terrain.WATER) at = map.index(x, y)
+            }
+            at
+        }
+        for (a in 0 until n) for (b in a + 1 until n) {
+            if (berth[a] < 0 || berth[b] < 0) continue
+            val path = waterRoutes.route(berth[a], Balance.FERRY_REACH) { it == berth[b] } ?: continue
+            times[a][b] = Balance.FERRY_WAIT + path.size * Balance.FERRY_TILE
+            times[b][a] = times[a][b]
+            routes += path
+        }
+        traffic.setFerries(IntArray(n) { accessOf(terminals[it]) }, times, year >= Balance.CAR_FERRY_YEAR)
+        ferryRoutes = routes
+    }
+
     /** Which ports ships can reach, and the freight they take. */
     private fun updatePorts() {
         val linked = if (buildings.values.any { it.type.port }) ports.filter { working(it) && ships().reaches(Port.berth(map, it)) } else emptyList()
@@ -5499,6 +5551,21 @@ class City(
 
     /** Last month's cars and trucks on a road tile. */
     fun roadVolume(i: Int): Int = traffic.lastVolume[i]
+
+    /** Percent of those without a car who cycle: by the year, and more the more of the roads have cycle lanes. */
+    fun cyclingShare(): Int {
+        var roads = 0
+        var lanes = 0
+        for (i in 0 until map.size) if (map.road[i] != Road.NONE) {
+            roads++
+            lanes += map.cycleLane[i]
+        }
+        return Bikes.share(year) + if (roads == 0) 0 else Balance.CYCLE_LANE_PULL * lanes / roads
+    }
+
+    /** Last month's people on foot and on bicycles across road tile [i], for the map. */
+    fun walkers(i: Int): Int = traffic.lastWalkVolume[i]
+    fun cyclists(i: Int): Int = traffic.lastBikeVolume[i]
 
     /** Every building, to look over without changing. */
     val allBuildings: Collection<Building> get() = buildings.values
@@ -8303,14 +8370,19 @@ class City(
             BuildingType.TRAM_DEPOT -> Balance.DEPOT_UPKEEP
             BuildingType.BUS_GARAGE -> Balance.GARAGE_UPKEEP
             BuildingType.SUBWAY_STATION -> Balance.SUBWAY_STATION_UPKEEP
+            BuildingType.FERRY_TERMINAL -> Balance.FERRY_UPKEEP
             else -> 0.0
         }
         var vehicles = 0.0
         for (line in this.lines) vehicles += line.vehicles * if (line.tram) Balance.TRAM_VEHICLE_UPKEEP else Balance.BUS_VEHICLE_UPKEEP
         var lanes = 0
-        for (i in 0 until map.size) lanes += map.lane[i]
+        var cycleLanes = 0
+        for (i in 0 until map.size) {
+            lanes += map.lane[i]
+            cycleLanes += map.cycleLane[i]
+        }
         s.transitUpkeep = (tramTiles * Balance.TRAM_TRACK_UPKEEP + wires * Balance.WIRE_UPKEEP + tunnels * Balance.TUNNEL_UPKEEP + stops * Balance.STOP_UPKEEP +
-            transitWorks + vehicles + lanes * Balance.LANE_UPKEEP).roundToLong()
+            transitWorks + vehicles + lanes * Balance.LANE_UPKEEP + cycleLanes * Balance.CYCLE_LANE_UPKEEP).roundToLong()
         // Help comes in after a big flood: the town pays at most a month's income for it.
         s.floodCost = min(floodBill, max(Balance.FLOOD_BILL_LEAST, s.income * Balance.FLOOD_BILL_MOST / 100))
         floodBill = 0
@@ -8975,6 +9047,9 @@ class City(
         w.int(landmarksEarned)
         // Since version 48: land filled in from the water, still raw.
         w.layer(map.fresh)
+        // Since version 49: cycle lanes, and the people walking and cycling.
+        w.layer(map.cycleLane)
+        traffic.writeCycling(w)
     }
 
     companion object {
@@ -9108,9 +9183,11 @@ class City(
                 if (version >= 8) {
                     r.layer(m.tram); r.layer(m.wire); r.layer(m.subway); r.layer(m.stop)
                     for (a in arrayOf(m.tramLaid, m.wireLaid, m.subwayLaid)) r.shorts(a)
-                    c.traffic.readTransit(r)
+                    // Bicycles and ferries came in with version 49.
+                    val modes = if (version >= 49) Mode.entries.size else Mode.BIKE.ordinal
+                    c.traffic.readTransit(r, modes)
                     s.fareIncome = r.long(); s.transitUpkeep = r.long()
-                    for (k in s.byMode.indices) s.byMode[k] = r.int()
+                    for (k in 0 until modes) s.byMode[k] = r.int()
                 }
                 if (version >= 9) {
                     r.layer(m.streetTrees); r.layer(m.heat)
@@ -9347,6 +9424,10 @@ class City(
                             if (version >= 46) c.sandbox = r.bool()
                             if (version >= 47) c.landmarksEarned = r.int()
                             if (version >= 48) r.layer(c.map.fresh)
+                            if (version >= 49) {
+                                r.layer(c.map.cycleLane)
+                                c.traffic.readCycling(r)
+                            }
                         }
                     }
                 } else {

@@ -945,6 +945,7 @@ private val AGES = listOf(Color(0xFF7FC4E8), Color(0xFF4C8FD6), Color(0xFF9A7AC8
 private val WEALTH = listOf(Color(0xFFB08A5A), Color(0xFF8FA85A), Color(0xFFE0B83A))
 private val MODES = listOf(
     Color(0xFF8FBF6A), Color(0xFF8A8F98), Color(0xFF2FA85A), Color(0xFF16A2A2), Color(0xFFD8302F), Color(0xFF2F6FD8), Color(0xFF8E44AD),
+    Color(0xFFE0A030), Color(0xFF3FA7D6),
 )
 
 /** Colours for where carbon comes from: power, traffic, works and heating. */
@@ -1002,7 +1003,7 @@ fun PeopleWindow(game: GameState, onGraphs: () -> Unit, onOpinion: () -> Unit, o
         val trips = s.byMode.sum()
         if (trips > 0) {
             Section(stringResource(Res.string.commutes), Glyph.Car) {
-                val names = listOf(Res.string.mode_walk, Res.string.mode_car, Res.string.mode_bus, Res.string.mode_trolley, Res.string.mode_tram, Res.string.mode_subway, Res.string.mode_train)
+                val names = listOf(Res.string.mode_walk, Res.string.mode_car, Res.string.mode_bus, Res.string.mode_trolley, Res.string.mode_tram, Res.string.mode_subway, Res.string.mode_train, Res.string.mode_bike, Res.string.mode_ferry)
                 BarWithKey(s.byMode.indices.filter { s.byMode[it] > 0 }.map { Triple(stringResource(names[it]), s.byMode[it] * 100 / trips, MODES[it]) }, percent = true)
             }
         }

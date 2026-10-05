@@ -141,8 +141,9 @@ fun MapView(
     val traffic = graphics.vehicles > 0 && game.city.stats.population > 0
     val trains = graphics.trains > 0 && game.city.trainRoutes.isNotEmpty()
     val ships = graphics.trains > 0 && game.city.shipRoutes.isNotEmpty()
+    val ferries = graphics.trains > 0 && game.city.ferryRoutes.isNotEmpty()
     val planes = graphics.trains > 0 && game.city.airTier > 0
-    val animate = running && (fires || plumes.isNotEmpty() || traffic || trains || ships || planes || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
+    val animate = running && (fires || plumes.isNotEmpty() || traffic || trains || ships || ferries || planes || weather.moving && (graphics.particles > 0f || graphics.cloudShadows))
     // Worked out through the town's traffic, which the sim changes as it goes: only when the town's free,
     // keeping the last lot meanwhile.
     val lastFocus = remember { arrayOfNulls<IntArray>(1) }
@@ -361,7 +362,9 @@ fun MapView(
         val raised = if (ships) drawShips(game.city.shipRoutes, map, camera, travelTime, graphics.trains, graphics.smoke && game.city.year < Balance.STEAM_UNTIL) else emptySet()
         // Road traffic waits for a train at a crossing, and for a bridge that's open for a ship.
         val stopped = (if (trains) drawTrains(game.city.trainRoutes, map, camera, travelTime, graphics.trains, graphics.smoke, steam = game.city.year < Balance.STEAM_TRAINS_UNTIL) else emptySet()) + raised
+        if (ferries) drawFerries(game.city.ferryRoutes, map, camera, travelTime)
         if (traffic) {
+            drawPeople(game.city, map, camera, game.city.year, travelTime)
             drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped)
             drawTransit(map, camera, travelTime, game.city.lineStates())
             services.update(game.city.callouts, map, travelTime, game.city.year)

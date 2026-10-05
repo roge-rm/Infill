@@ -12,17 +12,15 @@ enum class CalloutKind { FIRE, AMBULANCE, POLICE, GARBAGE }
  */
 class Callout(val id: Int, val kind: CalloutKind, val route: IntArray, val stops: IntArray, val at: Int, val urgent: Boolean, internal val made: Int)
 
-/** Shortest ways along open roads, in tiles, for the callouts. */
-internal class RoadRoutes(private val map: CityMap) {
+/** Shortest ways over the tiles [open] lets through, in tiles: along the roads for the callouts, over the water for the ferries. */
+internal class Routes(private val map: CityMap, private val open: (Int) -> Boolean) {
     private val from = IntArray(map.size)
     private val dist = IntArray(map.size)
     private val seen = IntArray(map.size)
     private val queue = IntArray(map.size)
     private var stamp = 0
 
-    private fun open(i: Int) = map.road[i] != Road.NONE && !map.closed(i)
-
-    /** The road tiles from [start] to the nearest tile where [end] is true, both included, or null if there's none within [limit] tiles. */
+    /** The tiles from [start] to the nearest one where [end] is true, both included, or null if there's none within [limit] tiles. */
     fun route(start: Int, limit: Int, end: (Int) -> Boolean): IntArray? {
         if (start < 0 || !open(start)) return null
         stamp++

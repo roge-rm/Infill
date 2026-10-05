@@ -15,6 +15,13 @@ class CalloutTest {
             p.week()
             c.takeEvents { }
         }
+        // A new dump in the middle of town, beside a road, so there's one with room near the homes.
+        City::class.java.getDeclaredField("funds").apply { isAccessible = true }.setLong(c, 1_000_000L)
+        val homes = (0 until c.map.size).filter { c.building(c.map.building[it])?.people != null }
+        val cx = homes.sumOf { it % 128 } / homes.size
+        val cy = homes.sumOf { it / 128 } / homes.size
+        val spots = (0 until c.map.size).filter { c.map.road[it] != Road.NONE }.sortedBy { kotlin.math.abs(it % 128 - cx) + kotlin.math.abs(it / 128 - cy) }
+        spots.firstOrNull { r -> c.apply(Action.PlaceBuilding(BuildingType.DUMP, r % 128 + 1, r / 128)).ok }
         val seen = HashMap<CalloutKind, Int>()
         repeat(60) {
             c.tick()

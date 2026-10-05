@@ -339,6 +339,8 @@
     <string name="mode_tram">By tram</string>
     <string name="mode_subway">By subway</string>
     <string name="mode_train">By train</string>
+    <string name="mode_bike">By bicycle</string>
+    <string name="mode_ferry">By ferry</string>
     <string name="income_fares">Fares</string>
     <string name="upkeep_transit">Transit</string>
     <string name="bulldoze_clear">Clear</string>
@@ -828,6 +830,7 @@
     <string name="overlay_trips">Trips</string>
     <string name="overlay_reach">Reach</string>
     <string name="bus_lane">Bus and tram lane</string>
+    <string name="cycle_lane">Cycle lane</string>
     <string name="bus_line">Bus line</string>
     <string name="tram_line">Tram line</string>
     <string name="trolley_line">Trolleybus line</string>
@@ -996,6 +999,7 @@
     <string name="wharf">Wharf</string>
     <string name="docks">Docks</string>
     <string name="container_port">Container port</string>
+    <string name="ferry_terminal">Ferry terminal</string>
     <string name="no_sea_route">Ships can't reach this water</string>
     <string name="cuts_off_port">That would cut a port off from the sea</string>
     <string name="income_dues">Dues and tolls</string>

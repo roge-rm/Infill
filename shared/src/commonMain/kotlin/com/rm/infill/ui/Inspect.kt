@@ -491,6 +491,7 @@ private fun tileCard(city: City, x: Int, y: Int, onAction: (Action) -> Unit, onL
     if (map.brownfield[i].toInt() != 0) pills += PillItem(Glyph.Smoke, stringResource(Res.string.brownfield), Tone.Bad)
     if (map.streetTrees[i].toInt() != 0) pills += PillItem(Glyph.Tree, stringResource(Res.string.street_trees), Tone.Good)
     if (map.lane[i].toInt() != 0) pills += PillItem(Glyph.Diamond, stringResource(Res.string.inspect_bus_lane), Tone.Plain)
+    if (map.cycleLane[i].toInt() != 0) pills += PillItem(Glyph.Bike, stringResource(Res.string.cycle_lane), Tone.Good)
     // A road at the edge of the map: whether it leads out of town, and the choice to change it.
     if (road != null && map.atEdge(i)) {
         val out = map.leadsOut(i)

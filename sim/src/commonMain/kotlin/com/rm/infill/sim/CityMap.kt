@@ -74,6 +74,9 @@ class CityMap(val width: Int, val height: Int) {
     /** 1 where a lane of the road is kept for buses, trolleybuses and trams. */
     val lane = ByteArray(size)
 
+    /** 1 where the road has a cycle lane. */
+    val cycleLane = ByteArray(size)
+
     /** What's in the ground ([Resource]), laid down with the land. */
     val resource = ByteArray(size)
 
@@ -199,12 +202,14 @@ class CityMap(val width: Int, val height: Int) {
     /** When the transit on tile [i] went in, and its crossing's control, packed for undo like [tileLaid]. */
     fun tileTransitLaid(i: Int): Long =
         ((powerLaid[i].toLong() and 0xfff) shl 50) or ((buried[i].toLong() and 0x3) shl 48) or
+            ((cycleLane[i].toLong() and 0x1) shl 62) or
             ((district[i].toLong() and 0xff) shl 40) or ((lane[i].toLong() and 0x1) shl 39) or ((junction[i].toLong() and 0x7) shl 36) or
             ((tramLaid[i].toLong() and 0xfff) shl 24) or ((wireLaid[i].toLong() and 0xfff) shl 12) or (subwayLaid[i].toLong() and 0xfff)
 
     fun setTileTransitLaid(i: Int, v: Long) {
         junction[i] = ((v shr 36) and 0x7).toByte()
         lane[i] = ((v shr 39) and 0x1).toByte()
+        cycleLane[i] = ((v shr 62) and 0x1).toByte()
         district[i] = ((v shr 40) and 0xff).toByte()
         buried[i] = ((v shr 48) and 0x3).toByte()
         powerLaid[i] = ((v shr 50) and 0xfff).toShort()
@@ -411,7 +416,7 @@ class CityMap(val width: Int, val height: Int) {
         var h = FNV_OFFSET
         h = mix(h, width.toLong())
         h = mix(h, height.toLong())
-        for (layer in arrayOf(terrain, road, roadHeading, zone, density, power, rail, tram, wire, subway, stop, streetTrees, waterPipe, sewerPipe, stormPipe, bank, grime, fire, junction, control, lane, district, bridge, lowRoad, lowHeading, lowRail, portal)) for (b in layer) h = mix(h, b.toLong())
+        for (layer in arrayOf(terrain, road, roadHeading, zone, density, power, rail, tram, wire, subway, stop, streetTrees, waterPipe, sewerPipe, stormPipe, bank, grime, fire, junction, control, lane, cycleLane, district, bridge, lowRoad, lowHeading, lowRail, portal)) for (b in layer) h = mix(h, b.toLong())
         for (b in building) h = mix(mix(h, b.toLong()), (b ushr 8).toLong())
         return h
     }

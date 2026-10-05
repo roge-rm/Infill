@@ -60,7 +60,7 @@ object Sounds {
                 play(Recipes.IMPACT, 0.3f, Materials.METAL.toFloat(), 0.2f, gain = 0.4f, pan = p, delay = 0.18f)
             }
             is Action.BuildPipe, is Action.BuildPowerLine, is Action.BuildPhoneLine, is Action.BuildWire, is Action.BuildBank,
-            is Action.BuildLane, is Action.PlaceStop -> play(Recipes.CLUNK, 0.6f, gain = 0.8f, pan = p)
+            is Action.BuildLane, is Action.BuildCycleLane, is Action.PlaceStop -> play(Recipes.CLUNK, 0.6f, gain = 0.8f, pan = p)
             is Action.PlaceZone, is Action.PaintDistrict -> chimeTick(p)
             is Action.PlaceParks, is Action.PlantStreetTrees, is Action.PlantTrees -> play(Recipes.IMPACT, 0.25f, Materials.EARTH.toFloat(), 0.2f, gain = 0.5f, pan = p)
             is Action.PlaceBuilding -> {

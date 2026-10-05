@@ -57,6 +57,9 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
         is Action.BuildLane -> for (i in a.tiles) {
             drawRect(if (i in p.blocked) BLOCKED else RAIL_FILL, at(i), tile)
         }
+        is Action.BuildCycleLane -> for (i in a.tiles) {
+            drawRect(if (i in p.blocked) BLOCKED else RAIL_FILL, at(i), tile)
+        }
         // Lines are drawn as they're planned.
         is Action.AddLine, is Action.SetVehicles, is Action.RemoveLine -> {}
         is Action.PaintDistrict -> rect(a.x0, a.y0, a.x1, a.y1, camera, PARK_FILL, PARK_EDGE)

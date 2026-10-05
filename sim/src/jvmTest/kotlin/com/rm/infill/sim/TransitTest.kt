@@ -31,6 +31,8 @@ class TransitTest {
         val n = map.size
         // The networks as they are now.
         City::class.java.getDeclaredMethod("updateNetworks").apply { isAccessible = true }.invoke(this)
+        // Everyone without a car walks or rides, nobody cycles.
+        t.cycling = 0
         val w = IntArray(n).also { it[i(2, 16)] = workers }
         val c = IntArray(n).also { it[i(2, 16)] = cars }
         val j = IntArray(n).also { it[i(60, 16)] = workers }

@@ -20,6 +20,7 @@ Under **Transport**, **Ports**:
 - **Wharf**, from 1900.
 - **Docks**, from 1920, with a berth for passenger ships.
 - **Container port**, from 1966, for freight only.
+- **Ferry terminal**, for ferries over the water inside the town. See Transit and rail.
 
 A port goes along water on its long side, and ships have to be able to reach it from the edge of the map. They can't pass a low bridge, so build high or opening bridges below a port. A port grows the market for the town's works, brings coal and fuel oil in cheaper for the power stations, and brings visitors by sea. It pays dues on what goes through it. A port near a freight terminal joined by rail grows the market a little more.
 
