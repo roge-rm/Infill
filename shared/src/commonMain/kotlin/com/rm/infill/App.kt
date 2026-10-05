@@ -1194,6 +1194,7 @@ private fun GameScreen(
             KeyAction.Budget -> budgetOpen = !budgetOpen
             KeyAction.Ordinances -> ordinancesOpen = !ordinancesOpen
             KeyAction.Chronicle -> chronicleOpen = !chronicleOpen
+            KeyAction.Opinion -> opinionOpen = !opinionOpen
             KeyAction.Graphs -> graphsOpen = !graphsOpen
             KeyAction.People -> peopleOpen = !peopleOpen
             KeyAction.Demand -> demandOpen = !demandOpen

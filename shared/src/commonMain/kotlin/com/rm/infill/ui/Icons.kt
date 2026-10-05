@@ -8,6 +8,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -522,12 +524,26 @@ fun DrawScope.glyph(g: Glyph, u: Float, c: Color) {
             line(14f, 15f, 17f, 19.5f, 1.4f * u); line(10f, 15f, 7f, 19.5f, 1.4f * u)
         }
         Glyph.Mask -> {
-            // A theatre mask: a face, its eyes and a smile cut out.
-            drawPath(path(4f, 4f, 20f, 4f, 20f, 11f, 17f, 18f, 12f, 21f, 7f, 18f, 4f, 11f), c)
-            val hole = c.copy(alpha = 0.25f)
-            drawOval(hole, Offset(7 * u, 8 * u), Size(3.5f * u, 2.5f * u))
-            drawOval(hole, Offset(13.5f * u, 8 * u), Size(3.5f * u, 2.5f * u))
-            drawArc(hole, 20f, 140f, false, Offset(8 * u, 10 * u), Size(8 * u, 6 * u), style = Stroke(1.6f * u))
+            // The theatre's two masks: a frowning one behind, a smiling one in front, eyes and mouths cut through.
+            fun mask(x: Float, y: Float, smile: Boolean): Path = Path().apply {
+                fillType = PathFillType.EvenOdd
+                // The face: broad at the brow, round at the chin.
+                moveTo(x * u, y * u)
+                lineTo((x + 12) * u, y * u)
+                quadraticTo((x + 12.5f) * u, (y + 9) * u, (x + 6) * u, (y + 14) * u)
+                quadraticTo((x - 0.5f) * u, (y + 9) * u, x * u, y * u)
+                close()
+                addOval(Rect(Offset((x + 2) * u, (y + 3) * u), Size(3f * u, 2.2f * u)))
+                addOval(Rect(Offset((x + 7) * u, (y + 3) * u), Size(3f * u, 2.2f * u)))
+                // The mouth, curved up for the smile and down for the frown.
+                val my = if (smile) y + 8 else y + 9.5f
+                moveTo((x + 3) * u, my * u)
+                quadraticTo((x + 6) * u, (if (smile) my + 3.5f else my - 2.5f) * u, (x + 9) * u, my * u)
+                quadraticTo((x + 6) * u, (if (smile) my + 1.8f else my - 1f) * u, (x + 3) * u, my * u)
+                close()
+            }
+            drawPath(mask(10f, 2f, smile = false), c.copy(alpha = 0.55f))
+            drawPath(mask(2f, 7f, smile = true), c)
         }
         Glyph.Target -> {
             drawCircle(c, 9 * u, Offset(12 * u, 12 * u), style = Stroke(1.8f * u))

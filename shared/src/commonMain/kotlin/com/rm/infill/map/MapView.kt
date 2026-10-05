@@ -1,5 +1,9 @@
 package com.rm.infill.map
 
+import com.rm.infill.sim.Concern
+import com.rm.infill.res.Res
+import com.rm.infill.res.district_mood_map
+import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.Dispatchers
 import androidx.compose.runtime.produceState
 import com.rm.infill.platform.platform
@@ -148,6 +152,20 @@ fun MapView(
             overlay == Overlay.Reach -> game.tryLocked { game.city.travelTimes(focus) } ?: lastFocus[0]
             else -> null
         }.also { lastFocus[0] = it }
+    }
+    // Each district's name, mood and what its people mind most, for the Mood view; worked out under the town's lock.
+    val concernNames = Concern.entries.map { stringResource(com.rm.infill.ui.concernName(it)).lowercase() }
+    val moodTemplate = stringResource(Res.string.district_mood_map)
+    val lastMoods = remember { arrayOfNulls<List<Triple<Int, String, Int>>>(1) }
+    val moodLabels = remember(overlay, game.revision) {
+        if (overlay != Overlay.Mood) emptyList()
+        else (game.tryLocked {
+            game.city.districts.mapNotNull { d ->
+                val f = game.city.districtFigures(d.id)
+                val worst = f.worst ?: return@mapNotNull null
+                Triple(d.id, moodTemplate.replace("%1\$s", d.name).replace("%2\$d", f.mood.toString()).replace("%3\$s", concernNames[worst.ordinal]), f.mood)
+            }
+        } ?: lastMoods[0] ?: emptyList()).also { lastMoods[0] = it }
     }
     val overlayImage = remember(overlay, focusData, game.revision) {
         overlayImage(overlay, map, { game.city.building(map.building[it])?.people }, { game.city.wearAt(it) }, { game.city.building(map.building[it])?.uncollected == true }, { i ->
@@ -355,6 +373,7 @@ fun MapView(
         if (underground) drawUnderground(map, camera, game.city.monthNow)
         overlayImage?.let { drawOverlay(it, map, camera, overlay) }
         if (districts.isNotEmpty()) drawDistricts(districts, map, camera, measurer)
+        else if (overlay == Overlay.Mood) drawDistrictMoods(moodLabels, map, camera, measurer)
         if (lines.isNotEmpty()) drawLines(lines, map, camera)
         if (preview != null) drawPreview(preview, map, camera, measurer, costText)
         else if (gestures.toolActive && hoverX >= 0) drawHover(hoverX, hoverY, camera)

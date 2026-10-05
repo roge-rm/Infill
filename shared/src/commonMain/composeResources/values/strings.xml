@@ -1467,6 +1467,7 @@
     <string name="next_election">Next in November %1$d</string>
     <string name="grants_this_term">Grants paid this term: %1$d</string>
     <string name="taxes_capped">Taxes capped at %1$d% until %2$s</string>
+    <string name="district_mood_map">%1$s: %2$d, %3$s</string>
     <string name="district_mood">Mood %1$d, unhappiest about %2$s</string>
     <string name="protest">Protesters are stopping the works</string>
     <string name="event_protest">People march against the clearances</string>

@@ -91,7 +91,7 @@ object Manual {
             ManualBlock(ManualKind.Bullet, "1 to 0 pick the tools: Inspect, Bulldoze, Road, Rail, Zone, Power, Water, Services, Transit and Traffic. T is Phone, O Ports, I Air, L Leisure and \\ Districts. Pressing one again steps through its kinds."),
             ManualBlock(ManualKind.Bullet, "[ and ] step through the tray's choices, and , and . through its tabs."),
             ManualBlock(ManualKind.Bullet, "Tab moves between the buttons on the screen, Enter presses one, and Esc goes back to the map. A window opened from the keyboard starts on its first button, and Esc closes it."),
-            ManualBlock(ManualKind.Bullet, "B, G, P and N open the Budget, Graphs, People and Demand, U the Ordinances, and H the Chronicle. V steps through the map views."),
+            ManualBlock(ManualKind.Bullet, "B, G, P and N open the Budget, Graphs, People and Demand, U the Ordinances, H the Chronicle and R Opinion. V steps through the map views."),
             ManualBlock(ManualKind.Bullet, "Space pauses. Shift and 1, 2, 3 or 4 set the speed."),
             ManualBlock(ManualKind.Bullet, "Esc closes what's open, then puts the tool down, then opens the menu."),
             ManualBlock(ManualKind.Bullet, "Ctrl and Z undoes, and Ctrl and Y or Ctrl, Shift and Z redoes."),
@@ -549,7 +549,7 @@ object Manual {
         )),
         ManualSection("districts", "Districts", "Painting districts, their taxes, height limits and policies.", listOf(
             ManualBlock(ManualKind.Para, "From the Streetcar era you can paint the town into districts and give each its own rules. Under **Zones**, **Districts**, pick **New district** and paint, or pick a district to paint more of it, or **Erase**. Painting is free. A district painted down to nothing goes away."),
-            ManualBlock(ManualKind.Para, "**Districts** in the tray lists them. Each card shows its people and jobs, its mood and what its people mind most, its land value, crime and pollution, and its settings."),
+            ManualBlock(ManualKind.Para, "**Districts** in the tray lists them. Each card shows its people and jobs, its mood and what its people mind most (the Mood view shows these on the map too), its land value, crime and pollution, and its settings."),
             ManualBlock(ManualKind.Heading, "Taxes"),
             ManualBlock(ManualKind.Para, "Each district can set its homes, shops and offices, and works taxes up to five points either side of the town's. Each point lower makes the district a bit more appealing, and each point higher a bit less."),
             ManualBlock(ManualKind.Heading, "Height limit"),

@@ -2941,11 +2941,19 @@ def schoolyard(b, look, x0, y0, x1, y1):
 
 
 def school(look, v):
-    """A two storey schoolhouse on 2 by 2 tiles, brick or white boards, a bell on the roof and a yard to the south."""
+    """A two storey schoolhouse on 2 by 2 tiles and a yard to the south: a long brick one with a bell on the roof, or one
+    of white boards with a wing running back on the east."""
     b = Building(2, 2, height=2 * STOREY + 18)
     d = b.d
     schoolyard(b, look, 4, 42, 59, 61)
-    roof, wall = b.box(6, 10, 57, 38, 2 * STOREY + 2)
+    if v == 1:
+        # The wing, gable end to the yard, drawn first so the main block stands in front of it.
+        wroof, wwall = b.box(42, 4, 58, 40, 2 * STOREY + 2)
+        siding(d, wwall, c("#e2dccb"))
+        windows(d, wwall, 2, glass=c("#46586a"), sill=TRIM, every=5, width=3, height=4)
+        d.rectangle(wwall, outline=OUTLINE)
+        gable_ns(d, wroof, wwall, SHINGLE[1], c("#e2dccb"), look)
+    roof, wall = b.box(6, 10, 57 if v == 0 else 41, 38, 2 * STOREY + 2)
     if v == 0:
         brick(d, wall, c("#a0503a"))
     else:
@@ -2959,7 +2967,7 @@ def school(look, v):
     d.polygon([(cx - 5, y1 - 7), (cx, y1 - 10), (cx + 5, y1 - 7)], TRIM, OUTLINE)
     d.rectangle(wall, outline=OUTLINE)
     gable_ew(d, roof, SHINGLE[0] if v == 0 else SHINGLE[2], look)
-    bell_cupola(b, look, (6 + 57) // 2, 24, 2 * STOREY + 8)
+    bell_cupola(b, look, (6 + 57) // 2 if v == 0 else (6 + 41) // 2, 24, 2 * STOREY + 8)
     return b
 
 
@@ -2994,6 +3002,16 @@ def high_school(look, v):
     d.polygon([(cx - 9, y1 - 12), (cx, y1 - 17), (cx + 9, y1 - 12)], TRIM, OUTLINE)
     d.rectangle(wall, outline=OUTLINE)
     flat_roof(b.img, roof, look, rng, [("stack", 8, 4), ("stack", 76, 4), ("hatch", 40, 10), ("vent", 60, 14)], parapet=STONE)
+    if v == 1:
+        # A clock tower over the door, with a pyramid cap.
+        troof, twall = b.box(40, 26, 55, 40, 5 * STOREY)
+        d.rectangle(twall, c("#cfc6b0"), OUTLINE)
+        tx0, ty0, tx1, ty1 = twall
+        clock_face(d, (tx0 + tx1) // 2, ty0 + 5)
+        rx0, ry0, rx1, ry1 = troof
+        d.rectangle(troof, SNOW_ROOF[0] if look == "snow" else c("#6a5a4a"), OUTLINE)
+        tcx, tcy = (rx0 + rx1) // 2, (ry0 + ry1) // 2
+        d.polygon([(rx0, ry1), (tcx, tcy - 6), (rx1, ry1)], SNOW_ROOF[1] if look == "snow" else c("#5a4a3a"), OUTLINE)
     # The flagpole.
     fx, fy = b.ground(66, 54)
     d.line([fx, fy, fx, fy - 22], c("#d0d0d0"))
@@ -3769,8 +3787,8 @@ def dump(look, v):
         d.line([xx, gy0, xx, gy0 + 2], c("#5a5048"))
         d.line([xx, gy1 - 2, xx, gy1], c("#5a5048"))
     d.rectangle([gx0, gy0, gx1, gy1], outline=c("#6b6258"))
-    # The mounds, back to front.
-    mounds = [(28, 26, 20), (66, 30, 22), (40, 58, 18), (74, 66, 14)]
+    # The mounds, back to front: one way round or the other.
+    mounds = [(28, 26, 20), (66, 30, 22), (40, 58, 18), (74, 66, 14)] if v == 0 else [(46, 22, 24), (22, 52, 16), (64, 56, 20), (40, 76, 12)]
     for mx, my, r in mounds:
         gx, gy = b.ground(mx, my)
         for k, col in enumerate(GARBAGE):
@@ -3786,12 +3804,18 @@ def dump(look, v):
                 d.point((x, y), rng.choice(LITTER))
         b.casters.append((1, mx - r // 2, my - r // 4, mx + r // 2, my + r // 4, 8))
     # A bulldozer on the front mound.
-    bx, by = b.ground(52, 80)
+    bx, by = b.ground(52, 80) if v == 0 else b.ground(56, 64)
     d.rectangle([bx, by - 5, bx + 9, by], c("#d8a030"), OUTLINE)
     d.rectangle([bx + 2, by - 9, bx + 6, by - 5], c("#c89020"), OUTLINE)
     d.line([bx - 2, by - 4, bx - 2, by], c("#3a3c40"))
+    if v == 1:
+        # A garbage truck in at the gate.
+        tx, ty = b.ground(20, 86)
+        d.rectangle([tx, ty - 6, tx + 12, ty], c("#e0e0d8"), OUTLINE)
+        d.rectangle([tx + 12, ty - 5, tx + 16, ty], c("#3a7a4a"), OUTLINE)
+        d.rectangle([tx + 13, ty - 4, tx + 15, ty - 2], GLASS_DARK)
     # The shed by the gate.
-    roof, wall = b.box(8, 78, 26, 92, STOREY + 2)
+    roof, wall = b.box(8, 78, 26, 92, STOREY + 2) if v == 0 else b.box(68, 80, 86, 92, STOREY + 2)
     siding(d, wall, c("#8a8478"))
     door(d, wall)
     d.rectangle(wall, outline=OUTLINE)
@@ -4272,8 +4296,13 @@ def office_tower(look, v):
     d.rectangle([wx0 + 24, wy1 - 6, wx0 + 34, wy1], c("#2a2a30"))
     d.rectangle(wall, outline=OUTLINE)
     flat_roof(b.img, roof, look, random.Random(8800 + v), [], parapet=shade(col, 1.1))
-    # The shaft, set back, and higher still a narrower crown.
-    for (x0, y0, x1, y1, h) in ((12, 8, 51, 40, 16 * STOREY), (22, 12, 41, 30, 20 * STOREY)):
+    # The shaft, set back, and higher still a narrower crown: in two steps, as one tall shaft, or as a broad slab.
+    stages = [
+        ((12, 8, 51, 40, 16 * STOREY), (22, 12, 41, 30, 20 * STOREY)),
+        ((18, 8, 45, 34, 19 * STOREY), (24, 12, 39, 28, 21 * STOREY)),
+        ((8, 10, 55, 36, 14 * STOREY), (14, 14, 49, 30, 16 * STOREY)),
+    ][v % 3]
+    for (x0, y0, x1, y1, h) in stages:
         roof, wall = b.box(x0, y0, x1, y1, h)
         d.rectangle(wall, shade(col, 0.95))
         wx0, wy0, wx1, wy1 = wall
@@ -4281,9 +4310,13 @@ def office_tower(look, v):
             d.line([xx, wy0 + 2, xx, wy1 - 1], c("#3e4a56"))
         d.rectangle(wall, outline=OUTLINE)
         d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else shade(col, 1.05), OUTLINE)
-    # A spire.
     sx, sy = roof[0] + (roof[2] - roof[0]) // 2, roof[1] + (roof[3] - roof[1]) // 2
-    d.polygon([(sx - 3, sy), (sx + 3, sy), (sx, sy - 14)], shade(col, 0.8), OUTLINE)
+    if v % 3 == 2:
+        # A pyramid cap over the slab.
+        d.polygon([(roof[0], roof[3]), (sx, sy - 10), (roof[2], roof[3])], c("#6a7a6a"), OUTLINE)
+    else:
+        # A spire.
+        d.polygon([(sx - 3, sy), (sx + 3, sy), (sx, sy - 14 - 6 * (v % 3))], shade(col, 0.8), OUTLINE)
     return b
 
 
@@ -4860,7 +4893,12 @@ def supertall(look, v):
     d = b.d
     plaza(b, look, 1, 1, 94, 94)
     glass = [c("#7f9fb4"), c("#6a8a7c"), c("#8a9aa8")][v % 3]
-    stages = ((14, 22, 81, 84, 30), (22, 18, 73, 70, 42), (30, 16, 65, 56, 50))
+    # Stepping in three times, one slim shaft on a podium, or twin shafts over a shared base.
+    stages = [
+        ((14, 22, 81, 84, 30), (22, 18, 73, 70, 42), (30, 16, 65, 56, 50)),
+        ((18, 30, 77, 84, 8), (30, 14, 65, 62, 50)),
+        ((14, 24, 81, 84, 12), (18, 14, 44, 56, 44), (52, 20, 78, 62, 50)),
+    ][v % 3]
     for k, (x0, y0, x1, y1, h) in enumerate(stages):
         roof, wall = b.box(x0, y0, x1, y1, h * STOREY)
         curtain_wall(d, wall, shade(glass, 1.0 - 0.05 * k), every=4, bands=STOREY)

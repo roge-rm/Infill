@@ -56,7 +56,7 @@ The whole game can be played from a keyboard.
 - 1 to 0 pick the tools: Inspect, Bulldoze, Road, Rail, Zone, Power, Water, Services, Transit and Traffic. T is Phone, O Ports, I Air, L Leisure and \ Districts. Pressing one again steps through its kinds.
 - [ and ] step through the tray's choices, and , and . through its tabs.
 - Tab moves between the buttons on the screen, Enter presses one, and Esc goes back to the map. A window opened from the keyboard starts on its first button, and Esc closes it.
-- B, G, P and N open the Budget, Graphs, People and Demand, U the Ordinances, and H the Chronicle. V steps through the map views.
+- B, G, P and N open the Budget, Graphs, People and Demand, U the Ordinances, H the Chronicle and R Opinion. V steps through the map views.
 - Space pauses. Shift and 1, 2, 3 or 4 set the speed.
 - Esc closes what's open, then puts the tool down, then opens the menu.
 - Ctrl and Z undoes, and Ctrl and Y or Ctrl, Shift and Z redoes.

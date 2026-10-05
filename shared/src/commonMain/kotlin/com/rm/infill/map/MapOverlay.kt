@@ -182,6 +182,38 @@ internal fun DrawScope.drawLines(lines: List<Pair<Int, IntArray>>, map: CityMap,
 }
 
 /** Each district washed in its colour, edged where it ends, and its name across its middle. */
+/**
+ * Each district's mood in the Mood view: a pill at its middle with its
+ * [labels] text (by district id), red for unhappy to green for content by
+ * the mood with it, 0 to 100.
+ */
+internal fun DrawScope.drawDistrictMoods(labels: List<Triple<Int, String, Int>>, map: CityMap, camera: Camera, measurer: TextMeasurer) {
+    if (labels.isEmpty()) return
+    val sumX = HashMap<Int, Long>()
+    val sumY = HashMap<Int, Long>()
+    val count = HashMap<Int, Int>()
+    for (i in 0 until map.size) {
+        val id = map.district[i].toInt() and 0xff
+        if (id == 0) continue
+        sumX[id] = (sumX[id] ?: 0) + i % map.width
+        sumY[id] = (sumY[id] ?: 0) + i / map.width
+        count[id] = (count[id] ?: 0) + 1
+    }
+    for ((id, label, mood) in labels) {
+        val n = count[id] ?: continue
+        val centre = camera.tileToScreen(sumX.getValue(id).toFloat() / n + 0.5f, sumY.getValue(id).toFloat() / n + 0.5f, size)
+        val text = measurer.measure(label, androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = androidx.compose.ui.unit.TextUnit(13f, androidx.compose.ui.unit.TextUnitType.Sp), fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold))
+        val box = Offset(centre.x - text.size.width / 2f, centre.y - text.size.height / 2f)
+        val colour = androidx.compose.ui.graphics.lerp(MOOD_LOW, MOOD_HIGH, (mood / 100f).coerceIn(0f, 1f))
+        drawRoundRect(colour, Offset(box.x - 8f, box.y - 4f), Size(text.size.width + 16f, text.size.height + 8f), androidx.compose.ui.geometry.CornerRadius(8f))
+        drawText(text, topLeft = box)
+    }
+}
+
+/** A district's mood pill, darker than the Mood view's colours so its text reads. */
+private val MOOD_LOW = Color(0xFFA8322A)
+private val MOOD_HIGH = Color(0xFF2E7A40)
+
 internal fun DrawScope.drawDistricts(districts: List<Pair<Int, String>>, map: CityMap, camera: Camera, measurer: TextMeasurer) {
     val t = camera.tilePx
     val tile = Size(t, t)
