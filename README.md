@@ -1,11 +1,11 @@
 # Infill
 
 Infill is a city builder for Android 8.1 and up.
-It also runs in a web browser.
+It also runs in a web browser, and it's in English and French.
 
 You start with a small town in 1900 and a few simple tools, and as the years go by the town and everything that keeps it running gets deeper. New things arrive in eras, and parts of your town get redone as they do: wells give way to water mains, streetcars to cars and back to transit, low houses to something denser.
 
-It's at 0.12 and very playable, but not finished. Let me know what works and what doesn't in the #infill channel **[on my discord](https://discord.gg/9Wun47jGC6)**, or open an issue here.
+It's at 0.13 and very playable, but not finished. Let me know what works and what doesn't in the #infill channel **[on my discord](https://discord.gg/9Wun47jGC6)**, or open an issue here.
 
 Made with Claude Opus 5.5.
 
@@ -31,9 +31,9 @@ Dan (rm)
 ## What's in it
 
 - Zones for homes, shops, offices, works and farms, from rural lots to towers, with lots that fill in over time
-- Five eras from 1900 on, each with its own buildings, and older kinds of building that date until you bring them up to date
+- Six eras from 1900 on, each with its own buildings, and older kinds of building that date until you bring them up to date
 - Roads from dirt tracks to boulevards, junctions with stop signs, lights and roundabouts, and traffic you can watch and fix
-- Rail, trams, buses, trolleybuses and a subway, with lines you plan stop by stop
+- Rail, trams, buses, trolleybuses, a subway and ferries, with lines you plan stop by stop, and cycling with cycle lanes
 - Power stations from coal to small modular reactors, wind, sun and storage, each with newer kinds as the years go by
 - Water mains, sewers and storm drains that age and need relaying
 - Garbage from the town dump to recycling, compost and waste-to-energy
@@ -46,9 +46,13 @@ Dan (rm)
 - Money with teeth: bonds, a credit rating, and an overseer if the debt gets out of hand
 - Public opinion: approval that weighs different things in each era, petitions, grants, protests and elections
 - People who live through the century: a baby boom, smaller households, wealth that follows schooling, the poor priced out of dear land, and cholera, consumption and influenza until medicine comes
-- Land that changes: mines and wells that run out, droughts, storm surges as the seas rise, and woods that spread
+- Land that changes: mines and wells that run out, droughts, storm surges and high tides as the seas rise, woods that spread, and water you can fill in or dig out
 - Districts with their own taxes and rules, and neighbouring towns to trade and commute with
-- Weather, seasons, floods, fires and the odd disaster
+- Weather, seasons, floods, fires and the odd disaster, or one you start yourself
+- Fire engines, ambulances, police and garbage trucks out on the roads, and people walking and cycling along the streets
+- A late game: working from home, offices and old works turned into homes, and legacy goals after the last era
+- A guided first town, challenges, a sandbox, landmarks to earn, and achievements
+- Towns you can share, open from a file, and take a picture of
 - A chronicle of the town's story, in the papers of each era
 - Map views for nearly all of it
 
