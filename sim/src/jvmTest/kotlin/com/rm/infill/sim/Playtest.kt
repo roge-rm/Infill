@@ -531,6 +531,9 @@ class Player(private val c: City, private val withRail: Boolean, private val not
 
     /** Clears the zoned block furthest out, works before homes, and puts [first] there. */
     private fun clearFor(first: BuildingType): Boolean {
+        // At most a block every five years: one that didn't take shouldn't start a run of clearings.
+        if (weeks - lastCleared < CLEAR_WEEKS) return false
+        lastCleared = weeks
         val type = c.newest(first)
         var best: Pair<Int, Int>? = null
         fun rank(i: Int, j: Int) = (if (zoneOf[i][j] == Zone.INDUSTRIAL) 1000 else 0) + abs(i - centre) + abs(j - centre)
@@ -544,9 +547,12 @@ class Player(private val c: City, private val withRail: Boolean, private val not
         if (!afford(cost, 10_000)) return false
         if (!act("clearing for ${type.name}", clear)) return false
         use[i][j] = Use.UTILITY
-        note("cleared block $i,$j for ${type.name}")
-        return fit(type, i, j)
+        val placed = fit(type, i, j)
+        note("cleared block $i,$j for ${type.name}" + if (placed) "" else ", and it didn't fit")
+        return placed
     }
+
+    private var lastCleared = -CLEAR_WEEKS
 
     /** Power lines along [tiles] where there aren't any yet. */
     private fun wire(tiles: IntArray) = lay(tiles, m.power) { Action.BuildPowerLine(it, buried = wet(it)) }
@@ -578,13 +584,13 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             for (s in segments) c.apply(Action.BuildPipe(s, Pipe.WATER))
         }
         if (more && (sources() == 0 || weeks % 8 == 0)) {
-            if (!byWater(BuildingType.PUMPING_STATION, Pipe.WATER) && !place(BuildingType.WELL_FIELD, utility = true) && weeks % 26 == 0) clearFor(BuildingType.WELL_FIELD)
+            if (!byWater(BuildingType.PUMPING_STATION, Pipe.WATER) && !place(BuildingType.WELL_FIELD, utility = true) && c.stats.waterShort > 0) clearFor(BuildingType.WELL_FIELD)
         }
         if (!mainsUp) return
         // Enough sources for everyone, with some to spare.
         val s = c.stats
         if (s.waterUsed > 0 && (s.waterShort > 0 || s.waterUsed * 10 > s.waterSupply * 9) && weeks % 8 == 4) {
-            if (!byWater(BuildingType.PUMPING_STATION, Pipe.WATER) && !place(BuildingType.WELL_FIELD, utility = true) && weeks % 26 == 0) clearFor(BuildingType.WELL_FIELD)
+            if (!byWater(BuildingType.PUMPING_STATION, Pipe.WATER) && !place(BuildingType.WELL_FIELD, utility = true) && c.stats.waterShort > 0) clearFor(BuildingType.WELL_FIELD)
         }
         // Towers so the pressure reaches every block, as the water map shows.
         cover(listOf(BuildingType.PUMPING_STATION, BuildingType.WELL_FIELD, BuildingType.WATER_TOWER), Balance.PRESSURE_REACH - 6, BuildingType.WATER_TOWER)
@@ -944,6 +950,7 @@ class Player(private val c: City, private val withRail: Boolean, private val not
     companion object {
         const val S = 8
         const val RICH_MONTHS = 36
+        const val CLEAR_WEEKS = 260
         const val LOW_TAX = 4
         const val HEADER = "year,era,population,shopJobs,industryJobs,farmJobs,officeJobs,workers,funds,income,upkeep," +
             "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,leisure,homeCrime,laws,advice,goals,approval,worst,pricedOut,rough,sheltered,drought,births,deaths,inHomes,inShops,inWorks,inOffices,inFares,inTrade,upRoads,upWater,upPower,upSafety,upParks,upSchoolHealth,upTransit,upRepairs,upEnv,upCivic,upLaws,landBuilt,concerns,petitions,grant"
