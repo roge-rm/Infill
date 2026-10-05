@@ -217,6 +217,8 @@ class Player(private val c: City, private val withRail: Boolean, private val not
         civic()
         laws(kinds)
         keepUp()
+        transit()
+        cleanPower()
         phones()
         zoneOnDemand()
         if (weeks % 52 == 0 && c.year % 5 == 0) {
@@ -512,13 +514,17 @@ class Player(private val c: City, private val withRail: Boolean, private val not
 
     private fun power() {
         val type = when {
+            cleanStation() != null -> cleanStation()!!
             c.allows(BuildingType.GAS_PLANT) -> BuildingType.GAS_PLANT
             c.allows(BuildingType.OIL_PLANT) -> BuildingType.OIL_PLANT
             else -> BuildingType.COAL_PLANT
         }
         if (powerUp && weeks % 8 != 0) return
         // Out east if there's room, else in any block kept back, else clear the outermost block of works or homes for it.
-        if (!place(type, utility = true) && !place(type) && !(powerUp && clearFor(type))) return
+        // Short of power with a clean station out of reach, a fuel-burning one.
+        val fallback = listOf(BuildingType.GAS_PLANT, BuildingType.OIL_PLANT, BuildingType.COAL_PLANT).first { c.allows(it) }
+        if (!place(type, utility = true) && !place(type) && !(powerUp && clearFor(type)) &&
+            (type == fallback || !place(fallback, utility = true) && !place(fallback))) return
         if (!powerUp) {
             powerUp = true
             note("power: lines along ${segments.size} streets")
@@ -793,6 +799,150 @@ class Player(private val c: City, private val withRail: Boolean, private val not
         }
     }
 
+    // ---- transit ----
+
+    /** Bus lines run so far, each the street it runs along. */
+    private val busLines = ArrayList<IntArray>()
+    private var garageUp = false
+    private var cycleLanes = false
+
+    /**
+     * Buses once the town's past [BUS_TOWN] people: a garage, then a line
+     * along a main street for each [PEOPLE_PER_LINE], up to [MOST_LINES],
+     * the main street first, then the street across the middle, then
+     * those either side, a subway once the town's big and its traffic slow,
+     * and cycle lanes on every street once they come in.
+     */
+    private fun transit() {
+        if (weeks % 13 != 6) return
+        val s = c.stats
+        if (s.population < BUS_TOWN || !c.allows(BuildingType.BUS_GARAGE)) return
+        if (!garageUp) {
+            if (!place(BuildingType.BUS_GARAGE)) return
+            garageUp = true
+            note("bus garage")
+        }
+        val want = minOf(MOST_LINES, 1 + s.population / PEOPLE_PER_LINE)
+        // A garage for each line, since one holds only so many buses.
+        if (busLines.size < want && afford(20_000, 10_000) && (count(BuildingType.BUS_GARAGE) > busLines.size || place(BuildingType.BUS_GARAGE))) busLine(busLines.size)
+        if (subways < 2 && s.population >= SUBWAY_TOWN && s.flow < Balance.RENEWAL_FLOW && c.allows(BuildingType.SUBWAY_STATION) && afford(SUBWAY_BUDGET, 50_000)) subway(subways++)
+        if (!cycleLanes && c.year >= Balance.CYCLE_LANE_YEAR && afford(segments.sumOf { it.size } * Balance.CYCLE_LANE_PRICE, 50_000)) {
+            cycleLanes = true
+            note("cycle lanes along ${segments.size} streets")
+            for (seg in segments) {
+                val tiles = seg.filter { m.road[it] != Road.NONE }.toIntArray()
+                if (tiles.isNotEmpty()) c.apply(Action.BuildCycleLane(tiles))
+            }
+        }
+    }
+
+    private var subways = 0
+
+    /**
+     * Subway line [k]: a tunnel a tile in from the main street, or the street
+     * across the middle, the length of the built town, with a station every
+     * [STATION_EVERY] tiles; a lot's cleared where a station has to go.
+     */
+    private fun subway(k: Int) {
+        val path = if (k == 0) Action.roadPath(m, 0, mainY + 1, m.width - 1, mainY + 1, true)
+        else Action.roadPath(m, centre * S + 1, S, centre * S + 1, m.height - S, false)
+        // Along the stretch the street beside it is built.
+        val beside = path.map { if (k == 0) it - m.width else it - 1 }
+        val first = beside.indexOfFirst { m.road[it] != Road.NONE }
+        val last = beside.indexOfLast { m.road[it] != Road.NONE }
+        if (first < 0 || last - first < 2 * STATION_EVERY) return
+        val tunnel = path.sliceArray(first..last).filter { m.terrain[it] != Terrain.WATER }.toIntArray()
+        if (!act("subway $k", Action.BuildSubway(tunnel))) return
+        var stations = 0
+        var at = 0
+        while (at < tunnel.size) {
+            val i = tunnel[at]
+            val x = i % m.width
+            val y = i / m.width
+            if (m.building[i] != 0 && m.road[i] == Road.NONE) c.apply(Action.Bulldoze(x, y, x, y))
+            if (act("subway station", Action.PlaceBuilding(BuildingType.SUBWAY_STATION, x, y))) stations++
+            at += STATION_EVERY
+        }
+        note("subway $k: ${tunnel.size} tiles, $stations stations")
+    }
+
+    /** Line [k]: along a main street, the same streets the roads are widened along, with a stop every [STOP_EVERY] tiles. */
+    private fun busLine(k: Int) {
+        val off = (k / 2 + 1) / 2 * (if (k / 2 % 2 == 0) 1 else -1) * 2 * S
+        val across = k % 2 == 0
+        val street = if (across) {
+            val y = (mainY + off).coerceIn(S, m.height - S)
+            Action.roadPath(m, 0, y, m.width - 1, y, true)
+        } else {
+            val x = (centre * S + off).coerceIn(S, m.width - S)
+            Action.roadPath(m, x, S, x, m.height - S, false)
+        }
+        // The stretch of it that's built, end to end.
+        val built = street.indexOfFirst { m.road[it] != Road.NONE }
+        val last = street.indexOfLast { m.road[it] != Road.NONE }
+        if (built < 0 || last - built < 2 * STOP_EVERY) {
+            busLines += IntArray(0)
+            return
+        }
+        val stops = ArrayList<Int>()
+        var at = built
+        while (at <= last) {
+            // A road tile at or just past each place, between the crossings.
+            val tile = (at..minOf(last, at + 3)).map { street[it] }.firstOrNull { m.road[it] != Road.NONE && c.plan(Action.PlaceStop(it % m.width, it / m.width, Stop.BUS)).ok }
+            if (tile != null && act("bus stop", Action.PlaceStop(tile % m.width, tile / m.width, Stop.BUS))) stops += tile
+            at += STOP_EVERY
+        }
+        busLines += street.sliceArray(built..last)
+        if (stops.size < 2) return
+        val vehicles = c.suggestedVehicles(stops, false)
+        if (act("bus line $k", Action.AddLine(false, stops.toIntArray(), vehicles))) note("bus line $k: ${stops.size} stops, $vehicles buses")
+    }
+
+    // ---- clean power ----
+
+    /** How much a station can be counted on: wind and sun at a share of what they make at best. */
+    private fun firm(t: BuildingType): Long =
+        Generation.capacity(t).toLong() * (if (Generation.renewable(t)) FIRM_RENEWABLE else 100) / 100
+
+    /**
+     * Once there's a clean way to make power, builds it and retires the
+     * dirtiest station that can be spared, a step every quarter: nuclear from
+     * the Renewal era, then wind and sun with batteries.
+     */
+    private fun cleanPower() {
+        if (weeks % 13 != 9 || !powerUp) return
+        val fossil = c.allBuildings.filter { Generation.carbon(it.type) > 0 && it.underway == 0 }
+        if (fossil.isEmpty()) return
+        val clean = cleanStation() ?: return
+        val demand = c.stats.powerDemand
+        val dirtiest = fossil.maxBy { Generation.carbon(it.type) * 1000L + (c.monthNow - it.built) }
+        // Only with power to spare as things stand, and enough left without this one.
+        val short = c.advice.any { it.kind == AdviceKind.POWER_SHORT || it.kind == AdviceKind.NO_POWER }
+        // The town's figures are in kilowatts, a station's in watts.
+        val spare = c.stats.powerCapacity - firm(dirtiest.type) / 1000
+        if (!short && spare >= demand * SPARE / 100) {
+            val cost = c.plan(Action.Bulldoze(dirtiest.x, dirtiest.y, dirtiest.x, dirtiest.y)).cost
+            if (afford(cost, 20_000) && act("retire ${dirtiest.type.name}", Action.Bulldoze(dirtiest.x, dirtiest.y, dirtiest.x, dirtiest.y))) {
+                note("retired ${dirtiest.type.name}, ${fossil.size - 1} fuel-burning stations left")
+            }
+            return
+        }
+        if (place(clean, utility = true) || place(clean) || clearFor(clean)) {
+            note("clean power: ${c.newest(clean).name}")
+            // Storage for the evening once the wind and sun are a good part of it.
+            if (Generation.renewable(clean) && c.allows(BuildingType.BATTERY)) place(BuildingType.BATTERY, utility = true)
+        }
+    }
+
+    /** The clean station to build now, or null if none has come in. */
+    private fun cleanStation(): BuildingType? = when {
+        c.allows(BuildingType.SMALL_REACTOR) -> BuildingType.SMALL_REACTOR
+        c.allows(BuildingType.SOLAR_FARM) && weeks / 13 % 2 == 0 -> BuildingType.SOLAR_FARM
+        c.allows(BuildingType.WIND_FARM) -> BuildingType.WIND_FARM
+        c.allows(BuildingType.NUCLEAR_PLANT) -> BuildingType.NUCLEAR_PLANT
+        else -> null
+    }
+
     /** An exchange and lines along the streets once the town's big enough, and fibre when it comes. */
     private fun phones() {
         if (!phonesUp) {
@@ -951,6 +1101,16 @@ class Player(private val c: City, private val withRail: Boolean, private val not
         const val S = 8
         const val RICH_MONTHS = 36
         const val CLEAR_WEEKS = 260
+        const val BUS_TOWN = 8000
+        const val PEOPLE_PER_LINE = 12_000
+        const val MOST_LINES = 6
+        const val STOP_EVERY = 12
+        const val SUBWAY_TOWN = 40_000
+        const val SUBWAY_BUDGET = 60_000L
+        const val STATION_EVERY = 16
+        /** Percent of what wind and sun make at best that's counted on, and the spare power kept over the demand. */
+        const val FIRM_RENEWABLE = 30
+        const val SPARE = 125
         const val LOW_TAX = 4
         const val HEADER = "year,era,population,shopJobs,industryJobs,farmJobs,officeJobs,workers,funds,income,upkeep," +
             "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,leisure,homeCrime,laws,advice,goals,approval,worst,pricedOut,rough,sheltered,drought,births,deaths,inHomes,inShops,inWorks,inOffices,inFares,inTrade,upRoads,upWater,upPower,upSafety,upParks,upSchoolHealth,upTransit,upRepairs,upEnv,upCivic,upLaws,landBuilt,concerns,petitions,grant"
