@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -25,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.res.advice_overseen
@@ -54,12 +54,6 @@ fun AdviceLine(advice: List<Advice>, onLook: (Int, Int) -> Unit, modifier: Modif
     if (advice.isEmpty()) return
     val c = Infill.colors
     var shown by remember { mutableIntStateOf(0) }
-    LaunchedEffect(advice.size) {
-        while (true) {
-            delay(ADVICE_MS)
-            shown++
-        }
-    }
     // Fresh when what it has to say changes; stale, and dimmed, after a while of the same.
     var fresh by remember { mutableStateOf(true) }
     val said = advice.map { it.kind to it.zone }
@@ -71,6 +65,11 @@ fun AdviceLine(advice: List<Advice>, onLook: (Int, Int) -> Unit, modifier: Modif
     val alpha by animateFloatAsState(if (fresh) 1f else STALE_ALPHA, tween(FADE_MS))
     val a = advice[shown.mod(advice.size)]
     val text = adviceText(a)
+    // On to the next after a while, longer for one that has to scroll to be read.
+    LaunchedEffect(shown, advice.size, text) {
+        delay(ADVICE_MS + maxOf(0, text.length - FITS) * SCROLL_MS)
+        shown++
+    }
     val look = stringResource(Res.string.look_there)
     // Screen readers hear the worst thing when it changes, without the going round.
     val worst = adviceText(advice[0])
@@ -88,8 +87,9 @@ fun AdviceLine(advice: List<Advice>, onLook: (Int, Int) -> Unit, modifier: Modif
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             GlyphIcon(adviceGlyph(a.kind), c.warn, Modifier.size(16.dp))
-            Text(text, color = c.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (advice.size > 1) Text("${shown.mod(advice.size) + 1}/${advice.size}", color = c.textDim, fontSize = 12.sp)
+            // One line, scrolling when it's too long to fit.
+            Text(text, color = c.text, fontSize = 13.sp, maxLines = 1, softWrap = false, modifier = Modifier.weight(1f, fill = false).basicMarquee(iterations = Int.MAX_VALUE))
+            if (advice.size > 1) Text("${shown.mod(advice.size) + 1}/${advice.size}", color = c.textDim, fontSize = 12.sp, maxLines = 1, softWrap = false)
         }
     }
 }
@@ -143,8 +143,10 @@ internal fun adviceGlyph(kind: AdviceKind): Glyph = when (kind) {
     AdviceKind.ROUGH_SLEEPERS -> Glyph.Building
 }
 
-/** How long each piece of advice shows before the next. */
+/** How long each piece of advice shows before the next, and longer for each letter past about what fits on a phone. */
 private const val ADVICE_MS = 6000L
+private const val FITS = 45
+private const val SCROLL_MS = 200L
 
 /** After this long saying the same, the line dims to this, taking this long to fade. */
 private const val STALE_MS = 20_000L
