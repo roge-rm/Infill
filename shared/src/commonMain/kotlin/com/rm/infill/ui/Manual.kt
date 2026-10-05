@@ -66,7 +66,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "The strip"),
             ManualBlock(ManualKind.Para, "Along the top, from the left:"),
             ManualBlock(ManualKind.Bullet, "The menu."),
-            ManualBlock(ManualKind.Bullet, "Pause and the speed. Slow is twenty minutes a month, normal ten, fast two and a half, faster one, and fastest 20 seconds. On a slow phone or tablet the fastest runs as fast as it can keep up with a big town."),
+            ManualBlock(ManualKind.Bullet, "Pause and the speed. Slow is twenty minutes a month, normal ten, fast two and a half, faster one, and fastest 20 seconds. On a slow phone or tablet the fastest runs as fast as it can keep up with a big town. Hold the speed button to go straight back to normal."),
             ManualBlock(ManualKind.Bullet, "**Map view**, for the views below."),
             ManualBlock(ManualKind.Bullet, "The date. Tap it to see the era and what the next one needs.", "The date. Click it to see the era and what the next one needs."),
             ManualBlock(ManualKind.Bullet, "The weather and the temperature."),

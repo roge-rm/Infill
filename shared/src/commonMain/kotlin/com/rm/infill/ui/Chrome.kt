@@ -10,6 +10,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import com.rm.infill.res.speed_back_to_normal
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -132,6 +134,8 @@ fun StatusStrip(
     cameras: List<ClosedFloatingPointRange<Float>> = emptyList(),
     /** Opens the Demand window, from the demand bars. */
     onDemand: () -> Unit = {},
+    /** Back to normal speed, from holding the speed button. */
+    onNormalSpeed: () -> Unit = {},
 ) {
     val c = Infill.colors
     game.revision
@@ -149,7 +153,10 @@ fun StatusStrip(
             PauseIcon(paused, tint, Modifier.size(22.dp))
         }
         val speedName = stringResource(listOf(Res.string.speed_slow, Res.string.speed_normal, Res.string.speed_fast, Res.string.speed_faster, Res.string.speed_fastest)[speed.coerceIn(0, 4)])
-        SquareButton(selected = false, size = button, description = stringResource(Res.string.speed), onClick = onSpeed, state = speedName) { tint ->
+        SquareButton(
+            selected = false, size = button, description = stringResource(Res.string.speed), onClick = onSpeed, state = speedName,
+            onLongClick = onNormalSpeed, longClickLabel = stringResource(Res.string.speed_back_to_normal),
+        ) { tint ->
             SpeedIcon(speed, tint, Modifier.size(22.dp))
         }
         val viewState = stringResource(if (overlayOn) Res.string.state_on else Res.string.state_off)
@@ -480,6 +487,9 @@ private fun SquareButton(
     onClick: () -> Unit,
     /** How it's set, for screen readers, where the drawing shows it: the speed. */
     state: String? = null,
+    /** What holding it does, if anything, and what screen readers call that. */
+    onLongClick: (() -> Unit)? = null,
+    longClickLabel: String? = null,
     content: @Composable (tint: androidx.compose.ui.graphics.Color) -> Unit,
 ) {
     val c = Infill.colors
@@ -492,7 +502,7 @@ private fun SquareButton(
                 contentDescription = description
                 state?.let { stateDescription = it }
             }
-            .clickable(role = Role.Button, onClick = onClick),
+            .combinedClickable(role = Role.Button, onClick = onClick, onLongClick = onLongClick, onLongClickLabel = longClickLabel),
         contentAlignment = Alignment.Center,
     ) { content(if (selected) c.onAccent else c.text) }
 }

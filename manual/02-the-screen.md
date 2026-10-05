@@ -6,7 +6,7 @@
 Along the top, from the left:
 
 - The menu.
-- Pause and the speed. Slow is twenty minutes a month, normal ten, fast two and a half, faster one, and fastest 20 seconds. On a slow phone or tablet the fastest runs as fast as it can keep up with a big town.
+- Pause and the speed. Slow is twenty minutes a month, normal ten, fast two and a half, faster one, and fastest 20 seconds. On a slow phone or tablet the fastest runs as fast as it can keep up with a big town. Hold the speed button to go straight back to normal.
 - **Map view**, for the views below.
 - The date. Tap it to see the era and what the next one needs.
 - The weather and the temperature.

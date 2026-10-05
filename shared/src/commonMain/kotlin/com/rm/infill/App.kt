@@ -1424,6 +1424,7 @@ private fun GameScreen(
                 },
                 cameras = cameras,
                 onDemand = { demandOpen = true },
+                onNormalSpeed = { speed = 1 },
             )
             // Under the strip, however many lines it takes: what's holding the town back, then any message.
             Column(
