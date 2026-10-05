@@ -7062,6 +7062,14 @@ class City(
         return added
     }
 
+    /** The appeal a lot needs for [t]: less for dense homes from 2000, once people want to live in town again. */
+    fun appealNeeded(t: BuildingType): Int =
+        if (year >= Balance.DENSE_LIVING_YEAR && (t.zone == Zone.RESIDENTIAL || t.zone == Zone.MIXED) && Density.rank(t.density) >= Density.rank(Density.HIGH)) {
+            t.appeal - Balance.DENSE_LIVING_EASE
+        } else {
+            t.appeal
+        }
+
     /** Buildings each zone has put up or grown since the advice was last worked out. */
     private val grown = IntArray(Zone.COUNT)
 
@@ -7086,7 +7094,7 @@ class City(
         val height = heightAt(i)
         val rural = height == Density.RURAL
         return rung.filter { t ->
-            (t.density == Density.RURAL) == rural && Density.rank(t.density) <= Density.rank(height) && t.year <= year && pull >= t.appeal &&
+            (t.density == Density.RURAL) == rural && Density.rank(t.density) <= Density.rank(height) && t.year <= year && pull >= appealNeeded(t) &&
                 // A tower needs ladders that reach it.
                 (t.density != Density.TOWER || (map.ladderCover[i].toInt() and 0xff) >= Balance.TOWER_LADDER) &&
                 // No heavy industry where the district won't have it.

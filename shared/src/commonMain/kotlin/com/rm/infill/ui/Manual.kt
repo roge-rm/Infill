@@ -570,6 +570,7 @@ object Manual {
             ManualBlock(ManualKind.Heading, "Infill, from 2000"),
             ManualBlock(ManualKind.Para, "Needs 85% of the zoned land built on."),
             ManualBlock(ManualKind.Para, "Wind and solar farms, tidal turbines, offshore wind, and the tallest towers. The community health centre (2000), the community school and the media library (2005)."),
+            ManualBlock(ManualKind.Para, "People want to live in town again: high-density homes and towers need 10 less appeal from 2000."),
             ManualBlock(ManualKind.Para, "From 2020 people work from home: that year three in ten office jobs move home, settling to one in five, so the offices want fewer people and some stand empty. The Demand window shows it."),
             ManualBlock(ManualKind.Heading, "Future, from 2030"),
             ManualBlock(ManualKind.Para, "Needs nine tenths of the roads, pipes and track within their life, a third of commutes on foot, by bicycle or by transit, and carbon down to 500 kg a person a month."),

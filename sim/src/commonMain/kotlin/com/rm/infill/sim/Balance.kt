@@ -1103,6 +1103,10 @@ object Balance {
     // Bus and tram lanes: what they cost a tile, the share of the road left for cars, and the wait at a crossing for what uses them.
     const val LANE_PRICE = 60L
 
+    /** From this year dense homes and towers need this much less appeal: people want to live in town again. */
+    const val DENSE_LIVING_YEAR = 2000
+    const val DENSE_LIVING_EASE = 10
+
     /** Office work starts to be done from home this year. */
     const val REMOTE_YEAR = 2020
 

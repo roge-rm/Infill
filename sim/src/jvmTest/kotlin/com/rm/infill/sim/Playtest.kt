@@ -578,13 +578,13 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             for (s in segments) c.apply(Action.BuildPipe(s, Pipe.WATER))
         }
         if (more && (sources() == 0 || weeks % 8 == 0)) {
-            if (!byWater(BuildingType.PUMPING_STATION, Pipe.WATER)) place(BuildingType.WELL_FIELD, utility = true)
+            if (!byWater(BuildingType.PUMPING_STATION, Pipe.WATER) && !place(BuildingType.WELL_FIELD, utility = true) && weeks % 26 == 0) clearFor(BuildingType.WELL_FIELD)
         }
         if (!mainsUp) return
         // Enough sources for everyone, with some to spare.
         val s = c.stats
         if (s.waterUsed > 0 && (s.waterShort > 0 || s.waterUsed * 10 > s.waterSupply * 9) && weeks % 8 == 4) {
-            if (!byWater(BuildingType.PUMPING_STATION, Pipe.WATER)) place(BuildingType.WELL_FIELD, utility = true)
+            if (!byWater(BuildingType.PUMPING_STATION, Pipe.WATER) && !place(BuildingType.WELL_FIELD, utility = true) && weeks % 26 == 0) clearFor(BuildingType.WELL_FIELD)
         }
         // Towers so the pressure reaches every block, as the water map shows.
         cover(listOf(BuildingType.PUMPING_STATION, BuildingType.WELL_FIELD, BuildingType.WATER_TOWER), Balance.PRESSURE_REACH - 6, BuildingType.WATER_TOWER)
@@ -865,7 +865,7 @@ class Player(private val c: City, private val withRail: Boolean, private val not
                 t.needsPower && !m.powered[i] -> "no power"
                 t.needsWater && !m.watered[i] -> "no water"
                 t.needsSewer && !m.sewered[i] -> "no sewer"
-                c.attraction(i, zone) < t.appeal -> "short of appeal"
+                c.attraction(i, zone) < c.appealNeeded(t) -> "short of appeal"
                 (m.landValue[i].toInt() and 0xff) < t.value -> "short of land value"
                 t.large -> "could, if a block assembles"
                 else -> "could grow"
@@ -900,13 +900,13 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             if ((t.needsPower && !m.powered[i]) || (t.needsWater && !m.watered[i]) || (t.needsSewer && !m.sewered[i])) continue
             val p = c.attraction(i, zone)
             val v = m.landValue[i].toInt() and 0xff
-            if (p >= t.appeal && v >= t.value) continue
+            if (p >= c.appealNeeded(t) && v >= t.value) continue
             lots++
             pull += p
-            needPull += t.appeal
+            needPull += c.appealNeeded(t)
             value += v
             needValue += t.value
-            if (p < t.appeal) short++
+            if (p < c.appealNeeded(t)) short++
             if (v < t.value) cheap++
             crime += m.crime[i].toInt() and 0xff
             pollution += m.pollution[i].toInt() and 0xff

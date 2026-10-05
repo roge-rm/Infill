@@ -33,6 +33,8 @@ Needs 85% of the zoned land built on.
 
 Wind and solar farms, tidal turbines, offshore wind, and the tallest towers. The community health centre (2000), the community school and the media library (2005).
 
+People want to live in town again: high-density homes and towers need 10 less appeal from 2000.
+
 From 2020 people work from home: that year three in ten office jobs move home, settling to one in five, so the offices want fewer people and some stand empty. The Demand window shows it.
 
 ## Future, from 2030
