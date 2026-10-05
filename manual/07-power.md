@@ -57,7 +57,7 @@ The further power goes from a station or substation, the more is lost on the way
 
 What counts is the evening peak: the average use plus more in the evening, more in a cold winter, and from the 1960s more in a hot summer as air conditioning comes in, and more again in a heat wave. The budget's **Power** section shows the peak against what the stations can make.
 
-When there isn't enough, the buildings furthest from the power go dark, and they can lose a rung each month without it. Homes without power lose appeal, more so as the years go by.
+When there isn't enough, the buildings furthest from the power go dark, and from the second month without it they can lose a rung each month. Homes without power lose appeal, more so as the years go by.
 
 ## Gales
 

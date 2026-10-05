@@ -43,7 +43,7 @@ Every month the town works out its trips: people to work and to the shops, freig
 
 A road at its capacity takes half as long again to cross, and up to three times as long when it's well over. Level crossings and opening bridges hold traffic up too. Busy roads are noisy, which lowers land value, and slow traffic puts out more fumes.
 
-**Traffic flowing** in the Traffic view is how long trips would take on clear roads, as a share of how long they take. Shops and offices do better when traffic flows, and the Renewal era asks for 65% or better.
+**Traffic flowing** in the Traffic view is how long trips would take on clear roads, as a share of how long they take. Shops and offices do better when traffic flows, and the Renewal era asks for 55% or better.
 
 How many people can drive goes up with the years: almost no one before 1910, a fifth of households by 1925, more than half by 1955 and most by 1980. Poorer households have fewer cars and better-off ones more.
 

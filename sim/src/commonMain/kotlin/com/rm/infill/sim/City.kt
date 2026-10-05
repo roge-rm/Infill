@@ -6027,12 +6027,15 @@ class City(
     }
 
     /** Buildings that need mains water or the sewer and are without come down a stage now and then. */
+    /** As [powerCuts], for water and the sewer. */
     private fun waterCuts() {
         val out = buildings.values.filter {
             val i = map.index(it.x, it.y)
             it.underway == 0 && ((it.type.needsWater && !map.watered[i]) || (it.type.needsSewer && !map.sewered[i]))
         }
-        for (b in out) if (rng.nextInt(3) == 0) shrink(b)
+        val before = dryLastMonth
+        dryLastMonth = out.mapTo(HashSet()) { it.id }
+        for (b in out) if (b.id in before && rng.nextInt(3) == 0) shrink(b)
     }
 
     // ---- people ------------------------------------------------------------------
@@ -6822,10 +6825,20 @@ class City(
     }
 
     /** Buildings that need power and have lost it come down a stage now and then. */
+    /**
+     * Buildings without power two months running may shrink, a third of them a
+     * month; the first month is grace, for the town to put it right.
+     */
     private fun powerCuts() {
         val out = buildings.values.filter { it.underway == 0 && it.type.needsPower && !map.powered[map.index(it.x, it.y)] }
-        for (b in out) if (rng.nextInt(3) == 0) shrink(b)
+        val before = darkLastMonth
+        darkLastMonth = out.mapTo(HashSet()) { it.id }
+        for (b in out) if (b.id in before && rng.nextInt(3) == 0) shrink(b)
     }
+
+    /** The buildings that were without power, and without water or the sewer, last month. */
+    private var darkLastMonth = HashSet<Int>()
+    private var dryLastMonth = HashSet<Int>()
 
     private val lotCache = arrayOfNulls<IntArray>(Zone.COUNT)
 
@@ -7515,8 +7528,10 @@ class City(
             s.powered = if (buildingsCount == 0) 0 else powered * 100 / buildingsCount
             var land = 0
             var built = 0
+            // Of the land the town has zoned or built on, how much has something standing on it.
             for (i in 0 until map.size) {
-                if (!nearRoad[i] || map.terrain[i] == Terrain.WATER || map.road[i] != Road.NONE || map.rail[i] != Rail.NONE) continue
+                if (map.terrain[i] == Terrain.WATER || map.road[i] != Road.NONE || map.rail[i] != Rail.NONE) continue
+                if (map.zone[i] == Zone.NONE && map.building[i] == 0) continue
                 land++
                 if (map.building[i] != 0) built++
             }
@@ -7893,7 +7908,7 @@ class City(
             // Shops and works pay nothing for the days they were shut by floods.
             val open = 1.0 - min(b.closedDays.toDouble(), days) / days
             b.closedDays = 0
-            val worth = (0.5 + (map.landValue[map.index(b.x, b.y)].toInt() and 0xff) / 200.0) * open
+            val worth = (Balance.WORTH_BASE + (map.landValue[map.index(b.x, b.y)].toInt() and 0xff) / Balance.WORTH_PER) * open
             when {
                 // Homes over shops pay as both: the homes rate on the flats and the shops rate on the shops.
                 b.type.zone == Zone.MIXED -> {

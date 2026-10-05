@@ -86,4 +86,4 @@ From 1960, works and mines that close leave brownfield behind, and nothing grows
 
 Farmland grows what's under it: a mine on iron ore or coal, an oil well on oil, a woodlot in trees, and a farm on open land. A farm off good soil grows half as much. The **Land** view shows what's in the ground.
 
-Mines and wells work their seams out: three years for each tile of seam under and around them. Then they close, their jobs go, and they leave brownfield and no seam behind. Bulldoze brownfield to clean it up.
+Mines and wells work their seams out: five years for each tile of seam under and around them. Then they close, their jobs go, and they leave brownfield and no seam behind. Bulldoze brownfield to clean it up.

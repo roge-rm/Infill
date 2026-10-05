@@ -13,7 +13,7 @@ Tap the money in the strip for the budget. There are three rates, each from 0 to
 
 Everything pays more on dear land. Mixed use pays both: its flats on the homes rate and its shops on the shops rate. Buildings still going up pay nothing, and nor do businesses closed by a flood.
 
-Each point of tax under 7% makes its zones more wanted, and each point over makes them less.
+Each point of tax under 7% makes its zones more wanted, and each point over makes them less. Low taxes also raise approval, and high ones lower it (see Public opinion).
 
 ## Income
 
@@ -29,7 +29,7 @@ Besides taxes, the town earns:
 
 Everything you build costs something every month, in rows in the budget: roads and lines, railways, water and drains, power stations, each service, repairs, transit, garbage and street trees, telephones, ports, flood clean-up and disaster clean-up, anything bought from next door, the ordinances in force, and what's owed on bonds.
 
-The town's staff cost more as wages rise through the century: police, fire, parks, schools, health and the town hall cost twice as much by 2000 as in 1900.
+The town's staff cost more as wages rise through the century: police, fire, parks, schools, health and the town hall cost two and a half times as much by 2000 as in 1900, most of the rise after the war. A building on dear land pays more tax, though less than in proportion.
 
 **Last month** in the budget shows each row as a bar, money in above and out below, and the net, with about what next month will come to.
 

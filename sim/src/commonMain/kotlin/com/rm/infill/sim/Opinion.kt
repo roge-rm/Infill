@@ -1,5 +1,7 @@
 package com.rm.infill.sim
 
+import kotlin.math.max
+
 /** What people think about when they think about how the town's run. */
 enum class Concern { TAXES, JOBS, CRIME, HEALTH, SERVICES, LEISURE, TRAFFIC, CLEARANCES, AIR, HOUSING }
 
@@ -48,13 +50,16 @@ object Opinion {
 
     fun weights(era: Era): IntArray = WEIGHTS.getValue(era)
 
-    /** The approval the [scores] come to in [era], each 0 to 100. */
+    /** The approval the [scores] come to in [era], each 0 to 100, less what people have come to expect by then. */
     fun target(era: Era, scores: IntArray): Int {
         val w = weights(era)
         var sum = 0
         for (k in scores.indices) sum += w[k] * scores[k]
-        return sum / 100
+        return max(0, sum / 100 - era.ordinal * EXPECT)
     }
+
+    /** What people come to expect more of each era, in points of approval. */
+    private const val EXPECT = 2
 
     /** The concern doing most harm: the biggest weight times what's missing from its score. */
     fun worst(era: Era, scores: IntArray): Concern {
@@ -62,16 +67,16 @@ object Opinion {
         return Concern.entries.maxBy { w[it.ordinal] * (100 - scores[it.ordinal]) }
     }
 
-    /** Taxes, from the three rates, homes counting double: 7% is middling, 20% hated. */
-    fun taxes(homes: Int, shops: Int, industry: Int): Int = score(100 - ((homes * 2 + shops + industry) * 25 - 300) * 7 / 100)
+    /** Taxes, from the three rates, homes counting double: 4% is welcome, 7% grudged, 12% hated. */
+    fun taxes(homes: Int, shops: Int, industry: Int): Int = score(100 - ((homes * 2 + shops + industry) * 25 - 300) / 10)
 
     fun jobs(unemployment: Int): Int = score(100 - unemployment * 5)
 
     /** Crime, 0 to 255, where people are. */
     fun crime(crime: Int): Int = score(100 - crime * 100 / 120)
 
-    /** Average health, 0 to 100: poorly at 30, as well as anyone can be at 80. */
-    fun health(health: Int): Int = score((health - 30) * 2)
+    /** Average health, 0 to 100: poorly at 35, as well as anyone can be at 85. */
+    fun health(health: Int): Int = score((health - 35) * 2)
 
     /**
      * Power, mains water and the sewer, as percents of the town that has them.
@@ -83,7 +88,7 @@ object Opinion {
     }
 
     /** Leisure near home against what's expected this year. */
-    fun leisure(leisure: Int, expected: Int): Int = score(60 + (leisure - expected) * 2)
+    fun leisure(leisure: Int, expected: Int): Int = score(50 + (leisure - expected) * 3 / 2)
 
     /** How freely traffic moves, in percent. */
     fun traffic(flow: Int): Int = score((flow - 40) * 100 / 60)

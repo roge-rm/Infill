@@ -48,7 +48,7 @@ class OpinionTest {
         assertTrue(high.approval in start - 15 until start, "${high.approval} from $start")
         high.runMonths(11)
         low.runMonths(12)
-        assertTrue(high.approval + 8 < low.approval, "${high.approval} at 20% against ${low.approval} at 7%")
+        assertTrue(high.approval + 5 < low.approval, "${high.approval} at 20% against ${low.approval} at 7%")
         assertEquals(Concern.TAXES, Opinion.worst(high.era, high.concerns))
     }
 

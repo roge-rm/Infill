@@ -209,11 +209,14 @@ class Player(private val c: City, private val withRail: Boolean, private val not
         if (c.funds < 5000 && change < 0 && taxes.max() < 12) {
             setTaxes(1)
             note("taxes up to ${c.residentialTax}: funds ${c.funds}, a month ${change}")
-        } else if (c.funds > max(20_000L, c.stats.upkeep * 6) && change > 0 && taxes.min() > taxFloor && weeks % 12 == 0) {
+        } else if (c.funds > max(20_000L, c.stats.upkeep * 6) && change > 0 && taxes.min() > floorNow() && weeks % 12 == 0) {
             setTaxes(-1)
             note("taxes down to ${c.residentialTax}: funds ${c.funds}")
         }
     }
+
+    /** The lowest the player takes taxes: the floor, or lower still with years of upkeep in the bank, as people like low taxes. */
+    private fun floorNow(): Int = if (taxFloor == Balance.DEFAULT_TAX && c.funds > c.stats.upkeep * RICH_MONTHS) LOW_TAX else taxFloor
 
     private fun setTaxes(by: Int) {
         c.residentialTax = (c.residentialTax + by).coerceIn(0, 20)
@@ -873,13 +876,18 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             c.residentialTax, s.emptyHomes, s.health, s.onMains, s.onSewer, s.powered,
             blocks[Zone.RESIDENTIAL.toInt()], blocks[Zone.COMMERCIAL.toInt()], blocks[Zone.INDUSTRIAL.toInt()], blocks[Zone.FARMLAND.toInt()], blocks[Zone.OFFICE.toInt()],
             c.buildingCount, s.leisure, avg(m.crime, Zone.RESIDENTIAL), Ordinance.entries.count { c.passed(it) }, "\"$advice\"", "\"$next\"",
-            c.approval, Opinion.worst(c.era, c.concerns), s.pricedOut, s.roughSleepers, s.sheltered, c.drought, s.births, s.deaths, "\"${c.concerns.joinToString(" ")}\"", c.petitions.size, c.grant?.kind ?: "",
+            c.approval, Opinion.worst(c.era, c.concerns), s.pricedOut, s.roughSleepers, s.sheltered, c.drought, s.births, s.deaths,
+            s.residentialIncome, s.commercialIncome, s.industrialIncome, s.officeIncome, s.fareIncome + s.duesIncome + s.tollIncome, s.tradeIncome,
+            s.roadUpkeep + s.railUpkeep, s.waterUpkeep, s.powerUpkeep, s.policeUpkeep + s.fireUpkeep, s.parkUpkeep, s.schoolUpkeep + s.healthUpkeep,
+            s.transitUpkeep, s.repairCost, s.environmentUpkeep, s.civicUpkeep, s.ordinanceCost, s.landBuilt, "\"${c.concerns.joinToString(" ")}\"", c.petitions.size, c.grant?.kind ?: "",
         ).joinToString(",")
     }
 
     companion object {
         const val S = 8
+        const val RICH_MONTHS = 36
+        const val LOW_TAX = 4
         const val HEADER = "year,era,population,shopJobs,industryJobs,farmJobs,officeJobs,workers,funds,income,upkeep," +
-            "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,leisure,homeCrime,laws,advice,goals,approval,worst,pricedOut,rough,sheltered,drought,births,deaths,concerns,petitions,grant"
+            "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,leisure,homeCrime,laws,advice,goals,approval,worst,pricedOut,rough,sheltered,drought,births,deaths,inHomes,inShops,inWorks,inOffices,inFares,inTrade,upRoads,upWater,upPower,upSafety,upParks,upSchoolHealth,upTransit,upRepairs,upEnv,upCivic,upLaws,landBuilt,concerns,petitions,grant"
     }
 }

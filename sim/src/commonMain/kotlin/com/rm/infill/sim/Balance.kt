@@ -1139,7 +1139,7 @@ object Balance {
     const val MOTOR_SERVED = 60
     const val MOTOR_POWERED = 75
     const val RENEWAL_PEOPLE = 25_000
-    const val INFILL_LAND = 75
+    const val INFILL_LAND = 85
     const val FUTURE_KEPT_UP = 90
     const val FUTURE_GREEN_TRIPS = 33
 
@@ -1299,7 +1299,7 @@ object Balance {
      * [SURGE_PPM] in a million, more and further as the world warms. Woods
      * spread onto open land beside them, about once in [TREE_ODDS] tries.
      */
-    const val SEAM_MONTHS = 36
+    const val SEAM_MONTHS = 60
     const val DROUGHT_RISE = 2
     const val DROUGHT_FALL = 25
     const val DROUGHT_AT = 60
@@ -1337,13 +1337,21 @@ object Balance {
 
     /**
      * What the town pays its staff in [year], in percent of 1900: police, fire,
-     * parks, schools, health and the town hall cost more as wages rise.
+     * parks, schools, health and the town hall cost more as wages rise, fastest
+     * after the war.
      */
-    fun wages(year: Int): Int = when {
-        year <= 1900 -> 100
-        year >= 2000 -> 200
-        else -> 100 + (year - 1900)
+    private val WAGE_YEARS = intArrayOf(1900, 1920, 1945, 1960, 1980, 2000)
+    private val WAGES = intArrayOf(100, 115, 145, 190, 230, 250)
+
+    fun wages(year: Int): Int {
+        if (year <= WAGE_YEARS.first()) return WAGES.first()
+        for (k in 1 until WAGE_YEARS.size) if (year <= WAGE_YEARS[k]) return WAGES[k - 1] + (WAGES[k] - WAGES[k - 1]) * (year - WAGE_YEARS[k - 1]) / (WAGE_YEARS[k] - WAGE_YEARS[k - 1])
+        return WAGES.last()
     }
+
+    /** What a building's land adds to its taxes: [WORTH_BASE] plus its land value over [WORTH_PER], in hundredths. */
+    const val WORTH_BASE = 0.55
+    const val WORTH_PER = 300.0
     // Green against pollution: what each tile of park or woods within reach takes off, a street tree half that,
     // in percent, and at most; how much of what crosses a belt of park or woods gets through; scrubbers on a
     // coal or oil station, from when, what they cost and keep, and the share of smoke they let out.
@@ -1372,7 +1380,7 @@ object Balance {
     /** The highest rung of industry a district with no heavy industry lets in. */
     const val LIGHT_INDUSTRY = 2
     /** The flow the Renewal era asks for. */
-    const val RENEWAL_FLOW = 65
+    const val RENEWAL_FLOW = 55
     const val FLOW_APPEAL = 8
     const val IDLE_MOST = 60
     const val IDLE_PER_WAIT = 2
