@@ -2011,6 +2011,7 @@ class City(
         if (networksDirty) updateNetworks()
         for (b in buildings.values) b.age++
         burnDay()
+        sendCallouts()
         mendDay()
         buildDay()
         growDay()
@@ -2715,6 +2716,7 @@ class City(
         // What can go next door, by the deal made last month.
         var send = edgeGarbageOut.sum() * 1000L
         var sent = 0L
+        val rounds = HashMap<Int, ArrayList<Int>>()
         fun near(f: Building, b: Building) = kotlin.math.abs(f.x - b.x) + kotlin.math.abs(f.y - b.y) <= Balance.GARBAGE_REACH
         // Near a transfer station, the trucks take it on to anywhere in town.
         fun reaches(f: Building, b: Building) = near(f, b) ||
@@ -2744,6 +2746,7 @@ class City(
             val burner = burners.firstOrNull { reaches(it, b) && (burnt[it.id] ?: 0) + waste <= burnerTakes(it) }
             val dump = if (burner == null) dumps.firstOrNull { reaches(it, b) && it.fill + waste <= dumpRoom(it) } else null
             val away = burner == null && dump == null && waste <= send
+            (burner ?: dump)?.let { rounds.getOrPut(it.id) { ArrayList() } += b.id }
             when {
                 burner != null -> burnt[burner.id] = (burnt[burner.id] ?: 0) + waste
                 dump != null -> dump.fill += waste
@@ -2773,6 +2776,7 @@ class City(
         incinerated.putAll(burnt)
         recycledAt.clear()
         recycledAt.putAll(recycled)
+        garbageRounds = rounds.mapValues { it.value.toIntArray() }
         // In kilograms, for inspect.
         for (r0 in recyclers) r0.served = recycled[r0.id] ?: 0
         for (c0 in composts) c0.served = composted[c0.id] ?: 0
@@ -2790,6 +2794,114 @@ class City(
 
     /** Last month's garbage recycled at each recycling centre, in kilograms, for what it sells. */
     private val recycledAt = HashMap<Int, Int>()
+
+    /** The buildings whose garbage each dump or incinerator took last month, by its id, for the trucks' rounds. */
+    private var garbageRounds: Map<Int, IntArray> = emptyMap()
+
+    // ---- callouts ----------------------------------------------------------------
+
+    /** The service vehicles sent out lately, for the map. Made afresh each day and not saved. */
+    var callouts: List<Callout> = emptyList()
+        private set
+
+    private var nextCallout = 1
+    private val roadRoutes by lazy { RoadRoutes(map) }
+
+    /** Its own dice, so what the map shows never changes how the town goes. */
+    private val calloutRng = Rng(seed xor 0x5e4c1ce5L)
+
+    /**
+     * Each day: a fire engine from the nearest fire hall to each new fire,
+     * now and then an ambulance from each ambulance station to a home and on
+     * to a hospital, a police car from each station to where crime is worst
+     * nearby, and garbage trucks from each dump and incinerator round some of
+     * the buildings it serves.
+     */
+    private fun sendCallouts() {
+        val m = map
+        val today = monthNow * 32 + day
+        val kept = callouts.filter { today - it.made < Balance.CALLOUT_DAYS || it.kind == CalloutKind.FIRE && m.fire[it.at] > 0 }
+        val made = ArrayList<Callout>()
+        fun add(kind: CalloutKind, route: Pair<IntArray, IntArray>?, at: Int, urgent: Boolean) {
+            if (route == null || route.first.size < 2) return
+            made += Callout(nextCallout++, kind, route.first, route.second, at, urgent, today)
+        }
+        val standing = buildings.values.filter { it.underway == 0 && it.outage == 0 }.sortedBy { it.id }
+        fun Building.road() = accessOf(this)
+
+        // Fires.
+        val halls = standing.filter { it.type.root == BuildingType.FIRE_STATION || it.type.root == BuildingType.VOLUNTEER_HALL || it.type.root == BuildingType.LADDER_COMPANY }
+        if (halls.isNotEmpty()) {
+            val answered = kept.filter { it.kind == CalloutKind.FIRE }.mapTo(HashSet()) { it.at }
+            val hallAt = halls.associateBy { it.road() }
+            for (b in buildings.values.sortedBy { it.id }) {
+                if (b.burning == 0) continue
+                val at = m.index(b.x, b.y)
+                if (at in answered) continue
+                val there = b.road()
+                // From the fire back to the nearest hall, then turned round.
+                val back = roadRoutes.route(there, Balance.CALLOUT_REACH) { it in hallAt } ?: continue
+                add(CalloutKind.FIRE, roadRoutes.round(back.last(), listOf(there, back.last()), Balance.CALLOUT_REACH), at, true)
+            }
+        }
+
+        // Ambulances, to a home and on to the nearest hospital, or back if there's none.
+        val hospitals = standing.filter { it.type.root == BuildingType.HOSPITAL }.mapNotNullTo(HashSet()) { it.road().takeIf { r -> r >= 0 } }
+        for (s in standing) {
+            if (s.type.root != BuildingType.AMBULANCE_STATION || calloutRng.nextInt(Balance.AMBULANCE_EVERY) != 0) continue
+            val home = nearby(s, Balance.FIRE_REACH) { it.people != null } ?: continue
+            val start = s.road()
+            val there = home.road()
+            val hospital = roadRoutes.route(there, Balance.CALLOUT_REACH) { it in hospitals }?.last() ?: start
+            add(CalloutKind.AMBULANCE, roadRoutes.round(start, listOf(there, hospital), Balance.CALLOUT_REACH), m.index(home.x, home.y), true)
+        }
+
+        // Police cars, from 1920: on a call where crime is high, otherwise on patrol.
+        if (year >= Balance.PATROL_CAR_YEAR) for (s in standing) {
+            if (!s.type.patrols || s.type == BuildingType.POLICE_BOX || calloutRng.nextInt(Balance.PATROL_EVERY) != 0) continue
+            var worst: Building? = null
+            var crime = -1
+            repeat(Balance.PATROL_LOOKS) {
+                val b = nearby(s, Balance.POLICE_REACH) { it.type.zone != Zone.NONE } ?: return@repeat
+                val c = m.crime[m.index(b.x, b.y)].toInt() and 0xff
+                if (c > crime) { worst = b; crime = c }
+            }
+            val b = worst ?: continue
+            val start = s.road()
+            add(CalloutKind.POLICE, roadRoutes.round(start, listOf(b.road(), start), Balance.CALLOUT_REACH), m.index(b.x, b.y), crime >= Balance.CRIME_CALL)
+        }
+
+        // Garbage trucks, each round a few buildings near each other.
+        for ((id, served) in garbageRounds) {
+            val depot = buildings[id] ?: continue
+            if (depot.underway > 0 || served.isEmpty()) continue
+            val start = depot.road()
+            repeat(minOf(Balance.TRUCKS_MOST, 1 + served.size / Balance.TRUCK_BUILDINGS)) {
+                val first = buildings[served[calloutRng.nextInt(served.size)]] ?: return@repeat
+                val stops = arrayListOf(first.road())
+                repeat(Balance.TRUCK_LOOKS) {
+                    val b = buildings[served[calloutRng.nextInt(served.size)]] ?: return@repeat
+                    if (kotlin.math.abs(b.x - first.x) + kotlin.math.abs(b.y - first.y) <= Balance.TRUCK_SPREAD && stops.size < Balance.TRUCK_STOPS) stops += b.road()
+                }
+                stops.sortBy { kotlin.math.abs(it % m.width - first.x) + kotlin.math.abs(it / m.width - first.y) }
+                if (stops.any { it < 0 }) return@repeat
+                add(CalloutKind.GARBAGE, roadRoutes.round(start, stops.distinct() + start, Balance.GARBAGE_REACH * 2), m.index(first.x, first.y), false)
+            }
+        }
+        callouts = if (made.isEmpty() && kept.size == callouts.size) callouts else kept + made
+    }
+
+    /** A building within [reach] of [s] that [ok] takes, picked at random, or null if a few tries find none. */
+    private fun nearby(s: Building, reach: Int, ok: (Building) -> Boolean): Building? {
+        repeat(Balance.CALLOUT_TRIES) {
+            val x = s.x + calloutRng.nextInt(2 * reach + 1) - reach
+            val y = s.y + calloutRng.nextInt(2 * reach + 1) - reach
+            if (!map.inside(x, y)) return@repeat
+            val b = buildings[map.building[map.index(x, y)]] ?: return@repeat
+            if (b !== s && b.underway == 0 && ok(b)) return b
+        }
+        return null
+    }
 
     // ---- disasters ---------------------------------------------------------------
 

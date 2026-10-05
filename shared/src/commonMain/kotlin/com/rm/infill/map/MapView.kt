@@ -123,6 +123,7 @@ fun MapView(
     // ships and planes), so those go faster when the game does.
     var weatherTime by remember { mutableFloatStateOf(0f) }
     var travelTime by remember { mutableFloatStateOf(0f) }
+    val services = remember(game.city) { ServiceTrips() }
     val paceNow by rememberUpdatedState(pace)
     val fires = game.city.burningNow > 0
     // How hard each building with stacks is going, and where people sleep rough, looked over every couple of seconds while the town's free.
@@ -363,6 +364,8 @@ fun MapView(
         if (traffic) {
             drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped)
             drawTransit(map, camera, travelTime, game.city.lineStates())
+            services.update(game.city.callouts, map, travelTime, game.city.year)
+            with(services) { draw(map, camera, game.city.year, travelTime) }
         }
         drawRough(rough, map.width, camera)
         drawPlumes(renderer, map, camera, plumes, weather, weatherTime, graphics.plumes)

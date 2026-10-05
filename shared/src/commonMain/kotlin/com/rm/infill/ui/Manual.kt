@@ -372,6 +372,7 @@ object Manual {
         ManualSection("services", "Services", "Police and justice, fire, health, schools, civic buildings and waste, and how their cover works.", listOf(
             ManualBlock(ManualKind.Heading, "Cover"),
             ManualBlock(ManualKind.Para, "A service covers the town around it. In the early years cover is a circle around the building: full near it, fading to nothing at its edge. Once there are motor vehicles, police from 1920 and fire from 1915, cover is how quickly they can get there by road, so traffic and the street layout matter. Ambulances always go by road."),
+            ManualBlock(ManualKind.Para, "You can see them at work on the roads: a fire engine out to each fire, waiting there till it's out; ambulances to homes and on to hospital; police cars on patrol, with lights on where crime is bad; and garbage trucks round the streets from the dumps and incinerators. They're drawn by horses until motors come in."),
             ManualBlock(ManualKind.Para, "How far a service reaches and how much it does depends on its funding, its staff and its condition."),
             ManualBlock(ManualKind.Bullet, "Funding is set in the budget. At 0% a service still does a little."),
             ManualBlock(ManualKind.Bullet, "Staff are hired from the town's workers. A school wants teachers who went to high school, and if the town is short of them, the school does less."),

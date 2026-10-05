@@ -1324,6 +1324,32 @@ object Balance {
     /** Years new land from filled-in water shows raw before it's greened over. */
     const val FRESH_YEARS = 10
 
+    /** Days a callout stays on the list for the map to pick up; a fire engine's stays while the fire burns. */
+    const val CALLOUT_DAYS = 2
+
+    /** The furthest a service vehicle drives on a callout, in road tiles. */
+    const val CALLOUT_REACH = 60
+
+    /** Each day, one in this many ambulance stations sends out an ambulance, and police stations a car. */
+    const val AMBULANCE_EVERY = 3
+    const val PATROL_EVERY = 4
+
+    /** Places a police car looks over for the worst crime, and the crime, 0 to 255, it goes with lights on to. */
+    const val PATROL_LOOKS = 6
+    const val CRIME_CALL = 96
+
+    /** Garbage trucks out a day from a dump or incinerator: one, and one more for each so many buildings, up to the most. */
+    const val TRUCK_BUILDINGS = 200
+    const val TRUCKS_MOST = 3
+
+    /** A truck's round: up to so many stops within so many tiles of the first, from so many looks. */
+    const val TRUCK_STOPS = 4
+    const val TRUCK_SPREAD = 6
+    const val TRUCK_LOOKS = 10
+
+    /** Tries at finding a building near a station for a callout. */
+    const val CALLOUT_TRIES = 12
+
     /** A household's wealth follows its adults' schooling, a step about once in this many months. */
     const val MOBILITY_ODDS = 36
     const val ELECTION_YEARS = 4
