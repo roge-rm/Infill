@@ -50,9 +50,9 @@ internal class ServiceTrips {
                 if (c.kind == CalloutKind.FIRE && map.fire[c.at] > 0) t.wait = max(t.wait, HOLD)
                 continue
             }
-            val horse = horseDrawn(c.kind, year)
             t.pos += dt * when {
-                c.urgent && t.out -> if (horse) HORSE_URGENT_TILES else URGENT_TILES
+                horseDrawn(c.kind, year) -> if (c.urgent && t.out) HORSE_URGENT_TILES else SLOW_TILES
+                lit(t, map, year) -> URGENT_TILES
                 else -> SLOW_TILES
             }
             val stop = c.stops.getOrNull(t.next)
@@ -66,14 +66,31 @@ internal class ServiceTrips {
         trips.removeAll(gone.toSet())
     }
 
-    /** Each trip's vehicle where it is now, as it was in [year]. */
-    fun DrawScope.draw(map: CityMap, camera: Camera, year: Int, time: Float) {
+    /**
+     * Whether a trip has its lights going: a fire engine out to the fire and
+     * while it burns, an ambulance all the way to hospital, a police car on
+     * an urgent call. Nothing drawn by a horse has any.
+     */
+    private fun lit(trip: Trip, map: CityMap, year: Int): Boolean {
+        val c = trip.c
+        if (horseDrawn(c.kind, year)) return false
+        val there = trip.next == 1 && trip.wait > 0f
+        return when (c.kind) {
+            CalloutKind.FIRE -> trip.out || there && map.fire[c.at] > 0
+            CalloutKind.AMBULANCE -> true
+            CalloutKind.POLICE -> c.urgent && (trip.out || there)
+            CalloutKind.GARBAGE -> false
+        }
+    }
+
+    /** Each trip's vehicle where it is now, as it was in [year]; zoomed out too far to draw them, just the lights. */
+    fun DrawScope.draw(map: CityMap, camera: Camera, year: Int, seconds: Float) {
         val t = camera.tilePx
-        if (t < MIN_TILE_PX) return
+        if (t < MIN_GLOW_PX) return
         val topLeft = camera.screenToTile(Offset.Zero, size)
         val bottomRight = camera.screenToTile(Offset(size.width, size.height), size)
-        // Lights flash twice a second, at the game's speed.
-        val flash = floor(time * 4f).toInt() % 2 == 0
+        // Lights flash twice a second of real time, [seconds], whatever the game's speed.
+        val flash = floor(seconds * 4f).toInt() % 2 == 0
         for (trip in trips) {
             val c = trip.c
             val route = c.route
@@ -83,7 +100,11 @@ internal class ServiceTrips {
             val (cx, cy, heading) = pointThrough(if (i > 0) route[i - 1] else -1, route[i], if (i < n - 1) route[i + 1] else -1, u, map.width, KERB)
             if (cx < topLeft.x - 1 || cx > bottomRight.x + 1 || cy < topLeft.y - 1 || cy > bottomRight.y + 1) continue
             val spot = camera.tileToScreen(cx, cy, size)
-            val lights = c.urgent && (trip.out || c.kind == CalloutKind.FIRE && trip.wait > 0f && map.fire[c.at] > 0)
+            val lights = lit(trip, map, year)
+            if (t < MIN_TILE_PX) {
+                if (lights) glow(spot, max(MIN_GLOW_RADIUS, t * 0.45f), if (flash) RED else second(c.kind))
+                continue
+            }
             vehicle(spot, t, heading, c.kind, year, if (lights) flash else null)
         }
     }
@@ -126,13 +147,30 @@ private fun DrawScope.vehicle(at: Offset, t: Float, heading: Float, kind: Callou
             CalloutKind.GARBAGE -> drawRect(BIN, Offset(left + length * 0.06f, top + width * 0.1f), Size(length * 0.66f, width * 0.8f))
         }
         if (flash != null) {
-            val r = max(1f, width * 0.22f)
-            val x = left + length - cab - r * 1.2f
-            val second = if (kind == CalloutKind.POLICE) BLUE else RED
-            drawCircle(if (flash) RED else DIM, r, Offset(x, at.y - width * 0.25f))
-            drawCircle(if (flash) DIM else second, r, Offset(x, at.y + width * 0.25f))
+            val r = max(1.5f, width * 0.3f)
+            val x = left + length - cab - r
+            val near = Offset(x, at.y - width * 0.3f)
+            val far = Offset(x, at.y + width * 0.3f)
+            // Whichever's lit glows out over the road around it.
+            glow(if (flash) near else far, t * 0.4f, if (flash) RED else second(kind))
+            drawCircle(if (flash) LIT_RED else DIM, r, near)
+            drawCircle(if (flash) DIM else LIT_SECOND[kind.ordinal], r, far)
         }
     }
+}
+
+/** A soft glow of [colour], [radius] across, centred on [at]. */
+private fun DrawScope.glow(at: Offset, radius: Float, colour: Color) {
+    drawCircle(colour.copy(alpha = 0.18f), radius, at)
+    drawCircle(colour.copy(alpha = 0.3f), radius * 0.6f, at)
+    drawCircle(colour.copy(alpha = 0.55f), radius * 0.3f, at)
+}
+
+/** The other of a vehicle's two lights: blue for the police, white for an ambulance, red again for a fire engine. */
+private fun second(kind: CalloutKind) = when (kind) {
+    CalloutKind.POLICE -> BLUE
+    CalloutKind.AMBULANCE -> WHITE
+    else -> RED
 }
 
 /** Whether [kind] was still drawn by a horse in [year]. */
@@ -143,8 +181,10 @@ private fun horseDrawn(kind: CalloutKind, year: Int) = year < when (kind) {
     CalloutKind.GARBAGE -> MOTOR_TRUCK_YEAR
 }
 
-/** Too small to see below this. */
+/** Too small to see below this, though lights still show down to the next, as a glow at least so big. */
 private const val MIN_TILE_PX = 12f
+private const val MIN_GLOW_PX = 3f
+private const val MIN_GLOW_RADIUS = 4f
 
 /** Trips at once, at most; more callouts than this wait for none and aren't shown. */
 private const val MOST = 60
@@ -182,4 +222,7 @@ private val CROSS = Color(0xFFC0281E)
 private val BIN = Color(0xFF3B4F2C)
 private val RED = Color(0xFFFF3B30)
 private val BLUE = Color(0xFF3B6BFF)
+private val WHITE = Color(0xFFFFF4E0)
+private val LIT_RED = Color(0xFFFF6A5E)
+private val LIT_SECOND = listOf(LIT_RED, Color(0xFFFFFFFF), Color(0xFF6F92FF), LIT_RED)
 private val DIM = Color(0xFF3A2A2A)

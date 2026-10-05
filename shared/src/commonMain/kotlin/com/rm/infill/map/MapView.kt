@@ -365,7 +365,7 @@ fun MapView(
             drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped)
             drawTransit(map, camera, travelTime, game.city.lineStates())
             services.update(game.city.callouts, map, travelTime, game.city.year)
-            with(services) { draw(map, camera, game.city.year, travelTime) }
+            with(services) { draw(map, camera, game.city.year, weatherTime) }
         }
         drawRough(rough, map.width, camera)
         drawPlumes(renderer, map, camera, plumes, weather, weatherTime, graphics.plumes)
