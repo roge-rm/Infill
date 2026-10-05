@@ -8004,6 +8004,233 @@ def shelter(look, v):
     return b
 
 
+# Landmarks: one of each, earned by the town.
+
+def founders_statue(look, v):
+    """The founder's statue on one tile: a bronze figure on a tall stone plinth, in a round of paving with flower beds and
+    lamps."""
+    b = Building(height=3 * STOREY)
+    d = b.d
+    rng = random.Random(16100)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 31, 31, rng)
+    d.ellipse([3, top + 4, 28, top + 29], SNOW_GROUND if look == "snow" else c("#c8c0b0"), OUTLINE)
+    flowers(b, look, 5, 22, 11, 27, rng, 6)
+    flowers(b, look, 20, 22, 26, 27, rng, 6)
+    # The plinth, then the figure: a greened bronze, arm raised.
+    roof, wall = b.box(12, 12, 19, 19, STOREY + 4)
+    d.rectangle(wall, c("#cfc6b0"), OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#ddd5c2"), OUTLINE)
+    bronze = c("#4f7a6a")
+    fx = (roof[0] + roof[2]) // 2
+    fy = roof[1] + 3
+    d.rectangle([fx - 2, fy - 12, fx + 1, fy], bronze)
+    d.ellipse([fx - 2, fy - 16, fx + 1, fy - 13], bronze)
+    d.line([fx + 1, fy - 11, fx + 4, fy - 16], bronze, 2)
+    b.casters[-1] = (1, 12, 12, 20, 20, STOREY + 20)
+    for (x, y) in ((4, 15), (27, 15)):
+        gx, gy = b.ground(x, y)
+        d.line([gx, gy, gx, gy - 8], c("#3a3c40"))
+        d.rectangle([gx - 1, gy - 10, gx + 1, gy - 8], c("#f2d06a"))
+    return b
+
+
+def mayors_mansion(look, v):
+    """The mayor's mansion on 2 by 2 tiles: a big house of pale stone with a portico and a hipped roof, behind iron railings,
+    a drive round a fountain and trees."""
+    b = Building(2, 2, height=3 * STOREY + 12)
+    d = b.d
+    rng = random.Random(16200)
+    lawn_box(b, look, 0, 0, 63, 63, rng)
+    path_line(b, look, [(32, 63), (32, 52), (22, 46), (32, 40), (42, 46), (32, 52)], 3)
+    roof, wall = b.box(8, 8, 55, 32, 3 * STOREY)
+    d.rectangle(wall, c("#e2d8c2"))
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    windows(d, wall, 3, glass=c("#46586a"), sill=TRIM, every=6, skip=[(cx - 6, cx + 6)])
+    # The portico: four columns under a pediment.
+    d.rectangle([cx - 7, y0 + 4, cx + 7, y1], c("#efe8d8"))
+    for xx in range(cx - 6, cx + 7, 4):
+        d.line([xx, y0 + 6, xx, y1], c("#c8c0ac"))
+    d.polygon([(cx - 9, y0 + 5), (cx, y0 - 2), (cx + 9, y0 + 5)], TRIM, OUTLINE)
+    d.rectangle([cx - 2, y1 - 6, cx + 2, y1], c("#4a3226"))
+    d.rectangle(wall, outline=OUTLINE)
+    # A hipped roof: slopes on all four sides up to a short ridge.
+    rx0, ry0, rx1, ry1 = roof
+    my = (ry0 + ry1) // 2
+    slate = SNOW_ROOF if look == "snow" else [c("#6a7480"), c("#58616c"), c("#4a525c")]
+    d.rectangle(roof, slate[1], OUTLINE)
+    d.polygon([(rx0, ry0), (rx1, ry0), (rx1 - 10, my), (rx0 + 10, my)], slate[0])
+    d.polygon([(rx0, ry1), (rx1, ry1), (rx1 - 10, my), (rx0 + 10, my)], slate[2])
+    d.line([rx0 + 10, my, rx1 - 10, my], OUTLINE)
+    roof_feature(d, roof, ("stack", 8, 3), look)
+    roof_feature(d, roof, ("stack", 38, 3), look)
+    # The fountain in the middle of the drive.
+    gx, gy = b.ground(32, 46)
+    d.ellipse([gx - 4, gy - 2, gx + 4, gy + 2], c("#a8a090"), OUTLINE)
+    d.ellipse([gx - 3, gy - 1, gx + 3, gy + 1], c("#5a8fbf") if look != "snow" else c("#dfe8ef"))
+    # Railings along the street.
+    gx0, gy0 = b.ground(1, 62)
+    gx1, _ = b.ground(62, 62)
+    d.line([gx0, gy0 - 3, gx1, gy0 - 3], c("#2a2a30"))
+    for xx in range(gx0, gx1 + 1, 2):
+        if abs(xx - 32) > 3:
+            d.line([xx, gy0 - 3, xx, gy0], c("#2a2a30"))
+    for (x, y) in ((6, 44), (58, 44), (6, 56), (58, 56)):
+        tree_at(b, look, v, x, y, 4, rng)
+    return b
+
+
+def exhibition_hall(look, v):
+    """The exhibition hall on 3 by 3 tiles: a long hall of iron and glass with a great barrel roof and a dome where it
+    crosses, flags along the front and a paved forecourt with a fountain."""
+    b = Building(3, 3, height=4 * STOREY + 16)
+    d = b.d
+    rng = random.Random(16300)
+    lawn_box(b, look, 0, 0, 95, 95, rng)
+    paving(b, look, 8, 66, 87, 94)
+    roof, wall = b.box(6, 14, 89, 62, 3 * STOREY)
+    d.rectangle(wall, c("#d8cfb8"))
+    x0, y0, x1, y1 = wall
+    # Tall arched windows of glass between iron ribs.
+    for xx in range(x0 + 3, x1 - 4, 7):
+        d.rectangle([xx, y0 + 4, xx + 4, y1 - 3], c("#7fa8c0"))
+        d.ellipse([xx, y0 + 2, xx + 4, y0 + 6], c("#7fa8c0"))
+    cx = (x0 + x1) // 2
+    d.rectangle([cx - 6, y1 - 9, cx + 6, y1], c("#4a3a2a"), OUTLINE)
+    d.rectangle(wall, outline=OUTLINE)
+    # The barrel roof: glass panes in bands, lit along the top.
+    rx0, ry0, rx1, ry1 = roof
+    glass = SNOW_ROOF if look == "snow" else [c("#a8c8d8"), c("#8fb4c8"), c("#7898ac")]
+    band = (ry1 - ry0) // 3
+    for k in range(3):
+        d.rectangle([rx0, ry0 + k * band, rx1, ry0 + (k + 1) * band], glass[k])
+    for xx in range(rx0 + 4, rx1, 6):
+        d.line([xx, ry0, xx, ry1], c("#4a5058"))
+    d.rectangle(roof, outline=OUTLINE)
+    # The dome at the crossing.
+    dx = (rx0 + rx1) // 2
+    dy = (ry0 + ry1) // 2
+    d.ellipse([dx - 12, dy - 14, dx + 12, dy + 8], glass[0], OUTLINE)
+    d.ellipse([dx - 7, dy - 10, dx + 7, dy + 2], glass[1])
+    d.line([dx, dy - 22, dx, dy - 14], c("#4a5058"))
+    d.rectangle([dx + 1, dy - 22, dx + 5, dy - 19], c("#c0392b"))
+    b.casters.append((1, 36, 24, 60, 40, 4 * STOREY + 16))
+    for xx in range(14, 84, 12):
+        flagpole(b, xx, 70, 14, [c("#c0392b"), c("#2f5f9a"), c("#e0b030")][(xx // 12) % 3])
+    gx, gy = b.ground(48, 82)
+    d.ellipse([gx - 7, gy - 3, gx + 7, gy + 3], c("#a8a090"), OUTLINE)
+    d.ellipse([gx - 5, gy - 2, gx + 5, gy + 2], c("#5a8fbf") if look != "snow" else c("#dfe8ef"))
+    for (x, y) in ((4, 86), (92, 86)):
+        tree_at(b, look, v, x, y, 4, rng)
+    return b
+
+
+def observation_tower(look, v):
+    """The observation tower on 2 by 2 tiles: a slim concrete shaft rising high over the town to a round deck of glass and
+    a mast, on a plaza."""
+    b = Building(2, 2, height=40 * STOREY)
+    d = b.d
+    plaza(b, look, 1, 1, 62, 62)
+    # The shaft.
+    roof, wall = b.box(28, 28, 35, 35, 36 * STOREY)
+    d.rectangle(wall, c("#d0ccc4"))
+    x0, y0, x1, y1 = wall
+    d.line([x0 + 2, y0, x0 + 2, y1], c("#e8e4dc"))
+    d.line([x1 - 2, y0, x1 - 2, y1], c("#b0aca4"))
+    d.rectangle(wall, outline=OUTLINE)
+    # The deck: a wide round of glass with a roof, near the top.
+    cx = (x0 + x1) // 2
+    deck_y = y0 + 6
+    d.ellipse([cx - 14, deck_y - 4, cx + 14, deck_y + 6], c("#b8b4ac"), OUTLINE)
+    d.rectangle([cx - 13, deck_y, cx + 13, deck_y + 4], c("#5d8aa0"))
+    for xx in range(cx - 11, cx + 12, 3):
+        d.line([xx, deck_y, xx, deck_y + 4], c("#3d5a6c"))
+    d.ellipse([cx - 13, deck_y - 6, cx + 13, deck_y + 1], SNOW_ROOF[0] if look == "snow" else c("#e0dcd4"), OUTLINE)
+    # The mast, with a light at the top.
+    d.line([cx, deck_y - 6, cx, deck_y - 30], c("#c8c8c8"), 2)
+    d.point((cx, deck_y - 31), c("#e05040"))
+    b.casters[-1] = (1, 28, 28, 36, 36, 40 * STOREY)
+    for (x, y) in ((8, 54), (56, 54)):
+        bench(b, x, y)
+    return b
+
+
+def conservatory(look, v):
+    """The conservatory on 3 by 2 tiles: a great glasshouse of white iron with a tall domed middle and wings, palms showing
+    through the glass, and gardens laid out in front."""
+    b = Building(3, 2, height=3 * STOREY + 10)
+    d = b.d
+    rng = random.Random(16500)
+    lawn_box(b, look, 0, 0, 95, 63, rng)
+    path_line(b, look, [(48, 63), (48, 44)], 4)
+    flowers(b, look, 10, 48, 40, 60, rng, 18)
+    flowers(b, look, 56, 48, 86, 60, rng, 18)
+    glass = c("#b8d8d0") if look != "snow" else c("#dfe8ee")
+    frame = c("#f2f0ea")
+    for (x0, x1, h) in ((6, 36, 2 * STOREY), (60, 90, 2 * STOREY), (34, 62, 3 * STOREY)):
+        roof, wall = b.box(x0, 10, x1, 40, h)
+        d.rectangle(wall, glass)
+        for xx in range(wall[0] + 3, wall[2], 4):
+            d.line([xx, wall[1], xx, wall[3]], frame)
+        # Green showing through: palms and ferns.
+        for _ in range(6):
+            px = rng.randint(wall[0] + 2, wall[2] - 2)
+            py = rng.randint(wall[1] + 2, wall[3] - 2)
+            d.ellipse([px - 2, py - 2, px + 2, py + 2], c("#4f8a4a"))
+        d.rectangle(wall, outline=OUTLINE)
+        rx0, ry0, rx1, ry1 = roof
+        d.rectangle(roof, glass, OUTLINE)
+        for xx in range(rx0 + 3, rx1, 4):
+            d.line([xx, ry0, xx, ry1], frame)
+    # The dome over the middle.
+    rx0, ry0, rx1, ry1 = roof
+    cx = (rx0 + rx1) // 2
+    cy = (ry0 + ry1) // 2
+    d.ellipse([cx - 13, cy - 16, cx + 13, cy + 8], glass, OUTLINE)
+    for k in range(-9, 10, 4):
+        d.line([cx + k, cy - 14 + abs(k) // 2, cx + k, cy + 6], frame)
+    d.line([cx, cy - 22, cx, cy - 16], frame, 2)
+    b.casters.append((1, 36, 18, 60, 32, 3 * STOREY + 10))
+    return b
+
+
+def town_museum(look, v):
+    """The town museum on 2 by 2 tiles: an old brick hall turned museum, a banner over its door, and in its yard the things
+    the town kept: an old steam engine, a tram and a bell."""
+    b = Building(2, 2, height=2 * STOREY + 12)
+    d = b.d
+    rng = random.Random(16600)
+    lawn_box(b, look, 0, 0, 63, 63, rng)
+    paving(b, look, 4, 42, 59, 62)
+    roof, wall = b.box(6, 6, 57, 34, 2 * STOREY + 2)
+    brick(d, wall, c("#8a4a38"))
+    x0, y0, x1, y1 = wall
+    cx = (x0 + x1) // 2
+    windows(d, wall, 2, glass=c("#46586a"), sill=STONE, every=6, skip_door=True)
+    d.rectangle([cx - 4, y1 - 7, cx + 4, y1], c("#3a2e26"))
+    d.rectangle([cx - 12, y0 + 2, cx + 12, y0 + 6], c("#6b2330"))
+    for xx in range(cx - 10, cx + 11, 2):
+        d.point((xx, y0 + 4), c("#f2e6a0"))
+    d.rectangle(wall, outline=OUTLINE)
+    gable_ew(d, roof, SHINGLE[0], look)
+    clock_face(d, cx, roof[1] + 4, 3)
+    # The old steam engine, the tram and the bell.
+    ex, ey = b.ground(10, 52)
+    d.rectangle([ex, ey - 6, ex + 14, ey], c("#1f2024"), OUTLINE)
+    d.rectangle([ex + 10, ey - 9, ex + 14, ey - 6], c("#1f2024"))
+    d.rectangle([ex + 2, ey - 9, ex + 4, ey - 6], c("#3a3c42"))
+    d.line([ex - 1, ey + 1, ex + 15, ey + 1], c("#5a5048"))
+    tx, ty = b.ground(34, 52)
+    d.rectangle([tx, ty - 6, tx + 14, ty], c("#e8dcc0"), OUTLINE)
+    d.rectangle([tx, ty - 6, tx + 2, ty], c("#8e2a2a"))
+    d.rectangle([tx + 12, ty - 6, tx + 14, ty], c("#8e2a2a"))
+    bx, by = b.ground(54, 54)
+    d.rectangle([bx - 1, by - 8, bx + 1, by], c("#5a3a2a"))
+    d.ellipse([bx - 3, by - 11, bx + 3, by - 6], c("#b08a3a"), OUTLINE)
+    return b
+
+
 def headstones(b, look, x0, y0, x1, y1, rng, every=5):
     """Rows of headstones on the grass, some leaning."""
     d = b.d
@@ -8688,7 +8915,9 @@ BUILDINGS = [
     ("zoo", zoo, 4), ("fairground", fairground, 2), ("amusement_park", amusement_park, 2), ("drive_in", drive_in, 2),
     ("aquarium", aquarium, 2), ("convention_centre", convention_centre, 2),
     # Civic buildings, and the rest of schooling, health, police and fire.
-    ("town_hall", town_hall, 3), ("city_hall", city_hall, 2), ("civic_centre", civic_centre, 2), ("post_office", post_office, 2), ("shelter", shelter, 2),
+    ("town_hall", town_hall, 3), ("city_hall", city_hall, 2), ("civic_centre", civic_centre, 2), ("post_office", post_office, 2), ("shelter", shelter, 2), ("founders_statue", founders_statue, 1), ("mayors_mansion", mayors_mansion, 1),
+    ("exhibition_hall", exhibition_hall, 1), ("observation_tower", observation_tower, 1), ("conservatory", conservatory, 1),
+    ("town_museum", town_museum, 1),
     ("cemetery", cemetery, 3), ("memorial_garden", memorial_garden, 2), ("fountain", fountain, 3), ("clock_tower", clock_tower, 2),
     ("war_memorial", war_memorial, 2), ("kindergarten", kindergarten, 2), ("junior_high", junior_high, 2),
     ("vocational_school", vocational_school, 2), ("central_library", central_library, 2), ("community_college", community_college, 2),

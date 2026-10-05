@@ -382,6 +382,18 @@ enum class BuildingType(
     CIVIC_CENTRE(Zone.NONE, 0, 60, width = 2, height = 2, year = 1970, life = 60),
     POST_OFFICE(Zone.NONE, 0, 10, width = 2, height = 1, life = 60),
     SHELTER(Zone.NONE, 0, 6, life = 60),
+
+    /**
+     * Landmarks, one of each, earned by the town (see [City.earned]): the
+     * founder's statue, the mayor's mansion, an exhibition hall, an
+     * observation tower, a conservatory and the town museum.
+     */
+    FOUNDERS_STATUE(Zone.NONE, 0, 0),
+    MAYORS_MANSION(Zone.NONE, 0, 6, width = 2, height = 2),
+    EXHIBITION_HALL(Zone.NONE, 0, 30, width = 3, height = 3),
+    OBSERVATION_TOWER(Zone.NONE, 0, 12, width = 2, height = 2),
+    CONSERVATORY(Zone.NONE, 0, 12, width = 3, height = 2),
+    TOWN_MUSEUM(Zone.NONE, 0, 8, width = 2, height = 2),
     CEMETERY(Zone.NONE, 0, 2, width = 3, height = 3),
     MEMORIAL_GARDEN(Zone.NONE, 0, 2, width = 3, height = 3, year = 1970),
     FOUNTAIN(Zone.NONE, 0, 0),
@@ -596,6 +608,9 @@ enum class BuildingType(
     val green: Boolean get() = Specs.of(this)?.green != null
 
     /** A place for sport or culture: it gives the homes round it leisure, and isn't green space. */
+    /** One of the landmarks the town earns. */
+    val landmark: Boolean get() = this in LANDMARKS
+
     val leisure: Boolean get() = Specs.of(this)?.let { it.leisure != null && it.green == null } == true
 
     /** Laid a tile at a time, by dragging, like a park. */
@@ -675,3 +690,9 @@ class Building(val id: Int, var type: BuildingType, val x: Int, val y: Int, val 
 
     val worksKind: WorksKind? get() = if (kind >= 0) WorksKind.entries[kind] else null
 }
+
+/** The landmarks, in the order they're usually earned. */
+val LANDMARKS = listOf(
+    BuildingType.FOUNDERS_STATUE, BuildingType.MAYORS_MANSION, BuildingType.EXHIBITION_HALL,
+    BuildingType.OBSERVATION_TOWER, BuildingType.CONSERVATORY, BuildingType.TOWN_MUSEUM,
+)

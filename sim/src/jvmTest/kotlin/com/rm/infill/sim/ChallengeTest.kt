@@ -71,6 +71,31 @@ class ChallengeTest {
     }
 
     @Test
+    fun landmarksAreEarnedOnceAndBuiltOnce() {
+        val c = town(1975)
+        City::class.java.getDeclaredField("funds").apply { isAccessible = true }.setLong(c, 1_000_000L)
+        // Too small a town for a statue: it can't go down.
+        assertEquals(Problem.Blocked, c.plan(Action.PlaceBuilding(BuildingType.FOUNDERS_STATUE, 10, 10)).problem)
+        // At 1,000 people it's earned, with the news; and the museum too, the town being 75.
+        c.stats.population = 1_000
+        c.takeEvents { }
+        City::class.java.getDeclaredMethod("landmarkMonth").apply { isAccessible = true }.invoke(c)
+        val told = ArrayList<CityEvent>()
+        c.takeEvents { told += it }
+        assertTrue(c.earned(BuildingType.FOUNDERS_STATUE))
+        assertTrue(c.earned(BuildingType.TOWN_MUSEUM))
+        assertTrue(told.any { it.kind == EventKind.LandmarkEarned && it.type == BuildingType.FOUNDERS_STATUE })
+        assertTrue(c.apply(Action.PlaceBuilding(BuildingType.FOUNDERS_STATUE, 10, 10)).ok)
+        // Only one.
+        assertEquals(Problem.OnlyOne, c.plan(Action.PlaceBuilding(BuildingType.FOUNDERS_STATUE, 20, 20)).problem)
+        // Earned for good, whatever happens to the town after.
+        c.stats.population = 0
+        c.runMonths(1)
+        assertTrue(c.earned(BuildingType.FOUNDERS_STATUE))
+        assertTrue(SaveGame.read(SaveGame.write(c)).earned(BuildingType.FOUNDERS_STATUE))
+    }
+
+    @Test
     fun theChallengeIsSaved() {
         val c = town(1970)
         c.challenge = Challenge.RENEWAL

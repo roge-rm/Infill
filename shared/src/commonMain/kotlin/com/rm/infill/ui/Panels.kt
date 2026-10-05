@@ -184,6 +184,12 @@ import com.rm.infill.res.inspect_fertile
 import com.rm.infill.res.inspect_ore
 import com.rm.infill.res.inspect_coal_seam
 import com.rm.infill.res.Res
+import com.rm.infill.res.founders_statue
+import com.rm.infill.res.mayors_mansion
+import com.rm.infill.res.exhibition_hall
+import com.rm.infill.res.observation_tower
+import com.rm.infill.res.conservatory
+import com.rm.infill.res.town_museum
 import com.rm.infill.res.building_arcade
 import com.rm.infill.res.building_brickworks
 import com.rm.infill.res.building_cabin
@@ -529,6 +535,12 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.CIVIC_CENTRE -> Res.string.civic_centre
     BuildingType.POST_OFFICE -> Res.string.post_office
     BuildingType.SHELTER -> Res.string.shelter
+    BuildingType.FOUNDERS_STATUE -> Res.string.founders_statue
+    BuildingType.MAYORS_MANSION -> Res.string.mayors_mansion
+    BuildingType.EXHIBITION_HALL -> Res.string.exhibition_hall
+    BuildingType.OBSERVATION_TOWER -> Res.string.observation_tower
+    BuildingType.CONSERVATORY -> Res.string.conservatory
+    BuildingType.TOWN_MUSEUM -> Res.string.town_museum
     BuildingType.CEMETERY -> Res.string.cemetery
     BuildingType.MEMORIAL_GARDEN -> Res.string.memorial_garden
     BuildingType.FOUNTAIN -> Res.string.fountain

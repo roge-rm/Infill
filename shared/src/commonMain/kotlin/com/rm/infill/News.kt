@@ -48,6 +48,7 @@ import com.rm.infill.res.event_drought
 import com.rm.infill.res.event_storm_surge
 import com.rm.infill.res.event_worked_out
 import com.rm.infill.res.event_protest
+import com.rm.infill.res.event_landmark
 import com.rm.infill.res.event_challenge_won
 import com.rm.infill.res.event_challenge_lost
 import com.rm.infill.res.event_petition
@@ -136,6 +137,7 @@ internal fun messageOf(e: CityEvent): Message? =
         EventKind.FirstBuilt -> Message(Res.string.event_first_built, e.type?.let { buildingName(it) }, e.x, e.y)
         EventKind.Milestone -> Message(Res.string.event_milestone, name = groupThousands(e.count.toLong()))
         EventKind.Protest -> Message(Res.string.event_protest, x = e.x, y = e.y)
+        EventKind.LandmarkEarned -> Message(Res.string.event_landmark, e.type?.let { buildingName(it) })
         EventKind.ChallengeWon -> Message(Res.string.event_challenge_won, com.rm.infill.ui.challengeTitle(com.rm.infill.sim.Challenge.entries[e.count]))
         EventKind.ChallengeLost -> Message(Res.string.event_challenge_lost, com.rm.infill.ui.challengeTitle(com.rm.infill.sim.Challenge.entries[e.count]))
         EventKind.Petition -> Message(Res.string.event_petition, com.rm.infill.ui.wantName(com.rm.infill.sim.Want.entries[e.count]), e.x, e.y)

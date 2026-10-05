@@ -58,6 +58,31 @@ class City(
     /** The month the challenge began, for goals that ask for a whole year. */
     var challengeStart = 0
 
+    /** The landmarks the town has earned, by bit in [LANDMARKS] order. Once earned, always earned. */
+    private var landmarksEarned = 0
+
+    fun earned(t: BuildingType): Boolean = LANDMARKS.indexOf(t).let { it >= 0 && landmarksEarned and (1 shl it) != 0 }
+
+    /** Whether the town has earned [t] now, by its people, approval or age. */
+    private fun earns(t: BuildingType): Boolean = when (t) {
+        BuildingType.FOUNDERS_STATUE -> stats.population >= Balance.STATUE_PEOPLE
+        BuildingType.MAYORS_MANSION -> stats.population >= Balance.MANSION_PEOPLE
+        BuildingType.EXHIBITION_HALL -> stats.population >= Balance.EXHIBITION_PEOPLE
+        BuildingType.OBSERVATION_TOWER -> stats.population >= Balance.TOWER_PEOPLE
+        BuildingType.CONSERVATORY -> approval >= Balance.CONSERVATORY_APPROVAL && stats.population > 0
+        BuildingType.TOWN_MUSEUM -> year - START_YEAR >= Balance.MUSEUM_YEARS && stats.population > 0
+        else -> false
+    }
+
+    /** Each month: any landmark newly earned is news, and can be built from then on. */
+    private fun landmarkMonth() {
+        for ((k, t) in LANDMARKS.withIndex()) {
+            if (landmarksEarned and (1 shl k) != 0 || !earns(t)) continue
+            landmarksEarned = landmarksEarned or (1 shl k)
+            events += CityEvent(EventKind.LandmarkEarned, -1, -1, t)
+        }
+    }
+
     /** Each month, while a challenge is going: won once every goal is met, lost once its last year is out. */
     private fun challengeMonth() {
         val c = challenge ?: return
@@ -679,6 +704,7 @@ class City(
             (action is Action.BuildRoad || action is Action.BuildRail) && cutsOffPort(lowDecks.filter { it in changes }) -> Problem.CutsOffPort
             action is Action.PlaceBuilding && action.type.onWater && !besideWater(action.type, action.x, action.y) -> Problem.NeedsWater
             action is Action.PlaceBuilding && action.type.root == BuildingType.TOWN_HALL && buildings.values.any { it.type.root == BuildingType.TOWN_HALL } -> Problem.OnlyOne
+            action is Action.PlaceBuilding && action.type.landmark && buildings.values.any { it.type == action.type } -> Problem.OnlyOne
             action is Action.PlaceBuilding && action.type == BuildingType.TRAM_DEPOT && besideTram(action.type, action.x, action.y).isEmpty() -> Problem.NeedsTramTrack
             action is Action.PlaceBuilding && action.type == BuildingType.SUBWAY_STATION && m.inside(action.x, action.y) &&
                 m.subway[m.index(action.x, action.y)].toInt() == 0 -> Problem.NeedsTunnel
@@ -2077,6 +2103,7 @@ class City(
         money()
         between()
         opinion()
+        landmarkMonth()
         challengeMonth()
         between()
         carbon()
@@ -3077,7 +3104,7 @@ class City(
     fun allows(road: RoadType): Boolean = everything || (year >= road.year && era >= Era.of(road.year))
 
     /** Whether the town can put down [type] yet, the same way. */
-    fun allows(type: BuildingType): Boolean = everything || (year >= type.year && era >= Era.of(type.year) && !Lineage.retired(type, year))
+    fun allows(type: BuildingType): Boolean = if (type.landmark) everything || earned(type) else everything || (year >= type.year && era >= Era.of(type.year) && !Lineage.retired(type, year))
 
     /** Whether lots can be zoned at [density] yet: towers come with the motor age. */
     /** Whether districts can be drawn in this era: from the streetcar age, once the town's past a village. */
@@ -8191,7 +8218,9 @@ class City(
      */
     private fun opinion() {
         scoreConcerns()
-        val target = Opinion.target(era, concerns)
+        // Each landmark standing is something to be proud of.
+        val proud = buildings.values.count { it.type.landmark && it.underway == 0 } * Balance.LANDMARK_APPROVAL
+        val target = min(100, Opinion.target(era, concerns) + proud)
         val gap = target - approval
         if (gap != 0) approval += if (abs(gap) < Balance.APPROVAL_STEP) gap.coerceIn(-1, 1) else gap / Balance.APPROVAL_STEP
         approval = approval.coerceIn(0, 100)
@@ -8770,8 +8799,9 @@ class City(
         // Since version 45: the guided first town's step, and the challenge.
         w.int(guide)
         w.string(challenge?.id ?: ""); w.int(challengeResult.ordinal); w.int(challengeStart)
-        // Since version 46: a sandbox.
+        // Since version 46: a sandbox; since 47, the landmarks earned.
         w.bool(sandbox)
+        w.int(landmarksEarned)
     }
 
     companion object {
@@ -9142,6 +9172,7 @@ class City(
                                 c.challengeStart = r.int()
                             }
                             if (version >= 46) c.sandbox = r.bool()
+                            if (version >= 47) c.landmarksEarned = r.int()
                         }
                     }
                 } else {
@@ -9496,7 +9527,7 @@ class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int, va
 }
 
 
-enum class EventKind { FirstBuilt, Milestone, OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut, MedicalAdvance, Drought, StormSurge, WorkedOut, ChallengeWon, ChallengeLost, Protest, Petition, PetitionMet, PetitionLapsed, GrantOffered, GrantPaid, GrantLapsed, ElectionWon, ElectionLost }
+enum class EventKind { FirstBuilt, Milestone, OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut, MedicalAdvance, Drought, StormSurge, WorkedOut, ChallengeWon, ChallengeLost, LandmarkEarned, Protest, Petition, PetitionMet, PetitionLapsed, GrantOffered, GrantPaid, GrantLapsed, ElectionWon, ElectionLost }
 
 /** Something that happened, kept in the town's chronicle: [event] in [year] and [month] (0 is January). */
 class Story(val year: Int, val month: Int, val event: CityEvent)

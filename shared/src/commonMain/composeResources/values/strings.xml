@@ -470,13 +470,13 @@
     <string name="bond_line">%1$s raised in %2$d: %3$s a month until %4$d</string>
     <!-- The amount, and the interest a year, such as 4.50. -->
     <string name="sell_bond">Sell a bond of %1$s at %2$s%</string>
-    <string name="overseer_note">The overseer has the books: nothing new can be built until the town\'s out of debt</string>
-    <string name="overseen">The overseer won\'t allow it while the town\'s in debt</string>
+    <string name="overseer_note">The overseer has the books: nothing new can be built until the town's out of debt</string>
+    <string name="overseen">The overseer won't allow it while the town's in debt</string>
     <string name="advice_overseen">The overseer has the books: pay off the debt to build again</string>
-    <string name="event_overseer_in">So deep in debt, an overseer has taken over the town\'s books</string>
+    <string name="event_overseer_in">So deep in debt, an overseer has taken over the town's books</string>
     <string name="event_overseer_out">Out of debt: the overseer has gone</string>
-    <string name="event_rating_down">The town\'s credit rating fell to %1$s</string>
-    <string name="event_rating_up">The town\'s credit rating rose to %1$s</string>
+    <string name="event_rating_down">The town's credit rating fell to %1$s</string>
+    <string name="event_rating_up">The town's credit rating rose to %1$s</string>
     <string name="income_trade">Business rates on trade</string>
     <!-- Under the budget: about what next month comes to. -->
     <string name="next_month">Next month, about %1$s</string>
@@ -1209,7 +1209,7 @@
     <string name="law_energy_code">Energy code</string>
     <string name="law_energy_code_what">Less power used.</string>
     <string name="law_curbside_recycling">Curbside recycling</string>
-    <string name="law_curbside_recycling_what">Half as much again recycled, where there\'s a recycling centre.</string>
+    <string name="law_curbside_recycling_what">Half as much again recycled, where there's a recycling centre.</string>
     <string name="law_late_licences">Late licences</string>
     <string name="law_late_licences_what">More custom and culture at night, more vice, and fees.</string>
     <string name="law_heat_plan">Heat plan</string>
@@ -1489,7 +1489,7 @@
     <string name="shelter">Shelter</string>
     <string name="topic_housing">Housing</string>
     <string name="law_social_housing">Social housing</string>
-    <string name="law_social_housing_what">Homes the town lets to the poor: they aren\'t priced out of dear neighbourhoods.</string>
+    <string name="law_social_housing_what">Homes the town lets to the poor: they aren't priced out of dear neighbourhoods.</string>
     <string name="event_epidemic_cholera">Cholera is going round</string>
     <string name="event_epidemic_consumption">Consumption is spreading in the crowded homes</string>
     <string name="event_epidemic_influenza">Influenza is going round</string>
@@ -1541,6 +1541,21 @@
     <string name="cgoal_flow">Traffic flowing at %1$d% or better</string>
     <string name="cgoal_green_trips">%1$d% of trips made other than by car</string>
     <string name="cgoal_crime">Crime among homes no more than %1$s</string>
+    <!-- Landmarks -->
+    <string name="landmarks">Sights</string>
+    <string name="founders_statue">Founder's statue</string>
+    <string name="mayors_mansion">Mayor's mansion</string>
+    <string name="exhibition_hall">Exhibition hall</string>
+    <string name="observation_tower">Observation tower</string>
+    <string name="conservatory">Conservatory</string>
+    <string name="town_museum">Town museum</string>
+    <string name="earned_statue">Earned at 1,000 people</string>
+    <string name="earned_mansion">Earned at 5,000 people</string>
+    <string name="earned_exhibition">Earned at 20,000 people</string>
+    <string name="earned_tower">Earned at 40,000 people</string>
+    <string name="earned_conservatory">Earned at 75% approval</string>
+    <string name="earned_museum">Earned when the town is 75 years old</string>
+    <string name="event_landmark">A landmark earned: %1$s. Build it under Leisure.</string>
     <string name="town_after_pattern">%1$s %2$s</string>
     <string name="town_before_pattern">%1$s %2$s</string>
 </resources>

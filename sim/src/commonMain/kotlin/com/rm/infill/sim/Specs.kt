@@ -121,6 +121,13 @@ object Specs {
         put(BuildingType.CIVIC_CENTRE, Spec(7_000, 60.0, draw = 4.0, fund = Fund.CIVIC))
         put(BuildingType.POST_OFFICE, Spec(900, 12.0, fund = Fund.CIVIC))
         put(BuildingType.SHELTER, Spec(500, 10.0, fund = Fund.CIVIC))
+        // Landmarks draw visitors and give their neighbours something to be proud of.
+        put(BuildingType.FOUNDERS_STATUE, Spec(500, 2.0, leisure = Leisure(culture = 30, reach = 8), draw = 4.0))
+        put(BuildingType.MAYORS_MANSION, Spec(4_000, 15.0, leisure = Leisure(green = 30, culture = 30, reach = 10), draw = 8.0))
+        put(BuildingType.EXHIBITION_HALL, Spec(15_000, 60.0, leisure = Leisure(culture = 80, reach = 20), draw = 50.0))
+        put(BuildingType.OBSERVATION_TOWER, Spec(20_000, 40.0, leisure = Leisure(culture = 60, reach = 24), draw = 60.0))
+        put(BuildingType.CONSERVATORY, Spec(10_000, 40.0, leisure = Leisure(green = 80, culture = 40, reach = 16), draw = 30.0))
+        put(BuildingType.TOWN_MUSEUM, Spec(6_000, 25.0, leisure = Leisure(culture = 60, reach = 16), draw = 20.0))
         put(BuildingType.CEMETERY, Spec(1_500, 4.0, Green(2, 110, 10, 0), Leisure(green = 10, reach = 4)))
         put(BuildingType.MEMORIAL_GARDEN, Spec(2_000, 6.0, Green(2, 120, 5, 3), Leisure(green = 30, culture = 10, reach = 6)))
         put(BuildingType.FOUNTAIN, Spec(400, 2.0, Green(0, 120, 60, 4), Leisure(green = 10, culture = 20, reach = 4)))

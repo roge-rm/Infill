@@ -54,7 +54,7 @@ private val HEADLINES = setOf(
     EventKind.RiverFlood, EventKind.Smog, EventKind.Blizzard, EventKind.HeatWave, EventKind.IndustrialAccident,
     EventKind.NuclearAccident, EventKind.Earthquake, EventKind.Epidemic, EventKind.EpidemicOver,
     EventKind.MedicalAdvance, EventKind.Drought, EventKind.StormSurge, EventKind.WorkedOut,
-    EventKind.ChallengeWon, EventKind.ChallengeLost,
+    EventKind.ChallengeWon, EventKind.ChallengeLost, EventKind.LandmarkEarned,
     EventKind.Protest, EventKind.GrantOffered, EventKind.GrantPaid, EventKind.ElectionWon, EventKind.ElectionLost,
 )
 

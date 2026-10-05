@@ -107,6 +107,13 @@ import com.rm.infill.res.zone_office
 import com.rm.infill.res.zone_mixed
 import com.rm.infill.res.zone_farmland
 import com.rm.infill.res.Res
+import com.rm.infill.res.landmarks
+import com.rm.infill.res.founders_statue
+import com.rm.infill.res.mayors_mansion
+import com.rm.infill.res.exhibition_hall
+import com.rm.infill.res.observation_tower
+import com.rm.infill.res.conservatory
+import com.rm.infill.res.town_museum
 import com.rm.infill.res.tool_bulldoze
 import com.rm.infill.res.tool_inspect
 import com.rm.infill.res.tool_power
@@ -349,6 +356,7 @@ enum class ServiceGroup(val title: StringResource, val leisure: Boolean = false)
     Parks(Res.string.services_parks, leisure = true),
     Sport(Res.string.leisure_sport, leisure = true),
     Culture(Res.string.leisure_culture, leisure = true),
+    Landmarks(Res.string.landmarks, leisure = true),
 }
 
 /** What the services tool puts down. Parks are dragged out, as are street trees along roads; stations go where the finger ends up. */
@@ -396,6 +404,12 @@ enum class ServiceKind(val title: StringResource, val type: BuildingType?, val g
     Zoo(Res.string.zoo, BuildingType.ZOO, ServiceGroup.Culture),
     Fairground(Res.string.fairground, BuildingType.FAIRGROUND, ServiceGroup.Culture),
     DriveIn(Res.string.drive_in, BuildingType.DRIVE_IN, ServiceGroup.Culture),
+    FoundersStatue(Res.string.founders_statue, BuildingType.FOUNDERS_STATUE, ServiceGroup.Landmarks),
+    MayorsMansion(Res.string.mayors_mansion, BuildingType.MAYORS_MANSION, ServiceGroup.Landmarks),
+    ExhibitionHall(Res.string.exhibition_hall, BuildingType.EXHIBITION_HALL, ServiceGroup.Landmarks),
+    ObservationTower(Res.string.observation_tower, BuildingType.OBSERVATION_TOWER, ServiceGroup.Landmarks),
+    Conservatory(Res.string.conservatory, BuildingType.CONSERVATORY, ServiceGroup.Landmarks),
+    TownMuseum(Res.string.town_museum, BuildingType.TOWN_MUSEUM, ServiceGroup.Landmarks),
     Aquarium(Res.string.aquarium, BuildingType.AQUARIUM, ServiceGroup.Culture),
     ConventionCentre(Res.string.convention_centre, BuildingType.CONVENTION_CENTRE, ServiceGroup.Culture),
     School(Res.string.school, BuildingType.SCHOOL, ServiceGroup.Schools),
@@ -434,7 +448,8 @@ enum class ServiceKind(val title: StringResource, val type: BuildingType?, val g
 
 /** The services [city] can build in its era, under the services button or for [leisure] the leisure button. */
 fun servicesIn(city: City, leisure: Boolean = false): List<ServiceKind> =
-    ServiceKind.entries.filter { it.group.leisure == leisure && (it.type == null || city.allows(it.type)) }
+    // Landmarks show before they're earned, saying what earns them.
+    ServiceKind.entries.filter { it.group.leisure == leisure && (it.type == null || it.type.landmark || city.allows(it.type)) }
 
 /** What the rail tool puts down. Track is dragged; stations and yards go where the finger ends up. */
 enum class RailKind(val title: StringResource) {

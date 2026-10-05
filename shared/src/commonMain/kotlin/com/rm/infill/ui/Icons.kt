@@ -293,6 +293,7 @@ fun serviceGlyph(group: ServiceGroup): Glyph = when (group) {
     ServiceGroup.Parks -> Glyph.Tree
     ServiceGroup.Sport -> Glyph.Ball
     ServiceGroup.Culture -> Glyph.Mask
+    ServiceGroup.Landmarks -> Glyph.Star
     ServiceGroup.Waste -> Glyph.Bin
 }
 

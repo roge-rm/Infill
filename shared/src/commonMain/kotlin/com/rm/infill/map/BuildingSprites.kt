@@ -215,6 +215,12 @@ internal object BuildingSprites {
                 BuildingType.CIVIC_CENTRE -> Atlas.CIVIC_CENTRE to Atlas.CIVIC_CENTRE_COUNT
                 BuildingType.POST_OFFICE -> Atlas.POST_OFFICE to Atlas.POST_OFFICE_COUNT
                 BuildingType.SHELTER -> Atlas.SHELTER to Atlas.SHELTER_COUNT
+                BuildingType.FOUNDERS_STATUE -> Atlas.FOUNDERS_STATUE to Atlas.FOUNDERS_STATUE_COUNT
+                BuildingType.MAYORS_MANSION -> Atlas.MAYORS_MANSION to Atlas.MAYORS_MANSION_COUNT
+                BuildingType.EXHIBITION_HALL -> Atlas.EXHIBITION_HALL to Atlas.EXHIBITION_HALL_COUNT
+                BuildingType.OBSERVATION_TOWER -> Atlas.OBSERVATION_TOWER to Atlas.OBSERVATION_TOWER_COUNT
+                BuildingType.CONSERVATORY -> Atlas.CONSERVATORY to Atlas.CONSERVATORY_COUNT
+                BuildingType.TOWN_MUSEUM -> Atlas.TOWN_MUSEUM to Atlas.TOWN_MUSEUM_COUNT
                 BuildingType.CEMETERY -> Atlas.CEMETERY to Atlas.CEMETERY_COUNT
                 BuildingType.MEMORIAL_GARDEN -> Atlas.MEMORIAL_GARDEN to Atlas.MEMORIAL_GARDEN_COUNT
                 BuildingType.FOUNTAIN -> Atlas.FOUNTAIN to Atlas.FOUNTAIN_COUNT

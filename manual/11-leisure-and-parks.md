@@ -61,3 +61,16 @@ Sport near home cuts theft among the young.
 - **Aquarium** (1990) and **Convention centre** (1975) draw many visitors.
 
 Culture nearby also brings custom to the shops round it.
+
+## Landmarks
+
+The town earns landmarks as it grows, each made known in the news. **Sights** under Leisure shows them all, and what earns the ones still to come. There's only one of each:
+
+- **Founder's statue**, at 1,000 people.
+- **Mayor's mansion**, at 5,000 people.
+- **Exhibition hall**, at 20,000 people.
+- **Observation tower**, at 40,000 people.
+- **Conservatory**, at 75% approval.
+- **Town museum**, when the town is 75 years old.
+
+Once earned, a landmark stays earned. Each draws visitors and gives the homes around it culture, and each one standing adds a point of approval.

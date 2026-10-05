@@ -1277,6 +1277,20 @@ object Balance {
     const val GRANT_VOTE = 5
 
     /**
+     * Landmarks: earned at [STATUE_PEOPLE], [MANSION_PEOPLE], [EXHIBITION_PEOPLE]
+     * and [TOWER_PEOPLE] people, at [CONSERVATORY_APPROVAL] approval, and when
+     * the town is [MUSEUM_YEARS] years old. Each standing adds [LANDMARK_APPROVAL]
+     * to what people think.
+     */
+    const val STATUE_PEOPLE = 1_000
+    const val MANSION_PEOPLE = 5_000
+    const val EXHIBITION_PEOPLE = 20_000
+    const val TOWER_PEOPLE = 40_000
+    const val CONSERVATORY_APPROVAL = 75
+    const val MUSEUM_YEARS = 75
+    const val LANDMARK_APPROVAL = 1
+
+    /**
      * Affordability: a poor household on land past [WELL_OFF_FROM] is priced
      * out about once in [PRICED_OUT_ODDS] months; while the town's short of
      * homes, [ROUGH_SHARE] percent of those priced or cleared out sleep rough,

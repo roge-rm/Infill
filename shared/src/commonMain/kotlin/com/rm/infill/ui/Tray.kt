@@ -59,6 +59,12 @@ import com.rm.infill.res.bridge_swing
 import com.rm.infill.res.bridge_trestle
 import com.rm.infill.res.bridge_cheapest
 import com.rm.infill.res.Res
+import com.rm.infill.res.earned_statue
+import com.rm.infill.res.earned_mansion
+import com.rm.infill.res.earned_exhibition
+import com.rm.infill.res.earned_tower
+import com.rm.infill.res.earned_conservatory
+import com.rm.infill.res.earned_museum
 import com.rm.infill.res.name_colon_value
 import com.rm.infill.res.choice_building
 import com.rm.infill.res.close_view
@@ -592,6 +598,7 @@ fun phoneChoices(city: City): List<Choice<PhoneKind>> = phoneKindsIn(city).map {
 @Composable
 fun serviceChoices(city: City, group: ServiceGroup): List<Choice<ServiceKind>> = servicesIn(city, group.leisure).filter { it.group == group }.map { k ->
     when {
+        k.type?.landmark == true && !city.allows(k.type) -> Choice(k, stringResource(k.title), building(k.type), stringResource(landmarkNeed(k.type)))
         k == ServiceKind.PlantTrees -> Choice(k, stringResource(k.title), ChoiceIcon(intArrayOf(Atlas.FOREST)), perTile(Prices.PLANT_TREES))
         k.type == null -> Choice(k, stringResource(k.title), ChoiceIcon(intArrayOf(Atlas.ROAD_STREET + ACROSS, Atlas.STREET_TREES)), perTile(Prices.STREET_TREE))
         // Green space laid a tile at a time is priced by the tile.
@@ -688,4 +695,14 @@ fun overlayChoices(group: ViewGroup): List<Choice<Overlay>> = Overlay.entries.fi
     }
     val icon = ChoiceIcon(back = o.low.copy(alpha = max(o.low.alpha, 0.35f)), backTo = o.high.copy(alpha = 1f), glyph = g)
     Choice(o, stringResource(o.title), icon)
+}
+
+/** What earns a landmark, for its tile before it's earned. */
+private fun landmarkNeed(t: BuildingType): org.jetbrains.compose.resources.StringResource = when (t) {
+    BuildingType.FOUNDERS_STATUE -> Res.string.earned_statue
+    BuildingType.MAYORS_MANSION -> Res.string.earned_mansion
+    BuildingType.EXHIBITION_HALL -> Res.string.earned_exhibition
+    BuildingType.OBSERVATION_TOWER -> Res.string.earned_tower
+    BuildingType.CONSERVATORY -> Res.string.earned_conservatory
+    else -> Res.string.earned_museum
 }
