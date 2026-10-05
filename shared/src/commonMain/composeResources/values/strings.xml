@@ -1114,6 +1114,10 @@
     </plurals>
     <string name="convert_to_homes">Convert to homes</string>
     <string name="start_disaster">Start a disaster</string>
+    <string name="share_town">Share this town</string>
+    <string name="town_picture">Picture of the town</string>
+    <string name="open_town">Open a town</string>
+    <string name="not_a_town">That file isn't a town</string>
     <string name="disaster_fire">A fire</string>
     <string name="disaster_flood">A flood</string>
     <string name="disaster_gale">A gale</string>

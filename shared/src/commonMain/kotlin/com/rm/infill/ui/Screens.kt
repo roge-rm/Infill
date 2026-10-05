@@ -415,11 +415,14 @@ fun LoadWindow(
     /** Regions, by file, name, how many towns and room for how many: opening one shows its map. */
     regions: List<RegionRow> = emptyList(),
     onRegion: (String) -> Unit = {},
+    /** Opening a town from a file elsewhere on the device. */
+    onOpenFile: (() -> Unit)? = null,
 ) {
     val c = Infill.colors
     var deleting by remember { mutableStateOf<String?>(null) }
     Window(Res.string.load, onClose, Glyph.List) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (onOpenFile != null) BigButton(stringResource(Res.string.open_town), glyph = Glyph.Plus, onClick = onOpenFile)
             if (saves.isEmpty() && regions.isEmpty()) Text(stringResource(Res.string.no_saves), color = c.textDim, fontSize = 14.sp)
             for ((file, name, towns, room) in regions) {
                 Row(
@@ -529,6 +532,9 @@ fun MenuWindow(
     onRegion: (() -> Unit)? = null,
     /** Starting a disaster, when there's a town. */
     onDisasters: (() -> Unit)? = null,
+    /** Sending the town as a file, and a picture of it, when there's a town. */
+    onShare: (() -> Unit)? = null,
+    onPicture: (() -> Unit)? = null,
 ) {
     Window(Res.string.menu, onClose, Glyph.List) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -537,6 +543,8 @@ fun MenuWindow(
             BigButton(stringResource(Res.string.load), glyph = Glyph.List, onClick = onLoad)
             BigButton(stringResource(Res.string.new_city), glyph = Glyph.Plus, onClick = onNew)
             BigButton(stringResource(Res.string.settings), glyph = Glyph.Auto, onClick = onSettings)
+            if (onShare != null) BigButton(stringResource(Res.string.share_town), glyph = Glyph.Arrows, onClick = onShare)
+            if (onPicture != null) BigButton(stringResource(Res.string.town_picture), glyph = Glyph.Target, onClick = onPicture)
             if (onDisasters != null) BigButton(stringResource(Res.string.disasters), glyph = Glyph.Flame, onClick = onDisasters)
             LocalHelp.current?.let { help -> BigButton(stringResource(Res.string.help), glyph = Glyph.Book) { help(null) } }
             BigButton(stringResource(Res.string.main_screen), glyph = Glyph.Building, onClick = onMain)

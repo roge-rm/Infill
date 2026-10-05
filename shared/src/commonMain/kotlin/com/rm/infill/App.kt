@@ -66,6 +66,7 @@ import com.rm.infill.platform.saveFileName
 import com.rm.infill.res.cuts_off_port
 import com.rm.infill.res.no_sea_route
 import com.rm.infill.res.load_failed
+import com.rm.infill.res.not_a_town
 import com.rm.infill.res.saved
 import com.rm.infill.sim.SaveError
 import com.rm.infill.sim.SaveGame
@@ -235,6 +236,7 @@ import com.rm.infill.map.Camera
 import com.rm.infill.map.Graphics
 import com.rm.infill.map.GraphicsLevel
 import com.rm.infill.map.MapView
+import com.rm.infill.map.MapPhoto
 import com.rm.infill.map.Seasons
 import com.rm.infill.map.SHADOW_KEEP
 import com.rm.infill.map.WeatherLook
@@ -447,6 +449,7 @@ private fun Screens(settings: Settings) {
     var regionFile by remember { mutableStateOf<String?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
     var disastersOpen by remember { mutableStateOf(false) }
+    val mapPhoto = remember { MapPhoto() }
     var menuOpen by remember { mutableStateOf(false) }
     val notice = remember { mutableStateOf<Message?>(null) }
     var savesChanged by remember { mutableIntStateOf(0) }
@@ -564,6 +567,22 @@ private fun Screens(settings: Settings) {
         play(city)
     }
 
+    /** A town from a file the player picks: kept with the saves under a name of its own, then played. */
+    fun openTown() = platform.openFile { name, bytes ->
+        if (runCatching { SaveGame.read(bytes) }.isFailure) {
+            notice.value = Message(Res.string.not_a_town)
+            return@openFile
+        }
+        val base = saveFileName(name)
+        var file = base
+        var n = 2
+        while (file in platform.saves()) file = "$base-${n++}"
+        platform.writeSave(file, bytes)
+        savesChanged++
+        loadOpen = false
+        load(file)
+    }
+
     // Put away or hidden: the game saves itself and goes quiet.
     val current by rememberUpdatedState(game)
     val music = remember { Music() }
@@ -657,8 +676,8 @@ private fun Screens(settings: Settings) {
         Screen.Game -> game?.let { g ->
             key(g) {
                 GameScreen(
-                    g, settings, notice, windowOpen = menuOpen || loadOpen || settingsOpen,
-                    onMenu = { menuOpen = true }, onNewMonth = { autosaveAway() },
+                    g, settings, notice, windowOpen = menuOpen || loadOpen || settingsOpen || disastersOpen,
+                    onMenu = { menuOpen = true }, onNewMonth = { autosaveAway() }, photo = mapPhoto,
                 )
             }
         }
@@ -681,6 +700,23 @@ private fun Screens(settings: Settings) {
             onMain = { autosave(); menuOpen = false; screen = Screen.Start },
             onClose = { menuOpen = false },
             onDisasters = game?.let { { disastersOpen = true } },
+            onShare = game?.let { g ->
+                {
+                    menuOpen = false
+                    platform.shareFile(saveFileName(g.city.name) + ".infill", "application/octet-stream", g.saveBytes())
+                }
+            },
+            onPicture = game?.let { g ->
+                {
+                    menuOpen = false
+                    appScope.launch {
+                        val picture = mapPhoto.take() ?: return@launch
+                        val pixels = IntArray(picture.width * picture.height)
+                        picture.readPixels(pixels)
+                        platform.sharePicture("${saveFileName(g.city.name)}-${g.city.year}.png", picture.width, picture.height, pixels)
+                    }
+                }
+            },
             onRegion = game?.city?.region?.let { file ->
                 {
                     autosave()
@@ -697,7 +733,7 @@ private fun Screens(settings: Settings) {
             readRegion(file)?.towns?.forEach { t -> t?.let { platform.deleteSave(it.file) } }
             platform.deleteSave(file)
             savesChanged++
-        }, { loadOpen = false }, regions, ::openRegion)
+        }, { loadOpen = false }, regions, ::openRegion, onOpenFile = ::openTown)
     }
     if (settingsOpen) SettingsWindow(settings) { settingsOpen = false }
     if (disastersOpen) game?.let { g ->
@@ -731,6 +767,7 @@ private fun GameScreen(
     windowOpen: Boolean,
     onMenu: () -> Unit,
     onNewMonth: suspend () -> Unit,
+    photo: MapPhoto? = null,
 ) {
     run {
         val city = game.city
@@ -1366,6 +1403,7 @@ private fun GameScreen(
                     (tool == Tool.Power && powerKind.buried) || (tool == Tool.Phone && phoneKind.duct),
                 focus = inspected?.let { (x, y) -> city.map.index(x, y) } ?: -1,
                 districts = if (tool != Tool.Districts) emptyList() else { game.revision; city.districts.map { it.id to it.name } },
+                photo = photo,
                 lines = if (tool != Tool.Transit) emptyList() else {
                     game.revision
                     val drawn = city.lines.mapNotNull { line -> city.lineState(line.id)?.takeIf { it.route.isNotEmpty() }?.let { line.id to it.route } }

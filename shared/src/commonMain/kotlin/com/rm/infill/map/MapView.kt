@@ -1,5 +1,8 @@
 package com.rm.infill.map
 
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.layer.drawLayer
+
 import com.rm.infill.sim.Concern
 import com.rm.infill.res.Res
 import com.rm.infill.res.district_mood_map
@@ -103,8 +106,12 @@ fun MapView(
     hour: Float = 12f,
     /** The keyboard's cursor, if keys are being used to play. */
     cursor: Pair<Int, Int>? = null,
+    /** Kept up to date with the map as drawn, for a picture of the town. */
+    photo: MapPhoto? = null,
     modifier: Modifier = Modifier,
 ) {
+    val photoLayer = androidx.compose.ui.graphics.rememberGraphicsLayer()
+    photo?.layer = photoLayer
     val map = game.city.map
     val page = Infill.colors.page
     val cursorColour = Infill.colors.accent
@@ -289,7 +296,12 @@ fun MapView(
     }
 
     Canvas(
-        modifier.keepEdgeSwipesOff().pointerInput(camera) {
+        modifier.keepEdgeSwipesOff().then(
+            if (photo == null) Modifier else Modifier.drawWithContent {
+                photoLayer.record { this@drawWithContent.drawContent() }
+                drawLayer(photoLayer)
+            },
+        ).pointerInput(camera) {
             fun view() = Size(size.width.toFloat(), size.height.toFloat())
             fun tileAt(p: Offset): Pair<Int, Int> {
                 val t = camera.screenToTile(p, view())

@@ -38,11 +38,15 @@ class MainActivity : ComponentActivity() {
         }
         goFullScreen()
         platform = androidPlatform
+        androidPlatform.pickFile = { opener.launch(arrayOf("*/*")) }
         Pad.pressFocused = ::pressFocused
         setContent { App() }
     }
 
     private val androidPlatform by lazy { AndroidPlatform(applicationContext) }
+
+    /** The system's file picker, for opening a town from a file. */
+    private val opener = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { androidPlatform.picked(it) }
 
     /** A controller's buttons go to the game's controller handling, the rest to the screen as usual. */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean = AndroidPad.key(event) || super.dispatchKeyEvent(event)

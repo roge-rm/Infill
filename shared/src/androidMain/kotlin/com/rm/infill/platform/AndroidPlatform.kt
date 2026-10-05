@@ -6,7 +6,7 @@ import com.rm.infill.map.GraphicsLevel
 import java.io.File
 
 /** Saves go in the app's files folder, settings in its shared preferences. */
-class AndroidPlatform(context: Context) : Platform {
+class AndroidPlatform(private val context: Context) : Platform {
     private val dir = File(context.filesDir, "saves").apply { mkdirs() }
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val hidden = mutableListOf<() -> Unit>()
@@ -68,6 +68,52 @@ class AndroidPlatform(context: Context) : Platform {
             am.memoryClass < 192 -> GraphicsLevel.Medium
             else -> GraphicsLevel.High
         }
+    }
+
+    /** Written to the cache and offered through the share sheet. */
+    override fun shareFile(fileName: String, mime: String, bytes: ByteArray) {
+        val shared = File(context.cacheDir, "shared").apply { mkdirs() }
+        val file = File(shared, fileName)
+        file.writeBytes(bytes)
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", file)
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+            .setType(mime)
+            .putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        context.startActivity(android.content.Intent.createChooser(send, fileName).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    override fun sharePicture(fileName: String, width: Int, height: Int, argb: IntArray) {
+        val bitmap = android.graphics.Bitmap.createBitmap(argb, width, height, android.graphics.Bitmap.Config.ARGB_8888)
+        val out = java.io.ByteArrayOutputStream()
+        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+        bitmap.recycle()
+        shareFile(fileName, "image/png", out.toByteArray())
+    }
+
+    /** MainActivity sets this to show the system's file picker. */
+    var pickFile: (() -> Unit)? = null
+    private var onOpened: ((String, ByteArray) -> Unit)? = null
+
+    override fun openFile(onOpened: (name: String, bytes: ByteArray) -> Unit) {
+        this.onOpened = onOpened
+        pickFile?.invoke()
+    }
+
+    /** MainActivity calls this with the file picked, if any. */
+    fun picked(uri: android.net.Uri?) {
+        val call = onOpened ?: return
+        onOpened = null
+        if (uri == null) return
+        val resolver = context.contentResolver
+        val bytes = runCatching { resolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull() ?: return
+        var name = "town"
+        runCatching {
+            resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                if (c.moveToFirst()) name = c.getString(0).removeSuffix(EXT)
+            }
+        }
+        call(name, bytes)
     }
 
     override fun onHidden(action: () -> Unit) {

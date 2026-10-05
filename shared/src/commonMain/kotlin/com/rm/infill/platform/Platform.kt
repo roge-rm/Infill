@@ -29,6 +29,15 @@ interface Platform {
     /** Whether the keys for looking at seasons, hours, weather and fires work: only in a debug build. */
     val devKeys: Boolean get() = false
 
+    /** Hands [bytes] to whatever the player picks to send or keep them with, as a file called [fileName]. */
+    fun shareFile(fileName: String, mime: String, bytes: ByteArray)
+
+    /** Asks the player for a file to open; [onOpened] gets its name and what's in it, if they pick one. */
+    fun openFile(onOpened: (name: String, bytes: ByteArray) -> Unit)
+
+    /** Shares a picture [width] by [height] pixels, [argb] row by row, as a PNG called [fileName]. */
+    fun sharePicture(fileName: String, width: Int, height: Int, argb: IntArray)
+
     /** Called when the app goes into the background or the page is hidden. */
     fun onHidden(action: () -> Unit)
 
