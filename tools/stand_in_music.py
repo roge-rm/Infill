@@ -1,4 +1,4 @@
-"""Stand-in music, until Dan's own pieces are written: two for each era, in
+"""Stand-in music, until Dan's own pieces are written: four for each era, in
 music/ as FLAC, named the way his will be (township-1.flac and so on).
 
 Each is a short, simple tune in the manner of its years: parlour piano and a
@@ -6,11 +6,14 @@ music-hall waltz, hot jazz and a slow blues, a lounge and a bossa, funk and
 synth pop, chill electronic, and slow pads for the future. They're only there
 so the game has something to play in every era.
 
-    cd tools && uv run --with numpy stand_in_music.py
+    cd tools && uv run --with numpy stand_in_music.py [names...]
+
+With names (township-3 and so on), only those are made.
 """
 
 import os
 import subprocess
+import sys
 import wave
 
 import numpy as np
@@ -183,7 +186,7 @@ SCALES = {
 
 # Chords as offsets from the key's root.
 CHORDS = {
-    "I": [0, 4, 7], "I7": [0, 4, 7, 10], "Imaj7": [0, 4, 7, 11], "ii": [2, 5, 9], "ii7": [2, 5, 9, 12],
+    "I": [0, 4, 7], "I6": [0, 4, 7, 9], "I7": [0, 4, 7, 10], "III7": [4, 8, 11, 14], "bIII": [3, 7, 10], "Imaj7": [0, 4, 7, 11], "ii": [2, 5, 9], "ii7": [2, 5, 9, 12],
     "iii7": [4, 7, 11, 14], "IV": [5, 9, 12], "IV7": [5, 9, 12, 15], "IVmaj7": [5, 9, 12, 16], "iv": [5, 8, 12],
     "V": [7, 11, 14], "V7": [7, 11, 14, 17], "vi": [9, 12, 16], "vi7": [9, 12, 16, 19], "VI7": [9, 13, 16, 19],
     "II7": [2, 6, 9, 12], "i": [0, 3, 7], "i7": [0, 3, 7, 10], "iv7": [5, 8, 12, 15], "bVI": [8, 12, 15],
@@ -229,7 +232,17 @@ def melody(rng, key, scale, chords, bars, beats, rhythms, low, high):
     return out
 
 
-def render(name, tempo, key, scale, chords, beats=4, swing=0.0, lead=piano, comp=piano, comp_style="stride",
+def render(name, *args, **kwargs):
+    """Renders [name] unless names were given on the command line and it isn't one of them."""
+    if ONLY and name not in ONLY:
+        return
+    render_piece(name, *args, **kwargs)
+
+
+ONLY = set(sys.argv[1:])
+
+
+def render_piece(name, tempo, key, scale, chords, beats=4, swing=0.0, lead=piano, comp=piano, comp_style="stride",
            bass_style="roots", drums=None, lead_range=(64, 84), rhythms=None, pad_under=False, seed=1, repeats=2,
            lead_gain=1.0, comp_gain=0.6, reverb=0.25):
     rng = np.random.default_rng(seed)
@@ -393,6 +406,37 @@ def main():
            lead_range=(69, 93), rhythms=[[2, 2], [4], [1, 1, 2], [3, 1]], seed=61, comp_gain=1.2, lead_gain=0.8, reverb=0.6)
     render("future-2", 96, 64, "minor", ["i7", "bVI", "bIImaj7", "i7"], lead=bell, comp=pluck, comp_style="arp", bass_style="eighths", drums="soft",
            pad_under=True, lead_range=(64, 88), seed=62, comp_gain=0.3, lead_gain=0.6, reverb=0.5)
+
+    # More for each era, so a long game hears more than two.
+    # 1900s: a parlour ballad on the piano, and a slow hymn on the organ.
+    render("township-3", 84, 62, "major", ["I", "vi", "ii7", "V7", "I", "IV", "V7", "I"], comp_style="stride", seed=13, repeats=2)
+    render("township-4", 72, 60, "major", ["I", "IV", "I", "V", "vi", "IV", "V7", "I"], lead=organ, comp=organ, comp_style="sustain",
+           lead_range=(60, 76), rhythms=[[2, 2], [1, 1, 2], [4], [3, 1]], seed=14, comp_gain=0.4, reverb=0.4)
+    # 1910s to the 30s: a ragtime two-step, and a sweet dance-band waltz.
+    render("streetcar-3", 112, 63, "major", ["I", "I", "III7", "III7", "VI7", "II7", "V7", "I"], lead=piano, comp_style="stride", bass_style="roots",
+           lead_range=(67, 87), seed=23)
+    render("streetcar-4", 126, 58, "major", ["I", "I6", "ii7", "V7", "V7", "ii7", "V7", "I"], beats=3, swing=0.0, lead=clarinet, comp_style="waltz",
+           drums="brushes", lead_range=(62, 80), seed=24)
+    # The 40s to the 60s: big-band swing, and a slow organ-trio blues.
+    render("motor-3", 152, 65, "major", ["Imaj7", "vi7", "ii7", "V7", "iii7", "VI7", "ii7", "V7"], swing=0.33, lead=clarinet, comp=piano,
+           comp_style="offbeats", bass_style="walk", drums="brushes", lead_range=(62, 84), seed=33)
+    render("motor-4", 84, 60, "blues", ["I7", "IV7", "I7", "I7", "IV7", "IV7", "I7", "I7", "V7", "IV7", "I7", "V7"], swing=0.33, lead=organ,
+           comp=organ, comp_style="sustain", bass_style="walk", drums="brushes", lead_range=(60, 79), seed=34, comp_gain=0.35)
+    # The 70s to the 90s: disco strings, and a slow synth ballad.
+    render("renewal-3", 120, 62, "minor", ["i7", "iv7", "bVII", "bIII"], lead=saw_lead, comp=epiano, comp_style="offbeats", bass_style="eighths",
+           drums="machine", lead_range=(62, 82), seed=43, comp_gain=0.4, lead_gain=0.7)
+    render("renewal-4", 80, 64, "major", ["I", "V", "vi", "IV"], lead=epiano, comp=pad, comp_style="sustain", bass_style="roots", drums="soft",
+           lead_range=(64, 84), seed=44, comp_gain=0.8)
+    # 2000 to 2030: downtempo with a walking bass, and an acoustic-feeling pluck.
+    render("infill-3", 92, 57, "dorian", ["i7", "IV7", "i7", "v7"], lead=vibes, comp=epiano, comp_style="offbeats", bass_style="walk", drums="soft",
+           lead_range=(64, 84), seed=53, comp_gain=0.35)
+    render("infill-4", 112, 67, "major", ["I", "V", "vi", "IV", "I", "V", "IV", "IV"], lead=pluck, comp=piano, comp_style="arp", bass_style="roots",
+           drums="soft", lead_range=(67, 88), seed=54, comp_gain=0.3, lead_gain=0.8)
+    # 2030 on: drifting bells over long chords, and a bright pulse.
+    render("future-3", 60, 65, "lydian", ["Imaj7", "IVmaj7", "Imaj7", "II"], lead=pad, comp=bell, comp_style="arp", bass_style="roots",
+           lead_range=(65, 86), rhythms=[[4], [2, 2], [3, 1]], seed=63, comp_gain=0.25, lead_gain=0.9, reverb=0.7)
+    render("future-4", 108, 62, "major", ["Imaj7", "iii7", "vi7", "IVmaj7"], lead=bell, comp=pluck, comp_style="arp", bass_style="eighths",
+           drums="machine", pad_under=True, lead_range=(69, 90), seed=64, comp_gain=0.3, lead_gain=0.6, reverb=0.45)
 
 
 if __name__ == "__main__":
