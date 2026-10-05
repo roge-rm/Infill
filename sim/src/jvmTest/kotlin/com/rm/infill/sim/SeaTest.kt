@@ -37,6 +37,40 @@ class SeaTest {
         assertTrue(land(Sea.ISLAND).edges().all { it >= 75 }, "${land(Sea.ISLAND).edges()}")
     }
 
+    @Test
+    fun aCoastTakesExactlyTheSidesChosen() {
+        // Every mix of sides, opposite ones too; with a river, which runs out to one of them.
+        for (mask in 1..SeaSide.ALL) for (river in listOf(false, true)) {
+            val m = CityMap(128, 128).also { TerrainGen.generate(it, 21, TerrainOptions(water = if (river) 30 else 0, trees = 30, river = river, sea = Sea.COAST, seaSides = mask)) }
+            val e = m.edges()
+            for (side in 0 until 4) {
+                val chosen = mask and (1 shl side) != 0
+                if (chosen) assertTrue(e[side] >= 75, "sides $mask: side $side is ${e[side]}% sea")
+                else if (!river) {
+                    // Along a side not chosen, what's half the map or more from every side chosen is land.
+                    val n = m.width
+                    val wet = (0 until n).count { k ->
+                        val (x, y) = when (side) { 0 -> 0 to k; 1 -> k to 0; 2 -> n - 1 to k; else -> k to n - 1 }
+                        val far = SeaSide.list(mask).all { c -> when (c) { 0 -> x; 1 -> y; 2 -> n - 1 - x; else -> n - 1 - y } >= n / 2 }
+                        far && m.wet(x, y)
+                    }
+                    assertEquals(0, wet, "sides $mask: side $side has sea far from the sides chosen")
+                }
+            }
+        }
+        // None chosen is no sea at all.
+        val none = CityMap(128, 128).also { TerrainGen.generate(it, 21, TerrainOptions(water = 0, trees = 30, river = false, sea = Sea.COAST, seaSides = 0)) }
+        assertTrue(none.terrain.none { it == Terrain.WATER })
+    }
+
+    @Test
+    fun aRegionKeepsItsCoast() {
+        val r = Region("Shore", 8, TerrainOptions(sea = Sea.COAST, seaSides = SeaSide.NORTH or SeaSide.WEST), 2, 64)
+        val back = Region.read(r.write())
+        assertEquals(Sea.COAST, back.land.sea)
+        assertEquals(SeaSide.NORTH or SeaSide.WEST, back.land.seaSides)
+    }
+
     /** The share of land in each of [squares] by [squares] squares of [m], in percent. */
     private fun shares(m: CityMap, squares: Int): List<Int> {
         val side = m.width / squares

@@ -204,6 +204,10 @@ import com.rm.infill.ui.LineDraftBar
 import com.rm.infill.ui.JunctionKind
 import com.rm.infill.ui.junctionKindsIn
 import com.rm.infill.ui.PeopleWindow
+import com.rm.infill.ui.guideDone
+import com.rm.infill.ui.GuideStep
+import com.rm.infill.ui.GuideSeen
+import com.rm.infill.ui.GuideCard
 import com.rm.infill.ui.OpinionWindow
 import com.rm.infill.ui.DemandWindow
 import com.rm.infill.ui.EraWindow
@@ -541,6 +545,9 @@ private fun Screens(settings: Settings) {
         screen = Screen.Game
     }
 
+    // For work the screens start that outlives a tap, such as reading a challenge's town.
+    val appScope = rememberCoroutineScope()
+
     fun load(file: String) {
         val bytes = platform.readSave(file)
         val city = try {
@@ -597,15 +604,32 @@ private fun Screens(settings: Settings) {
             onSettings = { settingsOpen = true },
         )
         Screen.New -> NewCityScreen(
-            onStart = { name, seed, options, grid, side ->
+            firstTown = remember { platform.saves().isEmpty() },
+            onStart = { name, seed, options, grid, side, guide ->
                 if (grid > 0) {
                     val file = "region-" + saveFileName(name)
                     platform.writeSave(file, Region(name, seed, options, grid, side).write())
                     savesChanged++
                     openRegion(file)
                 } else {
-                    game = GameState(City(seed, side, side, options).also { it.name = name })
+                    game = GameState(City(seed, side, side, options).also { it.name = name; if (guide) it.guide = 0 })
                     screen = Screen.Game
+                }
+            },
+            onChallenge = { ch ->
+                appScope.launch {
+                    val city = try {
+                        SaveGame.read(Res.readBytes("files/challenges/${ch.id}.infill"))
+                    } catch (e: Exception) {
+                        null
+                    }
+                    if (city == null) notice.value = Message(Res.string.load_failed)
+                    else {
+                        city.challenge = ch
+                        city.challengeStart = city.monthNow
+                        game = GameState(city)
+                        screen = Screen.Game
+                    }
                 }
             },
             onBack = { screen = if (game != null) Screen.Game else Screen.Start },
@@ -759,6 +783,9 @@ private fun GameScreen(
         var graphsOpen by remember { mutableStateOf(false) }
         var peopleOpen by remember { mutableStateOf(false) }
         var opinionOpen by remember { mutableStateOf(false) }
+        // Whether the budget's been opened since the town was opened, for the guide.
+        var budgetSeen by remember { mutableStateOf(false) }
+        LaunchedEffect(budgetOpen) { if (budgetOpen) budgetSeen = true }
         var demandOpen by remember { mutableStateOf(false) }
         var eraShown by remember { mutableStateOf<Era?>(null) }
         var paused by remember { mutableStateOf(true) }
@@ -815,6 +842,11 @@ private fun GameScreen(
         /** Tells of what's happened: a message, or a new era, which stops the clock. */
         fun showEvent(e: CityEvent) {
             Sounds.event(e.kind)
+            // A challenge met, or its time out: the era card says how it went.
+            if (e.kind == EventKind.ChallengeWon || e.kind == EventKind.ChallengeLost) {
+                eraShown = city.era
+                paused = true
+            }
             if (e.kind == EventKind.EraArrived) {
                 // A new era stops the clock and says what it brings.
                 eraShown = e.era
@@ -1403,8 +1435,17 @@ private fun GameScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 game.revision
+                // The guided first town, a step at a time; each step ticks off when the town shows it.
+                if (city.guide >= 0) {
+                    val step = GuideStep.entries.getOrElse(city.guide) { GuideStep.DONE }
+                    val seen = GuideSeen(!paused, budgetSeen)
+                    LaunchedEffect(step, game.revision, paused, budgetSeen) {
+                        if (game.tryLocked { guideDone(step, city, seen) } == true) game.setGuide(step.ordinal + 1)
+                    }
+                    GuideCard(step) { game.setGuide(-1) }
+                }
                 // A new town waits, paused, until play is pressed; this says so, and starts it.
-                if (paused && city.stats.population == 0) {
+                if (paused && city.stats.population == 0 && city.guide < 0) {
                     MessageChip(stringResource(Res.string.paused_hint), { paused = false }, clickLabel = stringResource(Res.string.play))
                 }
                 // No way in shows the moment it's so and goes the moment a road's out, without waiting for the month to end.

@@ -352,6 +352,8 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
         // Since version 2: the grid and the size of a town; since 3, the sea.
         w.int(size); w.int(side)
         w.int(land.sea.ordinal)
+        // Since version 8: the sides chosen for the sea.
+        w.int(land.seaSides)
         for (t in towns) {
             w.bool(t != null)
             if (t == null) continue
@@ -377,7 +379,7 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
         val SIDES = listOf(64, 96, 128, 192, 256)
 
         private const val MAGIC = 0x494E5247 // "INRG"
-        private const val VERSION = 7
+        private const val VERSION = 8
 
         fun read(bytes: ByteArray): Region {
             val r = SaveReader(bytes)
@@ -392,7 +394,8 @@ class Region(val name: String, val seed: Long, val land: TerrainOptions, val siz
                 val side = if (version >= 2) r.int() else City.DEFAULT_SIZE
                 val sea = if (version >= 3) Sea.entries.getOrElse(r.int()) { Sea.NONE } else Sea.NONE
                 if (grid !in GRIDS || side !in SIDES) throw SaveError("a region of a size it can't be")
-                val region = Region(name, seed, land.copy(sea = sea), grid, side)
+                val sides = if (version >= 8) r.int() else 0
+                val region = Region(name, seed, land.copy(sea = sea, seaSides = sides), grid, side)
                 for (k in region.towns.indices) {
                     if (!r.bool()) continue
                     val townName = r.string(); val file = r.string(); val year = r.int(); val month = r.int(); val people = r.int()

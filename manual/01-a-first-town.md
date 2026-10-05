@@ -7,9 +7,19 @@ Infill starts in January 1900 with $20,000 and an empty piece of land. You lay t
 
 ## Starting
 
-On the first screen, **New city** makes a new town. Pick a name, a map number and the land: how big a town is, whether there's sea, the climate, how much water and woods, a river, and whether it gets earthquakes. The preview shows the land as you change it. **Start** opens the town, paused.
+On the first screen, **New city** makes a new town. Pick a name, a map number and the land: how big a town is, the sea, the climate, how much water and woods, a river, and whether it gets earthquakes. For a **Coast**, pick which sides are sea: any of north, east, south and west. The preview shows the land as you change it. **Show me how to start** walks you through your first town a step at a time; it's on for your first. **Start** opens the town, paused.
 
 **A region of towns** makes a set of towns side by side on one piece of land instead. See the Regions section.
+
+**A challenge** starts a town already under way, with goals to meet by a year:
+
+- **The streetcar suburb**: a township of 1905 to make into a streetcar town on mains water.
+- **The river rises**: a river town of 1925 that floods, to keep dry without losing its people.
+- **Into the red**: a town of 1950 deep in debt with the overseer at the books.
+- **Renewal**: a jammed, unhappy town of 1970 to get moving and win back.
+- **Green city**: a car town of 2005 to get half its trips out of cars.
+
+The era card shows the challenge's goals and how each stands. Meet them all in time and it says so. Either way the town plays on.
 
 ## The first streets
 

@@ -7,15 +7,32 @@ import kotlin.math.sqrt
 /**
  * How much of a new map is water and woods, from 0 to 100, whether a river
  * runs across it, whether it has earthquakes, and its [climate], which has
- * more woods or fewer.
+ * more woods or fewer. With [Sea.COAST], [seaSides] says which sides are sea,
+ * by [SeaSide] bits.
  */
 data class TerrainOptions(
     val water: Int = 30, val trees: Int = 40, val river: Boolean = true, val quakes: Boolean = false, val climate: Climate = Climate.TEMPERATE,
-    val sea: Sea = Sea.NONE,
+    val sea: Sea = Sea.NONE, val seaSides: Int = 0,
 )
 
-/** Where the sea is: none, along one, two or three sides, round one island, or among several. */
-enum class Sea { NONE, ONE_SIDE, TWO_SIDES, THREE_SIDES, ISLAND, ISLANDS }
+/**
+ * Where the sea is: none, along one, two or three sides picked by the map
+ * number (from before the sides could be chosen), round one island, among
+ * several, or along the sides chosen.
+ */
+enum class Sea { NONE, ONE_SIDE, TWO_SIDES, THREE_SIDES, ISLAND, ISLANDS, COAST }
+
+/** The sides of the map, as bits for [TerrainOptions.seaSides], in the order the sea works in: west, north, east, south. */
+object SeaSide {
+    const val WEST = 1
+    const val NORTH = 2
+    const val EAST = 4
+    const val SOUTH = 8
+    const val ALL = 15
+
+    /** The sides in [mask], as 0 west to 3 south. */
+    fun list(mask: Int): List<Int> = (0 until 4).filter { mask and (1 shl it) != 0 }
+}
 
 /**
  * Makes the land for a new city: lakes where a noise field is lowest, a river
@@ -38,10 +55,11 @@ object TerrainGen {
         val lakeLine = percentile(lakes, lakeShare)
         for (i in 0 until map.size) if (lakeShare > 0 && lakes[i] < lakeLine) t[i] = Terrain.WATER
 
-        val sea = if (options.sea != Sea.NONE) sea(map, seed, options.sea, squares) else null
+        val coast = options.sea == Sea.COAST && options.seaSides and SeaSide.ALL != 0
+        val sea = if (options.sea != Sea.NONE && (options.sea != Sea.COAST || coast)) sea(map, seed, options.sea, squares, options.seaSides) else null
         val before = t.copyOf()
         if (options.river && options.water > 0) {
-            if (sea != null) riverToSea(map, rng, 1 + options.water / 30, seed, options.sea, squares, sea)
+            if (sea != null) riverToSea(map, rng, 1 + options.water / 30, seed, options.sea, squares, sea, options.seaSides)
             else river(map, rng, 1 + options.water / 30)
         }
         tidy(map)
@@ -136,7 +154,7 @@ object TerrainGen {
      * sides goes by the map's number. Returns which tiles it made sea. Its own
      * random numbers, so a map without sea is as it was.
      */
-    private fun sea(map: CityMap, seed: Long, sea: Sea, squares: Int): BooleanArray {
+    private fun sea(map: CityMap, seed: Long, sea: Sea, squares: Int, chosen: Int = 0): BooleanArray {
         val rng = Rng(seed xor SEA_SALT)
         val first = rng.nextInt(4)
         val shapeSeed = rng.nextLong().toInt()
@@ -150,6 +168,7 @@ object TerrainGen {
             Sea.TWO_SIDES -> listOf(first, (first + 1) % 4)
             Sea.THREE_SIDES -> listOf(first, (first + 1) % 4, (first + 2) % 4)
             Sea.ISLAND -> listOf(0, 1, 2, 3)
+            Sea.COAST -> SeaSide.list(chosen)
             else -> emptyList()
         }
         // How far the sea comes in, in squares: as far as leaves the square that has it on the most sides half land.
@@ -159,6 +178,7 @@ object TerrainGen {
             sea == Sea.ONE_SIDE -> 0.3f
             sea == Sea.TWO_SIDES -> 0.24f
             sea == Sea.THREE_SIDES -> 0.17f
+            sea == Sea.COAST -> DEPTHS[sides.size.coerceIn(1, 4) - 1]
             else -> 0.12f
         }
         // Islands: a grid of them, one to a square, or four on a town by itself.
@@ -321,7 +341,7 @@ object TerrainGen {
      * that's sea, or for an island from its middle out to its shore. The sea's
      * sides are worked out as [sea] did, from the same numbers.
      */
-    private fun riverToSea(map: CityMap, rng: Rng, halfWidth: Int, seed: Long, sea: Sea, squares: Int, wet: BooleanArray) {
+    private fun riverToSea(map: CityMap, rng: Rng, halfWidth: Int, seed: Long, sea: Sea, squares: Int, wet: BooleanArray, chosen: Int = 0) {
         val first = Rng(seed xor SEA_SALT).nextInt(4)
         val w = map.width
         val h = map.height
@@ -330,6 +350,12 @@ object TerrainGen {
             Sea.ONE_SIDE -> (first + 2) % 4 to first
             Sea.TWO_SIDES -> (first + 2) % 4 to first
             Sea.THREE_SIDES -> (first + 3) % 4 to (first + 1) % 4
+            // Out to a side that's sea, from the side across from it if that's land, or from inland.
+            Sea.COAST -> {
+                val sides = SeaSide.list(chosen)
+                val to = sides.firstOrNull { it == first } ?: sides[first % sides.size]
+                (if ((to + 2) % 4 in sides) -1 else (to + 2) % 4) to to
+            }
             else -> -1 to first
         }
         // Along the way it goes, a step at a time.
@@ -526,6 +552,8 @@ object TerrainGen {
      * sea on two sides keeps 0.73 × 0.73 of itself), and round each island.
      */
     private const val SIDE_DEPTH = 0.27f
+    /** How far the sea comes in on a coast of one to four sides chosen, in town squares. */
+    private val DEPTHS = floatArrayOf(0.3f, 0.24f, 0.17f, 0.12f)
     private const val ISLANDS_DEPTH = 0.13f
 
     /** How far in from the edge of an island map the land starts to shelve off into the sea, in squares. */

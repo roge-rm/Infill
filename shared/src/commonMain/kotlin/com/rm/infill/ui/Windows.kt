@@ -1131,6 +1131,7 @@ fun EraWindow(game: GameState, era: Era, onChronicle: () -> Unit, onClose: () ->
     val city = game.city
     Window(eraName(era), onClose, Glyph.Calendar, help = "eras") {
         Text(stringResource(eraLine(era)), color = c.text, fontSize = 15.sp)
+        if (era == city.era) ChallengeSection(city)
         // The town as the era began, beside how it was when the one before it did.
         val shots = city.snapshots
         val now = shots.lastOrNull { it.era == era }

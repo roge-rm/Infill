@@ -19,6 +19,61 @@ class City(
     /** Blank when [terrain] is null, for a city being loaded. */
     val map = CityMap(width, height).also { if (terrain != null) TerrainGen.generate(it, seed, terrain) }
 
+    /** The challenge this town is playing, if any, and how it stands. */
+    var challenge: Challenge? = null
+    var challengeResult = ChallengeResult.GOING
+        private set
+
+    /** Where a challenge goal stands now: what the town has against it. */
+    fun challengeHave(g: ChallengeGoal): Int {
+        val s = stats
+        return when (g.measure) {
+            ChallengeMeasure.POPULATION -> s.population
+            ChallengeMeasure.ON_MAINS -> s.onMains
+            ChallengeMeasure.NO_FLOODS -> if (floodsLastYear == 0 && monthNow - challengeStart >= 12) 1 else 0
+            ChallengeMeasure.OUT_OF_DEBT -> if (funds >= 0 && !overseen) 1 else 0
+            ChallengeMeasure.APPROVAL -> approval
+            ChallengeMeasure.FLOW -> s.flow
+            ChallengeMeasure.GREEN_TRIPS -> s.greenTrips
+            ChallengeMeasure.CRIME -> homeCrime()
+        }
+    }
+
+    /** Crime where people live: the average over the tiles zoned for homes, 0 to 255. */
+    fun homeCrime(): Int {
+        var sum = 0L
+        var n = 0
+        for (i in 0 until map.size) {
+            if (map.zone[i] != Zone.RESIDENTIAL && map.zone[i] != Zone.MIXED) continue
+            sum += map.crime[i].toInt() and 0xff
+            n++
+        }
+        return if (n == 0) 0 else (sum / n).toInt()
+    }
+
+    /** Whether a challenge goal is met now. */
+    fun challengeMet(g: ChallengeGoal): Boolean =
+        if (g.measure == ChallengeMeasure.CRIME) challengeHave(g) <= g.need else challengeHave(g) >= g.need
+
+    /** The month the challenge began, for goals that ask for a whole year. */
+    var challengeStart = 0
+
+    /** Each month, while a challenge is going: won once every goal is met, lost once its last year is out. */
+    private fun challengeMonth() {
+        val c = challenge ?: return
+        if (challengeResult != ChallengeResult.GOING) return
+        if (c.goals.all { challengeMet(it) }) {
+            challengeResult = ChallengeResult.WON
+            events += CityEvent(EventKind.ChallengeWon, -1, -1, null, count = c.ordinal)
+        } else if (year > c.until) {
+            challengeResult = ChallengeResult.LOST
+            events += CityEvent(EventKind.ChallengeLost, -1, -1, null, count = c.ordinal)
+        }
+    }
+
+    /** How far a new player is through the guided first town, a step number; -1 when it's not showing. */
+    var guide = -1
+
     /** What the player calls the town; one made from the seed until it's given one. */
     var name = TownNames.make(seed)
 
@@ -2022,6 +2077,7 @@ class City(
         money()
         between()
         opinion()
+        challengeMonth()
         between()
         carbon()
         between()
@@ -8703,6 +8759,9 @@ class City(
         val seams = buildings.values.filter { it.type == BuildingType.MINE || it.type == BuildingType.COLLIERY || it.type == BuildingType.OIL_WELL }
         w.count(seams.size)
         for (b in seams) { w.int(b.id); w.int(b.fill) }
+        // Since version 45: the guided first town's step, and the challenge.
+        w.int(guide)
+        w.string(challenge?.id ?: ""); w.int(challengeResult.ordinal); w.int(challengeStart)
     }
 
     companion object {
@@ -9066,6 +9125,12 @@ class City(
                             c.epidemicKind = Disease.entries[r.int()]
                             c.drought = r.int(); c.droughtTold = r.bool()
                             repeat(r.count()) { val id = r.int(); val worked = r.int(); c.buildings[id]?.fill = worked }
+                            if (version >= 45) {
+                                c.guide = r.int()
+                                c.challenge = Challenge.of(r.string())
+                                c.challengeResult = ChallengeResult.entries[r.int()]
+                                c.challengeStart = r.int()
+                            }
                         }
                     }
                 } else {
@@ -9420,7 +9485,7 @@ class TrainRoute(val tiles: IntArray, val passengers: Boolean, val load: Int, va
 }
 
 
-enum class EventKind { FirstBuilt, Milestone, OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut, MedicalAdvance, Drought, StormSurge, WorkedOut, Protest, Petition, PetitionMet, PetitionLapsed, GrantOffered, GrantPaid, GrantLapsed, ElectionWon, ElectionLost }
+enum class EventKind { FirstBuilt, Milestone, OverseerIn, OverseerOut, RatingDown, RatingUp, OrdinanceEnded, OrdinanceAvailable, ForcedOut, JobsLost, FireStarted, FireSaved, FireDamaged, BuildingLost, Flooding, RiverFlood, Sickness, EraArrived, Smog, DumpFull, Gale, Blizzard, HeatWave, IndustrialAccident, NuclearAccident, Earthquake, Epidemic, EpidemicOver, MainBurst, SewerCollapsed, TrackBroken, BrokeDown, TramTrackBroken, WireDown, TunnelShut, TunnelFlooded, BridgeShut, MedicalAdvance, Drought, StormSurge, WorkedOut, ChallengeWon, ChallengeLost, Protest, Petition, PetitionMet, PetitionLapsed, GrantOffered, GrantPaid, GrantLapsed, ElectionWon, ElectionLost }
 
 /** Something that happened, kept in the town's chronicle: [event] in [year] and [month] (0 is January). */
 class Story(val year: Int, val month: Int, val event: CityEvent)

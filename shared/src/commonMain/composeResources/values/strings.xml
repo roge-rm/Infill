@@ -563,6 +563,11 @@
     <string name="sea_three_sides">Three sides</string>
     <string name="sea_island">An island</string>
     <string name="sea_islands">Islands</string>
+    <string name="sea_coast">Coast</string>
+    <string name="side_north">North</string>
+    <string name="side_east">East</string>
+    <string name="side_south">South</string>
+    <string name="side_west">West</string>
     <string name="tiles_a_side">%1$d tiles</string>
     <string name="region_grid">Towns in the region</string>
     <string name="grid_of">%1$d by %2$d</string>
@@ -1497,6 +1502,43 @@
     <string name="sheltered">In shelters</string>
     <string name="priced_out">Priced out</string>
     <string name="advice_rough_sleepers">People are sleeping rough: build a shelter</string>
+    <!-- The guided first town -->
+    <string name="show_me_how">Show me how to start</string>
+    <string name="guide_step">Step %1$d of %2$d</string>
+    <string name="guide_road">Tap Transport, then Road, and drag a street in from the edge of the map. Choose Link it when it asks.</string>
+    <string name="guide_homes">Tap Zones, pick Residential, and drag homes along the street.</string>
+    <string name="guide_work">Zone some Commercial and some Industrial too, for jobs.</string>
+    <string name="guide_play">Press play at the top.</string>
+    <string name="guide_first_homes">Wait for the first homes to go up. Speed it up with the arrows beside play.</string>
+    <string name="guide_power">Under Utilities, build a Coal power station and drag a Power line from it to the zones.</string>
+    <string name="guide_budget">Tap the money at the top to see the budget.</string>
+    <string name="guide_done">That's the start. The line under the strip says what the town needs next, and Help in the menu has the rest.</string>
+    <!-- Challenges -->
+    <string name="kind_challenge">A challenge</string>
+    <string name="challenge">Challenge</string>
+    <string name="challenge_by">By the end of %1$d</string>
+    <string name="challenge_won">Met. The town's yours to carry on with.</string>
+    <string name="challenge_lost">Not met by the end of %1$d. Carry on as you like.</string>
+    <string name="event_challenge_won">Challenge met: %1$s</string>
+    <string name="event_challenge_lost">Challenge not met in time: %1$s</string>
+    <string name="challenge_streetcar_suburb">The streetcar suburb</string>
+    <string name="challenge_streetcar_suburb_line">A township of 1905 on wells and dirt roads. Make it a streetcar town.</string>
+    <string name="challenge_river_rises">The river rises</string>
+    <string name="challenge_river_rises_line">A river town of 1925 that floods every spring. Keep the water out without losing its people.</string>
+    <string name="challenge_into_the_red">Into the red</string>
+    <string name="challenge_into_the_red_line">A town of 1950 so deep in debt the overseer has the books. Get them back.</string>
+    <string name="challenge_renewal">Renewal</string>
+    <string name="challenge_renewal_line">A jammed, unhappy town of 1970 with taxes too high. Get it moving and win its people back.</string>
+    <string name="challenge_green_city">Green city</string>
+    <string name="challenge_green_city_line">A car town of 2005. Get half its trips out of cars and keep people on side.</string>
+    <string name="cgoal_population">%1$s people</string>
+    <string name="cgoal_on_mains">%1$d% of people on mains water</string>
+    <string name="cgoal_no_floods">A whole year with no flood</string>
+    <string name="cgoal_out_of_debt">Out of debt, and the overseer gone</string>
+    <string name="cgoal_approval">Approval of %1$d% or more</string>
+    <string name="cgoal_flow">Traffic flowing at %1$d% or better</string>
+    <string name="cgoal_green_trips">%1$d% of trips made other than by car</string>
+    <string name="cgoal_crime">Crime among homes no more than %1$s</string>
     <string name="town_after_pattern">%1$s %2$s</string>
     <string name="town_before_pattern">%1$s %2$s</string>
 </resources>

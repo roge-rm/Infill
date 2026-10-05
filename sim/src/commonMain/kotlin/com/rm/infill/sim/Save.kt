@@ -11,7 +11,7 @@ class SaveError(message: String) : Exception(message)
  * map's copy of each building) is worked out again on loading.
  */
 object SaveGame {
-    const val VERSION = 44
+    const val VERSION = 45
     private const val MAGIC = 0x494E464C // "INFL"
 
     fun write(city: City): ByteArray {

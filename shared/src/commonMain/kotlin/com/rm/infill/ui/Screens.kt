@@ -26,6 +26,7 @@ import com.rm.infill.res.app_icon
 import org.jetbrains.compose.resources.painterResource
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -194,7 +195,12 @@ fun summaryLine(s: SaveSummary): String {
  * much water and woods, and a river or not, with a picture of it.
  */
 @Composable
-fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions, grid: Int, side: Int) -> Unit, onBack: () -> Unit) {
+fun NewCityScreen(
+    firstTown: Boolean,
+    onStart: (name: String, seed: Long, options: TerrainOptions, grid: Int, side: Int, guide: Boolean) -> Unit,
+    onChallenge: (com.rm.infill.sim.Challenge) -> Unit,
+    onBack: () -> Unit,
+) {
     val c = Infill.colors
     var region by remember { mutableStateOf(false) }
     // A town's size in tiles a side, and for a region how many towns across.
@@ -211,21 +217,33 @@ fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions, g
     var quakes by remember { mutableStateOf(false) }
     var climate by remember { mutableStateOf(Climate.TEMPERATE) }
     var sea by remember { mutableStateOf(com.rm.infill.sim.Sea.NONE) }
+    // The sides a coast runs along, as SeaSide bits: the east to start with.
+    var seaSides by remember { mutableStateOf(com.rm.infill.sim.SeaSide.EAST) }
     var preview by remember { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(seed, water, trees, river, climate, region, side, grid, sea) {
+    var guide by remember { mutableStateOf(firstTown) }
+    var challenge by remember { mutableStateOf(false) }
+    LaunchedEffect(seed, water, trees, river, climate, region, side, grid, sea, seaSides) {
         // A moment's wait, so holding a button doesn't make a map for every step.
         delay(120)
         val across = if (region) side * grid else side
         // Away from the screen, since the biggest region's land takes a moment.
         preview = withContext(Dispatchers.Default) {
             val m = CityMap(across, across)
-            TerrainGen.generate(m, seed, TerrainOptions(water, trees, river, climate = climate, sea = sea))
+            TerrainGen.generate(m, seed, TerrainOptions(water, trees, river, climate = climate, sea = sea, seaSides = seaSides))
             terrainImage(m)
         }
     }
     Page {
         Text(stringResource(Res.string.new_city), color = c.text, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
-        Chips(listOf(false, true), region, { stringResource(if (it) Res.string.kind_region else Res.string.kind_town) }) { region = it }
+        // A town, a region, or a challenge: a town already under way with goals to meet.
+        Chips(listOf(0, 1, 2), if (challenge) 2 else if (region) 1 else 0, {
+            stringResource(when (it) { 1 -> Res.string.kind_region; 2 -> Res.string.kind_challenge; else -> Res.string.kind_town })
+        }) { challenge = it == 2; region = it == 1 }
+        if (challenge) {
+            ChallengeList(onChallenge)
+            BigButton(stringResource(Res.string.back), onClick = onBack)
+            return@Page
+        }
         Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(c.button)) {
             preview?.let { Image(it, null, Modifier.fillMaxSize(), filterQuality = FilterQuality.None) }
             // A region's squares.
@@ -261,7 +279,28 @@ fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions, g
         }
         StepSlider(Res.string.town_size, com.rm.infill.sim.Region.SIDES, side, { stringResource(Res.string.tiles_a_side, it) }) { side = it }
         if (region) StepSlider(Res.string.region_grid, com.rm.infill.sim.Region.GRIDS, grid, { stringResource(Res.string.grid_of, it, it) }) { grid = it }
-        StepSlider(Res.string.sea, com.rm.infill.sim.Sea.entries, sea, { stringResource(seaName(it)) }) { sea = it }
+        StepSlider(Res.string.sea, SEA_CHOICES, sea, { stringResource(seaName(it)) }) { sea = it }
+        // Which sides the coast runs along, any of the four.
+        if (sea == com.rm.infill.sim.Sea.COAST) {
+            val sides = listOf(
+                com.rm.infill.sim.SeaSide.NORTH to Res.string.side_north, com.rm.infill.sim.SeaSide.EAST to Res.string.side_east,
+                com.rm.infill.sim.SeaSide.SOUTH to Res.string.side_south, com.rm.infill.sim.SeaSide.WEST to Res.string.side_west,
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((bit, label) in sides) {
+                    val on = seaSides and bit != 0
+                    Box(
+                        Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(if (on) c.accent else c.button)
+                            .semantics(mergeDescendants = true) {}
+                            .toggleable(value = on, role = Role.Switch) { seaSides = if (it) seaSides or bit else seaSides and bit.inv() }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(stringResource(label), color = if (on) c.onAccent else c.text, fontSize = 14.sp)
+                    }
+                }
+            }
+        }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(stringResource(Res.string.climate), color = c.text, fontSize = 15.sp)
             Chips(Climate.entries, climate, { stringResource(climateName(it)) }) { climate = it }
@@ -276,8 +315,12 @@ fun NewCityScreen(onStart: (name: String, seed: Long, options: TerrainOptions, g
             Text(stringResource(Res.string.earthquakes), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
             Chips(listOf(true, false), quakes, { stringResource(if (it) Res.string.yes else Res.string.no) }) { quakes = it }
         }
+        if (!region) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(Res.string.show_me_how), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            Chips(listOf(true, false), guide, { stringResource(if (it) Res.string.yes else Res.string.no) }) { guide = it }
+        }
         BigButton(stringResource(Res.string.start), primary = true) {
-            onStart(name.ifBlank { TownNames.make(seed) }, seed, TerrainOptions(water, trees, river, quakes, climate, sea), if (region) grid else 0, side)
+            onStart(name.ifBlank { TownNames.make(seed) }, seed, TerrainOptions(water, trees, river, quakes, climate, sea, seaSides), if (region) grid else 0, side, guide && !region)
         }
         BigButton(stringResource(Res.string.back), onClick = onBack)
     }
@@ -326,7 +369,11 @@ fun seaName(sea: com.rm.infill.sim.Sea) = when (sea) {
     com.rm.infill.sim.Sea.THREE_SIDES -> Res.string.sea_three_sides
     com.rm.infill.sim.Sea.ISLAND -> Res.string.sea_island
     com.rm.infill.sim.Sea.ISLANDS -> Res.string.sea_islands
+    com.rm.infill.sim.Sea.COAST -> Res.string.sea_coast
 }
+
+/** The sea choices for a new town: the sides of a coast are chosen beside it. */
+private val SEA_CHOICES = listOf(com.rm.infill.sim.Sea.NONE, com.rm.infill.sim.Sea.COAST, com.rm.infill.sim.Sea.ISLAND, com.rm.infill.sim.Sea.ISLANDS)
 
 /** A row of choices with the chosen one lit, wrapping when they don't fit. */
 @Composable
