@@ -93,14 +93,16 @@ private fun DrawScope.walker(at: Offset, t: Float, clothes: Color, hair: Color) 
     drawCircle(hair, max(0.8f, t * 0.026f), at)
 }
 
-/** A cyclist from above, [heading] degrees clockwise from east: the bicycle under them, and the rider. */
+/** A cyclist from above, [heading] degrees clockwise from east: the wheels ahead and behind, and the rider between. */
 private fun DrawScope.cyclist(at: Offset, t: Float, heading: Float, clothes: Color) {
     rotate(heading, at) {
-        val long = t * 0.2f
-        drawRect(FRAME, Offset(at.x - long / 2, at.y - t * 0.012f), Size(long, max(1f, t * 0.024f)))
-        drawRect(FRAME, Offset(at.x + long * 0.3f, at.y - t * 0.04f), Size(max(1f, t * 0.02f), t * 0.08f))
-        drawCircle(clothes, max(1.2f, t * 0.04f), Offset(at.x - long * 0.05f, at.y))
-        drawCircle(HAIR[0], max(0.8f, t * 0.022f), Offset(at.x + long * 0.05f, at.y))
+        val long = t * 0.26f
+        val thin = max(1f, t * 0.03f)
+        drawRect(FRAME, Offset(at.x - long / 2, at.y - thin / 2), Size(long, thin))
+        // Handlebars across the front.
+        drawRect(FRAME, Offset(at.x + long * 0.22f, at.y - t * 0.05f), Size(thin, t * 0.1f))
+        drawOval(clothes, Offset(at.x - t * 0.06f, at.y - t * 0.055f), Size(t * 0.1f, t * 0.11f))
+        drawCircle(HAIR[0], max(0.8f, t * 0.027f), Offset(at.x + t * 0.01f, at.y))
     }
 }
 
@@ -184,8 +186,8 @@ private const val WRAP = 4096
 private const val LINES = 1 shl 16
 
 /** At most so many on each way along a pavement of one tile, and one more for each so many who went by last month. */
-private const val MOST_WALKERS = 3
-private const val PER_WALKER = 250f
+private const val MOST_WALKERS = 2
+private const val PER_WALKER = 400f
 private const val MOST_CYCLISTS = 2
 private const val PER_CYCLIST = 150f
 
