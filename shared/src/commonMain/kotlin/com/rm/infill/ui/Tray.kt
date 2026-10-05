@@ -610,7 +610,7 @@ fun serviceChoices(city: City, group: ServiceGroup): List<Choice<ServiceKind>> =
 
 @Composable
 fun bulldozeChoices(): List<Choice<BulldozeKind>> = BulldozeKind.entries.map { k ->
-    Choice(k, stringResource(k.title), ChoiceIcon(glyph = when (k) { BulldozeKind.Renew -> Glyph.Renew; BulldozeKind.Tunnel -> Glyph.Tunnel; else -> Glyph.Bulldoze }))
+    Choice(k, stringResource(k.title), ChoiceIcon(glyph = when (k) { BulldozeKind.Renew -> Glyph.Renew; BulldozeKind.Tunnel -> Glyph.Tunnel; BulldozeKind.Fill -> Glyph.Mountain; BulldozeKind.Dig -> Glyph.Drop; else -> Glyph.Bulldoze }))
 }
 
 /** The kinds of zone, each priced at [density] or the nearest it may be given; rural land is cheaper to zone. */

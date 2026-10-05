@@ -615,6 +615,23 @@ class City(
                     cost += Prices.of(action.kind)
                 }
             }
+            is Action.FillWater -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
+                // Open water only: nothing on it, over it or under it.
+                if (m.terrain[i] == Terrain.WATER && m.road[i] == Road.NONE && m.rail[i] == Rail.NONE && m.building[i] == 0 &&
+                    m.power[i] == Power.NONE && m.subway[i].toInt() == 0 && m.lowRoad[i].toInt() == 0 && m.lowRail[i].toInt() == 0
+                ) {
+                    changes += i
+                    cost += Prices.FILL_WATER
+                }
+            }
+            is Action.DigWater -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
+                if (m.terrain[i] != Terrain.WATER && m.road[i] == Road.NONE && m.rail[i] == Rail.NONE && m.building[i] == 0 &&
+                    m.power[i] == Power.NONE && m.bank[i].toInt() == 0 && m.subway[i].toInt() == 0 && m.lowRoad[i].toInt() == 0 && m.lowRail[i].toInt() == 0
+                ) {
+                    changes += i
+                    cost += Prices.DIG_WATER
+                }
+            }
             is Action.PlantTrees -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
                 if (openLand(i)) {
                     changes += i
@@ -702,6 +719,7 @@ class City(
             action is Action.PlaceBuilding && action.type.port && !ships().reaches(Port.berth(m, action.type, action.x, action.y)) -> Problem.NoSeaRoute
             action is Action.PlaceBuilding && action.type.inWater && cutsOffPort(changes) -> Problem.CutsOffPort
             (action is Action.BuildRoad || action is Action.BuildRail) && cutsOffPort(lowDecks.filter { it in changes }) -> Problem.CutsOffPort
+            action is Action.FillWater && cutsOffPort(changes) -> Problem.CutsOffPort
             action is Action.PlaceBuilding && action.type.onWater && !besideWater(action.type, action.x, action.y) -> Problem.NeedsWater
             action is Action.PlaceBuilding && action.type.root == BuildingType.TOWN_HALL && buildings.values.any { it.type.root == BuildingType.TOWN_HALL } -> Problem.OnlyOne
             action is Action.PlaceBuilding && action.type.landmark && buildings.values.any { it.type == action.type } -> Problem.OnlyOne
@@ -1555,6 +1573,29 @@ class City(
                 m.terrain[i] = Terrain.TREES
                 townChanges += i
             }
+            is Action.FillWater -> {
+                for (i in plan.changes) {
+                    m.terrain[i] = Terrain.GRASS
+                    m.foul[i] = 0
+                    m.flood[i] = 0
+                    m.fresh[i] = Balance.FRESH_YEARS.toByte()
+                    townChanges += i
+                }
+                landChanged()
+            }
+            is Action.DigWater -> {
+                for (i in plan.changes) {
+                    clearTrees(i)
+                    m.terrain[i] = Terrain.WATER
+                    m.zone[i] = Zone.NONE
+                    m.brownfield[i] = 0
+                    m.fresh[i] = 0
+                    m.waterPipe[i] = 0; m.sewerPipe[i] = 0; m.stormPipe[i] = 0
+                    townChanges += i
+                }
+                zonesChanged = true
+                landChanged()
+            }
             is Action.Bulldoze -> {
               var forcedOut = 0
               var jobsLost = 0
@@ -1682,6 +1723,8 @@ class City(
             if (map.mendingDays(e.tiles[k]) > 0) mendingTiles += e.tiles[k] else mendingTiles -= e.tiles[k]
         }
         restamp(e.tiles)
+        // Filled in or dug out: the water's changed shape.
+        flowDirty = true
         updateJunctions()
         lines.clear()
         lines += e.linesBefore.map { it.copy() }
@@ -1718,6 +1761,8 @@ class City(
             if (map.mendingDays(e.tiles[k]) > 0) mendingTiles += e.tiles[k] else mendingTiles -= e.tiles[k]
         }
         restamp(e.tiles)
+        // Filled in or dug out: the water's changed shape.
+        flowDirty = true
         updateJunctions()
         lines.clear()
         lines += e.linesAfter.map { it.copy() }
@@ -2066,6 +2111,7 @@ class City(
         between()
         workSeams()
         spreadWoods()
+        settleFill()
         between()
         replaceNonconforming()
         between()
@@ -6037,6 +6083,19 @@ class City(
             m.zone[i] == Zone.NONE && m.building[i] == 0 && m.bank[i].toInt() == 0 && m.brownfield[i].toInt() == 0
     }
 
+    /** Filled land greens over, a step each January. */
+    private fun settleFill() {
+        if (month != 0) return
+        val m = map
+        for (i in 0 until m.size) {
+            val f = m.fresh[i].toInt()
+            if (f > 0) {
+                m.fresh[i] = (f - 1).toByte()
+                townChanges += i
+            }
+        }
+    }
+
     /** Woods creep out onto open land beside them, slowly. */
     private fun spreadWoods() {
         val m = map
@@ -8802,6 +8861,8 @@ class City(
         // Since version 46: a sandbox; since 47, the landmarks earned.
         w.bool(sandbox)
         w.int(landmarksEarned)
+        // Since version 48: land filled in from the water, still raw.
+        w.layer(map.fresh)
     }
 
     companion object {
@@ -9173,6 +9234,7 @@ class City(
                             }
                             if (version >= 46) c.sandbox = r.bool()
                             if (version >= 47) c.landmarksEarned = r.int()
+                            if (version >= 48) r.layer(c.map.fresh)
                         }
                     }
                 } else {

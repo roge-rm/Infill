@@ -107,6 +107,8 @@ import com.rm.infill.res.zone_office
 import com.rm.infill.res.zone_mixed
 import com.rm.infill.res.zone_farmland
 import com.rm.infill.res.Res
+import com.rm.infill.res.dig_water
+import com.rm.infill.res.fill_water
 import com.rm.infill.res.landmarks
 import com.rm.infill.res.founders_statue
 import com.rm.infill.res.mayors_mansion
@@ -551,6 +553,8 @@ enum class BulldozeKind(val title: StringResource) {
     Clear(Res.string.bulldoze_clear),
     Renew(Res.string.bulldoze_renew),
     Tunnel(Res.string.bulldoze_tunnel),
+    Fill(Res.string.fill_water),
+    Dig(Res.string.dig_water),
 }
 
 /** What the phone tool puts down: exchanges and masts go where the finger ends up, lines are dragged, as is taking them up. */
@@ -732,6 +736,8 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
             BulldozeKind.Renew -> Action.RenewArea(x0, y0, x1, y1)
             BulldozeKind.Tunnel -> Action.RemoveTunnel(x0, y0, x1, y1)
             BulldozeKind.Clear -> Action.Bulldoze(x0, y0, x1, y1)
+            BulldozeKind.Fill -> Action.FillWater(x0, y0, x1, y1)
+            BulldozeKind.Dig -> Action.DigWater(x0, y0, x1, y1)
         }
         // A building goes where the finger ends up, with that tile its top left.
         Tool.Power -> if (power.scrubbers) Action.FitScrubbers(x1, y1) else power.building?.let { Action.PlaceBuilding(newest(it), x1, y1) }

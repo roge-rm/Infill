@@ -1556,6 +1556,8 @@
     <string name="earned_conservatory">Earned at 75% approval</string>
     <string name="earned_museum">Earned when the town is 75 years old</string>
     <string name="event_landmark">A landmark earned: %1$s. Build it under Leisure.</string>
+    <string name="fill_water">Fill in water</string>
+    <string name="dig_water">Dig out water</string>
     <string name="town_after_pattern">%1$s %2$s</string>
     <string name="town_before_pattern">%1$s %2$s</string>
 </resources>

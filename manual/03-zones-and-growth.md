@@ -82,6 +82,12 @@ Bulldozing costs $15 a tile, plus what the owners are owed: more for homes and b
 
 From 1960, works and mines that close leave brownfield behind, and nothing grows there until it's cleaned up. Bulldoze it to clean it up.
 
+## Filling in and digging out water
+
+**Fill in water** under **Bulldoze** turns water into land, at $150 a tile. It can't fill a bridge, a tunnel or anything built, and it can't cut a port off from the sea. New land shows as bare fill and greens over in 10 years; it can be zoned and built on right away. Put **Embankment** along its edge on a coast that floods.
+
+**Dig out water** turns empty land into water, at $80 a tile. Zoning, trees and pipes on it go. Homes and offices near the new water are worth more, as they are by any shore.
+
 ## Farmland
 
 Farmland grows what's under it: a mine on iron ore or coal, an oil well on oil, a woodlot in trees, and a farm on open land. A farm off good soil grows half as much. The **Land** view shows what's in the ground.

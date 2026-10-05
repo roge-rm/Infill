@@ -1321,6 +1321,9 @@ object Balance {
     const val SURGE_PPM = 200_000
     const val TREE_ODDS = 24
 
+    /** Years new land from filled-in water shows raw before it's greened over. */
+    const val FRESH_YEARS = 10
+
     /** A household's wealth follows its adults' schooling, a step about once in this many months. */
     const val MOBILITY_ODDS = 36
     const val ELECTION_YEARS = 4

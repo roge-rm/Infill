@@ -35,6 +35,15 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
         }
         is Action.Bulldoze -> rect(a.x0, a.y0, a.x1, a.y1, camera, BULLDOZE_FILL, BULLDOZE_EDGE)
         is Action.RemoveTunnel -> rect(a.x0, a.y0, a.x1, a.y1, camera, BULLDOZE_FILL, BULLDOZE_EDGE)
+        // The tiles that would change, sandy for new land and blue for new water.
+        is Action.FillWater -> {
+            rect(a.x0, a.y0, a.x1, a.y1, camera, ROAD_FILL, BULLDOZE_EDGE)
+            for (i in p.plan.changes) drawRect(FILL_TILE, at(i), tile)
+        }
+        is Action.DigWater -> {
+            rect(a.x0, a.y0, a.x1, a.y1, camera, ROAD_FILL, BULLDOZE_EDGE)
+            for (i in p.plan.changes) drawRect(DIG_TILE, at(i), tile)
+        }
         is Action.RenewArea -> {
             // The area faintly, and the tiles that'll be relaid.
             rect(a.x0, a.y0, a.x1, a.y1, camera, RENEW_FILL, RENEW_EDGE)
@@ -142,6 +151,8 @@ private fun DrawScope.rect(x0: Int, y0: Int, x1: Int, y1: Int, camera: Camera, f
 }
 
 private val ROAD_FILL = Color(0x66FFFFFF)
+private val FILL_TILE = Color(0xAAB4A27A)
+private val DIG_TILE = Color(0xAA3F7FD8)
 private val ROAD_DRAG = Color(0x26FFFFFF)
 private val RAIL_FILL = Color(0x668E7CC3)
 private val PIPE_FILL = Color(0x664FA3E0)

@@ -61,6 +61,9 @@ class CityMap(val width: Int, val height: Int) {
     /** Land left fouled where works closed down, 1 where it is: nothing's built on it until it's cleaned up. */
     val brownfield = ByteArray(size)
 
+    /** Land filled in from the water, the years it has left to green over; 0 once it has, or for land that always was. */
+    val fresh = ByteArray(size)
+
     /** At each crossing, the control the player chose ([Junction], [Junction.AUTO] for the town's), and the one it has now. */
     val junction = ByteArray(size)
     val control = ByteArray(size)

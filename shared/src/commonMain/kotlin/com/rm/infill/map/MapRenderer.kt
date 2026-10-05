@@ -283,6 +283,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 }
                 if (grime > 0) soot(surface, grime, h, dx, dy, s, level)
                 if (map.brownfield[i].toInt() != 0) brownfield(surface, h, dx, dy, s, level)
+                // Land filled in from the water: raw fill, greening over as the years go.
+                val fresh = map.fresh[i].toInt()
+                if (fresh > 0) surface.fill(dx, dy, s, s, FILL, FILL_ALPHA * fresh / com.rm.infill.sim.Balance.FRESH_YEARS)
                 val zone = map.zone[i]
                 if (zone != Zone.NONE && map.building[i] == 0) zoneTint(surface, zone, map.density[i], tx, ty, dx, dy, s, level)
                 // The way from a lot to its road, on the ground, so the houses stand over it.
@@ -1042,6 +1045,10 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         private const val BACK_LANE_ALPHA = 235
         private val SOOT_ALPHA = intArrayOf(0, 45, 85, 130)
         private const val MURK = 0x5C5A3C
+
+        /** New land from filled-in water, raw at first. */
+        private const val FILL = 0xB4A27A
+        private const val FILL_ALPHA = 220
 
         /** Embankments: grass, and the path along the top. */
         private const val BANK_GRASS = 0x4E7A34
