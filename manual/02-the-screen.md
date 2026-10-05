@@ -6,7 +6,7 @@
 Along the top, from the left:
 
 - The menu.
-- Pause and the speed. Slow is twenty minutes a month, normal ten, fast two and a half, and fastest one.
+- Pause and the speed. Slow is twenty minutes a month, normal ten, fast two and a half, faster one, and fastest 20 seconds. On a slow phone or tablet the fastest runs as fast as it can keep up with a big town.
 - **Map view**, for the views below.
 - The date. Tap it to see the era and what the next one needs.
 - The weather and the temperature.
@@ -57,7 +57,7 @@ The whole game can be played from a keyboard.
 - [ and ] step through the tray's choices, and , and . through its tabs.
 - Tab moves between the buttons on the screen, Enter presses one, and Esc goes back to the map. A window opened from the keyboard starts on its first button, and Esc closes it.
 - B, G, P and N open the Budget, Graphs, People and Demand, U the Ordinances, H the Chronicle and R Opinion. V steps through the map views.
-- Space pauses. Shift and 1, 2, 3 or 4 set the speed.
+- Space pauses. Shift and 1 to 5 set the speed.
 - Esc closes what's open, then puts the tool down, then opens the menu.
 - Ctrl and Z undoes, and Ctrl and Y or Ctrl, Shift and Z redoes.
 

@@ -1235,6 +1235,7 @@ private fun GameScreen(
             KeyAction.Speed2 -> { speed = 1; paused = false }
             KeyAction.Speed3 -> { speed = 2; paused = false }
             KeyAction.Speed4 -> { speed = 3; paused = false }
+            KeyAction.Speed5 -> { speed = 4; paused = false }
             KeyAction.Pause -> paused = !paused
             KeyAction.Undo -> undo()
             KeyAction.Redo -> redo()
@@ -1677,10 +1678,11 @@ private val DEV_WEATHER = listOf(
 
 /**
  * A month is one day and night, and lasts this long at normal speed. Slow is
- * half as fast and fast four times. No more than a few days run in one frame.
+ * half as fast, then four, ten and thirty times. No more than a few days run
+ * in one frame; a slow device runs the fastest as fast as its sim keeps up.
  */
 private const val SECONDS_PER_MONTH = 600.0
-private val SPEEDS = doubleArrayOf(0.5, 1.0, 4.0, 10.0)
+private val SPEEDS = doubleArrayOf(0.5, 1.0, 4.0, 10.0, 30.0)
 private const val MAX_DAYS_PER_FRAME = 4
 
 /** The most days kept waiting while the sim works out a long day, such as the turn of the month. */

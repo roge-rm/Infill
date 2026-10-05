@@ -65,7 +65,8 @@ fun SpeedIcon(speed: Int, colour: Color, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val u = size.minDimension / 24f
         val count = speed + 1
-        val width = 5f * u
+        // Closer together when there are more, so five still fit.
+        val width = minOf(5f, 20f / count) * u
         val start = 12 * u - (count * width) / 2 + 1 * u
         for (k in 0 until count) {
             val x = start + k * width

@@ -60,18 +60,39 @@ class Playtest {
         }
         val csv = File(dir, "$name.csv").printWriter()
         csv.println(Player.HEADER)
+        // How long the sim took over each year, its slowest day, and how much happened, for the pace.
+        val pace = File(dir, "$name-pace.csv").printWriter()
+        pace.println("year,population,era,sim_ms,slowest_day_ms,events,news")
+        var simNanos = 0L
+        var slowest = 0L
+        var events = 0
+        var news = 0
         p.start()
         val end = c.year + years
         var lastYear = c.year
         val saved = HashSet<Int>()
         while (c.year < end) {
-            repeat(Balance.DEMAND_DAYS) { c.tick() }
+            repeat(Balance.DEMAND_DAYS) {
+                val t0 = System.nanoTime()
+                c.tick()
+                val took = System.nanoTime() - t0
+                simNanos += took
+                slowest = max(slowest, took)
+            }
             p.week()
             c.takeEvents { e ->
+                events++
+                if (e.kind in NOTED) news++
                 if (e.kind in NOTED) log.println("${c.year}-${(c.month + 1).toString().padStart(2, '0')} news ${e.kind} ${e.type ?: ""} ${e.count}")
             }
             if (c.year in saveIn && c.month >= 6 && saved.add(c.year)) File(dir, "$name-${c.year}.infill").writeBytes(SaveGame.write(c))
             if (c.year != lastYear) {
+                pace.println("$lastYear,${c.stats.population},${c.era},${simNanos / 1_000_000},${slowest / 1_000_000},$events,$news")
+                pace.flush()
+                simNanos = 0L
+                slowest = 0L
+                events = 0
+                news = 0
                 csv.println(p.row())
                 csv.flush()
                 log.flush()
@@ -80,6 +101,7 @@ class Playtest {
         }
         csv.close()
         log.close()
+        pace.close()
     }
 }
 

@@ -78,6 +78,7 @@ enum class KeyAction(val held: Boolean = false, val dev: Boolean = false) {
     Speed2,
     Speed3,
     Speed4,
+    Speed5,
     Pause,
     Back,
     Undo,
@@ -107,6 +108,7 @@ val DefaultChords: Map<KeyChord, KeyAction> = mapOf(
     KeyChord(Key.Two, shift = true) to KeyAction.Speed2,
     KeyChord(Key.Three, shift = true) to KeyAction.Speed3,
     KeyChord(Key.Four, shift = true) to KeyAction.Speed4,
+    KeyChord(Key.Five, shift = true) to KeyAction.Speed5,
 )
 
 /** The keys out of the box. Settings will be able to change these. */

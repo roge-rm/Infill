@@ -646,6 +646,7 @@
     <string name="speed_slow">Slow</string>
     <string name="speed_normal">Normal</string>
     <string name="speed_fast">Fast</string>
+    <string name="speed_faster">Faster</string>
     <string name="speed_fastest">Fastest</string>
     <!-- On or off, read out on buttons that switch something. -->
     <string name="state_on">On</string>
