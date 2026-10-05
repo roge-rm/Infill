@@ -32,6 +32,8 @@ US = {
     "liter": "litre", "liters": "litres", "fiber": "fibre", "analyze": "analyse",
 }
 
+DISCORD = "**[on my discord](https://discord.gg/9Wun47jGC6)**"
+
 # Words the game's text doesn't use, and what it says instead.
 RETIRED = {
     r"\bshut\b": "closed",
@@ -100,7 +102,8 @@ def check(path, number, text, names, out):
             out.append((path, number, f"US spelling {us}: write {ca}", text))
     if NOT_Y.search(words):
         out.append((path, number, "\"X, not Y\": say what it is", text))
-    if path.endswith("README.md") and "**" in text:
+    # The one bold the README keeps: the link to the discord, as Dan's other projects have it.
+    if path.endswith("README.md") and "**" in text.replace(DISCORD, ""):
         out.append((path, number, "bold in the README", text))
     if path == STRINGS:
         for pattern, instead in RETIRED.items():

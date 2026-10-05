@@ -31,6 +31,8 @@ import sys
 SRC = pathlib.Path("manual")
 OUT = pathlib.Path("shared/src/commonMain/kotlin/com/rm/infill/ui/Manual.kt")
 INDEX = SRC / "README.md"
+# The project's README carries the same list, its links reaching into manual/.
+TOP = SRC.parent / "README.md"
 OPEN, CLOSE = "<!-- contents -->", "<!-- /contents -->"
 
 HEADING, PARA, BULLET, STEP, SUBHEADING = 0, 1, 2, 3, 4
@@ -278,24 +280,24 @@ def lowered(summary):
     return f" - {summary[0].lower() + summary[1:]}" if summary else ""
 
 
-def contents(files, sections):
-    """Builds the numbered list that goes between the markers in manual/README.md."""
+def contents(files, sections, prefix=""):
+    """Builds the numbered list that goes between the markers, its links starting with [prefix]."""
     rows = []
     for i, (path, ((title, summary, _), kids)) in enumerate(zip(files, sections), 1):
-        rows.append(f"{i}. [{title}]({path.name})" + lowered(summary))
+        rows.append(f"{i}. [{title}]({prefix}{path.name})" + lowered(summary))
         for kp, (kt, ks, _) in kids:
-            here = f"{path.stem}/{kp.name}"
+            here = f"{prefix}{path.stem}/{kp.name}"
             rows.append(f"    - [{kt}]({here})" + lowered(ks))
     return "\n".join([OPEN, ""] + rows + ["", CLOSE])
 
 
-def indexed(files, sections):
-    """Returns manual/README.md with its contents list brought up to date."""
-    text = INDEX.read_text(encoding="utf-8")
+def indexed(files, sections, path=INDEX, prefix=""):
+    """Returns [path] with its contents list brought up to date."""
+    text = path.read_text(encoding="utf-8")
     a, b = text.find(OPEN), text.find(CLOSE)
     if a < 0 or b < 0:
-        sys.exit(f"gen_manual: {INDEX} has no {OPEN} ... {CLOSE} to write into")
-    return text[:a] + contents(files, sections) + text[b + len(CLOSE):]
+        sys.exit(f"gen_manual: {path} has no {OPEN} ... {CLOSE} to write into")
+    return text[:a] + contents(files, sections, prefix) + text[b + len(CLOSE):]
 
 
 def main():
@@ -313,13 +315,14 @@ def main():
         print("       update DESKTOP_SENTENCES in tools/gen_manual.py to match")
         sys.exit(1)
     index = indexed(files, sections)
+    top = indexed(files, sections, TOP, "manual/")
     words = sum(len(t.split()) for (_, _, bs), _ in sections for _, t, only in bs if not only)
     pages = len(sections)
     for _, kids in sections:
         pages += len(kids)
         words += sum(len(t.split()) for _, (_, _, bs) in kids for _, t, only in bs if not only)
     if "--check" in sys.argv:
-        for path, want in ((OUT, text), (INDEX, index)):
+        for path, want in ((OUT, text), (INDEX, index), (TOP, top)):
             have = path.read_text(encoding="utf-8") if path.exists() else ""
             if have != want:
                 print(f"  FAIL manual: {path} is not what manual/ would produce")
@@ -329,7 +332,8 @@ def main():
         return
     OUT.write_text(text, encoding="utf-8")
     INDEX.write_text(index, encoding="utf-8")
-    print(f"gen_manual: {pages} pages, {words} words -> {OUT} and {INDEX}")
+    TOP.write_text(top, encoding="utf-8")
+    print(f"gen_manual: {pages} pages, {words} words -> {OUT}, {INDEX} and {TOP}")
 
 
 main()
