@@ -605,14 +605,14 @@ private fun Screens(settings: Settings) {
         )
         Screen.New -> NewCityScreen(
             firstTown = remember { platform.saves().isEmpty() },
-            onStart = { name, seed, options, grid, side, guide ->
+            onStart = { name, seed, options, grid, side, guide, sandbox ->
                 if (grid > 0) {
                     val file = "region-" + saveFileName(name)
                     platform.writeSave(file, Region(name, seed, options, grid, side).write())
                     savesChanged++
                     openRegion(file)
                 } else {
-                    game = GameState(City(seed, side, side, options).also { it.name = name; if (guide) it.guide = 0 })
+                    game = GameState(City(seed, side, side, options).also { it.name = name; it.sandbox = sandbox; if (guide) it.guide = 0 })
                     screen = Screen.Game
                 }
             },

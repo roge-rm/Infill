@@ -686,7 +686,7 @@ class City(
             noRoute -> Problem.NoRoute
             overseen && cost > 0 && action !is Action.Bulldoze && action !is Action.RenewArea -> Problem.Overseen
             protests(changes.toIntArray()) && approval < Balance.PROTEST_BELOW -> Problem.Protest
-            cost > funds -> Problem.NotEnoughMoney
+            cost > funds && !sandbox -> Problem.NotEnoughMoney
             else -> null
         }
         return Plan(cost, changes.toIntArray(), blocked.toIntArray(), problem)
@@ -1604,7 +1604,7 @@ class City(
                 clearTrees(i)
             }
         }
-        funds -= plan.cost
+        if (!sandbox) funds -= plan.cost
         undoable.addLast(
             Edit(
                 plan.changes, before, LongArray(plan.changes.size) { m.tileState(plan.changes[it]) }, plan.cost, added, removed,
@@ -1664,7 +1664,7 @@ class City(
         for (b in buildings.values) b.scrubbed = b.id in e.scrubbedBefore
         for (r in e.renovated) buildings[r[0]]?.let { reopen(it, r[1], r[2], BuildingType.entries[r[5]]) }
         updateTransit()
-        funds += e.cost
+        if (!sandbox) funds += e.cost
         redoable.addLast(e)
         networksChanged()
         railChanged = true
@@ -1675,7 +1675,7 @@ class City(
     /** Does the last undone action again, if there's still the money. Null if there's nothing to redo. */
     fun redo(): Plan? {
         val e = redoable.lastOrNull() ?: return null
-        if (e.cost > funds) return Plan(e.cost, IntArray(0), IntArray(0), Problem.NotEnoughMoney)
+        if (e.cost > funds && !sandbox) return Plan(e.cost, IntArray(0), IntArray(0), Problem.NotEnoughMoney)
         if (e.tiles.indices.any { map.tileState(e.tiles[it]) != e.before[it] }) {
             redoable.clear()
             return Plan(0, IntArray(0), IntArray(0), Problem.TownBuiltThere)
@@ -1700,7 +1700,7 @@ class City(
         for (b in buildings.values) b.scrubbed = b.id in e.scrubbedAfter
         for (r in e.renovated) buildings[r[0]]?.let { reopen(it, r[3], r[4], BuildingType.entries[r[6]]) }
         updateTransit()
-        funds -= e.cost
+        if (!sandbox) funds -= e.cost
         undoable.addLast(e)
         networksChanged()
         railChanged = true
@@ -3149,8 +3149,15 @@ class City(
 
     fun allowsDensity(density: Byte): Boolean = everything || density != Density.TOWER || era >= Era.MOTOR
 
-    /** Lets anything be built whatever the year, for trying things out. Not saved. */
+    /** Lets anything be built whatever the year, for trying things out. Not saved; a sandbox sets it. */
     var everything = false
+
+    /** A sandbox town: everything unlocked, and nothing costs money, so the money stays where it is. */
+    var sandbox = false
+        set(on) {
+            field = on
+            if (on) everything = true
+        }
 
     /**
      * What a home makes of something it has or hasn't, as the years go by: a
@@ -8121,6 +8128,7 @@ class City(
         for (b in bonds) b.monthsLeft--
         bonds.removeAll { it.monthsLeft <= 0 }
         s.upkeep = s.bondCost + s.civicUpkeep + s.roadUpkeep + s.railUpkeep + s.waterUpkeep + s.powerUpkeep + s.policeUpkeep + s.fireUpkeep + s.parkUpkeep + s.floodCost + s.schoolUpkeep + s.healthUpkeep + s.repairCost + s.transitUpkeep + s.environmentUpkeep + s.disasterCost + s.phoneUpkeep + s.portUpkeep + s.neighbourCost + s.ordinanceCost
+        if (sandbox) return
         funds += s.income - s.upkeep
         finances()
     }
@@ -8435,7 +8443,7 @@ class City(
 
     /** Whether the town can sell a bond: no overseer in, a rating above the bottom, and room for the payment in a quarter of its income. */
     fun canSellBond(years: Int): Boolean {
-        if (overseen || rating >= Bonds.RATINGS.size - 1 || stats.income <= 0) return false
+        if (sandbox || overseen || rating >= Bonds.RATINGS.size - 1 || stats.income <= 0) return false
         val more = Bonds.payment(bondSize(years), Bonds.rate(year, rating), Bonds.TERM_YEARS * 12)
         return (bonds.sumOf { it.payment } + more) * 100 <= stats.income * Balance.BOND_MOST
     }
@@ -8762,6 +8770,8 @@ class City(
         // Since version 45: the guided first town's step, and the challenge.
         w.int(guide)
         w.string(challenge?.id ?: ""); w.int(challengeResult.ordinal); w.int(challengeStart)
+        // Since version 46: a sandbox.
+        w.bool(sandbox)
     }
 
     companion object {
@@ -9131,6 +9141,7 @@ class City(
                                 c.challengeResult = ChallengeResult.entries[r.int()]
                                 c.challengeStart = r.int()
                             }
+                            if (version >= 46) c.sandbox = r.bool()
                         }
                     }
                 } else {

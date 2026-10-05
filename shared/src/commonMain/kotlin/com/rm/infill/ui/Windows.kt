@@ -474,7 +474,7 @@ fun BudgetWindow(game: GameState, onClose: () -> Unit, onOrdinances: () -> Unit 
             Stepper(ZoneMark(com.rm.infill.sim.Zone.COMMERCIAL), stringResource(Res.string.tax_commercial), city.commercialTax, 1) { game.setTaxes(c = (city.commercialTax + it).coerceIn(0, city.maxTax())) }
             Stepper(ZoneMark(com.rm.infill.sim.Zone.INDUSTRIAL), stringResource(Res.string.tax_industrial), city.industrialTax, 1) { game.setTaxes(i = (city.industrialTax + it).coerceIn(0, city.maxTax())) }
         }
-        Section(stringResource(Res.string.bonds), Glyph.Coins) {
+        if (!city.sandbox) Section(stringResource(Res.string.bonds), Glyph.Coins) {
             if (city.overseen) Text(stringResource(Res.string.overseer_note), color = c.bad, fontSize = 13.sp)
             Text(stringResource(Res.string.bond_rating, Bonds.RATINGS[city.rating]), color = c.text, fontSize = 14.sp)
             if (city.bonds.isEmpty()) Text(stringResource(Res.string.bonds_none), color = c.textDim, fontSize = 13.sp)

@@ -1504,6 +1504,8 @@
     <string name="advice_rough_sleepers">People are sleeping rough: build a shelter</string>
     <!-- The guided first town -->
     <string name="show_me_how">Show me how to start</string>
+    <string name="sandbox">Sandbox</string>
+    <string name="unlimited">Unlimited</string>
     <string name="guide_step">Step %1$d of %2$d</string>
     <string name="guide_road">Tap Transport, then Road, and drag a street in from the edge of the map. Choose Link it when it asks.</string>
     <string name="guide_homes">Tap Zones, pick Residential, and drag homes along the street.</string>

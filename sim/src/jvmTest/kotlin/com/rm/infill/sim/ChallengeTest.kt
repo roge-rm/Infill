@@ -50,6 +50,27 @@ class ChallengeTest {
     }
 
     @Test
+    fun aSandboxCostsNothingAndHasEverything() {
+        val c = town(1900)
+        c.sandbox = true
+        val funds = c.funds
+        // A nuclear station in 1900, with money the town hasn't got.
+        val plan = c.apply(Action.PlaceBuilding(BuildingType.NUCLEAR_PLANT, 10, 10))
+        assertTrue(plan.ok, "${plan.problem}")
+        assertTrue(plan.cost > funds)
+        assertEquals(funds, c.funds)
+        c.undo()
+        assertEquals(funds, c.funds)
+        // A month's upkeep leaves the money where it was, and there's no debt to fall into.
+        c.apply(Action.PlaceBuilding(BuildingType.NUCLEAR_PLANT, 10, 10))
+        c.runMonths(2)
+        assertEquals(funds, c.funds)
+        assertTrue(!c.canSellBond(1))
+        val back = SaveGame.read(SaveGame.write(c))
+        assertTrue(back.sandbox && back.everything)
+    }
+
+    @Test
     fun theChallengeIsSaved() {
         val c = town(1970)
         c.challenge = Challenge.RENEWAL

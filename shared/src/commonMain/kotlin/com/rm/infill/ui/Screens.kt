@@ -197,7 +197,7 @@ fun summaryLine(s: SaveSummary): String {
 @Composable
 fun NewCityScreen(
     firstTown: Boolean,
-    onStart: (name: String, seed: Long, options: TerrainOptions, grid: Int, side: Int, guide: Boolean) -> Unit,
+    onStart: (name: String, seed: Long, options: TerrainOptions, grid: Int, side: Int, guide: Boolean, sandbox: Boolean) -> Unit,
     onChallenge: (com.rm.infill.sim.Challenge) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -222,6 +222,7 @@ fun NewCityScreen(
     var preview by remember { mutableStateOf<ImageBitmap?>(null) }
     var guide by remember { mutableStateOf(firstTown) }
     var challenge by remember { mutableStateOf(false) }
+    var sandbox by remember { mutableStateOf(false) }
     LaunchedEffect(seed, water, trees, river, climate, region, side, grid, sea, seaSides) {
         // A moment's wait, so holding a button doesn't make a map for every step.
         delay(120)
@@ -316,11 +317,15 @@ fun NewCityScreen(
             Chips(listOf(true, false), quakes, { stringResource(if (it) Res.string.yes else Res.string.no) }) { quakes = it }
         }
         if (!region) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(Res.string.sandbox), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
+            Chips(listOf(true, false), sandbox, { stringResource(if (it) Res.string.yes else Res.string.no) }) { sandbox = it }
+        }
+        if (!region) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(Res.string.show_me_how), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
             Chips(listOf(true, false), guide, { stringResource(if (it) Res.string.yes else Res.string.no) }) { guide = it }
         }
         BigButton(stringResource(Res.string.start), primary = true) {
-            onStart(name.ifBlank { TownNames.make(seed) }, seed, TerrainOptions(water, trees, river, quakes, climate, sea, seaSides), if (region) grid else 0, side, guide && !region)
+            onStart(name.ifBlank { TownNames.make(seed) }, seed, TerrainOptions(water, trees, river, quakes, climate, sea, seaSides), if (region) grid else 0, side, guide && !region, sandbox && !region)
         }
         BigButton(stringResource(Res.string.back), onClick = onBack)
     }

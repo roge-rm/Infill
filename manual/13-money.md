@@ -1,7 +1,7 @@
 # Money
 > Taxes, income, upkeep, bonds, debt and the budget.
 
-The town starts with $20,000. Money in Infill is in 1900 dollars, so prices stay the same through the century. To see it in the dollars of the game's year instead, choose **In dollars of the day** under **Money** in the settings' Game tab. Only how it's shown changes.
+The town starts with $20,000. In a sandbox town nothing costs money: the strip says Unlimited, and there are no bonds, debt or overseer. Money in Infill is in 1900 dollars, so prices stay the same through the century. To see it in the dollars of the game's year instead, choose **In dollars of the day** under **Money** in the settings' Game tab. Only how it's shown changes.
 
 ## Taxes
 

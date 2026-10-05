@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rm.infill.res.Res
+import com.rm.infill.res.unlimited
 import com.rm.infill.res.speed_fastest
 import com.rm.infill.res.budget
 import com.rm.infill.res.demand_high
@@ -164,7 +165,8 @@ fun StatusStrip(
         val w = city.weather
         WeatherReading(skyOf(w.fog, w.precipitation, w.cloud, night), w.temperature, compact && !twoLines, textSize)
         Text(
-            moneyText(city.funds), color = if (city.funds < 0) Color(0xFFD84343) else c.text, fontSize = textSize,
+            if (city.sandbox) stringResource(Res.string.unlimited) else moneyText(city.funds),
+            color = if (city.funds < 0 && !city.sandbox) Color(0xFFD84343) else c.text, fontSize = textSize,
             modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClickLabel = stringResource(Res.string.budget), role = Role.Button, onClick = onBudget).padding(2.dp),
         )
         Box(Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClickLabel = stringResource(Res.string.people), role = Role.Button, onClick = onPeople).padding(2.dp)) {
