@@ -7,8 +7,6 @@ You start with a small town in 1900 and a few simple tools, and as the years go 
 
 It's at 0.13 and very playable, but not finished. Let me know what works and what doesn't in the #infill channel **[on my discord](https://discord.gg/9Wun47jGC6)**, or open an issue here.
 
-Made with Claude Opus 5.5.
-
 Dan (rm)
 
 ---
@@ -113,3 +111,5 @@ git config core.hooksPath tools/hooks          # and check it on every commit
 Infill is free software under the GNU General Public License, version 3 or later. See [LICENSE](LICENSE).
 
 Copyright © 2026 Dan Hunke.
+
+Made with Claude Opus 5.5.
