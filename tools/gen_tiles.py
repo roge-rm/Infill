@@ -8947,43 +8947,42 @@ def public_health_office(look, v):
     return b
 
 
-# More police and fire: a police box, traffic police and a fireboat station.
+# More police and fire: a call post, traffic police and a fireboat station.
 
 
 def police_box(look, v):
-    """A police box on a street corner, on one tile: a blue wooden box with panelled sides, a stepped roof, a sign band and a
-    lamp on top, and a telephone for the constable on the beat; or a blue cast-iron pillar with its lamp and its phone."""
+    """A call post on a street corner, on one tile: a cast-iron post with the call box on it, its phone for the constable on
+    the beat, and a lamp on top that lights to call him in; a constable at it on one of them."""
     b = Building(height=3 * STOREY)
     d = b.d
     paving(b, look, 0, 0, 31, 31, c("#b8b0a0"))
-    blue = c("#22407a")
-    panel = c("#2e5090")
-    if v == 0:
-        roof, wall = b.box(10, 11, 21, 20, 2 * STOREY + 2)
-        x0, y0, x1, y1 = wall
-        d.rectangle(wall, blue)
-        d.rectangle([x0 + 1, y0 + 1, x1 - 1, y0 + 2], c("#101820"))
-        d.rectangle([x0 + 3, y0 + 1, x1 - 3, y0 + 2], c("#e8ecf0"))
-        for px in (x0 + 2, (x0 + x1) // 2 + 1):
-            for py in (y0 + 4, y0 + 8):
-                d.rectangle([px, py, px + 3, py + 2], panel)
-        d.point((x0 + 3, y0 + 4), c("#a8c4ff"))
-        d.rectangle(wall, outline=OUTLINE)
-        d.rectangle(roof, panel, OUTLINE)
-        d.rectangle([roof[0] + 2, roof[1] + 2, roof[2] - 2, roof[3] - 2], SNOW_ROOF[0] if look == "snow" else c("#3a62a8"),
-                    OUTLINE)
+    iron = [c("#2f4a3a"), c("#2a2c30")][v % 2]
+    hi = shade(iron, 1.5)
+    # The post, then the box on it, with a white band and a gilt crest.
+    px, py = b.ground(15, 18)
+    d.rectangle([px - 2, py - 1, px + 3, py + 1], shade(iron, 0.8), OUTLINE)
+    d.rectangle([px, py - 14, px + 1, py - 1], iron, OUTLINE)
+    d.rectangle([px - 3, py - 17, px + 4, py - 9], iron, OUTLINE)
+    d.line([px - 2, py - 16, px - 2, py - 10], hi)
+    d.line([px - 2, py - 15, px + 3, py - 15], c("#e8ecf0"))
+    d.point((px + 1, py - 12), c("#c8a040"))
+    d.rectangle([px - 1, py - 19, px + 2, py - 18], iron, OUTLINE)
+    lamp = [c("#e05040"), c("#5a8ae0")][v % 2]
+    d.ellipse([px - 1, py - 23, px + 2, py - 20], lamp, OUTLINE)
+    d.point((px, py - 22), c("#f2f6ff"))
+    b.casters.append((1, 13, 16, 19, 20, 22))
+    if v % 2 == 0 and look != "snow":
+        # The constable, in a dark tunic and cap, at the phone.
+        cx, cy = b.ground(20, 21)
+        d.rectangle([cx, cy - 7, cx + 3, cy], c("#1e2a4a"), OUTLINE)
+        d.line([cx + 1, cy - 6, cx + 1, cy - 2], c("#c8a040"))
+        d.rectangle([cx + 1, cy - 9, cx + 2, cy - 8], c("#e0b090"))
+        d.rectangle([cx, cy - 11, cx + 3, cy - 10], c("#141c30"))
     else:
-        roof, wall = b.box(13, 14, 18, 18, 2 * STOREY)
-        d.rectangle(wall, blue)
-        d.rectangle([wall[0] + 1, wall[1] + 2, wall[2] - 1, wall[1] + 4], c("#e8ecf0"))
-        d.point((wall[0] + 2, wall[1] + 7), c("#c8a040"))
-        d.rectangle(wall, outline=OUTLINE)
-        d.ellipse(roof, panel, OUTLINE)
-    rx = (roof[0] + roof[2]) // 2
-    d.rectangle([rx - 1, roof[1] - 4, rx + 1, roof[1] - 1], c("#f2f6ff"), OUTLINE)
-    d.point((rx, roof[1] - 3), c("#a8c4ff"))
-    b.casters[-1] = (1, *b.casters[-1][1:5], b.casters[-1][5] + 4)
+        gx, gy = b.ground(6, 26)
+        d.rectangle([gx, gy - 2, gx + 7, gy], c("#7a5a3a"), OUTLINE)
     return b
+
 
 
 

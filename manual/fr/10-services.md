@@ -21,7 +21,7 @@ Les écoles et les médecins prennent plus de monde qu'ils n'ont de place, jusqu
 
 Au fil des décennies, de nouveaux modèles de la plupart des services arrivent : l'école de rang fait place à l'école primaire en 1930, la clinique au centre de santé en 1950, et ainsi de suite. Un nouveau modèle occupe le même terrain que le précédent, accueille plus de monde, porte plus loin et coûte un peu plus cher à faire fonctionner. Le plateau offre toujours le modèle le plus récent que la ville peut construire.
 
-Quelques modèles disparaissent sans être remplacés : le sanatorium en 1955, une fois les antibiotiques arrivés, et la guérite de police en 1970, une fois les autopatrouilles équipées de radios. Ils quittent le plateau, et ceux encore debout vieillissent de la même façon.
+Quelques modèles disparaissent sans être remplacés : le sanatorium en 1955, une fois les antibiotiques arrivés, et la borne d'appel en 1970, une fois les autopatrouilles équipées de radios. Ils quittent le plateau, et ceux encore debout vieillissent de la même façon.
 
 Les anciens continuent de fonctionner, mais ils vieillissent : un cinquième de moins pour chaque nouveau modèle, sur vingt ans à partir de son arrivée, jusqu'à la moitié. La fiche d'inspection indique **Désuet**, avec le nouveau modèle et l'année depuis laquelle on le construit. **Moderniser** le rénove en modèle le plus récent, sur place, pour 60 % du prix du nouveau modèle et un mois de fermeture.
 
@@ -31,7 +31,7 @@ Les anciens continuent de fonctionner, mais ils vieillissent : un cinquième de
 - **Quartier général de police** (1920) a aussi des enquêteurs qui s'attaquent au racket dans toute la ville.
 - **Palais de justice** entend beaucoup plus de causes.
 - **Prison** garde 400 détenus et fait baisser la valeur foncière à côté.
-- **Guérite de police** (1925 à 1970) est la ronde d'un agent : elle patrouille un peu autour, mais n'entend aucune cause et ne garde personne.
+- **Borne d'appel** (1925 à 1970) est la ronde d'un agent, un téléphone sur un poteau pour appeler le poste : elle patrouille un peu autour, mais n'entend aucune cause et ne garde personne.
 - **Police de la circulation** (1930) dirigent la circulation aux intersections. Un seul suffit pour toute la ville : la circulation attend un quart de moins à chaque intersection.
 
 La criminalité prend plusieurs formes. Le vol est pire sur les terrains bon marché, là où des gens sont sans emploi et près des commerces. Le vice grandit là où il y a beaucoup de monde et de vie nocturne. À partir de 1920, le racket grandit là où le vol et le vice restent impunis, s'étend au voisinage et fait fuir les commerces.

@@ -61,7 +61,7 @@ object Lineage {
         listOf(Kind(BuildingType.FAIRGROUND), Kind(BuildingType.AMUSEMENT_PARK)),
         listOf(Kind(BuildingType.TOWN_HALL), Kind(BuildingType.CITY_HALL), Kind(BuildingType.CIVIC_CENTRE)),
         listOf(Kind(BuildingType.CEMETERY), Kind(BuildingType.MEMORIAL_GARDEN)),
-        // A police box is a beat's worth of a station: a constable and a telephone.
+        // A call post is a beat's worth of a station: a constable and a telephone on a post.
         listOf(Kind(BuildingType.POLICE_BOX, serves = 30, reach = 45)),
         // Power stations: [Kind.serves] is what each makes against the first.
         listOf(
@@ -96,7 +96,7 @@ object Lineage {
         listOf(Kind(BuildingType.BIOGAS, price = 6_000)),
     )
 
-    /** The year a kind with nothing after it went out all the same: the sanatorium with antibiotics, the police box with the patrol car's radio. */
+    /** The year a kind with nothing after it went out all the same: the sanatorium with antibiotics, the call post with the patrol car's radio. */
     private val retired = mapOf(BuildingType.SANATORIUM to 1955, BuildingType.POLICE_BOX to 1970)
 
     /** Whether [t] has gone out by [year], so it's no longer built. */

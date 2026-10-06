@@ -21,7 +21,7 @@ Schools and doctors take more than they have room for, up to 140%, and each pers
 
 As the decades go by, newer kinds of most services come in: the schoolhouse gives way to the elementary school in 1930, the doctor's clinic to the health centre in 1950, and so on. A newer kind stands on the same ground as the one before it, takes in more, reaches further and costs a little more to run. The tray always offers the newest kind the town can build.
 
-A few kinds go out with nothing to follow them: the sanatorium in 1955, once there were antibiotics, and the police box in 1970, once patrol cars had radios. They leave the tray, and those still standing date the same way.
+A few kinds go out with nothing to follow them: the sanatorium in 1955, once there were antibiotics, and the call post in 1970, once patrol cars had radios. They leave the tray, and those still standing date the same way.
 
 Older ones keep working, but they date: a fifth less for each newer kind, coming on over twenty years from when it came, down to half. The inspect card says **Dated**, with the newer kind and the year it's been built since. **Bring up to date** renovates it into the newest, where it stands, for 60% of the new kind's price and a month closed.
 
@@ -31,7 +31,7 @@ Older ones keep working, but they date: a fifth less for each newer kind, coming
 - **Police headquarters** (1920) also has detectives who go after rackets across the whole town.
 - **Courthouse** hears many more cases.
 - **Jail** holds 400, and lowers land value next to it.
-- **Police box** (1925 to 1970) is a constable's beat: it patrols a little way round it, but hears no cases and holds nobody.
+- **Call post** (1925 to 1970) is a constable's beat, a phone on a post to call the station from: it patrols a little way round it, but hears no cases and holds nobody.
 - **Traffic police** (1930) on point duty keep the crossings moving. One is enough for the whole town: traffic waits a quarter less at every crossing.
 
 Crime comes in kinds. Theft is worse on cheap land, with people out of work and near shops. Vice grows where there are many people and nightlife. From 1920, rackets grow where theft and vice go unpunished, spread to their neighbours and put businesses off.

@@ -419,7 +419,7 @@ enum class BuildingType(
     SANATORIUM(Zone.NONE, 0, 30, width = 3, height = 2, life = 50),
     PUBLIC_HEALTH_OFFICE(Zone.NONE, 0, 12, width = 2, height = 1, year = 1910, life = 50),
 
-    /** More police and fire: a police box on the beat (1925 to 1970), traffic police (from 1930), and a fireboat station on the water (from 1910). */
+    /** More police and fire: a call post on the beat (1925 to 1970), traffic police (from 1930), and a fireboat station on the water (from 1910). */
     POLICE_BOX(Zone.NONE, 0, 1, year = 1925),
     TRAFFIC_POLICE(Zone.NONE, 0, 10, width = 2, height = 1, year = 1930, life = 50),
     FIREBOAT_STATION(Zone.NONE, 0, 12, width = 2, height = 2, year = 1910, life = 50),
