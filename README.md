@@ -16,13 +16,13 @@ Dan (rm)
 <table>
   <tr>
     <td align="center" width="33%"><img src="screenshots/streetcar.png" width="100%" alt="A streetcar town in 1930"></td>
-    <td align="center" width="33%"><img src="screenshots/town.png" width="100%" alt="A town in 2010"></td>
-    <td align="center" width="33%"><img src="screenshots/power.png" width="100%" alt="Power stations by the lake"></td>
+    <td align="center" width="33%"><img src="screenshots/town.png" width="100%" alt="The same town in 2010"></td>
+    <td align="center" width="33%"><img src="screenshots/street.png" width="100%" alt="A fire engine on its way to a fire"></td>
   </tr>
   <tr>
-    <td align="center" width="33%"><img src="screenshots/leisure.png" width="100%" alt="Parks and sport"></td>
+    <td align="center" width="33%"><img src="screenshots/ferry.png" width="100%" alt="The waterfront and a ferry"></td>
     <td align="center" width="33%"><img src="screenshots/eras.png" width="100%" alt="A new era, then and now"></td>
-    <td align="center" width="33%"><img src="screenshots/ordinances.png" width="100%" alt="Ordinances"></td>
+    <td align="center" width="33%"><img src="screenshots/challenges.png" width="100%" alt="Challenges"></td>
   </tr>
 </table>
 
