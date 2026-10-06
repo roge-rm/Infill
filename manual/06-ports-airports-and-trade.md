@@ -24,6 +24,10 @@ Under **Transport**, **Ports**:
 
 A port goes along water on its long side, and ships have to be able to reach it from the edge of the map. They can't pass a low bridge, so build high or opening bridges below a port. A port grows the market for the town's works, brings coal and fuel oil in cheaper for the power stations, and brings visitors by sea. It pays dues on what goes through it. A port near a freight terminal joined by rail grows the market a little more.
 
+On an island with sea all round, no road can reach the edge, so a port is the way out: until there's one, the works sell to less than half the market and their goods have nowhere to go.
+
+On an island with sea all round, no road can reach the edge, so a port is the way out: until there's one, the works sell to less than half the market and their goods have nowhere to go.
+
 ## Airports
 
 Under **Transport**, **Air**:

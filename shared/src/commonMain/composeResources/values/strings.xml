@@ -425,6 +425,7 @@
     <string name="advice_power_short">Not enough power: build a power station</string>
     <string name="advice_water_short">Not enough water: build a pumping station</string>
     <string name="advice_no_way_in">No way in: run a road to the edge of the map</string>
+    <string name="advice_no_port">Build a wharf: on an island, goods leave by sea</string>
     <!-- Over a new town until play is pressed. -->
     <string name="paused_hint">Paused: press play to start</string>
     <!-- %1$s is one of advice_homes, advice_shops, advice_works, advice_offices or advice_farms, at the start of the sentence. The six below take them too. -->
@@ -1584,6 +1585,7 @@
     <string name="unlimited">Unlimited</string>
     <string name="guide_step">Step %1$d of %2$d</string>
     <string name="guide_road">Tap Transport, then Road, and drag a street in from the edge of the map. Choose Link it when it asks.</string>
+    <string name="guide_road_island">Tap Transport, then Road, and drag a street across the island. People come by boat.</string>
     <string name="guide_homes">Tap Zones, pick Residential, and drag homes along the street.</string>
     <string name="guide_work">Zone some Commercial and some Industrial too, for jobs.</string>
     <string name="guide_play">Press play at the top.</string>

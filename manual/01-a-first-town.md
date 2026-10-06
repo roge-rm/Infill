@@ -23,7 +23,7 @@ The era card shows the challenge's goals and how each stands. Meet them all in t
 
 ## The first streets
 
-1. Tap **Transport**, then **Road**, and drag a street in from the edge of the map. A road reaching the edge is how people and goods get in and out: when it asks, choose **Link it**.
+1. Tap **Transport**, then **Road**, and drag a street in from the edge of the map. A road reaching the edge is how people and goods get in and out: when it asks, choose **Link it**. On an island, drag a street across it instead: people come by boat, and a wharf later takes the goods out. On an island, drag a street across it instead: people come by boat, and a wharf later takes the goods out.
 2. Tap **Zones**, pick **Residential** and drag a block along the street. Lots grow up to three tiles from a road.
 3. Zone some **Commercial** and **Industrial** too. Homes need jobs, and shops need people.
 4. Press play.

@@ -24,7 +24,7 @@ object Balance {
     const val EXPORT_PER_RESIDENT = 0.32
     const val EXPORT_GROWTH = 0.02
 
-    /** How much of that market a town with no road to the edge of the map can reach. */
+    /** How much of that market a town with no road to the edge of the map, or on an island no port, can reach. */
     const val UNCONNECTED_EXPORTS = 0.4
 
     /** Tax rates start here, in percent, and demand is neutral at them. */

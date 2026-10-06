@@ -23,7 +23,7 @@ La carte de l'ère montre les objectifs du défi et où chacun en est. Si vous l
 
 ## Les premières rues
 
-1. Touchez **Transport**, puis **Route**, et glissez une rue à partir du bord de la carte. Une route qui atteint le bord permet aux gens et aux marchandises d'entrer et de sortir : quand on vous le demande, choisissez **Relier**.
+1. Touchez **Transport**, puis **Route**, et glissez une rue à partir du bord de la carte. Une route qui atteint le bord permet aux gens et aux marchandises d'entrer et de sortir : quand on vous le demande, choisissez **Relier**. Sur une île, glissez plutôt une rue à travers l'île : les gens arrivent par bateau, et un quai fera plus tard sortir les marchandises. Sur une île, glissez plutôt une rue à travers l'île : les gens arrivent par bateau, et un quai fera plus tard sortir les marchandises.
 2. Touchez **Zonage**, choisissez **Résidentiel** et glissez un îlot le long de la rue. Les lots se développent jusqu'à trois cases d'une route.
 3. Zonez aussi du **Commercial** et de l'**Industriel**. Les logements ont besoin d'emplois, et les commerces ont besoin de gens.
 4. Touchez le bouton de lecture.

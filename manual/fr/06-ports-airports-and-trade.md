@@ -24,6 +24,10 @@ Sous **Transport**, **Ports** :
 
 Un port se place le long de l'eau, sur son côté long, et les navires doivent pouvoir l'atteindre depuis le bord de la carte. Ils ne passent pas sous un pont bas, donc construisez des ponts hauts ou mobiles en aval d'un port. Un port agrandit le marché des usines de la ville, fait venir le charbon et le mazout moins cher pour les centrales et amène des visiteurs par la mer. Il perçoit des droits sur ce qui y passe. Un port près d'un terminal de fret relié par le rail agrandit le marché un peu plus.
 
+Sur une île entourée de mer, aucune route ne peut atteindre le bord, alors le port est la sortie : tant qu'il n'y en a pas, les usines vendent à moins de la moitié du marché et leurs marchandises n'ont nulle part où aller.
+
+Sur une île entourée de mer, aucune route ne peut atteindre le bord, alors le port est la sortie : tant qu'il n'y en a pas, les usines vendent à moins de la moitié du marché et leurs marchandises n'ont nulle part où aller.
+
 ## Aéroports
 
 Sous **Transport**, **Aérien** :

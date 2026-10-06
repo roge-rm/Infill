@@ -4816,6 +4816,15 @@ class City(
         connected || !landAtEdge || linkedPorts.isNotEmpty() || airportsNow.isNotEmpty() ||
             railway.stops.indices.any { railway.buildings[it].type.station && railway.linked(it) }
 
+    /** Sea all round: no road can reach the edge, so goods and visitors come and go by sea. */
+    val island: Boolean get() = !landAtEdge
+
+    /** Joined to the outside for trade: a road out, or on an island a working port. */
+    val tradesOut: Boolean get() = connected || island && linkedPorts.isNotEmpty()
+
+    /** On an island with works and no port: their goods have no way off it. */
+    fun needsPort(): Boolean = island && linkedPorts.isEmpty() && zoneLots(Zone.INDUSTRIAL).isNotEmpty()
+
     /** Homes are zoned and nobody can get in to live in them. Kept up to date, for the advice line between months. */
     fun needsWayIn(): Boolean = !wayInNow && (zoneLots(Zone.RESIDENTIAL).isNotEmpty() || zoneLots(Zone.MIXED).isNotEmpty())
 
@@ -8103,7 +8112,7 @@ class City(
         val s = stats
         val years = year - START_YEAR
         val market = (Balance.EXPORT_BASE + Balance.EXPORT_PER_RESIDENT * s.population) *
-            (1 + Balance.EXPORT_GROWTH * years) * (if (connected) 1.0 else Balance.UNCONNECTED_EXPORTS) *
+            (1 + Balance.EXPORT_GROWTH * years) * (if (tradesOut) 1.0 else Balance.UNCONNECTED_EXPORTS) *
             (if (linkedTerminals.isNotEmpty()) Balance.TERMINAL_EXPORTS else if (railFreight) Balance.RAIL_EXPORTS else 1.0) *
             Balance.PORT_EXPORTS[seaTier] * (if (portByRail()) Balance.PORT_RAIL_EXPORTS else 1.0) * Economy.market(year, month) / 100.0
         val jobs = s.shopJobs + s.industryJobs + s.farmJobs + s.officeJobs + s.otherJobs
@@ -8243,6 +8252,7 @@ class City(
         if (s.powerShort > 0 && s.powerDemand > 0 && s.powerShort * 100 / s.powerDemand >= Balance.ADVICE_SHORT) out += Advice(AdviceKind.POWER_SHORT)
         if (s.waterShort > 0 && s.waterUsed > 0 && s.waterShort * 100 / s.waterUsed >= Balance.ADVICE_SHORT) out += Advice(AdviceKind.WATER_SHORT)
         if (needsWayIn()) out += Advice(AdviceKind.NO_WAY_IN)
+        if (needsPort()) out += Advice(AdviceKind.NO_PORT)
         val wanted = listOf(
             Zone.RESIDENTIAL to s.residentialDemand, Zone.COMMERCIAL to s.commercialDemand, Zone.INDUSTRIAL to s.industryDemand,
             Zone.OFFICE to s.officeDemand, Zone.FARMLAND to s.farmDemand,

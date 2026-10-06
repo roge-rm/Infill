@@ -17,6 +17,9 @@ enum class AdviceKind {
     /** No way for newcomers to get in: no road to the edge, station on a line out, port or airport. */
     NO_WAY_IN,
 
+    /** On an island with works and no port to send their goods off it. */
+    NO_PORT,
+
     /** A zone is wanted and there's none of it to grow on. */
     ZONE_MORE,
 

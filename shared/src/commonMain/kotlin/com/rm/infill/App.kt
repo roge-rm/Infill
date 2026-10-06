@@ -1506,7 +1506,7 @@ private fun GameScreen(
                     LaunchedEffect(step, game.revision, paused, budgetSeen) {
                         if (game.tryLocked { guideDone(step, city, seen) } == true) game.setGuide(step.ordinal + 1)
                     }
-                    GuideCard(step) { game.setGuide(-1) }
+                    GuideCard(step, { game.setGuide(-1) }, island = city.island)
                 }
                 // A new town waits, paused, until play is pressed; this says so, and starts it.
                 if (paused && city.stats.population == 0 && city.guide < 0) {

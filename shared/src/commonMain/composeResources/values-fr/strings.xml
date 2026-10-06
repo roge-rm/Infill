@@ -424,6 +424,7 @@
     <string name="advice_power_short">Pas assez d'électricité&#160;: construisez une centrale</string>
     <string name="advice_water_short">Pas assez d'eau&#160;: construisez une station de pompage</string>
     <string name="advice_no_way_in">Aucun accès&#160;: menez une route jusqu'au bord de la carte</string>
+    <string name="advice_no_port">Construisez un quai&#160;: sur une île, les marchandises partent par la mer</string>
     <!-- Over a new town until play is pressed. -->
     <string name="paused_hint">En pause&#160;: appuyez sur Lecture pour commencer</string>
     <!-- %1$s is one of advice_homes, advice_shops, advice_works, advice_offices or advice_farms, at the start of the sentence. The six below take them too. -->
@@ -1582,6 +1583,7 @@
     <string name="unlimited">Illimité</string>
     <string name="guide_step">Étape %1$d sur %2$d</string>
     <string name="guide_road">Touchez Transport, puis Route, et glissez une rue depuis le bord de la carte. Choisissez Relier quand on vous le demande.</string>
+    <string name="guide_road_island">Touchez Transport, puis Route, et glissez une rue à travers l'île. Les gens arrivent par bateau.</string>
     <string name="guide_homes">Touchez Zonage, choisissez Résidentiel et glissez des logements le long de la rue.</string>
     <string name="guide_work">Zonez aussi du Commercial et de l'Industriel, pour les emplois.</string>
     <string name="guide_play">Touchez lecture en haut.</string>

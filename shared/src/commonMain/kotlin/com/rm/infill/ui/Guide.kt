@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import com.rm.infill.res.Res
 import com.rm.infill.res.close
 import com.rm.infill.res.guide_budget
+import com.rm.infill.res.guide_road_island
 import com.rm.infill.res.guide_done
 import com.rm.infill.res.guide_first_homes
 import com.rm.infill.res.guide_homes
@@ -60,7 +61,8 @@ fun guideDone(step: GuideStep, city: City, seen: GuideSeen): Boolean {
     val m = city.map
     fun zoned(zone: Byte) = m.zone.count { it == zone }
     return when (step) {
-        GuideStep.ROAD -> city.hasWayIn()
+        // On an island there's no edge to reach: a street of any length does.
+        GuideStep.ROAD -> if (city.island) m.road.count { it.toInt() != 0 } >= ISLAND_STREET else city.hasWayIn()
         GuideStep.HOMES -> zoned(Zone.RESIDENTIAL) >= HOMES
         GuideStep.WORK -> zoned(Zone.COMMERCIAL) > 0 && zoned(Zone.INDUSTRIAL) > 0
         GuideStep.PLAY -> seen.running
@@ -74,10 +76,10 @@ fun guideDone(step: GuideStep, city: City, seen: GuideSeen): Boolean {
 /**
  * The guided first town's card, under the strip: the step it's on, out of
  * how many, and a button to put it away. The last step's card is closed
- * by the player.
+ * by the player. The first step says it differently on an [island].
  */
 @Composable
-fun GuideCard(step: GuideStep, onClose: () -> Unit) {
+fun GuideCard(step: GuideStep, onClose: () -> Unit, island: Boolean = false) {
     val c = Infill.colors
     ChromeBox(Modifier.widthIn(max = 520.dp).semantics { liveRegion = LiveRegionMode.Polite }) {
         Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -85,7 +87,7 @@ fun GuideCard(step: GuideStep, onClose: () -> Unit) {
                 if (step != GuideStep.DONE) {
                     Text(stringResource(Res.string.guide_step, step.ordinal + 1, GuideStep.DONE.ordinal), color = c.textDim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
-                Text(stringResource(step.text), color = c.text, fontSize = 14.sp)
+                Text(stringResource(if (step == GuideStep.ROAD && island) Res.string.guide_road_island else step.text), color = c.text, fontSize = 14.sp)
             }
             val close = stringResource(Res.string.close)
             GlyphIcon(
@@ -100,3 +102,6 @@ fun GuideCard(step: GuideStep, onClose: () -> Unit) {
 /** How many tiles of homes the guide asks for, and how many people for the first homes. */
 private const val HOMES = 6
 private const val FIRST_PEOPLE = 30
+
+/** Tiles of street that start an island town in the guide. */
+private const val ISLAND_STREET = 10
