@@ -31,6 +31,9 @@ internal interface BakeSurface {
     fun shadowPolygon(points: FloatArray)
     fun endShadows()
 
+    /** Which pixels the last shadows fell on, row by row, or null if there were none. */
+    fun shadowMask(): BooleanArray?
+
     fun finish(): ImageBitmap
 }
 
@@ -209,8 +212,13 @@ internal class PixelSurface(atlas: TileAtlas, private val level: Int, private va
             val bb = (p and 0xff) * keep shr 8
             out[i] = (p and -0x1000000) or (rr shl 16) or (gg shl 8) or bb
         }
+        lastMask = m
         mask = null
     }
+
+    private var lastMask: BooleanArray? = null
+
+    override fun shadowMask(): BooleanArray? = lastMask
 
     override fun finish(): ImageBitmap = imageBitmapOf(out, size, size)
 }

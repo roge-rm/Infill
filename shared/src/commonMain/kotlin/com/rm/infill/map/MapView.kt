@@ -131,6 +131,7 @@ fun MapView(
     var weatherTime by remember { mutableFloatStateOf(0f) }
     var travelTime by remember { mutableFloatStateOf(0f) }
     val services = remember(game.city) { ServiceTrips() }
+    val moving = remember(renderer) { renderer?.let { MovingLayer(map, it) } }
     val paceNow by rememberUpdatedState(pace)
     val fires = game.city.burningNow > 0
     // How hard each building with stacks is going, and where people sleep rough, looked over every couple of seconds while the town's free.
@@ -349,8 +350,9 @@ fun MapView(
         val cy1 = floor((bottomRight.y + MapRenderer.SPRITE_ROWS) / chunk).toInt()
         renderer.plan(level, cx0, cy0, cx1, cy1, look, sunStep, sun, camera.tilePx)
         renderer.updateCover(level, look)
-        // What moves on the roads and track goes out of sight behind the buildings in front of it.
-        val behind: (Float, Float) -> Boolean = renderer::hidden
+        // What moves on the roads and track goes on a layer of its own, so it can sit in the shadows and go behind buildings.
+        val layer = moving ?: return@Canvas
+        val behind: (Float, Float) -> Boolean = layer::mark
         if (!renderer.ready) return@Canvas
         for (cy in max(0, cy0)..min(cy1, (map.height - 1) / chunk)) {
             for (cx in max(0, cx0)..min(cx1, (map.width - 1) / chunk)) {
@@ -375,6 +377,7 @@ fun MapView(
         drawWorks(map, camera)
         if (planes) drawPlanes(game.city.airportsShown(), camera, travelTime, jets = game.city.year >= Balance.JET_YEAR)
         val raised = if (ships) drawShips(game.city.shipRoutes, map, camera, travelTime, graphics.trains, graphics.smoke && game.city.year < Balance.STEAM_UNTIL) else emptySet()
+        layer.begin(this)
         // Road traffic waits for a train at a crossing, and for a bridge that's open for a ship.
         val stopped = (if (trains) drawTrains(game.city.trainRoutes, map, camera, travelTime, graphics.trains, graphics.smoke, steam = game.city.year < Balance.STEAM_TRAINS_UNTIL, behind = behind) else emptySet()) + raised
         if (ferries) drawFerries(game.city.ferryRoutes, map, camera, travelTime)
@@ -385,6 +388,7 @@ fun MapView(
             services.update(game.city.callouts, map, travelTime, game.city.year)
             with(services) { draw(map, camera, game.city.year, weatherTime, behind) }
         }
+        layer.end(this, camera, MapRenderer.SHADOW_ALPHA * sun.strength, roofs = false)
         drawRough(rough, map.width, camera)
         drawPlumes(renderer, map, camera, plumes, weather, weatherTime, graphics.plumes)
         if (fires) drawFires(map, camera, weather, weatherTime)

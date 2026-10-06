@@ -337,6 +337,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             }
             surface.endShadows()
         }
+        keepShade(surface.shadowMask(), x0, y0, x1, y1, s)
 
         // Sprites, back rows first, each building from its bottom row so what's in
         // front of it covers it. The rows below this chunk reach up into it.
@@ -557,6 +558,34 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             }
         }
     }
+
+    /**
+     * Where shadows fall, for darkening what moves through them: for each
+     * tile, a bit for each of [SHADE_CELLS] by [SHADE_CELLS] cells, row by
+     * row. Kept from the last bake of each chunk.
+     */
+    private val shade = LongArray(map.size)
+
+    private fun keepShade(mask: BooleanArray?, x0: Int, y0: Int, x1: Int, y1: Int, s: Int) {
+        val size = CHUNK * s
+        for (ty in y0 until y1) for (tx in x0 until x1) {
+            var bits = 0L
+            if (mask != null) {
+                for (cy in 0 until SHADE_CELLS) for (cx in 0 until SHADE_CELLS) {
+                    val px = (tx - x0) * s + (cx * 2 + 1) * s / (SHADE_CELLS * 2)
+                    val py = (ty - y0) * s + (cy * 2 + 1) * s / (SHADE_CELLS * 2)
+                    if (mask[py * size + px]) bits = bits or (1L shl (cy * SHADE_CELLS + cx))
+                }
+            }
+            shade[map.index(tx, ty)] = bits
+        }
+    }
+
+    /** The shadow cells on tile [i], see [shade]. */
+    fun shadeOf(i: Int): Long = shade[i]
+
+    /** How far down from its top quarter [q] of tile [i] is covered by a building in front, in 32nds of a tile. */
+    fun coverOf(i: Int, q: Int): Int = cover[i * QUARTERS + q].toInt()
 
     /** Whether something on the map at [x], [y] tiles is behind a building in front of it. */
     fun hidden(x: Float, y: Float): Boolean {
@@ -1189,8 +1218,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         const val CHUNK = 16
 
         /** Cover is kept in quarters across a tile, in 32nds of a tile down it; a pixel this solid hides what's behind. */
-        private const val QUARTERS = 4
-        private const val FULL = 32
+        const val QUARTERS = 4
+        const val FULL = 32
+        const val SHADE_CELLS = 8
         private const val OPAQUE = 128
         const val TILE = 32
         const val LEVELS = 3
@@ -1202,7 +1232,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         private const val NEAR_SHARPER = 0.75f
         private const val RING = 1
         private const val SHADOW_MARGIN = 3
-        private const val SHADOW_ALPHA = 0.32f
+        const val SHADOW_ALPHA = 0.32f
 
         /** The same scatter of numbers for a tile every time, for picking variants. */
         fun tileHash(x: Int, y: Int): Int {
