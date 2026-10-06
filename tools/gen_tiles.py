@@ -3786,40 +3786,71 @@ def nuclear_plant(look, v):
     return b
 
 
-def substation(look, v):
-    """A substation: a fenced yard of gravel with two transformers and a steel gantry the lines come in on; or a plain brick
-    substation house with a transformer in a cage beside it."""
-    b = Building(height=16)
+def big_transformer(b, look, x, y):
+    """A substation transformer, with its foot on tile pixels x, y: a tank with cooling fins down each side and three
+    bushings standing up off its lid."""
     d = b.d
-    gx0, gy0 = b.ground(2, 2)
-    gx1, gy1 = b.ground(29, 29)
+    gx, gy = b.ground(x, y)
+    tank = c("#7f8a84")
+    d.rectangle([gx, gy - 7, gx + 8, gy], tank, OUTLINE)
+    for xx in range(gx + 2, gx + 7, 2):
+        d.line([xx, gy - 6, xx, gy - 1], shade(tank, 0.75))
+    d.rectangle([gx - 2, gy - 6, gx - 1, gy - 1], shade(tank, 0.85), OUTLINE)
+    d.rectangle([gx + 9, gy - 6, gx + 10, gy - 1], shade(tank, 0.85), OUTLINE)
+    d.rectangle([gx, gy - 10, gx + 8, gy - 8], SNOW if look == "snow" else shade(tank, 1.15), OUTLINE)
+    for xx in (gx + 2, gx + 4, gx + 6):
+        d.line([xx, gy - 14, xx, gy - 11], c("#8a5a3a"))
+        d.point((xx, gy - 15), INSULATOR)
+    b.casters.append((1, x - 2, y - 3, x + 11, y + 1, 12))
+
+
+def substation(look, v):
+    """A substation: a fenced yard of gravel with two transformers wired up to a steel gantry the lines come in on, and a
+    warning sign on the fence; or a plain brick substation house with a transformer beside it."""
+    b = Building(height=22)
+    d = b.d
+    gx0, gy0 = b.ground(1, 1)
+    gx1, gy1 = b.ground(30, 30)
     rng = random.Random(9500 + v)
-    noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), [c("#9a968c"), c("#8c887e"), c("#a8a49a")] if look != "snow"
+    noise_fill(b.img, (gx0, gy0, gx1 + 1, gy1 + 1), [c("#b4b0a6"), c("#a6a298"), c("#c2beb4")] if look != "snow"
                else [c("#e4ebf0"), c("#d5dfe6"), c("#f2f6f9")], rng)
-    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#6a6e72"))
+    d.rectangle([gx0, gy0, gx1, gy1], outline=c("#4a4e52"))
     for xx in range(gx0, gx1 + 1, 3):
         d.point((xx, gy1 - 1), c("#6a6e72"))
+    sx, sy = b.ground(14, 30)
+    d.rectangle([sx, sy - 3, sx + 3, sy], c("#f2c94c"), OUTLINE)
+    wire = c("#2a2c30")
     if v % 2 == 0:
-        for x in (6, 25):
-            gx, gy = b.ground(x, 10)
-            d.line([gx, gy, gx, gy - 14], STEEL_LEG)
-        gx, gy = b.ground(6, 10)
-        d.line([gx, gy - 14, gx + 19, gy - 14], STEEL_LEG)
-        for x in (10, 15, 20):
-            d.point((gx + x - 6, gy - 13), INSULATOR)
-        b.casters.append((1, 5, 9, 27, 11, 14))
-        transformer(b, look, 6, 24)
-        transformer(b, look, 18, 24)
+        # The gantry, with the lines coming in over the north fence.
+        hx0, hy = b.ground(4, 8)
+        hx1, _ = b.ground(27, 8)
+        for x in (hx0, hx1):
+            d.line([x, hy, x, hy - 18], STEEL_LEG)
+        d.line([hx0, hy - 18, hx1, hy - 18], STEEL_LEG)
+        d.line([hx0, hy - 17, hx1, hy - 17], STEEL_LEG)
+        b.casters.append((1, 3, 7, 29, 9, 18))
+        for x in (8, 15, 22):
+            gx, _ = b.ground(x, 8)
+            d.point((gx, hy - 16), INSULATOR)
+            d.line([gx, hy - 19, gx, b.lift - 2], wire)
+        big_transformer(b, look, 4, 25)
+        big_transformer(b, look, 18, 25)
+        for (fx, tx) in ((8, 6), (15, 10), (22, 24)):
+            ax, _ = b.ground(fx, 8)
+            bx, by = b.ground(tx, 25)
+            d.line([ax, hy - 16, bx, by - 15], wire)
     else:
-        roof, wall = b.box(4, 6, 20, 20, STOREY + 2)
+        roof, wall = b.box(3, 5, 17, 17, STOREY + 2)
         brick(d, wall, c("#9a5a42"))
-        d.rectangle([wall[0] + 5, wall[3] - 5, wall[0] + 10, wall[3]], c("#3a4048"))
+        d.rectangle([wall[0] + 4, wall[3] - 5, wall[0] + 9, wall[3]], c("#3a4048"))
         d.rectangle(wall, outline=OUTLINE)
         flat_roof(b.img, roof, look, random.Random(9510), [], parapet=STONE)
-        transformer(b, look, 22, 24)
-        gx, gy = b.ground(20, 17)
-        d.rectangle([gx, gy, gx + 9, gy + 9], outline=c("#6a6e72"))
+        big_transformer(b, look, 19, 22)
+        ax, ay = b.ground(23, 1)
+        d.line([ax, ay - 2, ax, ay + 7], wire)
+        d.line([ax, ay + 7, ax - 1, ay + 7], wire)
     return b
+
 
 GARBAGE = [c("#8a7a64"), c("#6f6656"), c("#9a8c74"), c("#7a705e")]
 LITTER = [c("#d8d4ca"), c("#c8c4b8"), c("#5a6a80"), c("#8a5a4a"), c("#4a4c50"), c("#202226")]
@@ -7003,34 +7034,71 @@ def greenway(look, v):
             tree_at(b, look, v, 24, 28, 4, rng)
     return b
 
+DOG_COATS = [c("#8a5a32"), c("#f2ede4"), c("#2a2a2e"), c("#c89a52")]
+
+
+def dog(d, x, y, coat, east=True):
+    """A dog seen from the side at play: body, head and tail, with a dark edge so it shows on grass."""
+    s = 1 if east else -1
+    d.rectangle([min(x, x + 3 * s), y, max(x, x + 3 * s), y + 1], coat)
+    d.rectangle([min(x + 3 * s, x + 4 * s), y - 1, max(x + 3 * s, x + 4 * s), y], coat)
+    d.point((x - s, y - 1), coat)
+    d.point((x, y + 2), OUTLINE)
+    d.point((x + 3 * s, y + 2), OUTLINE)
+    d.point((x + 4 * s, y - 1), OUTLINE)
+
+
 def dog_park(look, v):
-    """A dog park of the 1990s on one tile, a fenced run with a gate and a water bowl: logs and posts to jump; or ramps and a
-    tunnel; or rough grass under a big shade tree."""
+    """A dog park of the 1990s on one tile, a fenced run with a double gate, a bench, a water bowl and dogs out on it: with a
+    jump and a tunnel; or a tire and weave poles; or rough grass under a big shade tree."""
     b = Building(height=LIFT)
     d = b.d
     rng = random.Random(12200 + v)
     top = b.lift
     noise_fill(b.img, (0, top, T, top + T), [c("#8aa65a"), c("#7a964e"), c("#9ab66a")] if look not in ("snow",) else
                [c("#e4ebf0"), c("#d8e0e6"), c("#eef2f5")], rng)
-    d.rectangle([2, top + 2, 29, top + 29], outline=c("#5a5a5e"))
-    for k in range(2, 30, 3):
-        d.point((k, top + 2), c("#3a3a3e"))
-        d.point((k, top + 29), c("#3a3a3e"))
-    d.rectangle([13, top + 28, 18, top + 30], c("#9a7a52"))
-    d.point((5, top + 25), c("#6fa0cf"))
+    d.rectangle([1, top + 1, 30, top + 30], outline=c("#3a3a3e"))
+    d.rectangle([2, top + 2, 29, top + 29], outline=c("#7a7a7e"))
+    # The gate, a worn path in, a bench and the water bowl.
+    d.rectangle([13, top + 26, 18, top + 31], c("#a8885a"))
+    d.line([13, top + 28, 18, top + 28], c("#3a3a3e"))
+    d.rectangle([3, top + 4, 8, top + 5], c("#7a5a3a"), OUTLINE)
+    d.ellipse([24, top + 25, 27, top + 27], c("#c8ccd0"), OUTLINE)
+    d.point((25, top + 26), c("#4a8ac8"))
     if v == 0:
-        d.rectangle([6, top + 18, 16, top + 20], c("#7a5a3a"))
-        for x in (20, 24):
-            d.line([x, top + 8, x, top + 12], c("#c0392b"))
-        tree_at(b, look, v, 24, 22, 4, rng)
+        # A jump with a striped bar, and a blue tunnel.
+        for x in (17, 25):
+            d.line([x, top + 6, x, top + 10], c("#f2f2ea"))
+        for x in range(17, 26):
+            d.point((x, top + 8), c("#c0392b") if x % 2 else c("#f2f2ea"))
+        d.rectangle([5, top + 14, 13, top + 17], c("#2f6fb8"), OUTLINE)
+        for x in (7, 9, 11):
+            d.line([x, top + 15, x, top + 16], c("#24589a"))
+        if look != "snow":
+            dog(d, 19, top + 12, DOG_COATS[0])
+            dog(d, 20, top + 21, DOG_COATS[1], False)
+            dog(d, 8, top + 22, DOG_COATS[2])
     elif v == 1:
-        d.polygon([(6, top + 8), (14, top + 8), (14, top + 12), (6, top + 14)], c("#c8a878"), OUTLINE)
-        d.ellipse([17, top + 16, 27, top + 22], c("#2f6fb8"), OUTLINE)
-        d.ellipse([19, top + 18, 25, top + 20], c("#1e3a6a"))
-        tree_at(b, look, v, 8, 22, 3, rng)
+        # A tire on a frame, and a row of weave poles.
+        d.line([5, top + 9, 5, top + 15], c("#5a5a5e"))
+        d.line([13, top + 9, 13, top + 15], c("#5a5a5e"))
+        d.line([5, top + 9, 13, top + 9], c("#5a5a5e"))
+        d.ellipse([7, top + 10, 11, top + 14], c("#2a2a2e"))
+        d.point((9, top + 12), c("#8aa65a") if look != "snow" else SNOW)
+        for x in range(17, 28, 2):
+            d.line([x, top + 7, x, top + 10], c("#f2c94c") if x % 4 == 1 else c("#3c78a8"))
+        if look != "snow":
+            dog(d, 15, top + 15, DOG_COATS[3])
+            dog(d, 22, top + 19, DOG_COATS[0], False)
+            dog(d, 7, top + 22, DOG_COATS[1])
     else:
-        tree_at(b, look, v, 15, 16, 9, rng)
+        tree_at(b, look, v, 16, 12, 7, rng)
+        if look != "snow":
+            dog(d, 5, top + 21, DOG_COATS[2])
+            dog(d, 22, top + 20, DOG_COATS[3], False)
+            dog(d, 10, top + 25, DOG_COATS[1])
     return b
+
 
 
 # ---- sport and culture ---------------------------------------------------------
@@ -7376,25 +7444,61 @@ def golf_course(look, v):
     return b
 
 
+def skater(d, x, y, shirt):
+    """A skater on a board, seen from above: board, legs and shirt, and a head."""
+    d.line([x - 2, y + 1, x + 2, y + 1], c("#2a2a2e"))
+    d.rectangle([x - 1, y - 2, x + 1, y], shirt)
+    d.point((x, y - 3), c("#d8a880"))
+
+
 def skate_park(look, v):
-    """A skate park of the nineties on one tile: concrete bowls and ramps, a rail, and paint on the walls."""
+    """A skate park of the nineties on one tile, fenced: a deep bowl with its coping and a quarter pipe; or a half pipe and a
+    fun box; each with a grind rail, a wall of paint and skaters."""
     b = Building(height=LIFT)
     d = b.d
     top = b.lift
-    conc = c("#b8b4ac") if look != "snow" else c("#e6ecf0")
-    d.rectangle([1, top + 1, 30, top + 30], conc)
+    snow = look == "snow"
+    conc = c("#cac6be") if not snow else c("#e6ecf0")
+    coping = c("#8a9096")
+    d.rectangle([1, top + 1, 30, top + 30], conc, c("#5a5a5e"))
     if v % 2 == 0:
-        d.ellipse([4, top + 4, 20, top + 18], shade(conc, 0.8), OUTLINE)
-        d.ellipse([7, top + 7, 17, top + 15], shade(conc, 0.7))
-        d.polygon([(20, top + 22), (29, top + 22), (29, top + 29), (20, top + 29)], shade(conc, 0.85), OUTLINE)
+        # The bowl: coping, then rings of concrete darker as it deepens.
+        d.ellipse([3, top + 3, 21, top + 19], coping, OUTLINE)
+        for k, f in enumerate((0.9, 0.8, 0.7, 0.6)):
+            d.ellipse([4 + 2 * k, top + 4 + 2 * k, 20 - 2 * k, top + 18 - 2 * k], shade(conc, f))
+        d.line([8, top + 15, 16, top + 15], c("#2f6fb8"))
+        # A quarter pipe along the east side, light at its lip and dark where it meets the ground.
+        for k in range(6):
+            d.line([24 + k, top + 3, 24 + k, top + 20], shade(conc, 0.95 - 0.06 * (5 - k)))
+        d.line([29, top + 3, 29, top + 20], coping)
+        d.rectangle([23, top + 3, 29, top + 20], outline=OUTLINE)
+        d.line([5, top + 24, 15, top + 24], c("#3a3c40"))
+        for x in (6, 14):
+            d.point((x, top + 25), c("#3a3c40"))
+        if not snow:
+            skater(d, 11, top + 11, c("#c0392b"))
+            skater(d, 20, top + 25, c("#f2c94c"))
     else:
-        d.polygon([(2, top + 4), (14, top + 4), (14, top + 12), (2, top + 8)], shade(conc, 0.82), OUTLINE)
-        d.polygon([(18, top + 18), (29, top + 18), (29, top + 26), (18, top + 22)], shade(conc, 0.82), OUTLINE)
-        d.line([6, top + 20, 14, top + 20], c("#c0392b"), 2)
-    if look != "snow":
-        for k, col in enumerate((c("#c0392b"), c("#f2c94c"), c("#3c78a8"))):
-            d.line([3 + k * 3, top + 28, 6 + k * 3, top + 25], col)
+        # A half pipe across the tile: a lip at each end, the flat dark in the middle.
+        for k in range(17):
+            f = 0.62 + 0.035 * abs(8 - k)
+            d.line([3, top + 3 + k, 28, top + 3 + k], shade(conc, f))
+        d.line([3, top + 3, 28, top + 3], coping)
+        d.line([3, top + 19, 28, top + 19], coping)
+        d.rectangle([3, top + 3, 28, top + 19], outline=OUTLINE)
+        d.rectangle([17, top + 22, 26, top + 26], shade(conc, 0.82), OUTLINE)
+        d.line([18, top + 24, 25, top + 24], coping)
+        d.line([4, top + 24, 13, top + 24], c("#3a3c40"))
+        for x in (5, 12):
+            d.point((x, top + 25), c("#3a3c40"))
+        if not snow:
+            skater(d, 10, top + 9, c("#3c78a8"))
+            skater(d, 21, top + 14, c("#c0392b"))
+    if not snow:
+        for k, col in enumerate((c("#c0392b"), c("#f2c94c"), c("#3c78a8"), c("#5aa040"))):
+            d.line([3 + k * 2, top + 29, 4 + k * 2, top + 27], col)
     return b
+
 
 
 def rec_centre(look, v):
@@ -8072,32 +8176,45 @@ def shelter(look, v):
 # Landmarks: one of each, earned by the town.
 
 def founders_statue(look, v):
-    """The founder's statue on one tile: a bronze figure on a tall stone plinth, in a round of paving with flower beds and
-    lamps."""
-    b = Building(height=3 * STOREY)
+    """The founder's statue on one tile: a bronze figure with an arm raised, on a stepped stone plinth with a gilt plaque, in a
+    round of paving with paths, flower beds and lamps."""
+    b = Building(height=3 * STOREY + 6)
     d = b.d
     rng = random.Random(16100)
     top = b.lift
     lawn_box(b, look, 0, 0, 31, 31, rng)
-    d.ellipse([3, top + 4, 28, top + 29], SNOW_GROUND if look == "snow" else c("#c8c0b0"), OUTLINE)
-    flowers(b, look, 5, 22, 11, 27, rng, 6)
-    flowers(b, look, 20, 22, 26, 27, rng, 6)
-    # The plinth, then the figure: a greened bronze, arm raised.
-    roof, wall = b.box(12, 12, 19, 19, STOREY + 4)
-    d.rectangle(wall, c("#cfc6b0"), OUTLINE)
-    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#ddd5c2"), OUTLINE)
-    bronze = c("#4f7a6a")
+    pave = SNOW_GROUND if look == "snow" else c("#d2cabb")
+    d.rectangle([14, top, 17, top + 31], pave)
+    d.rectangle([0, top + 14, 31, top + 17], pave)
+    d.ellipse([3, top + 4, 28, top + 29], pave, OUTLINE)
+    flowers(b, look, 5, 22, 10, 26, rng, 6)
+    flowers(b, look, 21, 22, 26, 26, rng, 6)
+    # A wide low step, then the plinth with its plaque.
+    step, step_wall = b.box(9, 11, 22, 22, 2)
+    d.rectangle(step_wall, c("#b0a690"), OUTLINE)
+    d.rectangle(step, SNOW_ROOF[0] if look == "snow" else c("#e2dbc8"), OUTLINE)
+    roof, wall = b.box(12, 13, 19, 19, STOREY + 6)
+    d.rectangle(wall, c("#c8bea6"), OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#e8e1d0"), OUTLINE)
+    d.rectangle([wall[0] + 2, wall[1] + 3, wall[2] - 2, wall[1] + 5], c("#c8a040"))
+    # The figure in greened bronze, outlined so it stands off the stone: coat, shoulders, head, and the raised arm.
+    bronze = c("#5f9a80")
+    light = c("#86bba2")
     fx = (roof[0] + roof[2]) // 2
-    fy = roof[1] + 3
-    d.rectangle([fx - 2, fy - 12, fx + 1, fy], bronze)
-    d.ellipse([fx - 2, fy - 16, fx + 1, fy - 13], bronze)
-    d.line([fx + 1, fy - 11, fx + 4, fy - 16], bronze, 2)
-    b.casters[-1] = (1, 12, 12, 20, 20, STOREY + 20)
-    for (x, y) in ((4, 15), (27, 15)):
+    fy = roof[3] - 1
+    d.line([fx + 2, fy - 10, fx + 6, fy - 17], OUTLINE, 3)
+    d.line([fx + 2, fy - 10, fx + 6, fy - 17], bronze)
+    d.polygon([(fx - 3, fy), (fx + 2, fy), (fx + 1, fy - 8), (fx - 2, fy - 8)], bronze, OUTLINE)
+    d.rectangle([fx - 3, fy - 12, fx + 2, fy - 8], bronze, OUTLINE)
+    d.line([fx - 2, fy - 11, fx - 2, fy - 2], light)
+    d.ellipse([fx - 2, fy - 17, fx + 1, fy - 13], light, OUTLINE)
+    b.casters[-1] = (1, 12, 13, 20, 20, STOREY + 22)
+    for (x, y) in ((5, 12), (26, 12)):
         gx, gy = b.ground(x, y)
         d.line([gx, gy, gx, gy - 8], c("#3a3c40"))
         d.rectangle([gx - 1, gy - 10, gx + 1, gy - 8], c("#f2d06a"))
     return b
+
 
 
 def mayors_mansion(look, v):
@@ -8834,29 +8951,40 @@ def public_health_office(look, v):
 
 
 def police_box(look, v):
-    """A police box on a street corner, on one tile: a little blue wooden box with a lamp on top and a telephone for the
-    constable on the beat; or a stone pillar with its lamp and its phone."""
-    b = Building(height=2 * STOREY + 6)
+    """A police box on a street corner, on one tile: a blue wooden box with panelled sides, a stepped roof, a sign band and a
+    lamp on top, and a telephone for the constable on the beat; or a blue cast-iron pillar with its lamp and its phone."""
+    b = Building(height=3 * STOREY)
     d = b.d
     paving(b, look, 0, 0, 31, 31, c("#b8b0a0"))
+    blue = c("#22407a")
+    panel = c("#2e5090")
     if v == 0:
-        roof, wall = b.box(12, 12, 19, 19, 2 * STOREY)
-        d.rectangle(wall, c("#22407a"))
+        roof, wall = b.box(10, 11, 21, 20, 2 * STOREY + 2)
         x0, y0, x1, y1 = wall
+        d.rectangle(wall, blue)
         d.rectangle([x0 + 1, y0 + 1, x1 - 1, y0 + 2], c("#101820"))
-        for yy in range(y0 + 4, y1 - 1, 3):
-            d.line([x0 + 1, yy, x1 - 1, yy], c("#2e5090"))
+        d.rectangle([x0 + 3, y0 + 1, x1 - 3, y0 + 2], c("#e8ecf0"))
+        for px in (x0 + 2, (x0 + x1) // 2 + 1):
+            for py in (y0 + 4, y0 + 8):
+                d.rectangle([px, py, px + 3, py + 2], panel)
+        d.point((x0 + 3, y0 + 4), c("#a8c4ff"))
         d.rectangle(wall, outline=OUTLINE)
-        d.rectangle(roof, c("#1e3868"), OUTLINE)
+        d.rectangle(roof, panel, OUTLINE)
+        d.rectangle([roof[0] + 2, roof[1] + 2, roof[2] - 2, roof[3] - 2], SNOW_ROOF[0] if look == "snow" else c("#3a62a8"),
+                    OUTLINE)
     else:
-        roof, wall = b.box(13, 13, 18, 18, 2 * STOREY - 2)
-        d.rectangle(wall, c("#8a8a84"))
-        d.rectangle([wall[0] + 1, wall[1] + 3, wall[2] - 1, wall[1] + 5], c("#22407a"))
+        roof, wall = b.box(13, 14, 18, 18, 2 * STOREY)
+        d.rectangle(wall, blue)
+        d.rectangle([wall[0] + 1, wall[1] + 2, wall[2] - 1, wall[1] + 4], c("#e8ecf0"))
+        d.point((wall[0] + 2, wall[1] + 7), c("#c8a040"))
         d.rectangle(wall, outline=OUTLINE)
-        d.rectangle(roof, c("#7a7a74"), OUTLINE)
+        d.ellipse(roof, panel, OUTLINE)
     rx = (roof[0] + roof[2]) // 2
-    d.rectangle([rx - 1, roof[1] - 3, rx + 1, roof[1] - 1], c("#a8c4ff"), OUTLINE)
+    d.rectangle([rx - 1, roof[1] - 4, rx + 1, roof[1] - 1], c("#f2f6ff"), OUTLINE)
+    d.point((rx, roof[1] - 3), c("#a8c4ff"))
+    b.casters[-1] = (1, *b.casters[-1][1:5], b.casters[-1][5] + 4)
     return b
+
 
 
 def traffic_police(look, v):
@@ -9318,24 +9446,37 @@ def river_turbine(look, v):
 
 
 def tidal_turbine(look, v):
-    """Tidal turbines on 2 by 1 tiles of water: a steel platform with its mast and lights, two rotors dark under the water, and buoys."""
-    b = Building(2, 1, height=14)
+    """A tidal turbine on 2 by 1 tiles of water: a yellow pile with its control house, a crossbeam out to two rotors turning in
+    rings of white water, and buoys at the ends."""
+    b = Building(2, 1, height=16)
     d = b.d
-    for cx in (16, 48):
+    white = c("#eef4f8")
+    # The crossbeam, just under the surface.
+    x0, y0 = b.ground(10, 16)
+    x1, _ = b.ground(54, 16)
+    d.rectangle([x0, y0 - 1, x1, y0 + 1], (40, 50, 60, 170))
+    for cx in (12, 52):
         x, y = b.ground(cx, 16)
-        d.ellipse([x - 8, y - 3, x + 8, y + 3], (20, 40, 60, 140))
-        d.line([x - 8, y, x + 8, y], (10, 25, 40, 160))
-    roof, wall = b.box(26, 10, 38, 22, 5)
-    d.rectangle(wall, c("#d8b030"))
+        d.ellipse([x - 9, y - 6, x + 9, y + 6], (230, 240, 246, 110))
+        d.ellipse([x - 9, y - 6, x + 9, y + 6], outline=white)
+        d.ellipse([x - 6, y - 4, x + 6, y + 4], outline=(230, 240, 246, 170))
+        # Two blades and a hub, dark under the water.
+        d.line([x - 7, y + 3, x + 7, y - 3], (20, 30, 40, 200), 2)
+        d.ellipse([x - 2, y - 2, x + 2, y + 2], c("#e0b020"), OUTLINE)
+    roof, wall = b.box(27, 10, 37, 22, 6)
+    d.rectangle(wall, c("#e0b020"))
     d.rectangle(wall, outline=OUTLINE)
-    d.rectangle(roof, c("#7a8088"), OUTLINE)
-    mx, my = b.ground(32, 14)
-    d.line([mx, my - 5, mx, my - 13], c("#c8ccd0"))
-    d.point((mx, my - 14), c("#e05040"))
-    for bx in (4, 60):
-        x, y = b.ground(bx, 6 if bx < 30 else 26)
-        d.ellipse([x - 1, y - 2, x + 1, y], c("#e8a33a"), OUTLINE)
+    d.rectangle(roof, c("#e8e4da"), OUTLINE)
+    d.rectangle([roof[0] + 2, roof[1] + 2, roof[0] + 6, roof[1] + 6], c("#7a8088"), OUTLINE)
+    mx, my = b.ground(34, 14)
+    d.line([mx, my - 6, mx, my - 15], c("#c8ccd0"))
+    d.point((mx, my - 16), c("#e05040"))
+    for bx, by in ((3, 5), (60, 27)):
+        x, y = b.ground(bx, by)
+        d.ellipse([x - 2, y - 3, x + 2, y + 1], c("#e8a33a"), OUTLINE)
+        d.point((x, y - 4), c("#2a2a2e"))
     return b
+
 
 
 def offshore_wind(look, v):
