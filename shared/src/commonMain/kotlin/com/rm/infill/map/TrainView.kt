@@ -21,7 +21,7 @@ import kotlin.math.sin
  * the far end, and back again. A busier line has more trains, up to [most].
  * Returns the level crossings a train is on, so the road traffic can wait.
  */
-internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera: Camera, time: Float, most: Int, smoke: Boolean, steam: Boolean = true): Set<Int> {
+internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera: Camera, time: Float, most: Int, smoke: Boolean, steam: Boolean = true, behind: (Float, Float) -> Boolean = { _, _ -> false }): Set<Int> {
     val t = camera.tilePx
     if (most == 0 || routes.isEmpty() || t < MIN_TILE_PX) return emptySet()
     val crossings = HashSet<Int>()
@@ -50,7 +50,7 @@ internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera
                     1 -> if (steam) Car.Tender else Car.Diesel
                     else -> if (route.passengers) Car.Coach else if (route.containers) Car.Container else FREIGHT[(k * 3 + c) % FREIGHT.size]
                 }
-                car(camera.tileToScreen(x, y, size), t, heading, kind, k + c)
+                if (!behind(x, y)) car(camera.tileToScreen(x, y, size), t, heading, kind, k + c)
                 if (c == 0 && smoke && steam) puffs(camera.tileToScreen(x, y, size), t, time, k * 7 + n)
             }
         }

@@ -84,7 +84,7 @@ internal class ServiceTrips {
     }
 
     /** Each trip's vehicle where it is now, as it was in [year]; zoomed out too far to draw them, just the lights. */
-    fun DrawScope.draw(map: CityMap, camera: Camera, year: Int, seconds: Float) {
+    fun DrawScope.draw(map: CityMap, camera: Camera, year: Int, seconds: Float, behind: (Float, Float) -> Boolean = { _, _ -> false }) {
         val t = camera.tilePx
         if (t < MIN_GLOW_PX) return
         val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -99,6 +99,8 @@ internal class ServiceTrips {
             val u = (trip.pos + 0.5f - i).coerceIn(0f, 1f)
             val (cx, cy, heading) = pointThrough(if (i > 0) route[i - 1] else -1, route[i], if (i < n - 1) route[i + 1] else -1, u, map.width, KERB)
             if (cx < topLeft.x - 1 || cx > bottomRight.x + 1 || cy < topLeft.y - 1 || cy > bottomRight.y + 1) continue
+            // Behind a building, lights and all.
+            if (behind(cx, cy)) continue
             val spot = camera.tileToScreen(cx, cy, size)
             val lights = lit(trip, map, year)
             if (t < MIN_TILE_PX) {

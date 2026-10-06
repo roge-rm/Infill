@@ -21,7 +21,7 @@ import kotlin.math.min
  * carries on from tile to tile; how busy a tile is decides who shows on it.
  * Nobody walks or cycles along a highway.
  */
-internal fun DrawScope.drawPeople(city: City, map: CityMap, camera: Camera, year: Int, time: Float) {
+internal fun DrawScope.drawPeople(city: City, map: CityMap, camera: Camera, year: Int, time: Float, behind: (Float, Float) -> Boolean = { _, _ -> false }) {
     val t = camera.tilePx
     if (t < MIN_PEOPLE_PX) return
     val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -66,6 +66,7 @@ internal fun DrawScope.drawPeople(city: City, map: CityMap, camera: Camera, year
                 val line = line0 + side * 2 + way
                 val off = PAVEMENT[side] + if (way == 0) -STEP else STEP
                 each(line, MOST_WALKERS, walking, if (way == 0) WALK_SPEED else -WALK_SPEED) { pos, seed ->
+                    if (behind(if (row) pos else x + off, if (row) y + off else pos)) return@each
                     val at = camera.tileToScreen(if (row) pos else x + off, if (row) y + off else pos, size)
                     walker(at, t, clothes[(seed ushr 4).mod(clothes.size)], HAIR[(seed ushr 9).mod(HAIR.size)])
                 }
@@ -79,6 +80,7 @@ internal fun DrawScope.drawPeople(city: City, map: CityMap, camera: Camera, year
                 val off = if (row) (if (forward) KERB_FAR else KERB_NEAR) else (if (forward) KERB_NEAR else KERB_FAR)
                 val heading = if (row) (if (forward) 0f else 180f) else (if (forward) 90f else 270f)
                 each(line, MOST_CYCLISTS, riding, if (forward) BIKE_SPEED else -BIKE_SPEED) { pos, seed ->
+                    if (behind(if (row) pos else x + off, if (row) y + off else pos)) return@each
                     val at = camera.tileToScreen(if (row) pos else x + off, if (row) y + off else pos, size)
                     cyclist(at, t, heading, clothes[(seed ushr 4).mod(clothes.size)])
                 }

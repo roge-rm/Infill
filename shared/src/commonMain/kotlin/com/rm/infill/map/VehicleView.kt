@@ -24,7 +24,7 @@ import kotlin.math.min
  * [crossings] a train is on, the road is clear and traffic waits either side.
  * A road shut for works has nothing on it.
  */
-internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, time: Float, most: Int, crossings: Set<Int> = emptySet()) {
+internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, time: Float, most: Int, crossings: Set<Int> = emptySet(), behind: (Float, Float) -> Boolean = { _, _ -> false }) {
     val t = camera.tilePx
     if (most == 0 || t < MIN_TILE_PX) return
     val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -69,7 +69,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                         val u = if (forward) 0.8f - k * 0.3f else 0.2f + k * 0.3f
                         val cx = if (across) x + u else x + side
                         val cy = if (across) y + side else y + u
-                        vehicle(camera.tileToScreen(cx, cy, size), t, DEGREES[dir], unit(seed * 5) < cars, seed)
+                        if (!behind(cx, cy)) vehicle(camera.tileToScreen(cx, cy, size), t, DEGREES[dir], unit(seed * 5) < cars, seed)
                     }
                     continue
                 }
@@ -98,12 +98,12 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                         val other = exits[(unit(seed * 11) * exits.size).toInt().coerceAtMost(exits.size - 1)]
                         val offset = (side - 0.5f) * (if (dir == Heading.EAST.toInt() || dir == Heading.NORTH.toInt()) 1f else -1f)
                         val (cx, cy, angle) = if (inbound) pointThrough(stem, i, other, into, map.width, offset) else pointThrough(other, i, stem, into, map.width, offset)
-                        vehicle(camera.tileToScreen(cx, cy, size), t, angle, unit(seed * 5) < cars, seed)
+                        if (!behind(cx, cy)) vehicle(camera.tileToScreen(cx, cy, size), t, angle, unit(seed * 5) < cars, seed)
                         continue
                     }
                     val cx = if (across) pos else x + side
                     val cy = if (across) y + side else pos
-                    vehicle(camera.tileToScreen(cx, cy, size), t, DEGREES[dir], unit(seed * 5) < cars, seed)
+                    if (!behind(cx, cy)) vehicle(camera.tileToScreen(cx, cy, size), t, DEGREES[dir], unit(seed * 5) < cars, seed)
                 }
             }
         }
@@ -124,7 +124,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                     if (k == 0 && unit(seed) * 128f > busy + 16) continue
                     val along = (time * speed + (k + unit(seed * 3) * 0.5f) / slots) % 1f
                     val (cx, cy, angle) = if (lane == 0) pointThrough(a, i, b, along, map.width, LANE) else pointThrough(b, i, a, along, map.width, LANE)
-                    vehicle(camera.tileToScreen(cx, cy, size), t, angle, unit(seed * 5) < cars, seed)
+                    if (!behind(cx, cy)) vehicle(camera.tileToScreen(cx, cy, size), t, angle, unit(seed * 5) < cars, seed)
                 }
                 continue
             }
@@ -190,7 +190,7 @@ private fun lineSpeed(map: CityMap, across: Boolean, at: Int): Float {
  * traffic where there's no lane kept for them; the fuller the line, the more
  * riders show in the windows.
  */
-internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, lines: Collection<LineState>) {
+internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, lines: Collection<LineState>, behind: (Float, Float) -> Boolean = { _, _ -> false }) {
     val t = camera.tilePx
     if (t < MIN_TILE_PX) return
     val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -233,6 +233,7 @@ internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, li
             val u = pos + 0.5f - i
             val (cx, cy, heading) = pointThrough(route[(i - 1 + n) % n], route[i.mod(n)], route[(i + 1) % n], u, map.width, if (tram) 0f else KERB)
             if (cx < topLeft.x - 1 || cx > bottomRight.x + 1 || cy < topLeft.y - 1 || cy > bottomRight.y + 1) continue
+            if (behind(cx, cy)) continue
             val spot = camera.tileToScreen(cx, cy, size)
             when (line.mode) {
                 Mode.TRAM -> car(spot, t, heading, 0.7f, 0.24f, TRAM_BODY, TRAM_ENDS)

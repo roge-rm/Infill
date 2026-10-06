@@ -214,6 +214,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
 
     /** Marks the chunks that show tile [x], [y] out of date, including those its sprites and shadows reach. */
     fun changed(x: Int, y: Int) {
+        coverDirty = true
         for (cy in (y - max(SHADOW_MARGIN, SPRITE_ROWS)) / CHUNK..(y + SHADOW_MARGIN + 1) / CHUNK) {
             for (cx in (x - SHADOW_MARGIN) / CHUNK..(x + SHADOW_MARGIN) / CHUNK) {
                 if (cx in 0 until chunksX && cy in 0 until chunksY) versions[cy * chunksX + cx]++
@@ -496,6 +497,89 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     private val shown = HashMap<Int, Int>()
 
     /** The top left tile of the building on [x], [y]. */
+    // ---- what's behind the buildings ---------------------------------------------
+
+    /**
+     * For each tile, in each quarter across it, how far down from its top a
+     * building in front of it covers it, in 32nds of a tile; 32 where none
+     * does. Buildings stand taller than their own tiles, so they hide what
+     * moves on the tiles behind them.
+     */
+    private val cover = ByteArray(map.size * QUARTERS) { FULL.toByte() }
+    private var coverDirty = true
+
+    /** For each building sprite, by its place in the atlas: in each quarter tile across it, its first row with anything drawn, in 32nds of a tile from its top. */
+    private val spriteTops = HashMap<Int, IntArray>()
+
+    /** Works out [cover] again if buildings have changed, from the sprites at [level] in [look]. */
+    fun updateCover(level: Int, look: Int) {
+        if (!coverDirty) return
+        coverDirty = false
+        cover.fill(FULL.toByte())
+        val pixels = atlas.pixels(level, look)
+        val width = atlas.width(level)
+        for (ty in 0 until map.height) for (tx in 0 until map.width) {
+            val i = map.index(tx, ty)
+            if (map.buildingType[i].toInt() == 0) continue
+            val (ax, ay) = anchor(tx, ty)
+            if (ax != tx || ty != bottom(tx, ty)) continue
+            val sprite = look * Atlas.PER_LOOK + buildingSprite(ax, ay)
+            val lift = Atlas.rects[sprite * 5 + 4]
+            if (lift <= 0) continue
+            val tops = spriteTops.getOrPut(sprite) { tops(sprite, pixels, width, level) }
+            // The sprite's top edge in 32nds of a tile down from the map's top, at its footprint's top row.
+            val base = ay * FULL - lift
+            for ((q, top) in tops.withIndex()) {
+                val qx = ax * QUARTERS + q
+                val x = qx / QUARTERS
+                if (x >= map.width) break
+                val from = base + top
+                // Down the rows above the footprint that this part of the sprite reaches into.
+                var row = from.floorDiv(FULL)
+                while (row < ay) {
+                    if (row >= 0) {
+                        val k = map.index(x, row) * QUARTERS + qx % QUARTERS
+                        val starts = (from - row * FULL).coerceIn(0, FULL)
+                        if (starts < cover[k]) cover[k] = starts.toByte()
+                    }
+                    row++
+                }
+            }
+        }
+    }
+
+    /** Whether something on the map at [x], [y] tiles is behind a building in front of it. */
+    fun hidden(x: Float, y: Float): Boolean {
+        val tx = x.toInt()
+        val ty = y.toInt()
+        if (x < 0 || y < 0 || tx >= map.width || ty >= map.height) return false
+        val q = ((x - tx) * QUARTERS).toInt().coerceIn(0, QUARTERS - 1)
+        return (y - ty) * FULL >= cover[map.index(tx, ty) * QUARTERS + q]
+    }
+
+    private fun tops(sprite: Int, pixels: IntArray, width: Int, level: Int): IntArray {
+        val r = sprite * 5
+        val sx = Atlas.rects[r] shr level
+        val sy = Atlas.rects[r + 1] shr level
+        val w = Atlas.rects[r + 2] shr level
+        val h = Atlas.rects[r + 3] shr level
+        val step = (FULL / QUARTERS) shr level
+        val quarters = (Atlas.rects[r + 2] + FULL / QUARTERS - 1) / (FULL / QUARTERS)
+        return IntArray(quarters) { q ->
+            var top = h
+            for (col in q * step until minOf(w, (q + 1) * step)) {
+                for (row in 0 until h) {
+                    if (row >= top) break
+                    if ((pixels[(sy + row) * width + sx + col] ushr 24) >= OPAQUE) {
+                        top = row
+                        break
+                    }
+                }
+            }
+            top shl level
+        }
+    }
+
     private fun anchor(x: Int, y: Int): Pair<Int, Int> {
         val id = map.building[map.index(x, y)]
         var ax = x
@@ -1093,6 +1177,11 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         private val NO_PLUMES = IntArray(0)
 
         const val CHUNK = 16
+
+        /** Cover is kept in quarters across a tile, in 32nds of a tile down it; a pixel this solid hides what's behind. */
+        private const val QUARTERS = 4
+        private const val FULL = 32
+        private const val OPAQUE = 128
         const val TILE = 32
         const val LEVELS = 3
 
