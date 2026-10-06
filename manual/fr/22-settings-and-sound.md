@@ -5,7 +5,7 @@
 
 ## Affichage
 
-- **Graphismes** : **Faible** enlève les ombres, la météo, les véhicules, les trains, les navires, les avions et la fumée des cheminées. **moyen** a des ombres fixes et une partie du reste. **Élevé** a tout, avec des ombres qui suivent le soleil.
+- **Graphismes** : **Faible** enlève les ombres, la météo, les véhicules, les trains, les navires, les avions et la fumée des cheminées. **Moyen** a des ombres fixes et une partie du reste. **Élevé** a tout, avec des ombres qui suivent le soleil, et une circulation qui passe derrière les bâtiments au pixel près. Il prend plus de mémoire, alors le jeu choisit le niveau qui convient à votre téléphone tant que vous n'en choisissez pas un.
 - **Thème** : **Auto**, **Clair** ou **Sombre**.
 - **Côté des outils** : où va la barre d'outils quand elle descend le long de l'écran, à l'opposé de la caméra ou toujours à gauche ou à droite.
 - **Taille des commandes et du texte** : de 100 % à 130 %.

@@ -737,7 +737,7 @@ object Manual {
         ManualSection("settings-and-sound", "Settings and sound", "The settings, and what you hear.", listOf(
             ManualBlock(ManualKind.Para, "**Settings** is on the first screen and in the menu. Settings are kept on this phone and change as you go.", "**Settings** is on the first screen and in the menu. Settings are kept in this browser and change as you go."),
             ManualBlock(ManualKind.Heading, "Display"),
-            ManualBlock(ManualKind.Bullet, "**Graphics**: **Low** leaves out shadows, weather, vehicles, trains, ships, planes and smoke from stacks. **Medium** has fixed shadows and some of the rest. **High** has it all, with shadows that follow the sun."),
+            ManualBlock(ManualKind.Bullet, "**Graphics**: **Low** leaves out shadows, weather, vehicles, trains, ships, planes and smoke from stacks. **Medium** has fixed shadows and some of the rest. **High** has it all, with shadows that follow the sun, and traffic that passes behind the buildings to the pixel. It takes more memory, so the game picks the level that suits your phone until you choose one."),
             ManualBlock(ManualKind.Bullet, "**Theme**: **Auto**, **Light** or **Dark**."),
             ManualBlock(ManualKind.Bullet, "**Tools on their side**: where the toolbar goes when it runs down the side of the screen, away from the camera or always on the left or right."),
             ManualBlock(ManualKind.Bullet, "**Size of controls and text**: from 100% to 130%."),
@@ -1453,7 +1453,7 @@ object Manual {
         ManualSection("settings-and-sound", "Paramètres et son", "Les paramètres, et ce que vous entendez.", listOf(
             ManualBlock(ManualKind.Para, "**Paramètres** est sur le premier écran et dans le menu. Les paramètres sont gardés sur cet appareil et s'appliquent tout de suite."),
             ManualBlock(ManualKind.Heading, "Affichage"),
-            ManualBlock(ManualKind.Bullet, "**Graphismes** : **Faible** enlève les ombres, la météo, les véhicules, les trains, les navires, les avions et la fumée des cheminées. **moyen** a des ombres fixes et une partie du reste. **Élevé** a tout, avec des ombres qui suivent le soleil."),
+            ManualBlock(ManualKind.Bullet, "**Graphismes** : **Faible** enlève les ombres, la météo, les véhicules, les trains, les navires, les avions et la fumée des cheminées. **Moyen** a des ombres fixes et une partie du reste. **Élevé** a tout, avec des ombres qui suivent le soleil, et une circulation qui passe derrière les bâtiments au pixel près. Il prend plus de mémoire, alors le jeu choisit le niveau qui convient à votre téléphone tant que vous n'en choisissez pas un."),
             ManualBlock(ManualKind.Bullet, "**Thème** : **Auto**, **Clair** ou **Sombre**."),
             ManualBlock(ManualKind.Bullet, "**Côté des outils** : où va la barre d'outils quand elle descend le long de l'écran, à l'opposé de la caméra ou toujours à gauche ou à droite."),
             ManualBlock(ManualKind.Bullet, "**Taille des commandes et du texte** : de 100 % à 130 %."),

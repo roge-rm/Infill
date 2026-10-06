@@ -17,7 +17,7 @@ internal actual fun imageBitmapOf(pixels: IntArray, width: Int, height: Int): Im
 
 internal actual val bakeDispatcher: CoroutineDispatcher = Dispatchers.Default
 
-internal actual fun newSurface(atlas: TileAtlas, level: Int, size: Int): BakeSurface = PixelSurface(atlas, level, size)
+internal actual fun newSurface(atlas: TileAtlas, level: Int, size: Int, roofs: Boolean): BakeSurface = PixelSurface(atlas, level, size, roofs)
 
 internal actual val cacheScale: Int = 1
 

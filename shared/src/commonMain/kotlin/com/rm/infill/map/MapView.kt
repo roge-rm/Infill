@@ -354,28 +354,31 @@ fun MapView(
         val layer = moving ?: return@Canvas
         val behind: (Float, Float) -> Boolean = layer::mark
         if (!renderer.ready) return@Canvas
-        for (cy in max(0, cy0)..min(cy1, (map.height - 1) / chunk)) {
-            for (cx in max(0, cx0)..min(cx1, (map.width - 1) / chunk)) {
-                val image = renderer.image(cx, cy, level) ?: continue
-                // Whole pixels from each edge, so neighbouring chunks meet without a seam.
-                val a = camera.tileToScreen((cx * chunk).toFloat(), (cy * chunk).toFloat(), size)
-                val b = camera.tileToScreen(((cx + 1) * chunk).toFloat(), ((cy + 1) * chunk).toFloat(), size)
-                val left = a.x.roundToInt()
-                val top = a.y.roundToInt()
-                drawImage(
-                    image,
-                    srcOffset = IntOffset.Zero,
-                    srcSize = IntSize(image.width, image.height),
-                    dstOffset = IntOffset(left, top),
-                    dstSize = IntSize(b.x.roundToInt() - left, b.y.roundToInt() - top),
-                    filterQuality = FilterQuality.None,
-                )
+        // The chunks, or on High the roofs over what moves.
+        fun chunks(roofs: Boolean) {
+            for (cy in max(0, cy0)..min(cy1, (map.height - 1) / chunk)) {
+                for (cx in max(0, cx0)..min(cx1, (map.width - 1) / chunk)) {
+                    val image = (if (roofs) renderer.roofs(cx, cy, level) else renderer.image(cx, cy, level)) ?: continue
+                    // Whole pixels from each edge, so neighbouring chunks meet without a seam.
+                    val a = camera.tileToScreen((cx * chunk).toFloat(), (cy * chunk).toFloat(), size)
+                    val b = camera.tileToScreen(((cx + 1) * chunk).toFloat(), ((cy + 1) * chunk).toFloat(), size)
+                    val left = a.x.roundToInt()
+                    val top = a.y.roundToInt()
+                    drawImage(
+                        image,
+                        srcOffset = IntOffset.Zero,
+                        srcSize = IntSize(image.width, image.height),
+                        dstOffset = IntOffset(left, top),
+                        dstSize = IntSize(b.x.roundToInt() - left, b.y.roundToInt() - top),
+                        filterQuality = FilterQuality.None,
+                    )
+                }
             }
         }
+        chunks(roofs = false)
         drawNeighbours(game.city.neighbours, map, camera, atlas, look)
         drawFloods(map, camera)
         drawWorks(map, camera)
-        if (planes) drawPlanes(game.city.airportsShown(), camera, travelTime, jets = game.city.year >= Balance.JET_YEAR)
         val raised = if (ships) drawShips(game.city.shipRoutes, map, camera, travelTime, graphics.trains, graphics.smoke && game.city.year < Balance.STEAM_UNTIL) else emptySet()
         layer.begin(this)
         // Road traffic waits for a train at a crossing, and for a bridge that's open for a ship.
@@ -388,7 +391,9 @@ fun MapView(
             services.update(game.city.callouts, map, travelTime, game.city.year)
             with(services) { draw(map, camera, game.city.year, weatherTime, behind) }
         }
-        layer.end(this, camera, MapRenderer.SHADOW_ALPHA * sun.strength, roofs = false)
+        layer.end(this, camera, MapRenderer.SHADOW_ALPHA * sun.strength, roofs = renderer.exact)
+        if (renderer.exact) chunks(roofs = true)
+        if (planes) drawPlanes(game.city.airportsShown(), camera, travelTime, jets = game.city.year >= Balance.JET_YEAR)
         drawRough(rough, map.width, camera)
         drawPlumes(renderer, map, camera, plumes, weather, weatherTime, graphics.plumes)
         if (fires) drawFires(map, camera, weather, weatherTime)

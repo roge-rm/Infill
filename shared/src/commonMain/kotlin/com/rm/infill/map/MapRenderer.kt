@@ -49,7 +49,17 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         var plumes = IntArray(0)
     }
 
-    private class Entry(val cx: Int, val cy: Int, val level: Int, val image: ImageBitmap, var used: Long, val version: Int)
+    /** A baked chunk: the map, and on High what stands above its own tiles, drawn over what moves. */
+    class Baked(val image: ImageBitmap, val roofs: ImageBitmap?) {
+        val bytes get() = (image.width.toLong() * image.height + (roofs?.let { it.width.toLong() * it.height } ?: 0L)) * 4
+    }
+
+    /** Whether the buildings' upper parts are baked apart, to go over what moves: on High. */
+    val exact = graphics.level == GraphicsLevel.High
+
+    private class Entry(val cx: Int, val cy: Int, val level: Int, val baked: Baked, var used: Long, val version: Int) {
+        val image get() = baked.image
+    }
 
     private val cache = HashMap<Long, Entry>()
     private var bytes = 0L
@@ -159,9 +169,14 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     }
 
     /** The bitmap to draw for a chunk: what its level is showing, or the nearest thing to it that's baked. */
-    fun image(cx: Int, cy: Int, level: Int): ImageBitmap? {
+    fun image(cx: Int, cy: Int, level: Int): ImageBitmap? = baked(cx, cy, level)?.image
+
+    /** The roofs to draw over what moves on a chunk, from the same bake as [image]. */
+    fun roofs(cx: Int, cy: Int, level: Int): ImageBitmap? = baked(cx, cy, level)?.roofs
+
+    private fun baked(cx: Int, cy: Int, level: Int): Baked? {
         if (shownLook[level] >= 0) {
-            cache[key(cx, cy, level, shownLook[level], shownStep[level])]?.let { return it.image }
+            cache[key(cx, cy, level, shownLook[level], shownStep[level])]?.let { return it.baked }
         }
         // Coarser levels first, since they're soft rather than too busy, then sharper ones.
         for (l in (level until LEVELS) + (level - 1 downTo 0)) {
@@ -169,7 +184,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             for (e in cache.values) {
                 if (e.cx == cx && e.cy == cy && e.level == l && (best == null || e.used > best.used)) best = e
             }
-            if (best != null) return best.image
+            if (best != null) return best.baked
         }
         return null
     }
@@ -190,7 +205,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
      * out of date, but it still stands in until the next one is ready.
      * True if the screen was waiting on it.
      */
-    fun store(request: Request, image: ImageBitmap): Boolean {
+    fun store(request: Request, image: Baked): Boolean {
         baking -= request.key
         val c = request.cy * chunksX + request.cx
         if (request.version >= plumeVersions[c]) {
@@ -200,13 +215,13 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         val old = cache[request.key]
         if (old != null) {
             if (old.version > request.version) return false
-            bytes -= old.image.width.toLong() * old.image.height * 4
+            bytes -= old.baked.bytes
         }
         cache[request.key] = Entry(request.cx, request.cy, request.level, image, frame, request.version)
-        bytes += image.width.toLong() * image.height * 4
+        bytes += image.bytes
         while (bytes > graphics.cacheBytes && cache.size > 1) {
             val oldest = cache.entries.minBy { it.value.used }
-            bytes -= oldest.value.image.width.toLong() * oldest.value.image.height * 4
+            bytes -= oldest.value.baked.bytes
             cache.remove(oldest.key)
         }
         return request.key in onScreen
@@ -223,10 +238,10 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     }
 
     /** Bakes a chunk. Safe on a background thread with [PixelSurface], as long as the map isn't changed meanwhile. */
-    fun bake(r: Request): ImageBitmap {
+    fun bake(r: Request): Baked {
         val level = r.level
         val s = TILE shr level
-        val surface = newSurface(atlas, level, CHUNK * s)
+        val surface = newSurface(atlas, level, CHUNK * s, roofs = exact)
         val x0 = r.cx * CHUNK
         val y0 = r.cy * CHUNK
         val x1 = min(x0 + CHUNK, map.width)
@@ -349,6 +364,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 val (ax, ay) = anchor(tx, ty)
                 if (ax != tx || ty != bottom(tx, ty)) continue
                 val sprite = buildingSprite(ax, ay)
+                // What stands above its own tiles goes on the roofs, over what moves behind it.
+                surface.raiseAbove((ay - y0) * s)
                 surface.blend(base + sprite, (ax - x0) * s, (ay - y0) * s)
                 if (ax >= x0 && ay in y0 until y1 && Atlas.plumeCount[sprite] > 0) {
                     stacks += map.index(ax, ay)
@@ -357,6 +374,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 if (map.forSale[i]) surface.blend(base + Atlas.FOR_SALE, (ax - x0) * s, (ay - y0) * s)
                 continue
             }
+            surface.raiseAbove((ty - y0) * s)
             if (map.terrain[i] == Terrain.TREES) {
                 // Trees in the worst of the grime lose their leaves.
                 val treeBase = if (map.grimeLevel(i) == 3 && r.look != Atlas.SNOW) Atlas.BARE * Atlas.PER_LOOK else base
@@ -368,8 +386,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
                 else if (map.phone[i].toInt() != 0 && !map.duct(i)) surface.blend(base + phoneSprite(tx, ty), (tx - x0) * s, (ty - y0) * s)
             }
         }
+        surface.raiseAbove(BakeSurface.NO_ROOFS)
         r.plumes = stacks.toIntArray()
-        return surface.finish()
+        return Baked(surface.finish(), surface.finishRoofs())
     }
 
     /** Banks along the sides of a water tile that touch land, and in corners where only the diagonal does. */

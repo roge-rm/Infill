@@ -34,15 +34,36 @@ internal interface BakeSurface {
     /** Which pixels the last shadows fell on, row by row, or null if there were none. */
     fun shadowMask(): BooleanArray?
 
+    /**
+     * Sprites blended from now on put what's above pixel row [y] onto the
+     * roofs, if this surface keeps them; [NO_ROOFS] to stop.
+     */
+    fun raiseAbove(y: Int)
+
     fun finish(): ImageBitmap
+
+    /** What went up onto the roofs, or null if this surface doesn't keep them. */
+    fun finishRoofs(): ImageBitmap?
+
+    companion object {
+        const val NO_ROOFS = Int.MIN_VALUE
+    }
 }
 
-/** The surface this platform bakes on best. */
-internal expect fun newSurface(atlas: TileAtlas, level: Int, size: Int): BakeSurface
+/** The surface this platform bakes on best, keeping the [roofs] apart if asked. */
+internal expect fun newSurface(atlas: TileAtlas, level: Int, size: Int, roofs: Boolean = false): BakeSurface
 
 /** Pixels in an IntArray, turned into a bitmap at the end. Safe on any thread. */
-internal class PixelSurface(atlas: TileAtlas, private val level: Int, private val size: Int) : BakeSurface {
+internal class PixelSurface(atlas: TileAtlas, private val level: Int, private val size: Int, keepRoofs: Boolean = false) : BakeSurface {
     private val out = IntArray(size * size)
+
+    /** The parts of sprites above [split], kept apart to draw over what moves; see [raiseAbove]. */
+    private val roofs = if (keepRoofs) IntArray(size * size) else null
+    private var split = BakeSurface.NO_ROOFS
+
+    override fun raiseAbove(y: Int) {
+        split = y
+    }
     private val atlas = atlas
     private val srcWidth = atlas.width(level)
 
@@ -88,12 +109,17 @@ internal class PixelSurface(atlas: TileAtlas, private val level: Int, private va
             if (y < 0 || y >= size) continue
             val from = (sy + row) * srcWidth + sx
             val to = y * size
+            val up = roofs != null && y < split
             for (col in 0 until w) {
                 val x = dx + col
                 if (x < 0 || x >= size) continue
                 val p = src[from + col]
                 val a = p ushr 24
                 if (a == 0) continue
+                if (up) {
+                    over(roofs!!, to + x, p, a)
+                    continue
+                }
                 if (a == 255) {
                     out[to + x] = p
                     continue
@@ -221,4 +247,22 @@ internal class PixelSurface(atlas: TileAtlas, private val level: Int, private va
     override fun shadowMask(): BooleanArray? = lastMask
 
     override fun finish(): ImageBitmap = imageBitmapOf(out, size, size)
+
+    override fun finishRoofs(): ImageBitmap? = roofs?.let { imageBitmapOf(it, size, size) }
+
+    /** [p], [a] out of 255 solid, laid over pixel [k] of [into], which may be see-through. */
+    private fun over(into: IntArray, k: Int, p: Int, a: Int) {
+        if (a == 255) {
+            into[k] = p
+            return
+        }
+        val q = into[k]
+        val qa = (q ushr 24) * (255 - a) / 255
+        val oa = a + qa
+        if (oa == 0) return
+        val rr = (((p shr 16) and 0xff) * a + ((q shr 16) and 0xff) * qa) / oa
+        val gg = (((p shr 8) and 0xff) * a + ((q shr 8) and 0xff) * qa) / oa
+        val bb = ((p and 0xff) * a + (q and 0xff) * qa) / oa
+        into[k] = (oa shl 24) or (rr shl 16) or (gg shl 8) or bb
+    }
 }

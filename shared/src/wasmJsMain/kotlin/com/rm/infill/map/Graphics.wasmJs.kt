@@ -53,7 +53,7 @@ private fun copyIntoSkia(skia: JsAny, from: Int, to: Int, bytes: Int): Unit =
 /** The browser has one thread, so chunks are baked between frames, a few milliseconds at a time. */
 internal actual val bakeDispatcher: CoroutineDispatcher = Dispatchers.Default
 
-internal actual fun newSurface(atlas: TileAtlas, level: Int, size: Int): BakeSurface = PixelSurface(atlas, level, size)
+internal actual fun newSurface(atlas: TileAtlas, level: Int, size: Int, roofs: Boolean): BakeSurface = PixelSurface(atlas, level, size, roofs)
 
 internal actual val cacheScale: Int = 2
 
