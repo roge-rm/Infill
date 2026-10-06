@@ -7416,20 +7416,34 @@ def rec_centre(look, v):
 
 
 def bandstand(look, v):
-    """A bandstand on one tile: an eight sided roof on slim iron posts, on a raised round floor, in a ring of lawn and paths."""
+    """A bandstand on one tile: an eight sided roof with a finial on dark iron posts, over a raised round floor with a
+    railing and steps, a band on it, in a ring of lawn and paths."""
     b = Building(height=LIFT + 8)
     d = b.d
     rng = random.Random(14300 + v)
     top = b.lift
     lawn_box(b, look, 0, 0, 31, 31, rng)
-    path_line(b, look, [(0, 26), (31, 26)])
-    d.ellipse([6, top + 7, 25, top + 24], c("#efe8d8"), OUTLINE)
+    path_line(b, look, [(0, 27), (31, 27)])
+    # The floor: a stone base, its edge in shade, and steps down to the path.
+    d.ellipse([5, top + 10, 26, top + 25], c("#b8ad98"), OUTLINE)
+    d.ellipse([5, top + 8, 26, top + 23], c("#efe8d8"), OUTLINE)
+    d.rectangle([13, top + 23, 18, top + 26], c("#d8cfbc"), OUTLINE)
+    # The band, in their coats.
+    for x, y in ((11, 16), (15, 18), (19, 16), (15, 14)):
+        d.rectangle([x, top + y, x + 1, top + y + 1], c("#2c3a5a"))
+    # The railing round the edge, and the posts up to the roof.
+    for x in range(7, 25, 3):
+        d.point((x, top + 19), c("#2a2a2e"))
+    iron = c("#2a2a2e")
+    for x in (7, 11, 20, 24):
+        d.line([x, top + 11, x, top + 19], iron)
+    # The roof, its ridges, and a gold finial on top.
     roofc = [c("#3f6b48"), c("#8a3b2e")][v % 2] if look != "snow" else SNOW_ROOF[0]
-    d.polygon([(10, top + 3), (21, top + 3), (25, top + 8), (21, top + 13), (10, top + 13), (6, top + 8)], roofc, OUTLINE)
-    d.point((15, top + 7), c("#d9b44a"))
-    for x in (8, 15, 23):
-        d.line([x, top + 13, x, top + 20], TRIM)
-    b.casters.append((1, 6, 3, 26, 14, 10))
+    d.polygon([(9, top + 2), (22, top + 2), (26, top + 7), (22, top + 12), (9, top + 12), (5, top + 7)], roofc, OUTLINE)
+    for (x, y) in ((9, 2), (22, 2), (26, 7), (22, 12), (9, 12), (5, 7)):
+        d.line([15, top + 7, x, top + y], shade(roofc, 0.75))
+    d.rectangle([15, top + 5, 16, top + 7], c("#d9b44a"))
+    b.casters.append((1, 5, 2, 27, 13, 10))
     return b
 
 
