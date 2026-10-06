@@ -86,7 +86,7 @@ internal class MovingLayer(private val map: CityMap, private val renderer: MapRe
     }
 
     private companion object {
-        /** How far from its middle anything moving reaches, in tiles. */
-        const val REACH = 0.4f
+        /** How far from its middle anything moving reaches, in tiles: a train car's end on a bend, or the glow of a flashing light. */
+        const val REACH = 0.6f
     }
 }
