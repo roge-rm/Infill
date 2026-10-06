@@ -458,7 +458,17 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         val t = BuildingType.entries[type]
         // A building still going up is its site, dug or framed.
         val site = map.site[map.index(x, y)].toInt()
-        if (site > 0) return (if (t.large) Atlas.SITE_LARGE else Atlas.SITE_SMALL) + site - 1
+        if (site > 0) {
+            // A site the shape of the lot.
+            val sprite = when {
+                t.width == 1 && t.height == 1 -> Atlas.SITE_SMALL
+                t.width == 2 && t.height == 1 -> Atlas.SITE_WIDE
+                t.width == 1 && t.height == 2 -> Atlas.SITE_DEEP
+                t.width >= 3 && t.height >= 3 -> Atlas.SITE_HUGE
+                else -> Atlas.SITE_LARGE
+            }
+            return sprite + site - 1
+        }
         if (t.railway) {
             // The pair of looks for the side the track is on, south or east being the second pair.
             val side = Rail.trackSide(map, t, x, y)

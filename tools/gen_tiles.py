@@ -3373,6 +3373,57 @@ def site_small(look, phase):
     return b
 
 
+def site_lot(look, phase, w, h, storeys):
+    """A building site on [w] by [h] tiles, for lots that aren't square: a hole and stacks of
+    timber and crates, then a steel frame [storeys] high, with a derrick at the back."""
+    b = Building(w, h, height=storeys * STOREY + 12)
+    d = b.d
+    site_ground(b, look, w, h)
+    top = b.lift
+    W, H = w * T, h * T
+    if phase == 0:
+        hx0, hy0 = b.ground(6, 6)
+        hw, hh = W - 14, H - 18
+        d.rectangle([hx0, hy0, hx0 + hw, hy0 + hh], c("#4a3828"), OUTLINE)
+        d.rectangle([hx0 + 3, hy0 + 3, hx0 + hw - 3, hy0 + hh - 3], c("#3f3022"))
+        yard(b, look, "lumber", 4, min(W // 2, 28), H - 4)
+        if W >= 48:
+            yard(b, look, "crates", W // 2 + 4, W - 4, H - 4)
+    else:
+        hgt = storeys * STOREY
+        x0, x1, y0, y1 = 5, W - 6, 6, H - 8
+        for xx in range(x0, x1 + 1, 8):
+            d.line([xx, y1 + top, xx, y1 + top - hgt], STEEL)
+            d.line([xx, y0 + top - hgt, xx, y1 + top - hgt], shade(STEEL, 1.2))
+        for k in range(0, hgt + 1, STOREY):
+            d.line([x0, y1 + top - k, x1, y1 + top - k], STEEL)
+        d.line([x0, y0 + top - hgt, x1, y0 + top - hgt], shade(STEEL, 1.2))
+        b.casters.append((1, x0, y0, x1 + 1, y1 + 1, hgt // 2))
+    # The derrick: a mast and a boom over the site.
+    mx, my = W - 6, 6
+    reach = min(30, W - 12)
+    d.line([mx, my + top, mx, my + top - storeys * STOREY - 8], c("#3a3c42"))
+    d.line([mx, my + top - storeys * STOREY - 8, mx - reach, my + top - storeys * STOREY + 4], c("#3a3c42"))
+    d.line([mx - reach, my + top - storeys * STOREY + 4, mx - reach, my + top - (storeys - 2) * STOREY], c("#8a8a90"))
+    b.casters.append((1, mx - 1, my - 1, mx + 1, my + 1, storeys * STOREY + 8))
+    return b
+
+
+def site_wide(look, phase):
+    """A site on 2 by 1 tiles: terraces, shops with flats over them and the like."""
+    return site_lot(look, phase, 2, 1, 4)
+
+
+def site_deep(look, phase):
+    """A site on 1 by 2 tiles, the same lots turned the other way."""
+    return site_lot(look, phase, 1, 2, 4)
+
+
+def site_huge(look, phase):
+    """A site on 3 by 3 tiles, for the tallest towers."""
+    return site_lot(look, phase, 3, 3, 8)
+
+
 def site_large(look, phase):
     """A building site on 2 by 2 tiles: a deep hole and a derrick, then a steel frame going up."""
     b = Building(2, 2, height=5 * STOREY + 12)
@@ -8920,7 +8971,7 @@ BUILDINGS = [
     ("school", school, 2), ("high_school", high_school, 2), ("clinic", clinic, 2), ("hospital", hospital, 1),
     ("row_houses", row_houses, 3), ("apartments", apartments, 3), ("apartment_court", apartment_court, 3),
     ("main_street", main_street, 4), ("office_block", office_block, 3), ("department_store", department_store, 3),
-    ("works", works, 3), ("site_small", site_small, 2), ("site_large", site_large, 2),
+    ("works", works, 3), ("site_small", site_small, 2), ("site_large", site_large, 2), ("site_wide", site_wide, 2), ("site_deep", site_deep, 2), ("site_huge", site_huge, 2),
     ("sewage_works", sewage_works, 1), ("treatment_plant", treatment_plant, 1),
     ("tram_depot", tram_depot, 1), ("bus_garage", bus_garage, 2), ("subway_station", subway_station, 1),
     ("oil_plant", oil_plant, 1), ("gas_plant", gas_plant, 1), ("hydro_plant", hydro_plant, 1), ("nuclear_plant", nuclear_plant, 1),
