@@ -1,5 +1,5 @@
 # Transport en commun et rail
-> Le vélo, les tramways, les autobus, les trolleybus, le métro, les traversiers et les trains.
+> Le vélo, les tramways, les autobus, les trolleybus, le métro, les traversiers, le stationnement incitatif et les trains.
 
 Les habitants prennent le moyen le plus rapide possible. Ceux qui ont une auto peuvent conduire, certains qui n'en ont pas font du vélo, et tout le monde marche ou prend le transport en commun. Le transport en commun amène les gens au travail avant l'auto, et garde les routes fluides après.
 
@@ -39,6 +39,14 @@ Dès l'ère Ville du tramway, l'onglet **Métro** pose le tunnel **Métro** sous
 ## Traversiers
 
 Une **Gare de traversiers**, sous **Ports**, se place au bord de l'eau. Les traversiers vont de chaque gare à toutes les autres que l'eau relie à moins de 90 cases, donc ils peuvent faire traverser une rivière ou une baie sans pont. Un traversier est lent et il faut l'attendre, mais c'est mieux qu'un long détour. Dès 1920, ils prennent aussi les autos. Une gare coûte 3 500 $ et 45 $ par mois. Elle a besoin d'une route et, comme un quai, du téléphone dès 1940 et de l'électricité dès 1950.
+
+## Stationnement incitatif
+
+Dès 1960, **Stationnement incitatif**, dans chaque onglet de **Collectif**, est un stationnement de 400 places, à 1 200 $ et 12 $ par mois. Il se place à 2 cases ou moins d'une gare, d'une station de métro, d'une gare de traversiers ou d'un arrêt de tramway ou d'autobus, et a besoin d'une route. Les automobilistes y laissent leur auto et continuent en transport en commun quand ça les amène au travail plus vite que de rouler jusqu'au bout. Se stationner leur prend deux minutes, et une fois stationnés, ils continuent en transport en commun : personne ne s'y stationne pour marcher jusqu'à un travail tout près. Une fois plein, les autres prennent l'auto. La fiche d'inspection montre combien de places ont été prises le mois dernier.
+
+Le stationnement est gratuit au départ. **Faire payer le stationnement**, sur la fiche d'inspection, fait payer 40 cents à chaque automobiliste, sous **Tarifs** dans le budget, ce qui en décourage quelques-uns. **Rendre le stationnement gratuit** enlève le tarif.
+
+Dès 1990, le plateau pose plutôt un **Stationnement étagé**, quatre étages et 1 200 places, à 4 000 $ et 30 $ par mois. **Moderniser**, sur la fiche d'inspection, change un ancien stationnement en stationnement étagé.
 
 ## Lignes et véhicules
 

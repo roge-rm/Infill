@@ -5,7 +5,7 @@
 2. [The screen](02-the-screen.md) - the strip, the tools, the map views, inspecting, undo, the keys, a controller and TalkBack.
 3. [Zones and growth](03-zones-and-growth.md) - what each zone grows, what a lot needs to grow, demand and land value.
 4. [Roads and traffic](04-roads-and-traffic.md) - roads, crossings, bridges and tunnels, and how the town drives on them.
-5. [Transit and rail](05-transit-and-rail.md) - cycling, trams, buses, trolleybuses, the subway, ferries and trains.
+5. [Transit and rail](05-transit-and-rail.md) - cycling, trams, buses, trolleybuses, the subway, ferries, park and ride and trains.
 6. [Ports, airports and trade](06-ports-airports-and-trade.md) - ships, aircraft, goods and the outside market.
 7. [Power](07-power.md) - power stations, lines, losses, the peak, and the wind and sun.
 8. [Water, drains and garbage](08-water-and-waste.md) - wells and mains, pressure, sewers and foul water, storms and floods, and garbage.

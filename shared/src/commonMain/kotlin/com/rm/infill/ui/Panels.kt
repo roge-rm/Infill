@@ -67,6 +67,8 @@ import com.rm.infill.res.university
 import com.rm.infill.res.research_campus
 import com.rm.infill.res.sanatorium
 import com.rm.infill.res.public_health_office
+import com.rm.infill.res.park_and_ride
+import com.rm.infill.res.parking_garage
 import com.rm.infill.res.police_box
 import com.rm.infill.res.traffic_police
 import com.rm.infill.res.fireboat_station
@@ -560,6 +562,8 @@ fun buildingName(t: BuildingType): StringResource = when (t) {
     BuildingType.TRAFFIC_POLICE -> Res.string.traffic_police
     BuildingType.FIREBOAT_STATION -> Res.string.fireboat_station
     BuildingType.FERRY_TERMINAL -> Res.string.ferry_terminal
+    BuildingType.PARK_AND_RIDE -> Res.string.park_and_ride
+    BuildingType.PARKING_GARAGE -> Res.string.parking_garage
     BuildingType.PULVERIZED_COAL -> Res.string.pulverized_coal
     BuildingType.SUPERCRITICAL_COAL -> Res.string.supercritical_coal
     BuildingType.LARGE_OIL -> Res.string.large_oil

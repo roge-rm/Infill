@@ -96,6 +96,9 @@ sealed interface Action {
     /** Scrubbers fitted to the coal or oil station on [x], [y]. */
     data class FitScrubbers(val x: Int, val y: Int) : Action
 
+    /** Drivers pay to park at the park and ride at [x], [y], or park free. */
+    data class SetParkingFee(val x: Int, val y: Int, val paid: Boolean) : Action
+
     /** Street trees along the roads on [tiles], given as map indices in order. */
     data class PlantStreetTrees(val tiles: IntArray) : Action {
         override fun equals(other: Any?) = other is PlantStreetTrees && tiles.contentEquals(other.tiles)
@@ -204,7 +207,7 @@ enum class Pipe(val price: Long) { WATER(15), SEWER(20), STORM(18) }
 /** The id a [Action.PaintDistrict] gives to make a new district. */
 const val NEW_DISTRICT = -1
 
-enum class Problem { NotEnoughMoney, NothingToDo, Blocked, TownBuiltThere, NeedsTrack, NeedsWater, NeedsTramTrack, NeedsTunnel, NoRoute, NoSeaRoute, CutsOffPort, OnlyOne, Overseen, Protest }
+enum class Problem { NotEnoughMoney, NothingToDo, Blocked, TownBuiltThere, NeedsTrack, NeedsWater, NeedsTramTrack, NeedsTunnel, NoRoute, NoSeaRoute, CutsOffPort, OnlyOne, Overseen, Protest, NeedsStation }
 
 /**
  * What an action would do: its [cost], the tiles it [changes] and the ones it
@@ -329,6 +332,8 @@ object Prices {
         BuildingType.SEWAGE_WORKS -> SEWAGE_WORKS
         BuildingType.TRAM_DEPOT -> TRAM_DEPOT
         BuildingType.FERRY_TERMINAL -> 3_500L
+        BuildingType.PARK_AND_RIDE -> 1_200L
+        BuildingType.PARKING_GARAGE -> 4_000L
         BuildingType.BUS_GARAGE -> BUS_GARAGE
         BuildingType.SUBWAY_STATION -> SUBWAY_STATION
         BuildingType.TREATMENT_PLANT -> TREATMENT_PLANT

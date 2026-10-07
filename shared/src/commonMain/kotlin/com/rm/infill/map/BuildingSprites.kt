@@ -239,6 +239,8 @@ internal object BuildingSprites {
                 BuildingType.TRAFFIC_POLICE -> Atlas.TRAFFIC_POLICE to Atlas.TRAFFIC_POLICE_COUNT
                 BuildingType.FIREBOAT_STATION -> Atlas.FIREBOAT_STATION to Atlas.FIREBOAT_STATION_COUNT
                 BuildingType.FERRY_TERMINAL -> Atlas.FERRY_TERMINAL to Atlas.FERRY_TERMINAL_COUNT
+                BuildingType.PARK_AND_RIDE -> Atlas.COMMUTER_LOT to Atlas.COMMUTER_LOT_COUNT
+                BuildingType.PARKING_GARAGE -> Atlas.PARKING_GARAGE to Atlas.PARKING_GARAGE_COUNT
                 BuildingType.PULVERIZED_COAL -> Atlas.PULVERIZED_COAL to Atlas.PULVERIZED_COAL_COUNT
                 BuildingType.SUPERCRITICAL_COAL -> Atlas.SUPERCRITICAL_COAL to Atlas.SUPERCRITICAL_COAL_COUNT
                 BuildingType.LARGE_OIL -> Atlas.LARGE_OIL to Atlas.LARGE_OIL_COUNT

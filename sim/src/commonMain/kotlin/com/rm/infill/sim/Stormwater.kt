@@ -84,6 +84,7 @@ object Stormwater {
         BuildingType.SEWAGE_WORKS -> 55
         BuildingType.TRAM_DEPOT, BuildingType.BUS_GARAGE -> 90
         BuildingType.SUBWAY_STATION -> 60
+        BuildingType.PARK_AND_RIDE, BuildingType.PARKING_GARAGE -> 95
         BuildingType.TREATMENT_PLANT -> 65
         BuildingType.STORM_POND -> 0
         // The other sizes are looked up as what they're like, above.

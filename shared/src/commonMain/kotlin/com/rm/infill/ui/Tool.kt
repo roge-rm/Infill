@@ -27,6 +27,7 @@ import com.rm.infill.res.university
 import com.rm.infill.res.research_campus
 import com.rm.infill.res.sanatorium
 import com.rm.infill.res.public_health_office
+import com.rm.infill.res.park_and_ride
 import com.rm.infill.res.police_box
 import com.rm.infill.res.traffic_police
 import com.rm.infill.res.fireboat_station
@@ -326,6 +327,7 @@ enum class TransitKind(
     Wire(Res.string.trolley_wire, wire = true),
     Subway(Res.string.subway, needs = BuildingType.SUBWAY_STATION),
     Station(Res.string.subway_station, building = BuildingType.SUBWAY_STATION),
+    ParkRide(Res.string.park_and_ride, building = BuildingType.PARK_AND_RIDE),
     TramLine(Res.string.tram_line, line = 2),
     BusLine(Res.string.bus_line, needs = BuildingType.BUS_GARAGE, line = 1),
     Lane(Res.string.bus_lane, lane = true),
@@ -347,6 +349,7 @@ val TransitKind.groups: List<TransitGroup> get() = when (this) {
     TransitKind.BusStop, TransitKind.Garage, TransitKind.Wire, TransitKind.BusLine, TransitKind.CycleLane -> listOf(TransitGroup.Buses)
     TransitKind.Subway, TransitKind.Station -> listOf(TransitGroup.Subway)
     TransitKind.Lane, TransitKind.Lines -> listOf(TransitGroup.Trams, TransitGroup.Buses)
+    TransitKind.ParkRide -> TransitGroup.entries
     TransitKind.Remove -> TransitGroup.entries
 }
 
@@ -707,7 +710,7 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
         Tool.Districts -> if (district == DISTRICT_LIST) null else Action.PaintDistrict(x0, y0, x1, y1, district)
         Tool.Traffic -> Action.SetJunction(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true), junction.control)
         Tool.Transit -> when {
-            transit.building != null -> Action.PlaceBuilding(transit.building, x1, y1)
+            transit.building != null -> Action.PlaceBuilding(newest(transit.building), x1, y1)
             transit.stop != 0 -> Action.PlaceStop(x1, y1, transit.stop)
             transit == TransitKind.TramTrack -> Action.BuildTram(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))
             transit.wire -> Action.BuildWire(Action.roadPath(map, x0, y0, x1, y1, acrossFirst ?: true))

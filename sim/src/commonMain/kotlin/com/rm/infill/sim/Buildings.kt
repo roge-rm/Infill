@@ -471,6 +471,10 @@ enum class BuildingType(
 
     /** A ferry terminal on the shore: ferries run to every other within reach over the water. */
     FERRY_TERMINAL(Zone.NONE, 0, 10, width = 2, height = 2, life = 50),
+
+    /** Park and ride beside a station or stop, where drivers leave their cars and go on by transit: a lot from 1960, a garage from 1990. */
+    PARK_AND_RIDE(Zone.NONE, 0, 2, width = 2, height = 2, year = 1960, life = 40),
+    PARKING_GARAGE(Zone.NONE, 0, 4, width = 2, height = 2, year = 1990, life = 50),
     ;
 
     /** A building the city runs rather than one that grows on zoned land. */
@@ -584,6 +588,9 @@ enum class BuildingType(
     /** Stands out in the water, every tile of it. */
     val inWater get() = this == RIVER_TURBINE || root == TIDAL_TURBINE || root == OFFSHORE_WIND
 
+    /** A car park drivers leave their cars at to go on by transit. */
+    val parkRide get() = root == PARK_AND_RIDE
+
     /** Has to be beside water. */
     val onWater get() = this == PUMPING_STATION || outfall || this == STORM_OUTFALL || root == HYDRO_PLANT || this == FIREBOAT_STATION ||
         this == HYDRO_DAM || this == PUMPED_STORAGE || this == FERRY_TERMINAL
@@ -680,6 +687,9 @@ class Building(val id: Int, var type: BuildingType, val x: Int, val y: Int, val 
 
     /** For a coal or oil station, scrubbers fitted to clean its smoke. */
     var scrubbed = false
+
+    /** For a park and ride, whether drivers pay to park. */
+    var paidParking = false
 
     /** For a works on industrial land, what it makes: a [WorksKind]'s ordinal, or -1. */
     var kind = -1

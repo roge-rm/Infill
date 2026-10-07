@@ -67,7 +67,7 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
         // Lines are drawn as they're planned.
         is Action.AddLine, is Action.SetVehicles, is Action.RemoveLine -> {}
         is Action.PaintDistrict -> rect(a.x0, a.y0, a.x1, a.y1, camera, PARK_FILL, PARK_EDGE)
-        is Action.SetDistrict, is Action.RemoveDistrict, is Action.FitScrubbers, is Action.SetBridge, is Action.LinkOut -> {}
+        is Action.SetDistrict, is Action.RemoveDistrict, is Action.FitScrubbers, is Action.SetParkingFee, is Action.SetBridge, is Action.LinkOut -> {}
         is Action.SetJunction -> {
             for (i in a.tiles) drawRect(ROAD_DRAG, at(i), tile)
             for (i in p.plan.changes) drawRect(LINE_FILL, at(i), tile)
@@ -109,7 +109,7 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
         is Action.RemovePhone -> rect(a.x0, a.y0, a.x1, a.y1, camera, BULLDOZE_FILL, BULLDOZE_EDGE)
         is Action.PlaceBuilding -> {
             val ok = p.plan.problem != Problem.Blocked && p.plan.problem != Problem.NeedsTrack && p.plan.problem != Problem.NeedsWater &&
-                p.plan.problem != Problem.NeedsTramTrack && p.plan.problem != Problem.NeedsTunnel
+                p.plan.problem != Problem.NeedsTramTrack && p.plan.problem != Problem.NeedsTunnel && p.plan.problem != Problem.NeedsStation
             rect(a.x, a.y, a.x + a.type.width - 1, a.y + a.type.height - 1, camera, if (ok) PLACE_FILL else BLOCKED, if (ok) PLACE_EDGE else BULLDOZE_EDGE)
         }
     }

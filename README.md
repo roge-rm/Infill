@@ -31,7 +31,7 @@ Dan (rm)
 - Zones for homes, shops, offices, works and farms, from rural lots to towers, with lots that fill in over time
 - Six eras from 1900 on, each with its own buildings, and older kinds of building that date until you bring them up to date
 - Roads from dirt tracks to boulevards, junctions with stop signs, lights and roundabouts, and traffic you can watch and fix
-- Rail, trams, buses, trolleybuses, a subway and ferries, with lines you plan stop by stop, and cycling with cycle lanes
+- Rail, trams, buses, trolleybuses, a subway and ferries, with lines you plan stop by stop, park and ride, and cycling with cycle lanes
 - Power stations from coal to small modular reactors, wind, sun and storage, each with newer kinds as the years go by
 - Water mains, sewers and storm drains that age and need relaying
 - Garbage from the town dump to recycling, compost and waste-to-energy
@@ -64,7 +64,7 @@ The whole manual is in the game, under Help, and the book button on most windows
 2. [The screen](manual/02-the-screen.md) - the strip, the tools, the map views, inspecting, undo, the keys, a controller and TalkBack.
 3. [Zones and growth](manual/03-zones-and-growth.md) - what each zone grows, what a lot needs to grow, demand and land value.
 4. [Roads and traffic](manual/04-roads-and-traffic.md) - roads, crossings, bridges and tunnels, and how the town drives on them.
-5. [Transit and rail](manual/05-transit-and-rail.md) - cycling, trams, buses, trolleybuses, the subway, ferries and trains.
+5. [Transit and rail](manual/05-transit-and-rail.md) - cycling, trams, buses, trolleybuses, the subway, ferries, park and ride and trains.
 6. [Ports, airports and trade](manual/06-ports-airports-and-trade.md) - ships, aircraft, goods and the outside market.
 7. [Power](manual/07-power.md) - power stations, lines, losses, the peak, and the wind and sun.
 8. [Water, drains and garbage](manual/08-water-and-waste.md) - wells and mains, pressure, sewers and foul water, storms and floods, and garbage.

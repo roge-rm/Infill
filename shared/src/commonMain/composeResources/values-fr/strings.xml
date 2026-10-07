@@ -328,6 +328,7 @@
     <string name="remove_transit">Retirer</string>
     <string name="needs_tram_track">Un dépôt de tramways se construit à côté d'une voie de tramway</string>
     <string name="needs_tunnel">Une station de métro se construit sur un tunnel de métro</string>
+    <string name="needs_station">Un stationnement incitatif se construit près d'une gare ou d'un arrêt</string>
     <string name="no_service">Aucun service ici pour l'instant</string>
     <plurals name="stop_riders">
         <item quantity="one">%1$d montée ou descente le mois dernier</item>
@@ -873,6 +874,8 @@
     <string name="free_fares">Transport gratuit</string>
     <string name="scrubbers">Épurateurs</string>
     <string name="inspect_scrubbed">Épurateurs installés</string>
+    <string name="pill_paid_parking">Stationnement payant</string>
+    <string name="pill_free_parking">Stationnement gratuit</string>
     <string name="no_trucks">Pas de poids lourds</string>
     <string name="clean_works">Limite de pollution des usines</string>
     <string name="rent_control">Contrôle des loyers</string>
@@ -919,6 +922,8 @@
     <string name="label_stock">Marchandises de la ville</string>
     <string name="label_full">Rempli</string>
     <string name="label_riders">Usagers</string>
+    <string name="label_spaces">Places prises</string>
+    <string name="spaces_value">%1$s sur %2$s</string>
     <string name="label_freight">Chargements par train</string>
     <string name="label_traffic">Circulation</string>
     <string name="label_wear">Usure</string>
@@ -948,6 +953,8 @@
     <string name="action_renovate">Rénover</string>
     <string name="action_bring_up_to_date">Moderniser</string>
     <string name="action_scrubbers">Installer des épurateurs</string>
+    <string name="action_paid_parking">Faire payer le stationnement</string>
+    <string name="action_free_parking">Rendre le stationnement gratuit</string>
     <string name="action_bulldoze">Démolir</string>
     <string name="action_renew">Renouveler</string>
     <string name="action_lines">Lignes</string>
@@ -1006,6 +1013,8 @@
     <string name="docks">Docks</string>
     <string name="container_port">Port à conteneurs</string>
     <string name="ferry_terminal">Gare de traversiers</string>
+    <string name="park_and_ride">Stationnement incitatif</string>
+    <string name="parking_garage">Stationnement étagé</string>
     <string name="no_sea_route">Les navires ne peuvent pas atteindre ce plan d'eau</string>
     <string name="cuts_off_port">Cela couperait un port de la mer</string>
     <string name="income_dues">Droits et péages</string>

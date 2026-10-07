@@ -329,6 +329,7 @@
     <string name="remove_transit">Take up</string>
     <string name="needs_tram_track">A tram depot goes beside tram track</string>
     <string name="needs_tunnel">A subway station goes over a subway tunnel</string>
+    <string name="needs_station">Park and ride goes near a station or stop</string>
     <string name="no_service">Nothing runs here yet</string>
     <plurals name="stop_riders">
         <item quantity="one">%1$d rider on or off last month</item>
@@ -874,6 +875,8 @@
     <string name="free_fares">Free fares</string>
     <string name="scrubbers">Scrubbers</string>
     <string name="inspect_scrubbed">Scrubbers fitted</string>
+    <string name="pill_paid_parking">Paid parking</string>
+    <string name="pill_free_parking">Free parking</string>
     <string name="no_trucks">No heavy trucks</string>
     <string name="clean_works">Pollution limit on works</string>
     <string name="rent_control">Rent control</string>
@@ -920,6 +923,8 @@
     <string name="label_stock">Stock from town</string>
     <string name="label_full">Full</string>
     <string name="label_riders">Riders</string>
+    <string name="label_spaces">Spaces used</string>
+    <string name="spaces_value">%1$s of %2$s</string>
     <string name="label_freight">Loads by train</string>
     <string name="label_traffic">Traffic</string>
     <string name="label_wear">Wear</string>
@@ -949,6 +954,8 @@
     <string name="action_renovate">Renovate</string>
     <string name="action_bring_up_to_date">Bring up to date</string>
     <string name="action_scrubbers">Fit scrubbers</string>
+    <string name="action_paid_parking">Charge for parking</string>
+    <string name="action_free_parking">Make parking free</string>
     <string name="action_bulldoze">Bulldoze</string>
     <string name="action_renew">Renew</string>
     <string name="action_lines">Lines</string>
@@ -1007,6 +1014,8 @@
     <string name="docks">Docks</string>
     <string name="container_port">Container port</string>
     <string name="ferry_terminal">Ferry terminal</string>
+    <string name="park_and_ride">Park and ride</string>
+    <string name="parking_garage">Parking garage</string>
     <string name="no_sea_route">Ships can't reach this water</string>
     <string name="cuts_off_port">That would cut a port off from the sea</string>
     <string name="income_dues">Dues and tolls</string>

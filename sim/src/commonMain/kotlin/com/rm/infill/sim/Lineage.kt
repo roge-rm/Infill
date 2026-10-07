@@ -61,6 +61,7 @@ object Lineage {
         listOf(Kind(BuildingType.FAIRGROUND), Kind(BuildingType.AMUSEMENT_PARK)),
         listOf(Kind(BuildingType.TOWN_HALL), Kind(BuildingType.CITY_HALL), Kind(BuildingType.CIVIC_CENTRE)),
         listOf(Kind(BuildingType.CEMETERY), Kind(BuildingType.MEMORIAL_GARDEN)),
+        listOf(Kind(BuildingType.PARK_AND_RIDE), Kind(BuildingType.PARKING_GARAGE)),
         // A call post is a beat's worth of a station: a constable and a telephone on a post.
         listOf(Kind(BuildingType.POLICE_BOX, serves = 30, reach = 45)),
         // Power stations: [Kind.serves] is what each makes against the first.

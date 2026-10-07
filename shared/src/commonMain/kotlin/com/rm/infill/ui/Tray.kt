@@ -446,7 +446,7 @@ private val REMOVE_RED = Color(0xFFD84343)
 fun transitChoices(city: City, group: TransitGroup): List<Choice<TransitKind>> = transitKindsIn(city).filter { group in it.groups }.map { k ->
     val street = Atlas.ROAD_STREET + ACROSS
     val icon = when {
-        k.building != null -> building(k.building)
+        k.building != null -> building(city.newest(k.building))
         k == TransitKind.TramTrack -> ChoiceIcon(intArrayOf(street, Atlas.TRAMWAY + ACROSS))
         k == TransitKind.TramStop -> ChoiceIcon(intArrayOf(street, Atlas.TRAMWAY + ACROSS, Atlas.TRAM_STOP))
         k == TransitKind.BusStop -> ChoiceIcon(intArrayOf(street, Atlas.BUS_STOP))
@@ -460,7 +460,7 @@ fun transitChoices(city: City, group: TransitGroup): List<Choice<TransitKind>> =
         else -> ChoiceIcon(glyph = Glyph.Remove, glyphColour = REMOVE_RED)
     }
     val detail = when {
-        k.building != null -> buildingDetail(k.building)
+        k.building != null -> buildingDetail(city.newest(k.building))
         k == TransitKind.TramTrack -> perTile(Prices.TRAM_TRACK)
         k.stop != 0 -> moneyText(Prices.STOP)
         k.wire -> perTile(Prices.WIRE)

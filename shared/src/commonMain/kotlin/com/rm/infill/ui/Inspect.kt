@@ -78,6 +78,12 @@ import com.rm.infill.res.label_port_loads
 import com.rm.infill.res.pill_no_sea_route
 import com.rm.infill.res.pill_open_sea
 import com.rm.infill.res.*
+import com.rm.infill.res.action_paid_parking
+import com.rm.infill.res.action_free_parking
+import com.rm.infill.res.pill_free_parking
+import com.rm.infill.res.pill_paid_parking
+import com.rm.infill.res.spaces_value
+import com.rm.infill.res.label_spaces
 import com.rm.infill.sim.AdviceKind
 import com.rm.infill.sim.Advice
 import com.rm.infill.sim.Needs
@@ -255,6 +261,7 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
         else if (city.working(b)) pills += PillItem(Glyph.Ship, stringResource(Res.string.pill_open_sea), Tone.Good)
     }
     if (b.scrubbed) pills += PillItem(Glyph.Scrubber, stringResource(Res.string.inspect_scrubbed), Tone.Good)
+    if (t.parkRide) pills += PillItem(Glyph.Coins, stringResource(if (b.paidParking) Res.string.pill_paid_parking else Res.string.pill_free_parking), Tone.Good)
     if (city.isHeritage(b)) pills += PillItem(Glyph.Star, stringResource(Res.string.heritage), Tone.Good)
     // Rezoned under it: it comes down once it's old.
     if (t.zone != Zone.NONE && !city.conforms(b)) pills += PillItem(Glyph.Zone, stringResource(Res.string.pill_nonconforming), Tone.Warn)
@@ -374,6 +381,16 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
         val share = b.served * 100 / b.room
         stats += StatItem(Glyph.Suitcase, stringResource(Res.string.label_guests), stringResource(Res.string.value_of, groupThousands(b.served.toLong()), groupThousands(b.room.toLong())), share / 100f, toneOf(share, 60, 20))
     }
+    // A park and ride: how full it was last month.
+    if (t.parkRide && built) {
+        val spaces = city.spacesAt(b)
+        val parked = min(city.parkedAt(b), spaces)
+        stats += StatItem(
+            Glyph.Car, stringResource(Res.string.label_spaces),
+            stringResource(Res.string.spaces_value, groupThousands(parked.toLong()), groupThousands(spaces.toLong())),
+            if (spaces > 0) parked / spaces.toFloat() else 0f, if (parked >= spaces) Tone.Warn else Tone.Good,
+        )
+    }
     if (t.railway) {
         if (t.station) stats += StatItem(Glyph.Person, stringResource(Res.string.label_riders), groupThousands(city.riders(b).toLong()))
         else stats += StatItem(Glyph.Crate, stringResource(Res.string.label_freight), groupThousands(city.freightSent(b).toLong()))
@@ -415,6 +432,10 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
         val fit = Action.FitScrubbers(b.x, b.y)
         val plan = city.plan(fit)
         if (plan.ok) actions += ActionItem(Glyph.Scrubber, stringResource(Res.string.action_scrubbers), moneyText(plan.cost)) { onAction(fit) }
+    }
+    if (t.parkRide) {
+        val fee = Action.SetParkingFee(b.x, b.y, !b.paidParking)
+        actions += ActionItem(Glyph.Coins, stringResource(if (b.paidParking) Res.string.action_free_parking else Res.string.action_paid_parking)) { onAction(fee) }
     }
     val clear = Action.Bulldoze(b.x, b.y, b.x + t.width - 1, b.y + t.height - 1)
     val clearing = city.plan(clear)

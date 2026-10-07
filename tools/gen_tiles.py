@@ -9062,6 +9062,148 @@ def fireboat_station(look, v):
     return b
 
 
+CAR_COLOURS = [c("#6b2330"), c("#263a5a"), c("#d9cfb0"), c("#2e4a3a"), c("#b8bcc0"), c("#3a3a40"), c("#c0392b"), c("#e8e8e4")]
+
+
+def bay_car(b, x, y, col, look, upright, rise=0):
+    """A car in a bay at tile pixel [x], [y], [rise] pixels up, seen from above: nose in, upright or across."""
+    gx, gy = b.ground(x, y)
+    gy -= rise
+    d = b.d
+    w, h = (3, 6) if upright else (6, 3)
+    d.rectangle([gx + 1, gy + 1, gx + w + 1, gy + h + 1], (0, 0, 0, 60))
+    d.rectangle([gx, gy, gx + w, gy + h], SNOW_ROOF[0] if look == "snow" else col, OUTLINE)
+    roof = shade(col, 0.75) if look != "snow" else SNOW_ROOF[1]
+    if upright:
+        d.rectangle([gx + 1, gy + 2, gx + w - 1, gy + h - 2], roof)
+    else:
+        d.rectangle([gx + 2, gy + 1, gx + w - 2, gy + h - 1], roof)
+
+
+def bays(b, look, x0, y0, x1, y1, upright, rng, full=0.75, rise=0):
+    """A row of marked bays from tile pixel [x0], [y0] to [x1], [y1], [rise] pixels up, cars in most of them."""
+    d = b.d
+    line = c("#e8e4da")
+    if upright:
+        for x in range(x0, x1 - 4, 5):
+            if look != "snow":
+                gx, gy = b.ground(x, y0)
+                d.line([gx, gy - rise, gx, gy - rise + y1 - y0], line)
+            if rng.random() < full:
+                bay_car(b, x + 1, y0 + 1, rng.choice(CAR_COLOURS), look, True, rise)
+    else:
+        for y in range(y0, y1 - 4, 5):
+            if look != "snow":
+                gx, gy = b.ground(x0, y)
+                d.line([gx, gy - rise, gx + x1 - x0, gy - rise], line)
+            if rng.random() < full:
+                bay_car(b, x0 + 1, y + 1, rng.choice(CAR_COLOURS), look, False, rise)
+
+
+def p_sign(b, x, y, up=8):
+    """A blue parking sign with its white P on a post at tile pixel [x], [y]."""
+    d = b.d
+    gx, gy = b.ground(x, y)
+    d.line([gx + 2, gy, gx + 2, gy - up], c("#3a3c40"))
+    d.rectangle([gx, gy - up - 5, gx + 4, gy - up], c("#2f5fb0"), OUTLINE)
+    d.line([gx + 2, gy - up - 4, gx + 2, gy - up - 1], c("#f2f6ff"))
+    d.point((gx + 3, gy - up - 4), c("#f2f6ff"))
+    d.point((gx + 3, gy - up - 3), c("#f2f6ff"))
+
+
+def park_and_ride(look, v):
+    """A park and ride lot of the sixties on 2 by 2 tiles: tarmac with rows of marked bays, most of them taken, lamp posts, a
+    shelter and its sign by the way in, and a strip of grass and trees round it."""
+    b = Building(2, 2, height=STOREY + 8)
+    d = b.d
+    rng = random.Random(16600 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 63, 63, rng)
+    tarmac = SNOW_GROUND if look == "snow" else PARKING
+    d.rectangle([3, top + 3, 60, top + 58], tarmac, shade(tarmac, 0.8))
+    d.rectangle([28, top + 58, 35, top + 63], tarmac)
+    if v % 2 == 0:
+        # Bays in three rows across, nose in from the aisles.
+        bays(b, look, 5, 4, 59, 12, True, rng)
+        bays(b, look, 5, 23, 59, 31, True, rng)
+        bays(b, look, 5, 32, 59, 40, True, rng)
+        bays(b, look, 5, 49, 26, 57, True, rng)
+        bays(b, look, 38, 49, 59, 57, True, rng)
+        lamps = ((16, 31), (46, 31))
+    else:
+        # Bays in rows up and down, the aisle down the middle to the way in.
+        bays(b, look, 4, 4, 12, 57, False, rng)
+        bays(b, look, 21, 4, 29, 46, False, rng)
+        bays(b, look, 35, 4, 43, 46, False, rng)
+        bays(b, look, 51, 4, 59, 57, False, rng)
+        lamps = ((31, 14), (31, 34))
+    # The shelter and its sign at the way in.
+    roof, wall = b.box(38, 52, 46, 56, 6)
+    d.rectangle(wall, c("#9aa4ac"))
+    d.rectangle([wall[0] + 1, wall[1] + 1, wall[2] - 1, wall[3] - 1], GLASS_NEW)
+    d.rectangle(wall, outline=OUTLINE)
+    d.rectangle(roof, SNOW_ROOF[0] if look == "snow" else c("#5a6a78"), OUTLINE)
+    p_sign(b, 23, 60)
+    for (x, y) in lamps:
+        gx, gy = b.ground(x, y)
+        d.line([gx, gy, gx, gy - 12], c("#4a4e54"))
+        d.line([gx - 2, gy - 12, gx + 2, gy - 12], c("#4a4e54"))
+        d.point((gx - 2, gy - 11), c("#f2e6a0"))
+        d.point((gx + 2, gy - 11), c("#f2e6a0"))
+    for (x, y) in ((1, 1), (62, 1), (1, 62) if v % 2 else (62, 62)):
+        tree_at(b, look, v, x, y, 3, rng)
+    return b
+
+
+def parking_garage(look, v):
+    """A parking garage of the nineties on 2 by 2 tiles: four decks of bare concrete, open at the sides with cars showing,
+    cars on the top deck, a stair and lift tower at a corner, and a ramp in by the sign."""
+    b = Building(2, 2, height=4 * STOREY + 10)
+    d = b.d
+    rng = random.Random(16700 + v)
+    top = b.lift
+    lawn_box(b, look, 0, 0, 63, 63, rng)
+    conc = [c("#b4b2aa"), c("#a8a49c")][v % 2]
+    roof, wall = b.box(3, 3, 60, 54, 4 * STOREY)
+    x0, y0, x1, y1 = wall
+    d.rectangle(wall, conc)
+    # The open sides of each deck, dark, with the cars parked inside showing.
+    for k in range(4):
+        oy = y0 + k * STOREY + 2
+        d.rectangle([x0 + 1, oy, x1 - 1, oy + 2], c("#2a2c30"))
+        for xx in range(x0 + 3, x1 - 4, 5):
+            if rng.random() < 0.6:
+                d.line([xx, oy + 2, xx + 2, oy + 2], rng.choice(CAR_COLOURS))
+    if v % 2:
+        # A green screen of climbers over part of the front.
+        for xx in range(x0 + 1, x0 + 18):
+            for yy in range(y0, y1):
+                if rng.random() < 0.55:
+                    d.point((xx, yy), rng.choice([c("#3f7a3a"), c("#4f8a42"), c("#2f6a32")]))
+    d.rectangle(wall, outline=OUTLINE)
+    # The top deck: bare, marked out, cars along it.
+    deck = SNOW_ROOF[0] if look == "snow" else shade(conc, 1.08)
+    d.rectangle(roof, deck, OUTLINE)
+    rx0, ry0, rx1, ry1 = roof
+    if look != "snow":
+        d.rectangle([rx0 + 1, ry0 + 1, rx1 - 1, ry0 + 1], shade(conc, 0.85))
+    for (by0, by1) in ((5, 13), (24, 32), (33, 41)):
+        bays(b, look, 14, by0, 50, by1, True, rng, full=0.6, rise=4 * STOREY)
+    # The ramp up at the east end, and the stair and lift tower at the west.
+    d.rectangle([rx1 - 9, ry0 + 3, rx1 - 2, ry1 - 3], shade(conc, 0.92), OUTLINE)
+    for yy in range(ry0 + 5, ry1 - 3, 3):
+        d.line([rx1 - 8, yy, rx1 - 3, yy], shade(conc, 0.8))
+    troof, twall = b.box(3, 44, 12, 54, 4 * STOREY + 6)
+    d.rectangle(twall, c("#3a7ab0") if v % 2 == 0 else c("#c0602f"))
+    d.rectangle([twall[0] + 2, twall[1] + 2, twall[2] - 2, twall[3] - 2], GLASS_NEW)
+    d.rectangle(twall, outline=OUTLINE)
+    d.rectangle(troof, SNOW_ROOF[0] if look == "snow" else c("#5a5e64"), OUTLINE)
+    # The way in, and the sign.
+    d.rectangle([44, top + 55, 55, top + 63], SNOW_GROUND if look == "snow" else PARKING)
+    p_sign(b, 40, 61, up=10)
+    return b
+
+
 def ferry_terminal(look, v):
     """A ferry terminal on 2 by 2 tiles: a waiting hall with a clock over its door, a long canopy over the queue along
     the front and a gangway frame at the back, on a paved lot. The ferry ties up on the water beside it."""
@@ -9151,6 +9293,7 @@ BUILDINGS = [
     ("public_health_office", public_health_office, 2), ("police_box", police_box, 2), ("traffic_police", traffic_police, 2),
     ("fireboat_station", fireboat_station, 2),
     ("ferry_terminal", ferry_terminal, 2),
+    ("commuter_lot", park_and_ride, 2), ("parking_garage", parking_garage, 2),
     ("police_hq", police_hq, 1), ("courthouse", courthouse, 2), ("jail", jail, 1),
     ("farmstead", farmstead, 4), ("country_house", country_house, 3), ("acreage_home", acreage_home, 3),
     ("crossroads_store", crossroads_store, 3), ("roadhouse", roadhouse, 3),

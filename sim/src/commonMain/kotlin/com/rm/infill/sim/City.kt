@@ -428,6 +428,10 @@ class City(
                     }
                 }
             }
+            is Action.SetParkingFee -> buildings[if (m.inside(action.x, action.y)) m.building[m.index(action.x, action.y)] else 0]?.let { b ->
+                if (!b.type.parkRide) blocked += m.index(action.x, action.y)
+                else if (b.paidParking != action.paid) changes += m.index(b.x, b.y)
+            }
             is Action.PaintDistrict -> {
                 val id = if (action.id == NEW_DISTRICT) nextDistrictId else action.id
                 // Districts come with the streetcar age; erasing one is always allowed.
@@ -822,6 +826,7 @@ class City(
             action is Action.PlaceBuilding && action.type == BuildingType.TRAM_DEPOT && besideTram(action.type, action.x, action.y).isEmpty() -> Problem.NeedsTramTrack
             action is Action.PlaceBuilding && action.type == BuildingType.SUBWAY_STATION && m.inside(action.x, action.y) &&
                 m.subway[m.index(action.x, action.y)].toInt() == 0 -> Problem.NeedsTunnel
+            action is Action.PlaceBuilding && action.type.parkRide && !nearStation(action.type, action.x, action.y) -> Problem.NeedsStation
             changes.isEmpty() -> Problem.NothingToDo
             noRoute -> Problem.NoRoute
             overseen && cost > 0 && action !is Action.Bulldoze && action !is Action.RenewArea -> Problem.Overseen
@@ -1433,6 +1438,9 @@ class City(
         /** The phone lines on the tiles, before and after. */
         val utilBefore: LongArray = LongArray(0),
         val utilAfter: LongArray = LongArray(0),
+        /** The park and rides drivers pay at, before and after. */
+        val paidBefore: Set<Int> = emptySet(),
+        val paidAfter: Set<Int> = emptySet(),
     )
 
     private val undoable = ArrayDeque<Edit>()
@@ -1454,6 +1462,7 @@ class City(
         val linesBefore = lines.map { it.copy() }
         val districtsBefore = districts.map { it.copy() }
         val scrubbedBefore = buildings.values.filter { it.scrubbed }.map { it.id }.toSet()
+        val paidBefore = buildings.values.filter { it.paidParking }.map { it.id }.toSet()
         val renovated = ArrayList<IntArray>()
         val now = monthNow
         // Clearing homes or heritage brings people out, and they think less of the town for it.
@@ -1535,6 +1544,7 @@ class City(
             }
             is Action.PlantStreetTrees -> for (i in plan.changes) m.streetTrees[i] = 1
             is Action.FitScrubbers -> buildings[m.building[plan.changes[0]]]?.scrubbed = true
+            is Action.SetParkingFee -> buildings[m.building[plan.changes[0]]]?.paidParking = action.paid
             is Action.PaintDistrict -> {
                 var id = action.id
                 if (id == NEW_DISTRICT) {
@@ -1819,6 +1829,7 @@ class City(
                 scrubbedBefore, buildings.values.filter { it.scrubbed }.map { it.id }.toSet(),
                 renovated,
                 utilBefore, LongArray(plan.changes.size) { m.tileUtil(plan.changes[it]) },
+                paidBefore, buildings.values.filter { it.paidParking }.map { it.id }.toSet(),
             ),
         )
         if (undoable.size > MAX_UNDO) undoable.removeFirst()
@@ -1830,6 +1841,7 @@ class City(
         if (action is Action.PaintDistrict || action is Action.SetDistrict || action is Action.RemoveDistrict) districtTraffic()
         // Lines show and run at once.
         if (action is Action.AddLine || action is Action.SetVehicles || action is Action.RemoveLine) updateTransit()
+        if (action is Action.SetParkingFee || action is Action.PlaceBuilding || action is Action.Bulldoze || action is Action.RenewArea) updateParkRides()
         // The ways to what's been cleared go with it.
         if (action is Action.Bulldoze) updatePathways()
         return plan
@@ -1867,8 +1879,10 @@ class City(
         districts.clear()
         districts += e.districtsBefore.map { it.copy() }
         for (b in buildings.values) b.scrubbed = b.id in e.scrubbedBefore
+        for (b in buildings.values) b.paidParking = b.id in e.paidBefore
         for (r in e.renovated) buildings[r[0]]?.let { reopen(it, r[1], r[2], BuildingType.entries[r[5]]) }
         updateTransit()
+        updateParkRides()
         if (!sandbox) funds += e.cost
         redoable.addLast(e)
         networksChanged()
@@ -1905,8 +1919,10 @@ class City(
         districts.clear()
         districts += e.districtsAfter.map { it.copy() }
         for (b in buildings.values) b.scrubbed = b.id in e.scrubbedAfter
+        for (b in buildings.values) b.paidParking = b.id in e.paidAfter
         for (r in e.renovated) buildings[r[0]]?.let { reopen(it, r[3], r[4], BuildingType.entries[r[6]]) }
         updateTransit()
+        updateParkRides()
         if (!sandbox) funds -= e.cost
         undoable.addLast(e)
         networksChanged()
@@ -2230,6 +2246,7 @@ class City(
         between()
         updatePorts()
         updateFerries()
+        updateParkRides()
         between()
         updatePathways()
         between()
@@ -4888,6 +4905,7 @@ class City(
         updateBridges()
         updatePorts()
         updateFerries()
+        updateParkRides()
         updateWater()
         updatePower()
         updateTransit()
@@ -5395,6 +5413,40 @@ class City(
         traffic.setFerries(IntArray(n) { accessOf(terminals[it]) }, times, year >= Balance.CAR_FERRY_YEAR)
         ferryRoutes = routes
     }
+
+    /**
+     * Whether a [type] at [x], [y] is near enough a station or stop for park
+     * and ride: a train station, a subway station, a ferry terminal, or a tram
+     * or bus stop on a road, within [Balance.PARK_AND_RIDE_REACH] tiles of it.
+     */
+    fun nearStation(type: BuildingType, x: Int, y: Int): Boolean {
+        val r = Balance.PARK_AND_RIDE_REACH
+        for (yy in y - r until y + type.height + r) for (xx in x - r until x + type.width + r) {
+            if (!map.inside(xx, yy)) continue
+            val i = map.index(xx, yy)
+            if (map.stop[i].toInt() != 0) return true
+            val t = buildings[map.building[i]]?.type ?: continue
+            if (t.station || t == BuildingType.SUBWAY_STATION || t == BuildingType.FERRY_TERMINAL) return true
+        }
+        return false
+    }
+
+    /** Tells the traffic where drivers can park and go on by transit: each working park and ride, its spaces, and whether it's paid. */
+    private fun updateParkRides() {
+        val lots = buildings.values.filter { it.type.parkRide && it.underway == 0 && it.burning == 0 }
+        traffic.setParkRides(
+            IntArray(lots.size) { accessOf(lots[it]) },
+            IntArray(lots.size) { spacesAt(lots[it]) },
+            BooleanArray(lots.size) { lots[it].paidParking },
+        )
+    }
+
+    /** The spaces at a park and ride, fewer as it wears. */
+    fun spacesAt(b: Building): Int =
+        (if (b.type == BuildingType.PARKING_GARAGE) Balance.PARKING_GARAGE_SPACES else Balance.PARK_AND_RIDE_SPACES) * condition(b) / 100
+
+    /** Cars parked at a park and ride last month. */
+    fun parkedAt(b: Building): Int = accessOf(b).let { if (it < 0) 0 else traffic.lastParked[it] }
 
     /** Which ports ships can reach, and the freight they take. */
     private fun updatePorts() {
@@ -8501,8 +8553,8 @@ class City(
         s.policeUpkeep = ((police * Balance.POLICE_UPKEEP + policeExtra) * policeFunding / 100 * wages).roundToLong()
         s.fireUpkeep = ((fire * Balance.FIRE_UPKEEP + fireExtra) * fireFunding / 100 * wages).roundToLong()
         s.parkUpkeep = (parks * Balance.PARK_UPKEEP * parkFunding / 100 * wages).roundToLong()
-        // Rides from stops with free fares bring in nothing.
-        s.fareIncome = (max(0, traffic.boardings() - traffic.lastFreeBoardings) * Balance.FARE).roundToLong()
+        // Rides from stops with free fares bring in nothing; paid parking brings in its fee.
+        s.fareIncome = (max(0, traffic.boardings() - traffic.lastFreeBoardings) * Balance.FARE + traffic.lastPaidParked * Balance.PARKING_FEE).roundToLong()
         // Dues on the loads through the ports, and on visitors off the ships.
         s.portLoads = traffic.lastPortFreight.sum()
         // Air freight: what the airports can take of the goods sent away.
@@ -8562,6 +8614,8 @@ class City(
             BuildingType.BUS_GARAGE -> Balance.GARAGE_UPKEEP
             BuildingType.SUBWAY_STATION -> Balance.SUBWAY_STATION_UPKEEP
             BuildingType.FERRY_TERMINAL -> Balance.FERRY_UPKEEP
+            BuildingType.PARK_AND_RIDE -> Balance.PARK_AND_RIDE_UPKEEP
+            BuildingType.PARKING_GARAGE -> Balance.PARKING_GARAGE_UPKEEP
             else -> 0.0
         }
         var vehicles = 0.0
@@ -9243,6 +9297,10 @@ class City(
         traffic.writeCycling(w)
         // Since version 50: the legacy goals met.
         w.int(legacyMet)
+        // Since version 51: the park and rides drivers pay at.
+        val paid = buildings.values.filter { it.paidParking }
+        w.count(paid.size)
+        for (b in paid) w.int(b.id)
     }
 
     companion object {
@@ -9622,6 +9680,7 @@ class City(
                                 c.traffic.readCycling(r)
                             }
                             if (version >= 50) c.legacyMet = r.int()
+                            if (version >= 51) repeat(r.count()) { c.buildings[r.int()]?.paidParking = true }
                         }
                     }
                 } else {

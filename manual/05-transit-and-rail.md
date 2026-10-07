@@ -1,5 +1,5 @@
 # Transit and rail
-> Cycling, trams, buses, trolleybuses, the subway, ferries and trains.
+> Cycling, trams, buses, trolleybuses, the subway, ferries, park and ride and trains.
 
 People go the quickest way they can. Those with a car can drive, some without one cycle, and everyone walks or rides. Transit is how a town gets people to work before the car, and how it keeps the roads moving after.
 
@@ -39,6 +39,14 @@ From the Streetcar era, the **Subway** tab lays **Subway** tunnel under anything
 ## Ferries
 
 A **Ferry terminal**, under **Ports**, goes beside water. Ferries run from each terminal to every other one the water joins within 90 tiles, so they can carry people over a river or a bay without a bridge. A ferry is slow and has a wait, but it beats a long way round. From 1920 they take cars too. A terminal costs $3,500 and $45 a month. It needs a road, and like a wharf a phone from 1940 and power from 1950.
+
+## Park and ride
+
+From 1960, **Park and ride** in each tab of **Transit** is a car park with 400 spaces, at $1,200 and $12 a month. It goes within 2 tiles of a train or subway station, a ferry terminal, or a tram or bus stop, and needs a road. Drivers leave their car there and go on by transit when that gets them to work sooner than driving all the way. Parking takes them two minutes, and once they've parked they ride on from there: nobody parks to walk to a job nearby. Once it's full, the rest drive. Inspect shows how many spaces were used last month.
+
+Parking is free to start with. **Charge for parking** in Inspect makes each driver pay 40 cents, under **Fares** in the budget, which puts some of them off. **Make parking free** takes the charge off again.
+
+From 1990 the tray puts down a **Parking garage** instead, four decks with 1,200 spaces, at $4,000 and $30 a month. **Bring up to date** in Inspect turns an older lot into one.
 
 ## Lines and vehicles
 

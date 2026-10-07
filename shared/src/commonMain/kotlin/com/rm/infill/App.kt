@@ -176,6 +176,7 @@ import com.rm.infill.res.event_epidemic
 import com.rm.infill.res.event_epidemic_over
 import com.rm.infill.ui.transitKindsIn
 import com.rm.infill.res.needs_tram_track
+import com.rm.infill.res.needs_station
 import com.rm.infill.res.needs_tunnel
 import com.rm.infill.res.road_with_pipes
 import com.rm.infill.res.nothing_to_undo
@@ -961,6 +962,7 @@ private fun GameScreen(
             else if (it.plan.problem == Problem.NeedsWater) stringResource(Res.string.needs_water)
             else if (it.plan.problem == Problem.NeedsTramTrack) stringResource(Res.string.needs_tram_track)
             else if (it.plan.problem == Problem.NeedsTunnel) stringResource(Res.string.needs_tunnel)
+            else if (it.plan.problem == Problem.NeedsStation) stringResource(Res.string.needs_station)
             else if (it.plan.problem == Problem.NoSeaRoute) stringResource(Res.string.no_sea_route)
             else if (it.plan.problem == Problem.CutsOffPort) stringResource(Res.string.cuts_off_port)
             else if (it.plan.problem == Problem.OnlyOne) stringResource(Res.string.only_one)
@@ -1069,6 +1071,7 @@ private fun GameScreen(
                 Problem.NeedsWater -> Message(Res.string.needs_water)
                 Problem.NeedsTramTrack -> Message(Res.string.needs_tram_track)
                 Problem.NeedsTunnel -> Message(Res.string.needs_tunnel)
+                Problem.NeedsStation -> Message(Res.string.needs_station)
                 Problem.NoRoute -> Message(Res.string.no_route)
                 Problem.NoSeaRoute -> Message(Res.string.no_sea_route)
                 Problem.CutsOffPort -> Message(Res.string.cuts_off_port)

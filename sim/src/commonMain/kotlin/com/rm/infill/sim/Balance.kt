@@ -1163,6 +1163,22 @@ object Balance {
     const val CYCLE_LANE_UPKEEP = 0.1
     const val GARAGE_UPKEEP = 30.0
     const val SUBWAY_STATION_UPKEEP = 25.0
+    const val PARK_AND_RIDE_UPKEEP = 12.0
+    const val PARKING_GARAGE_UPKEEP = 30.0
+
+    /** Park and ride: the spaces in a lot and in a garage, cars a day. */
+    const val PARK_AND_RIDE_SPACES = 400
+    const val PARKING_GARAGE_SPACES = 1_200
+
+    /** Seconds to park and walk to the platform, and what paying to park puts a driver off by, in seconds. */
+    const val PARKING_TIME = 120
+    const val PARKING_FEE_SECONDS = 300
+
+    /** What a car parked a day for a month pays where parking is paid for, in dollars. */
+    const val PARKING_FEE = 0.40
+
+    /** How far from a station or stop a park and ride can be, in tiles from its edge. */
+    const val PARK_AND_RIDE_REACH = 2
 
     // Eras' milestones.
     const val STREETCAR_PEOPLE = 1_500
