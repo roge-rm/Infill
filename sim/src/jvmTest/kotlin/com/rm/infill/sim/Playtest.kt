@@ -826,6 +826,7 @@ class Player(private val c: City, private val withRail: Boolean, private val not
         // A garage for each line, since one holds only so many buses.
         if (busLines.size < want && afford(20_000, 10_000) && (count(BuildingType.BUS_GARAGE) > busLines.size || place(BuildingType.BUS_GARAGE))) busLine(busLines.size)
         if (subways < 2 && s.population >= SUBWAY_TOWN && s.flow < Balance.RENEWAL_FLOW && c.allows(BuildingType.SUBWAY_STATION) && afford(SUBWAY_BUDGET, 50_000)) subway(subways++)
+        parkAndRide()
         if (!cycleLanes && c.year >= Balance.CYCLE_LANE_YEAR && afford(segments.sumOf { it.size } * Balance.CYCLE_LANE_PRICE, 50_000)) {
             cycleLanes = true
             note("cycle lanes along ${segments.size} streets")
@@ -837,6 +838,39 @@ class Player(private val c: City, private val withRail: Boolean, private val not
     }
 
     private var subways = 0
+
+    /** The stations and stops a park and ride has been tried beside, found room or not. */
+    private val parkTried = HashSet<Int>()
+
+    /**
+     * Park and ride once it comes in, a lot a quarter: beside the subway
+     * station or bus stop furthest out from the middle that hasn't had one
+     * tried yet, since drivers come in from the edges. Up to [MOST_LOTS].
+     */
+    private fun parkAndRide() {
+        val type = c.newest(BuildingType.PARK_AND_RIDE)
+        if (!c.allows(type) || count(type) >= MOST_LOTS) return
+        val price = c.plan(Action.PlaceBuilding(type, 0, 0)).cost
+        if (!afford(price, 20_000)) return
+        val anchors = ArrayList<Int>()
+        for (b in c.allBuildings) if (b.type == BuildingType.SUBWAY_STATION || b.type.station) anchors += m.index(b.x, b.y)
+        for (i in 0 until m.size) if (m.stop[i].toInt() != 0) anchors += i
+        val mid = centre * S + S / 2
+        val anchor = anchors.filter { it !in parkTried }.maxByOrNull { abs(it % m.width - mid) + abs(it / m.width - mid) } ?: return
+        parkTried += anchor
+        val ax = anchor % m.width
+        val ay = anchor / m.width
+        val r = Balance.PARK_AND_RIDE_REACH
+        val spots = ArrayList<Pair<Int, Int>>()
+        for (y in ay - r - 1..ay + r) for (x in ax - r - 1..ax + r) spots += x to y
+        for ((x, y) in spots.sortedBy { (x, y) -> abs(x - ax) + abs(y - ay) }) {
+            if (!c.plan(Action.PlaceBuilding(type, x, y)).ok) continue
+            if (act("park and ride", Action.PlaceBuilding(type, x, y))) {
+                note("park and ride at $x,$y by the ${if (m.stop[anchor].toInt() != 0) "stop" else "station"} at $ax,$ay")
+                return
+            }
+        }
+    }
 
     /**
      * Subway line [k]: a tunnel a tile in from the main street, or the street
@@ -1094,6 +1128,7 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             s.residentialIncome, s.commercialIncome, s.industrialIncome, s.officeIncome, s.fareIncome + s.duesIncome + s.tollIncome, s.tradeIncome,
             s.roadUpkeep + s.railUpkeep, s.waterUpkeep, s.powerUpkeep, s.policeUpkeep + s.fireUpkeep, s.parkUpkeep, s.schoolUpkeep + s.healthUpkeep,
             s.transitUpkeep, s.repairCost, s.environmentUpkeep, s.civicUpkeep, s.ordinanceCost, s.landBuilt, "\"${c.concerns.joinToString(" ")}\"", c.petitions.size, c.grant?.kind ?: "",
+            c.allBuildings.filter { it.type.parkRide }.sumOf { c.parkedAt(it) }, c.allBuildings.filter { it.type.parkRide }.sumOf { c.spacesAt(it) }, s.greenTrips,
         ).joinToString(",")
     }
 
@@ -1106,6 +1141,7 @@ class Player(private val c: City, private val withRail: Boolean, private val not
         const val MOST_LINES = 6
         const val STOP_EVERY = 12
         const val SUBWAY_TOWN = 40_000
+        const val MOST_LOTS = 6
         const val SUBWAY_BUDGET = 60_000L
         const val STATION_EVERY = 16
         /** Percent of what wind and sun make at best that's counted on, and the spare power kept over the demand. */
@@ -1113,6 +1149,6 @@ class Player(private val c: City, private val withRail: Boolean, private val not
         const val SPARE = 125
         const val LOW_TAX = 4
         const val HEADER = "year,era,population,shopJobs,industryJobs,farmJobs,officeJobs,workers,funds,income,upkeep," +
-            "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,leisure,homeCrime,laws,advice,goals,approval,worst,pricedOut,rough,sheltered,drought,births,deaths,inHomes,inShops,inWorks,inOffices,inFares,inTrade,upRoads,upWater,upPower,upSafety,upParks,upSchoolHealth,upTransit,upRepairs,upEnv,upCivic,upLaws,landBuilt,concerns,petitions,grant"
+            "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,leisure,homeCrime,laws,advice,goals,approval,worst,pricedOut,rough,sheltered,drought,births,deaths,inHomes,inShops,inWorks,inOffices,inFares,inTrade,upRoads,upWater,upPower,upSafety,upParks,upSchoolHealth,upTransit,upRepairs,upEnv,upCivic,upLaws,landBuilt,concerns,petitions,grant,parked,spaces,greenTrips"
     }
 }
