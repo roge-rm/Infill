@@ -400,7 +400,7 @@ private fun PadMoves(settings: Settings, onUse: () -> Unit) {
         if (!focusManager.moveFocus(way)) focusManager.moveFocus(FocusDirection.Next)
     }
     PadListener { b, pressed ->
-        val action = settings.pad[b]
+        val action = settings.padMap(Pad.shifted)[b]
         val way = when {
             b == PadButton.StickUp || action == KeyAction.CursorUp -> FocusDirection.Up
             b == PadButton.StickDown || action == KeyAction.CursorDown -> FocusDirection.Down
@@ -986,8 +986,17 @@ private fun GameScreen(
         } ?: ""
 
         /** Steps the tool's kind on by [by], round to the start after the last: the next road, zone, service and so on. */
-        fun stepKind(by: Int) {
-            fun <T> step(kinds: List<T>, now: T): T = if (kinds.isEmpty()) now else kinds[((kinds.indexOf(now) + by) % kinds.size + kinds.size) % kinds.size]
+        /** Steps the tool's kind; false if it went past the end of a tab's choices, for the next tab to be opened instead. */
+        fun stepKind(by: Int): Boolean {
+            // Past either end of a tab's choices, it goes on to the next tab, where the tabs are tools of their own.
+            val crosses = tool != Tool.Services && tool != Tool.Leisure && tool != Tool.Transit && tool != Tool.Water && toolTabKeys(tool, city).size > 1
+            var past = false
+            fun <T> step(kinds: List<T>, now: T): T {
+                if (kinds.isEmpty()) return now
+                val to = kinds.indexOf(now) + by
+                if (to !in kinds.indices) past = true
+                return if (past && crosses) now else kinds[(to % kinds.size + kinds.size) % kinds.size]
+            }
             when (tool) {
                 Tool.Zone -> zoneKind = step(ZoneKind.entries.filter { city.allowsZone(it.zone) }, zoneKind)
                 Tool.Road -> roadKind = step(roadsIn(city), roadKind)
@@ -1009,6 +1018,7 @@ private fun GameScreen(
                 Tool.Districts -> districtChoice = step(listOf(NEW_DISTRICT, 0) + city.districts.map { it.id }, districtChoice)
                 Tool.Inspect -> {}
             }
+            return !(past && crosses)
         }
 
         fun pick(t: Tool) {
@@ -1067,6 +1077,13 @@ private fun GameScreen(
         }
 
         // A toolbar button: its tool used last, or again on the open one to fold or open its choices.
+        /** The next or previous toolbar button's tool, round to the start after the last. */
+        fun stepGroup(by: Int) {
+            val groups = ToolGroup.entries
+            val g = groups[((groups.indexOf(tool.group) + by) % groups.size + groups.size) % groups.size]
+            pick(lastTool[g]?.takeIf { it != Tool.Districts || city.allowsDistricts() } ?: g.tools.first())
+        }
+
         fun pickGroup(g: ToolGroup) {
             // Pressed again, it puts the tool away and goes back to looking.
             if (tool.group == g) {
@@ -1288,10 +1305,12 @@ private fun GameScreen(
             KeyAction.ToolPhone -> pick(Tool.Phone)
             KeyAction.ToolPorts -> pick(Tool.Port)
             KeyAction.ToolAir -> pick(Tool.Air)
-            KeyAction.PrevChoice -> stepKind(-1)
-            KeyAction.NextChoice -> stepKind(1)
+            KeyAction.PrevChoice -> if (!stepKind(-1)) stepTab(-1)
+            KeyAction.NextChoice -> if (!stepKind(1)) stepTab(1)
             KeyAction.PrevTab -> stepTab(-1)
             KeyAction.NextTab -> stepTab(1)
+            KeyAction.PrevGroup -> stepGroup(-1)
+            KeyAction.NextGroup -> stepGroup(1)
             KeyAction.ToolInspect -> pick(Tool.Inspect)
             KeyAction.ToolBulldoze -> pick(Tool.Bulldoze)
             KeyAction.ToolRoad -> pick(Tool.Road)
@@ -1343,15 +1362,16 @@ private fun GameScreen(
         // ways, Use and Back move about the buttons instead, and the rest still work while nothing's open.
         PadListener { b, pressed ->
             if (!pressed) return@PadListener keys.onPad(b, false, settings.pad) {}
+            val pad = settings.padMap(Pad.shifted)
             if (!b.bindable) return@PadListener mapFocused
             val free = !windowOpen && !anyOpen
             if (!mapFocused && !overFocused && free) runCatching { focus.requestFocus() }
             else if (!mapFocused) {
-                val action = settings.pad[b]
+                val action = pad[b]
                 val moving = action == KeyAction.Use || action == KeyAction.Back || action in CURSOR_ACTIONS
                 if (action == null || moving || !free) return@PadListener false
             }
-            keys.onPad(b, true, settings.pad) { doAction(it) }
+            keys.onPad(b, true, pad) { doAction(it) }
         }
         // The sticks: the left one moves the cursor, quicker the further it's pushed, and the right one pans.
         LaunchedEffect(Unit) {

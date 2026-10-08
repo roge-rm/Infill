@@ -48,7 +48,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import kotlin.math.roundToInt
 import androidx.compose.material3.SliderDefaults
@@ -259,10 +258,7 @@ fun NewCityScreen(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                name, { typed = it.take(30) }, label = { Text(stringResource(if (region) Res.string.region_name else Res.string.city_name)) }, singleLine = true,
-                modifier = Modifier.weight(1f),
-            )
+            FormField(name, { typed = it.take(30) }, stringResource(if (region) Res.string.region_name else Res.string.city_name), Modifier.weight(1f))
             Box(Modifier.widthIn(max = 160.dp)) {
                 BigButton(stringResource(Res.string.another_name)) {
                     typed = null
@@ -271,11 +267,9 @@ fun NewCityScreen(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
+            FormField(
                 seed.toString(), { v -> v.filter { it.isDigit() }.take(12).toLongOrNull()?.let { seed = it } },
-                label = { Text(stringResource(Res.string.seed)) }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.weight(1f),
+                stringResource(Res.string.seed), Modifier.weight(1f), KeyboardOptions(keyboardType = KeyboardType.Number),
             )
             Box(Modifier.widthIn(max = 160.dp)) { BigButton(stringResource(Res.string.another_map)) { seed = Random.nextLong(1, 1_000_000) } }
         }
@@ -589,6 +583,8 @@ private val ACTION_NAMES: Map<KeyAction, StringResource> = mapOf(
     KeyAction.NextChoice to Res.string.key_next_choice,
     KeyAction.PrevTab to Res.string.key_prev_tab,
     KeyAction.NextTab to Res.string.key_next_tab,
+    KeyAction.PrevGroup to Res.string.key_prev_group,
+    KeyAction.NextGroup to Res.string.key_next_group,
     KeyAction.Pause to Res.string.pause,
     KeyAction.Budget to Res.string.budget,
     KeyAction.Graphs to Res.string.graphs,
@@ -740,6 +736,18 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                         )
                         if (pad) {
+                            SettingHead(Res.string.controller, Glyph.Arrows)
+                            Chips(PadScheme.entries, settings.padScheme, {
+                                stringResource(
+                                    when (it) {
+                                        PadScheme.TwinStick -> Res.string.pad_twin_stick
+                                        PadScheme.Classic -> Res.string.pad_classic
+                                        PadScheme.LeftHand -> Res.string.pad_left_hand
+                                        PadScheme.RightHand -> Res.string.pad_right_hand
+                                        PadScheme.Custom -> Res.string.pad_custom
+                                    },
+                                )
+                            }) { settings.padScheme = it }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Spacer(Modifier.weight(1f))
                                 Text(stringResource(Res.string.keys), color = c.textDim, fontSize = 12.sp)
@@ -755,9 +763,16 @@ fun SettingsWindow(settings: Settings, onClose: () -> Unit) {
                                     capturing == action,
                                 ) { capturingPad = null; capturing = if (capturing == action) null else action }
                                 if (pad) {
+                                    // On its own, or with the scheme's shift held.
                                     val button = settings.pad.entries.firstOrNull { it.value == action }?.key
+                                    val shifted = settings.padMap(true).entries.firstOrNull { it.value == action }?.key
+                                    val name = when {
+                                        button != null -> padName(button)
+                                        shifted != null -> stringResource(Res.string.pad_with, padName(settings.padScheme.shift), padName(shifted))
+                                        else -> "—"
+                                    }
                                     chip(
-                                        if (capturingPad == action) stringResource(Res.string.press_a_button) else button?.let { padName(it) } ?: "—",
+                                        if (capturingPad == action) stringResource(Res.string.press_a_button) else name,
                                         capturingPad == action,
                                         Modifier.width(PAD_CHIP),
                                     ) { capturing = null; capturingPad = if (capturingPad == action) null else action }

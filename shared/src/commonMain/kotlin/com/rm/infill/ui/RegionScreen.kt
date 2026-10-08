@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -111,10 +110,7 @@ fun RegionScreen(region: Region, onPlay: (Int) -> Unit, onFound: (Int, String) -
             Text(stringResource(Res.string.no_town_here), color = c.textDim, fontSize = 15.sp)
             val name = typed ?: TownNames.make(region.seed + chosen * 31L)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    name, { typed = it.take(30) }, label = { Text(stringResource(Res.string.city_name)) }, singleLine = true,
-                    modifier = Modifier.weight(1f),
-                )
+                FormField(name, { typed = it.take(30) }, stringResource(Res.string.city_name), Modifier.weight(1f))
                 Box(Modifier.widthIn(max = 160.dp)) {
                     BigButton(stringResource(Res.string.another_name)) { typed = TownNames.make(kotlin.random.Random.nextLong(1, Long.MAX_VALUE)) }
                 }

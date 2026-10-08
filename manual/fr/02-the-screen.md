@@ -65,16 +65,24 @@ Les touches peuvent être changées dans les Paramètres.
 
 ## Une manette
 
-La partie peut aussi se jouer avec une manette.
+La partie peut aussi se jouer avec une manette. **Manette**, sous **Touches** dans les Paramètres, choisit la disposition des boutons, selon la manette. Elle s'affiche une fois une manette utilisée.
 
-- Le levier gauche déplace le curseur, plus vite quand on le pousse plus loin, et la croix directionnelle le déplace d'une case à la fois. Le levier droit déplace la carte, et les gâchettes zooment.
+**Deux leviers**, pour la plupart des manettes et des consoles portables :
+
+- Le levier gauche déplace le curseur, plus vite quand on le pousse plus loin, et la croix le déplace d'une case à la fois. Le levier droit déplace la carte.
 - A utilise l'outil au curseur, comme Entrée, et B revient en arrière, comme Échap.
-- Y va aux boutons d'outils. La croix ou le levier gauche passe de l'un à l'autre, A en choisit un, et B revient à la carte.
-- X choisit Inspecter. LB et RB passent d'un choix du plateau à l'autre, et enfoncer les leviers passe d'un onglet à l'autre.
-- Start ouvre le menu, et Select passe d'une vue à l'autre.
-- Dans une fenêtre, la croix ou le levier gauche passe d'un bouton à l'autre, A en active un et B la ferme.
+- LB et RB passent d'un bouton de la barre d'outils à l'autre. LT et RT passent d'un choix du plateau à l'autre, jusqu'à l'onglet suivant après le dernier.
+- X choisit Inspecter, et Y va aux boutons d'outils : la croix passe de l'un à l'autre, A en choisit un et B revient à la carte.
+- Enfoncer les leviers zoome, le gauche en arrière et le droit en avant. Select tenu, le haut et le bas de la croix zooment aussi, et la gauche et la droite changent d'onglet.
+- Start ouvre le menu, et Select appuyé seul passe d'une vue à l'autre.
 
-Les boutons peuvent être changés dans les Paramètres.
+**Classique**, pour une croix, quatre boutons, L et R, Start et Select : la même chose, mais L et R passent d'un bouton de la barre à l'autre, et Select tenu, ils passent d'un choix à l'autre, et le haut et le bas zooment.
+
+**Main gauche** : la croix déplace le curseur, L utilise l'outil et la gâchette gauche revient en arrière. Select tenu, la gauche et la droite passent d'un bouton de la barre à l'autre, le haut et le bas d'un choix à l'autre, et L et la gâchette gauche zooment. Select appuyé seul ouvre le menu.
+
+**Main droite** : la même chose avec les quatre boutons comme directions, Y en haut, A en bas, X à gauche et B à droite, R et la gâchette droite au lieu de L et de la gauche, et Start au lieu de Select.
+
+Dans une fenêtre, les directions passent d'un bouton à l'autre, Utiliser en active un et Retour la ferme. Choisir un bouton soi-même sous **Touches** rend la disposition personnalisée.
 
 ## TalkBack
 

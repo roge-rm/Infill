@@ -651,6 +651,14 @@
     <string name="key_next_choice">Next choice</string>
     <string name="key_prev_tab">Previous tab</string>
     <string name="key_next_tab">Next tab</string>
+    <string name="key_prev_group">Previous tool</string>
+    <string name="key_next_group">Next tool</string>
+    <string name="pad_twin_stick">Twin stick</string>
+    <string name="pad_classic">Classic</string>
+    <string name="pad_left_hand">Left hand</string>
+    <string name="pad_right_hand">Right hand</string>
+    <string name="pad_custom">Your own</string>
+    <string name="pad_with">%1$s + %2$s</string>
 
     <string name="speed">Speed</string>
     <!-- How fast the game goes, read out on the speed button. -->

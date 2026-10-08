@@ -22,25 +22,98 @@ enum class PadButton(val bindable: Boolean = true) {
     StickUp(false), StickDown(false), StickLeft(false), StickRight(false),
 }
 
-/** The buttons out of the box. Settings can change these. */
-val DefaultPad: Map<PadButton, KeyAction> = mapOf(
+private val DPAD_CURSOR = mapOf(
     PadButton.Up to KeyAction.CursorUp,
     PadButton.Down to KeyAction.CursorDown,
     PadButton.Left to KeyAction.CursorLeft,
     PadButton.Right to KeyAction.CursorRight,
-    PadButton.A to KeyAction.Use,
-    PadButton.B to KeyAction.Back,
-    PadButton.X to KeyAction.ToolInspect,
-    PadButton.Y to KeyAction.Tools,
-    PadButton.LB to KeyAction.PrevChoice,
-    PadButton.RB to KeyAction.NextChoice,
-    PadButton.L3 to KeyAction.PrevTab,
-    PadButton.R3 to KeyAction.NextTab,
-    PadButton.LT to KeyAction.ZoomOut,
-    PadButton.RT to KeyAction.ZoomIn,
-    PadButton.Start to KeyAction.Menu,
-    PadButton.Select to KeyAction.NextOverlay,
 )
+
+/**
+ * Ways to lay out the buttons, for the kinds of controller there are. In
+ * all but [Custom], the [shift] button held changes the others: those
+ * pressed with it do what [withSelect] says, and the shift tapped on its own
+ * does what [plain] says.
+ */
+enum class PadScheme(val plain: Map<PadButton, KeyAction>, val withSelect: Map<PadButton, KeyAction> = emptyMap(), val shift: PadButton = PadButton.Select) {
+    /** Two sticks that click, shoulder buttons and triggers, as most controllers and handhelds have. */
+    TwinStick(
+        DPAD_CURSOR + mapOf(
+            PadButton.A to KeyAction.Use,
+            PadButton.B to KeyAction.Back,
+            PadButton.X to KeyAction.ToolInspect,
+            PadButton.Y to KeyAction.Tools,
+            PadButton.LB to KeyAction.PrevGroup,
+            PadButton.RB to KeyAction.NextGroup,
+            PadButton.LT to KeyAction.PrevChoice,
+            PadButton.RT to KeyAction.NextChoice,
+            PadButton.L3 to KeyAction.ZoomOut,
+            PadButton.R3 to KeyAction.ZoomIn,
+            PadButton.Start to KeyAction.Menu,
+            PadButton.Select to KeyAction.NextOverlay,
+        ),
+        mapOf(PadButton.Up to KeyAction.ZoomIn, PadButton.Down to KeyAction.ZoomOut, PadButton.Left to KeyAction.PrevTab, PadButton.Right to KeyAction.NextTab),
+    ),
+
+    /** A d-pad, four buttons, L and R, Start and Select, and nothing more. */
+    Classic(
+        DPAD_CURSOR + mapOf(
+            PadButton.A to KeyAction.Use,
+            PadButton.B to KeyAction.Back,
+            PadButton.X to KeyAction.ToolInspect,
+            PadButton.Y to KeyAction.Tools,
+            PadButton.LB to KeyAction.PrevGroup,
+            PadButton.RB to KeyAction.NextGroup,
+            PadButton.Start to KeyAction.Menu,
+            PadButton.Select to KeyAction.NextOverlay,
+        ),
+        mapOf(
+            PadButton.LB to KeyAction.PrevChoice, PadButton.RB to KeyAction.NextChoice,
+            PadButton.Up to KeyAction.ZoomIn, PadButton.Down to KeyAction.ZoomOut, PadButton.Left to KeyAction.PrevTab, PadButton.Right to KeyAction.NextTab,
+        ),
+    ),
+
+    /** The left hand alone: the d-pad, L, the left trigger, the left stick's click and Select. */
+    LeftHand(
+        DPAD_CURSOR + mapOf(
+            PadButton.LB to KeyAction.Use,
+            PadButton.LT to KeyAction.Back,
+            PadButton.L3 to KeyAction.ToolInspect,
+            PadButton.Select to KeyAction.Menu,
+        ),
+        mapOf(
+            PadButton.Left to KeyAction.PrevGroup, PadButton.Right to KeyAction.NextGroup,
+            PadButton.Up to KeyAction.PrevChoice, PadButton.Down to KeyAction.NextChoice,
+            PadButton.LB to KeyAction.ZoomIn, PadButton.LT to KeyAction.ZoomOut, PadButton.L3 to KeyAction.NextOverlay,
+        ),
+    ),
+
+    /** The right hand alone: the four buttons as the ways, R, the right trigger, the right stick's click and Start. */
+    RightHand(
+        mapOf(
+            PadButton.Y to KeyAction.CursorUp,
+            PadButton.A to KeyAction.CursorDown,
+            PadButton.X to KeyAction.CursorLeft,
+            PadButton.B to KeyAction.CursorRight,
+            PadButton.RB to KeyAction.Use,
+            PadButton.RT to KeyAction.Back,
+            PadButton.R3 to KeyAction.ToolInspect,
+            PadButton.Start to KeyAction.Menu,
+        ),
+        mapOf(
+            PadButton.X to KeyAction.PrevGroup, PadButton.B to KeyAction.NextGroup,
+            PadButton.Y to KeyAction.PrevChoice, PadButton.A to KeyAction.NextChoice,
+            PadButton.RB to KeyAction.ZoomIn, PadButton.RT to KeyAction.ZoomOut, PadButton.R3 to KeyAction.NextOverlay,
+        ),
+        shift = PadButton.Start,
+    ),
+
+    /** The player's own buttons, set one at a time in Settings, without the Select shift. */
+    Custom(emptyMap()),
+}
+
+/** The buttons out of the box. */
+val DefaultPad: Map<PadButton, KeyAction> = PadScheme.TwinStick.plain
 
 /** A button's name as printed on most controllers, and the d-pad's in words. */
 @Composable
@@ -82,12 +155,42 @@ object Pad {
 
     private val down = mutableSetOf<PadButton>()
 
-    /** A button went down or came up. A button already down doesn't go down again. */
+    /** The button that's a shift for the others while held, as the schemes have it, or null. Set from the settings. */
+    var shiftButton: PadButton? = null
+
+    /** The shift is held, so the buttons pressed now do what they do with it. */
+    var shifted = false
+        private set
+    private var shiftUsed = false
+
+    /**
+     * A button went down or came up. A button already down doesn't go down
+     * again. The shift says nothing until it comes up, and only then as a
+     * press of its own if nothing was pressed with it.
+     */
     fun button(b: PadButton, pressed: Boolean) {
         if (pressed == (b in down)) return
         if (pressed) down += b else down -= b
         seen = true
         onUse()
+        if (b == shiftButton) {
+            if (pressed) {
+                shifted = true
+                shiftUsed = false
+            } else {
+                shifted = false
+                if (!shiftUsed) {
+                    tell(b, true)
+                    tell(b, false)
+                }
+            }
+            return
+        }
+        if (pressed && shifted) shiftUsed = true
+        tell(b, pressed)
+    }
+
+    private fun tell(b: PadButton, pressed: Boolean) {
         for (h in handlers.asReversed().toList()) if (h(b, pressed)) return
     }
 

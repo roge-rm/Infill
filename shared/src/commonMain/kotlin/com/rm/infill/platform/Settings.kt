@@ -10,7 +10,9 @@ import com.rm.infill.map.GraphicsLevel
 import com.rm.infill.ui.DefaultKeys
 import com.rm.infill.ui.DefaultPad
 import com.rm.infill.ui.KeyAction
+import com.rm.infill.ui.Pad
 import com.rm.infill.ui.PadButton
+import com.rm.infill.ui.PadScheme
 
 enum class ThemeChoice { Auto, Light, Dark }
 
@@ -143,19 +145,45 @@ class Settings(private val store: Platform) {
         store.setSetting(KNOWN, null)
         padState = DefaultPad
         store.setSetting(PAD, null)
+        padScheme = PadScheme.TwinStick
     }
 
     private var padState by mutableStateOf(loadPad())
 
-    /** Which controller button does what. */
-    val pad: Map<PadButton, KeyAction> get() = padState
+    private var schemeState by mutableStateOf(loadScheme().also { Pad.shiftButton = it.shift.takeIf { _ -> it != PadScheme.Custom } })
 
-    /** Makes [button] the button for [action], in place of the one it had, and takes it from whatever had it. */
+    /** How the controller's buttons are laid out: one of the schemes, or the player's own. */
+    var padScheme: PadScheme
+        get() = schemeState
+        set(v) {
+            schemeState = v
+            Pad.shiftButton = v.shift.takeIf { v != PadScheme.Custom }
+            store.setSetting(PAD_SCHEME, v.name)
+        }
+
+    /** Which controller button does what, with the shift held or not. */
+    fun padMap(shifted: Boolean): Map<PadButton, KeyAction> = when {
+        schemeState == PadScheme.Custom -> padState
+        shifted -> schemeState.withSelect
+        else -> schemeState.plain
+    }
+
+    /** Which controller button does what, without the shift. */
+    val pad: Map<PadButton, KeyAction> get() = padMap(false)
+
+    /** Makes [button] the button for [action], in place of the one it had, and takes it from whatever had it; the buttons are the player's own from then on. */
     fun bindPad(action: KeyAction, button: PadButton) {
         if (!button.bindable) return
-        padState = padState.filter { (b, a) -> b != button && a != action } + (button to action)
+        val from = pad
+        padScheme = PadScheme.Custom
+        padState = from.filter { (b, a) -> b != button && a != action } + (button to action)
         store.setSetting(PAD, padState.entries.joinToString(";") { "${it.key.name}=${it.value.name}" })
     }
+
+    /** A scheme saved, or for buttons set one by one before there were schemes, those. */
+    private fun loadScheme(): PadScheme =
+        store.setting(PAD_SCHEME)?.let { n -> PadScheme.entries.firstOrNull { it.name == n } }
+            ?: if (store.setting(PAD) != null) PadScheme.Custom else PadScheme.TwinStick
 
     private fun loadPad(): Map<PadButton, KeyAction> {
         val saved = store.setting(PAD) ?: return DefaultPad
@@ -230,6 +258,7 @@ class Settings(private val store: Platform) {
         private const val TOOL_SIDE = "tool_side"
         private const val KEYS = "keys"
         private const val PAD = "pad"
+        private const val PAD_SCHEME = "pad_scheme"
         private val VOLUMES = listOf("volume_master", "volume_town", "volume_effects", "volume_music")
         private val DEFAULT_VOLUMES = listOf(80, 80, 70, 60)
 

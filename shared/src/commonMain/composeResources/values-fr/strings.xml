@@ -650,6 +650,14 @@
     <string name="key_next_choice">Choix suivant</string>
     <string name="key_prev_tab">Onglet précédent</string>
     <string name="key_next_tab">Onglet suivant</string>
+    <string name="key_prev_group">Outil précédent</string>
+    <string name="key_next_group">Outil suivant</string>
+    <string name="pad_twin_stick">Deux leviers</string>
+    <string name="pad_classic">Classique</string>
+    <string name="pad_left_hand">Main gauche</string>
+    <string name="pad_right_hand">Main droite</string>
+    <string name="pad_custom">Personnalisée</string>
+    <string name="pad_with">%1$s + %2$s</string>
 
     <string name="speed">Vitesse</string>
     <!-- How fast the game goes, read out on the speed button. -->

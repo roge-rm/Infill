@@ -28,4 +28,4 @@ Le son s'arrête quand vous quittez l'appli et reprend quand vous revenez.
 
 ## Touches
 
-Chaque action et ses touches. Touchez une action, puis appuyez sur une touche pour la changer. Une fois qu'une manette a servi, ses boutons s'affichent à côté des touches et se changent de la même façon. **Remettre les touches** revient aux réglages par défaut pour les deux.
+Chaque action et ses touches. Touchez une action, puis appuyez sur une touche pour la changer. Une fois qu'une manette a servi, **Manette** choisit la disposition de ses boutons, **Deux leviers**, **Classique**, **Main gauche** ou **Main droite**, et ses boutons s'affichent à côté des touches, un bouton tenu avec un autre affiché avec les deux. En changer un rend la disposition **Personnalisée**. **Remettre les touches** revient aux réglages par défaut pour les deux.

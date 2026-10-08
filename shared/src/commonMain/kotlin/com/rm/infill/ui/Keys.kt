@@ -66,6 +66,9 @@ enum class KeyAction(val held: Boolean = false, val dev: Boolean = false) {
     NextChoice,
     PrevTab,
     NextTab,
+    /** The toolbar's buttons, a step at a time. */
+    PrevGroup,
+    NextGroup,
     /** Takes the focus from the map to the tool buttons, for a controller. */
     Tools,
     Menu,

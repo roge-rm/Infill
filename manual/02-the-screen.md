@@ -65,16 +65,24 @@ The keys can be changed in Settings.
 
 ## A controller
 
-The game can be played with a controller too.
+The game can be played with a controller too. **Controller** under **Keys** in Settings picks how its buttons are laid out, to suit the controller. It shows once a controller's been used.
 
-- The left stick moves the cursor, faster the further it's pushed, and the d-pad moves it a tile at a time. The right stick moves the map, and the triggers zoom.
+**Twin stick**, for most controllers and handhelds:
+
+- The left stick moves the cursor, faster the further it's pushed, and the d-pad moves it a tile at a time. The right stick moves the map.
 - A uses the tool at the cursor, as Enter does, and B goes back, as Esc does.
-- Y goes to the tool buttons. The d-pad or the left stick moves between them, A picks one, and B goes back to the map.
-- X picks Inspect. LB and RB step through the tray's choices, and pressing the sticks in steps through its tabs.
-- Start opens the menu, and Select steps through the map views.
-- In a window, the d-pad or the left stick moves between its buttons, A presses one and B closes it.
+- LB and RB step along the toolbar. LT and RT step through the tray's choices, on into the next tab after the last.
+- X picks Inspect, and Y goes to the tool buttons: the d-pad moves between them, A picks one and B goes back to the map.
+- Pressing the sticks in zooms, the left out and the right in. Holding Select, up and down on the d-pad zoom too, and left and right step the tabs.
+- Start opens the menu, and Select tapped steps through the map views.
 
-The buttons can be changed in Settings.
+**Classic**, for a d-pad, four buttons, L and R, Start and Select: the same, but L and R step along the toolbar, and with Select held they step through the tray's choices, and up and down zoom.
+
+**Left hand**: the d-pad moves the cursor, L uses the tool and the left trigger goes back. Holding Select, left and right step along the toolbar, up and down through the choices, and L and the left trigger zoom. Select tapped opens the menu.
+
+**Right hand**: the same with the four buttons as the ways, Y up, A down, X left and B right, R and the right trigger in place of L and the left one, and Start in place of Select.
+
+In a window, the ways move between its buttons, Use presses one and Back closes it. Setting a button of your own under **Keys** makes the buttons your own.
 
 ## TalkBack
 
