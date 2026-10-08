@@ -653,6 +653,8 @@
     <string name="key_next_tab">Next tab</string>
     <string name="key_prev_group">Previous tool</string>
     <string name="key_next_group">Next tool</string>
+    <string name="key_prev_density">Less dense</string>
+    <string name="key_next_density">Denser</string>
     <string name="pad_twin_stick">Twin stick</string>
     <string name="pad_classic">Classic</string>
     <string name="pad_left_hand">Left hand</string>

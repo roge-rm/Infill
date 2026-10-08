@@ -1311,6 +1311,12 @@ private fun GameScreen(
             KeyAction.NextTab -> stepTab(1)
             KeyAction.PrevGroup -> stepGroup(-1)
             KeyAction.NextGroup -> stepGroup(1)
+            KeyAction.PrevDensity, KeyAction.NextDensity -> if (tool == Tool.Zone) {
+                val all = densitiesFor(zoneKind, city)
+                val now = densityKind.within(zoneKind, city)
+                val to = all.indexOf(now) + if (action == KeyAction.NextDensity) 1 else -1
+                if (to in all.indices) densityKind = all[to]
+            }
             KeyAction.ToolInspect -> pick(Tool.Inspect)
             KeyAction.ToolBulldoze -> pick(Tool.Bulldoze)
             KeyAction.ToolRoad -> pick(Tool.Road)

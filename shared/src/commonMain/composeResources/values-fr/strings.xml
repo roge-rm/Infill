@@ -652,6 +652,8 @@
     <string name="key_next_tab">Onglet suivant</string>
     <string name="key_prev_group">Outil précédent</string>
     <string name="key_next_group">Outil suivant</string>
+    <string name="key_prev_density">Moins dense</string>
+    <string name="key_next_density">Plus dense</string>
     <string name="pad_twin_stick">Deux leviers</string>
     <string name="pad_classic">Classique</string>
     <string name="pad_left_hand">Main gauche</string>

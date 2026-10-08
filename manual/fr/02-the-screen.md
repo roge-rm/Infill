@@ -73,10 +73,10 @@ La partie peut aussi se jouer avec une manette. **Manette**, sous **Touches** da
 - A utilise l'outil au curseur, comme Entrée, et B revient en arrière, comme Échap.
 - LB et RB passent d'un bouton de la barre d'outils à l'autre. LT et RT passent d'un choix du plateau à l'autre, jusqu'à l'onglet suivant après le dernier.
 - X choisit Inspecter, et Y va aux boutons d'outils : la croix passe de l'un à l'autre, A en choisit un et B revient à la carte.
-- Enfoncer les leviers zoome, le gauche en arrière et le droit en avant. Select tenu, le haut et le bas de la croix zooment aussi, et la gauche et la droite changent d'onglet.
+- Enfoncer les leviers zoome, le gauche en arrière et le droit en avant. Select tenu, le haut et le bas de la croix zooment aussi, la gauche et la droite changent d'onglet, et LT et RT rendent une zone moins ou plus dense.
 - Start ouvre le menu, et Select appuyé seul passe d'une vue à l'autre.
 
-**Classique**, pour une croix, quatre boutons, L et R, Start et Select : la même chose, mais L et R passent d'un bouton de la barre à l'autre, et Select tenu, ils passent d'un choix à l'autre, et le haut et le bas zooment.
+**Classique**, pour une croix, quatre boutons, L et R, Start et Select : la même chose, mais L et R passent d'un bouton de la barre à l'autre, et Select tenu, ils passent d'un choix à l'autre, le haut et le bas zooment, et X et Y rendent une zone moins ou plus dense.
 
 **Main gauche** : la croix déplace le curseur, L utilise l'outil et la gâchette gauche revient en arrière. Select tenu, la gauche et la droite passent d'un bouton de la barre à l'autre, le haut et le bas d'un choix à l'autre, et L et la gâchette gauche zooment. Select appuyé seul ouvre le menu.
 

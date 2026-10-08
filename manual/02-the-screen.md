@@ -73,10 +73,10 @@ The game can be played with a controller too. **Controller** under **Keys** in S
 - A uses the tool at the cursor, as Enter does, and B goes back, as Esc does.
 - LB and RB step along the toolbar. LT and RT step through the tray's choices, on into the next tab after the last.
 - X picks Inspect, and Y goes to the tool buttons: the d-pad moves between them, A picks one and B goes back to the map.
-- Pressing the sticks in zooms, the left out and the right in. Holding Select, up and down on the d-pad zoom too, and left and right step the tabs.
+- Pressing the sticks in zooms, the left out and the right in. Holding Select, up and down on the d-pad zoom too, left and right step the tabs, and LT and RT make a zone less or more dense.
 - Start opens the menu, and Select tapped steps through the map views.
 
-**Classic**, for a d-pad, four buttons, L and R, Start and Select: the same, but L and R step along the toolbar, and with Select held they step through the tray's choices, and up and down zoom.
+**Classic**, for a d-pad, four buttons, L and R, Start and Select: the same, but L and R step along the toolbar, and with Select held they step through the tray's choices, up and down zoom, and X and Y make a zone less or more dense.
 
 **Left hand**: the d-pad moves the cursor, L uses the tool and the left trigger goes back. Holding Select, left and right step along the toolbar, up and down through the choices, and L and the left trigger zoom. Select tapped opens the menu.
 

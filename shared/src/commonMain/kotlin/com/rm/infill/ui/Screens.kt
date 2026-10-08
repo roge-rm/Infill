@@ -585,6 +585,8 @@ private val ACTION_NAMES: Map<KeyAction, StringResource> = mapOf(
     KeyAction.NextTab to Res.string.key_next_tab,
     KeyAction.PrevGroup to Res.string.key_prev_group,
     KeyAction.NextGroup to Res.string.key_next_group,
+    KeyAction.PrevDensity to Res.string.key_prev_density,
+    KeyAction.NextDensity to Res.string.key_next_density,
     KeyAction.Pause to Res.string.pause,
     KeyAction.Budget to Res.string.budget,
     KeyAction.Graphs to Res.string.graphs,

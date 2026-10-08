@@ -52,7 +52,10 @@ enum class PadScheme(val plain: Map<PadButton, KeyAction>, val withSelect: Map<P
             PadButton.Start to KeyAction.Menu,
             PadButton.Select to KeyAction.NextOverlay,
         ),
-        mapOf(PadButton.Up to KeyAction.ZoomIn, PadButton.Down to KeyAction.ZoomOut, PadButton.Left to KeyAction.PrevTab, PadButton.Right to KeyAction.NextTab),
+        mapOf(
+            PadButton.Up to KeyAction.ZoomIn, PadButton.Down to KeyAction.ZoomOut, PadButton.Left to KeyAction.PrevTab, PadButton.Right to KeyAction.NextTab,
+            PadButton.LT to KeyAction.PrevDensity, PadButton.RT to KeyAction.NextDensity,
+        ),
     ),
 
     /** A d-pad, four buttons, L and R, Start and Select, and nothing more. */
@@ -70,6 +73,7 @@ enum class PadScheme(val plain: Map<PadButton, KeyAction>, val withSelect: Map<P
         mapOf(
             PadButton.LB to KeyAction.PrevChoice, PadButton.RB to KeyAction.NextChoice,
             PadButton.Up to KeyAction.ZoomIn, PadButton.Down to KeyAction.ZoomOut, PadButton.Left to KeyAction.PrevTab, PadButton.Right to KeyAction.NextTab,
+            PadButton.X to KeyAction.PrevDensity, PadButton.Y to KeyAction.NextDensity,
         ),
     ),
 

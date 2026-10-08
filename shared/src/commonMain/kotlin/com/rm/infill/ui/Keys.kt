@@ -69,6 +69,9 @@ enum class KeyAction(val held: Boolean = false, val dev: Boolean = false) {
     /** The toolbar's buttons, a step at a time. */
     PrevGroup,
     NextGroup,
+    /** A zone's density, a step at a time. */
+    PrevDensity,
+    NextDensity,
     /** Takes the focus from the map to the tool buttons, for a controller. */
     Tools,
     Menu,
