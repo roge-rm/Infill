@@ -7,7 +7,7 @@ Infill starts in January 1900 with $20,000 and an empty piece of land. You lay t
 
 ## Starting
 
-On the first screen, **New city** makes a new town. Pick a name, a map number and the land: how big a town is, the sea, the climate, how much water and woods, a river, and whether it gets earthquakes. For a **Coast**, pick which sides are sea: any of north, east, south and west. The preview shows the land as you change it. **Show me how to start** walks you through your first town a step at a time; it's on for your first. **Sandbox** makes a town where everything can be built from the start and nothing costs money. **Start** opens the town, paused.
+On the first screen, **New city** makes a new town. Pick a name, a map number and the land: how big a town is, the sea, the climate, how much water and woods, a river, and whether it gets earthquakes. For a **Coast**, pick which sides are sea: any of north, east, south and west. The preview shows the land as you change it; tap it, or the arrow at the end of the map number, for another map, and the arrow by the name for another name. River, earthquakes, sandbox and **Show me how to start** are lit when on. **Show me how to start** walks you through your first town a step at a time; it's on for your first. **Sandbox** makes a town where everything can be built from the start and nothing costs money. **Start** opens the town, paused.
 
 **A region of towns** makes a set of towns side by side on one piece of land instead. See the Regions section.
 

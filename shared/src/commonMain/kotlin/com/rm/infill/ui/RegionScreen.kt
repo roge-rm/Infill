@@ -109,11 +109,8 @@ fun RegionScreen(region: Region, onPlay: (Int) -> Unit, onFound: (Int, String) -
         } else {
             Text(stringResource(Res.string.no_town_here), color = c.textDim, fontSize = 15.sp)
             val name = typed ?: TownNames.make(region.seed + chosen * 31L)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FormField(name, { typed = it.take(30) }, stringResource(Res.string.city_name), Modifier.weight(1f))
-                Box(Modifier.widthIn(max = 160.dp)) {
-                    BigButton(stringResource(Res.string.another_name)) { typed = TownNames.make(kotlin.random.Random.nextLong(1, Long.MAX_VALUE)) }
-                }
+            FormField(name, { typed = it.take(30) }, stringResource(Res.string.city_name), Modifier.fillMaxWidth(), anotherLabel = stringResource(Res.string.another_name)) {
+                typed = TownNames.make(kotlin.random.Random.nextLong(1, Long.MAX_VALUE))
             }
             BigButton(stringResource(Res.string.found_town), primary = true) { onFound(chosen, name.ifBlank { TownNames.make(region.seed + chosen) }) }
         }

@@ -9,6 +9,9 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -236,14 +239,20 @@ fun NewCityScreen(
             terrainImage(m)
         }
     }
-    val head: @Composable () -> Unit = {
-        Text(stringResource(Res.string.new_city), color = c.text, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
-        // A town, a region, or a challenge: a town already under way with goals to meet.
-        Chips(listOf(0, 1, 2), if (challenge) 2 else if (region) 1 else 0, {
+    val anotherMap = stringResource(Res.string.another_map)
+    val title: @Composable () -> Unit = { Text(stringResource(Res.string.new_city), color = c.text, fontSize = 24.sp, fontWeight = FontWeight.SemiBold) }
+    // A town, a region, or a challenge: a town already under way with goals to meet.
+    val kinds: @Composable () -> Unit = {
+        FillChips(listOf(0, 1, 2), if (challenge) 2 else if (region) 1 else 0, {
             stringResource(when (it) { 1 -> Res.string.kind_region; 2 -> Res.string.kind_challenge; else -> Res.string.kind_town })
         }) { challenge = it == 2; region = it == 1 }
     }
-    val map: @Composable (Modifier) -> Unit = { modifier -> Box(modifier.aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(c.button)) {
+    // The preview: a tap on it makes another map.
+    val map: @Composable (Modifier) -> Unit = { modifier ->
+        Box(
+            modifier.aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(c.button)
+                .clickable(onClickLabel = anotherMap, role = Role.Button) { seed = Random.nextLong(1, 1_000_000) },
+        ) {
             preview?.let { Image(it, null, Modifier.fillMaxSize(), filterQuality = FilterQuality.None) }
             // A region's squares.
             if (region) androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
@@ -256,26 +265,32 @@ fun NewCityScreen(
             }
         }
     }
-    val form: @Composable () -> Unit = {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FormField(name, { typed = it.take(30) }, stringResource(if (region) Res.string.region_name else Res.string.city_name), Modifier.weight(1f))
-            Box(Modifier.widthIn(max = 160.dp)) {
-                BigButton(stringResource(Res.string.another_name)) {
-                    typed = null
-                    rolled = Random.nextLong(1, Long.MAX_VALUE)
-                }
+    // The name and the map's number, each with a button for another.
+    val identity: @Composable (Boolean) -> Unit = { wide ->
+        SideBySide(wide, {
+            FormField(
+                name, { typed = it.take(30) }, stringResource(if (region) Res.string.region_name else Res.string.city_name), Modifier.fillMaxWidth(),
+                anotherLabel = stringResource(Res.string.another_name),
+            ) {
+                typed = null
+                rolled = Random.nextLong(1, Long.MAX_VALUE)
             }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        }, {
             FormField(
                 seed.toString(), { v -> v.filter { it.isDigit() }.take(12).toLongOrNull()?.let { seed = it } },
-                stringResource(Res.string.seed), Modifier.weight(1f), KeyboardOptions(keyboardType = KeyboardType.Number),
-            )
-            Box(Modifier.widthIn(max = 160.dp)) { BigButton(stringResource(Res.string.another_map)) { seed = Random.nextLong(1, 1_000_000) } }
-        }
-        StepSlider(Res.string.town_size, com.rm.infill.sim.Region.SIDES, side, { stringResource(Res.string.tiles_a_side, it) }) { side = it }
+                stringResource(Res.string.seed), Modifier.fillMaxWidth(), KeyboardOptions(keyboardType = KeyboardType.Number),
+                anotherLabel = anotherMap,
+            ) { seed = Random.nextLong(1, 1_000_000) }
+        })
+    }
+    // The rest of the choices, two to a row where they fit.
+    val options: @Composable (Boolean) -> Unit = { wide ->
+        SideBySide(wide, {
+            StepSlider(Res.string.town_size, com.rm.infill.sim.Region.SIDES, side, { stringResource(Res.string.tiles_a_side, it) }) { side = it }
+        }, {
+            StepSlider(Res.string.sea, SEA_CHOICES, sea, { stringResource(seaName(it)) }) { sea = it }
+        })
         if (region) StepSlider(Res.string.region_grid, com.rm.infill.sim.Region.GRIDS, grid, { stringResource(Res.string.grid_of, it, it) }) { grid = it }
-        StepSlider(Res.string.sea, SEA_CHOICES, sea, { stringResource(seaName(it)) }) { sea = it }
         // Which sides the coast runs along, any of the four.
         if (sea == com.rm.infill.sim.Sea.COAST) {
             val sides = listOf(
@@ -284,88 +299,178 @@ fun NewCityScreen(
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for ((bit, label) in sides) {
-                    val on = seaSides and bit != 0
-                    Box(
-                        Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(if (on) c.accent else c.button)
-                            .semantics(mergeDescendants = true) {}
-                            .toggleable(value = on, role = Role.Switch) { seaSides = if (it) seaSides or bit else seaSides and bit.inv() }
-                            .padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(stringResource(label), color = if (on) c.onAccent else c.text, fontSize = 14.sp)
+                    TogglePill(stringResource(label), seaSides and bit != 0, Modifier.weight(1f)) { on ->
+                        seaSides = if (on) seaSides or bit else seaSides and bit.inv()
                     }
                 }
             }
         }
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // The label beside its choices where there's room.
+        if (wide) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(Res.string.climate), color = c.text, fontSize = 15.sp)
-            Chips(Climate.entries, climate, { stringResource(climateName(it)) }) { climate = it }
+            Box(Modifier.weight(1f)) { FillChips(Climate.entries, climate, { stringResource(climateName(it)) }) { climate = it } }
+        } else Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(stringResource(Res.string.climate), color = c.text, fontSize = 15.sp)
+            FillChips(Climate.entries, climate, { stringResource(climateName(it)) }) { climate = it }
         }
-        StepSlider(Res.string.water, (0..100 step 10).toList(), water, { stringResource(Res.string.percent, it) }) { water = it }
-        StepSlider(Res.string.woods, (0..100 step 10).toList(), trees, { stringResource(Res.string.percent, it) }) { trees = it }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(Res.string.river), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
-            Chips(listOf(true, false), river, { stringResource(if (it) Res.string.yes else Res.string.no) }) { river = it }
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(Res.string.earthquakes), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
-            Chips(listOf(true, false), quakes, { stringResource(if (it) Res.string.yes else Res.string.no) }) { quakes = it }
-        }
-        if (!region) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(Res.string.sandbox), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
-            Chips(listOf(true, false), sandbox, { stringResource(if (it) Res.string.yes else Res.string.no) }) { sandbox = it }
-        }
-        if (!region) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(Res.string.show_me_how), color = c.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
-            Chips(listOf(true, false), guide, { stringResource(if (it) Res.string.yes else Res.string.no) }) { guide = it }
-        }
-        BigButton(stringResource(Res.string.start), primary = true) {
-            onStart(name.ifBlank { TownNames.make(seed) }, seed, TerrainOptions(water, trees, river, quakes, climate, sea, seaSides), if (region) grid else 0, side, guide && !region, sandbox && !region)
-        }
-        BigButton(stringResource(Res.string.back), onClick = onBack)
-    }
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        // On a screen wider than it's tall, the map beside the choices, so it all fits.
-        if (!challenge && maxWidth > maxHeight && maxWidth >= WIDE_PAGE) {
-            SplitPage(map) {
-                head()
-                form()
+        SideBySide(wide, {
+            StepSlider(Res.string.water, (0..100 step 10).toList(), water, { stringResource(Res.string.percent, it) }) { water = it }
+        }, {
+            StepSlider(Res.string.woods, (0..100 step 10).toList(), trees, { stringResource(Res.string.percent, it) }) { trees = it }
+        })
+        // The rest are on or off, lit when on.
+        val toggles = buildList<Triple<String, Boolean, (Boolean) -> Unit>> {
+            add(Triple(stringResource(Res.string.river), river) { river = it })
+            add(Triple(stringResource(Res.string.earthquakes), quakes) { quakes = it })
+            if (!region) {
+                add(Triple(stringResource(Res.string.sandbox), sandbox) { sandbox = it })
+                add(Triple(stringResource(Res.string.show_me_how), guide) { guide = it })
             }
-        } else Page {
-            head()
-            if (challenge) {
-                ChallengeList(onChallenge)
-                BigButton(stringResource(Res.string.back), onClick = onBack)
-            } else {
-                map(Modifier.fillMaxWidth())
-                form()
+        }
+        for (row in if (wide) listOf(toggles) else toggles.chunked(2)) {
+            // As tall as the tallest, where a name takes two lines.
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((text, on, set) in row) TogglePill(text, on, Modifier.weight(1f).fillMaxHeight(), set)
+            }
+        }
+    }
+    val footer: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.weight(1f)) { BigButton(stringResource(Res.string.back), onClick = onBack) }
+            Box(Modifier.weight(2f)) {
+                BigButton(stringResource(Res.string.start), primary = true) {
+                    onStart(name.ifBlank { TownNames.make(seed) }, seed, TerrainOptions(water, trees, river, quakes, climate, sea, seaSides), if (region) grid else 0, side, guide && !region, sandbox && !region)
+                }
+            }
+        }
+    }
+    if (challenge) Page {
+        title()
+        kinds()
+        ChallengeList(onChallenge)
+        BigButton(stringResource(Res.string.back), onClick = onBack)
+    } else NewCityLayout(map, title, kinds, identity, options, footer)
+}
+
+/** How wide the choices have to be for two to a row, and the widest they get above the map. */
+private val PAIRS_FROM = 480.dp
+private val CHOICES_MOST = 560.dp
+
+/** On a screen about square: the band across the top at least this tall, and the whole no wider than this. */
+private val BAND_LEAST = 160.dp
+private val BAND_MOST = 760.dp
+
+/** The widest the map and the choices together get on a wide screen, the two of them in the middle beyond that. */
+private val SPREAD_MOST = 1100.dp
+
+/**
+ * The new town's screen, laid out for its shape. Wider than it's tall: the
+ * map on the left as tall as the screen, and the choices beside it. About
+ * square: a band across the top with a smaller map and, beside it, the
+ * title, name and map number, and the rest the full width below. Taller
+ * than it's wide: the map above the choices, a third of the height so they start
+ * soon. The choices scroll if they must, and [footer] stays in view below.
+ */
+@Composable
+private fun NewCityLayout(
+    map: @Composable (Modifier) -> Unit,
+    title: @Composable () -> Unit,
+    kinds: @Composable () -> Unit,
+    identity: @Composable (Boolean) -> Unit,
+    options: @Composable (Boolean) -> Unit,
+    footer: @Composable () -> Unit,
+) {
+    val c = Infill.colors
+    // The choices that scroll, two to a row where they fit.
+    @Composable
+    fun ColumnScope.choices(withIdentity: Boolean) {
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val wide = maxWidth >= PAIRS_FROM
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (withIdentity) identity(wide)
+                options(wide)
+            }
+        }
+    }
+    BoxWithConstraints(Modifier.fillMaxSize().background(c.page).windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp)) {
+        val w = maxWidth
+        val h = maxHeight
+        val ratio = w / h
+        when {
+            ratio > 1.2f -> Row(
+                Modifier.fillMaxHeight().widthIn(max = SPREAD_MOST).fillMaxWidth().align(Alignment.Center),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                // The map leaves the choices room for two to a row, and is no taller than the screen.
+                val across = minOf(w, SPREAD_MOST)
+                val square = minOf(h, maxOf(across - PAIRS_FROM - 16.dp, across * 0.35f))
+                Box(Modifier.fillMaxHeight(), contentAlignment = Alignment.Center) { map(Modifier.size(square)) }
+                Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (across - square - 16.dp >= PAIRS_FROM) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        title()
+                        Box(Modifier.weight(1f)) { kinds() }
+                    } else {
+                        title()
+                        kinds()
+                    }
+                    choices(withIdentity = true)
+                    footer()
+                }
+            }
+            ratio >= 0.85f -> Column(
+                Modifier.fillMaxHeight().widthIn(max = BAND_MOST).fillMaxWidth().align(Alignment.TopCenter),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                val band = (h * 0.38f).coerceIn(BAND_LEAST, w * 0.4f)
+                Row(Modifier.fillMaxWidth().height(band), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    map(Modifier.size(band))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)) {
+                        title()
+                        identity(false)
+                    }
+                }
+                kinds()
+                choices(withIdentity = false)
+                footer()
+            }
+            else -> Column(
+                Modifier.fillMaxHeight().widthIn(max = CHOICES_MOST).fillMaxWidth().align(Alignment.TopCenter),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                title()
+                kinds()
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { map(Modifier.size(minOf(w, h * 0.32f))) }
+                choices(withIdentity = true)
+                footer()
             }
         }
     }
 }
 
-/** How wide a screen has to be for the new town's map to go beside its choices, and how wide the choices are then. */
-private val WIDE_PAGE = 560.dp
-private val SPLIT_CHOICES = 340.dp
-
-/**
- * A page for a screen wider than it's tall: [side] as tall as the screen
- * on the left, and the rest beside it, scrolling if it has to.
- */
+/** [first] and [second] side by side, an equal share each, when [wide]; else one above the other. */
 @Composable
-private fun SplitPage(side: @Composable (Modifier) -> Unit, content: @Composable () -> Unit) {
+private fun SideBySide(wide: Boolean, first: @Composable () -> Unit, second: @Composable () -> Unit) {
+    if (wide) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f)) { first() }
+        Box(Modifier.weight(1f)) { second() }
+    } else {
+        first()
+        second()
+    }
+}
+
+/** A choice that's on or off, lit when on. */
+@Composable
+private fun TogglePill(text: String, on: Boolean, modifier: Modifier = Modifier, onChange: (Boolean) -> Unit) {
     val c = Infill.colors
-    Row(
-        Modifier.fillMaxSize().background(c.page).windowInsetsPadding(WindowInsets.safeDrawing).padding(20.dp),
-        horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
+    Box(
+        modifier.clip(RoundedCornerShape(8.dp)).background(if (on) c.accent else c.button)
+            .semantics(mergeDescendants = true) {}
+            .toggleable(value = on, role = Role.Switch, onValueChange = onChange)
+            .padding(horizontal = 6.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        // The choices their own width, and the map as big a square as fits in the rest.
-        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) { side(Modifier) }
-        Column(
-            Modifier.width(SPLIT_CHOICES).fillMaxHeight().verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) { content() }
+        Text(text, color = if (on) c.onAccent else c.text, fontSize = 14.sp, textAlign = TextAlign.Center, maxLines = 2)
     }
 }
 
@@ -438,6 +543,27 @@ fun <T> Chips(options: List<T>, selected: T, label: @Composable (T) -> String, o
                     .selectable(selected = on, role = Role.RadioButton) { onSelect(o) }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             )
+        }
+    }
+}
+
+/** One of a set across the whole width, each choice an equal share and all as tall as the tallest. */
+@Composable
+fun <T> FillChips(options: List<T>, selected: T, label: @Composable (T) -> String, onSelect: (T) -> Unit) {
+    val c = Infill.colors
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (o in options) {
+            val on = o == selected
+            Box(
+                Modifier.weight(1f).fillMaxHeight()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (on) c.accent else c.button)
+                    .selectable(selected = on, role = Role.RadioButton) { onSelect(o) }
+                    .padding(horizontal = 6.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label(o), color = if (on) c.onAccent else c.text, fontSize = 14.sp, textAlign = TextAlign.Center, maxLines = 2)
+            }
         }
     }
 }
