@@ -141,14 +141,19 @@ internal fun DrawScope.drawWeather(
     look: WeatherLook,
     camera: Camera,
     clouds: CloudTextures?,
-    cloudTime: Float,
+    drift: Offset,
     fallTime: Float,
     sunStrength: Float,
     graphics: Graphics,
+    fadingFrom: ImageBitmap? = null,
+    fade: Float = 1f,
 ) {
     val texture = clouds?.forCloud(look.cloud)
-    if (graphics.cloudShadows && texture != null && sunStrength > 0f) {
-        cloudShadows(texture, look, camera, cloudTime, (0.28f * sunStrength).coerceIn(0f, 1f))
+    if (graphics.cloudShadows && sunStrength > 0f) {
+        // The cover of a moment ago fading out as the new one comes in.
+        val alpha = (0.28f * sunStrength).coerceIn(0f, 1f)
+        if (fadingFrom != null && fadingFrom !== texture && fade < 1f) cloudShadows(fadingFrom, camera, drift, alpha * (1f - fade))
+        if (texture != null) cloudShadows(texture, camera, drift, alpha * if (fadingFrom !== texture) fade else 1f)
     }
     if (graphics.particles > 0f) {
         when (look.precipitation) {
@@ -161,25 +166,24 @@ internal fun DrawScope.drawWeather(
         drawRect(FOG, alpha = 0.32f)
         // Banks of thicker fog drifting through.
         if (graphics.cloudShadows && clouds != null) {
-            cloudShadows(clouds.levels[1], look, camera, cloudTime * 0.4f, 0.16f, colour = FOG_BANK, scale = 0.6f)
+            cloudShadows(clouds.levels[1], camera, drift * 0.4f, 0.16f, colour = FOG_BANK, scale = 0.6f)
         }
     }
 }
 
-/** A texture repeated over the whole map in world space, moving with the wind, so it pans with the map. */
+/** A texture repeated over the whole map in world space, [drift] tiles along with the wind, so it pans with the map. */
 private fun DrawScope.cloudShadows(
     texture: ImageBitmap,
-    look: WeatherLook,
     camera: Camera,
-    time: Float,
+    drift: Offset,
     alpha: Float,
     colour: Color? = null,
     scale: Float = 1f,
 ) {
     val span = CLOUD_TILES * scale
-    val drift = time * (0.2f + look.wind * 1.2f)
-    val ox = look.windX * drift
-    val oy = look.windY * drift
+    // Wrapped to one repeat of the texture, so it stays exact however long it drifts.
+    val ox = drift.x.mod(span)
+    val oy = drift.y.mod(span)
     val topLeft = camera.screenToTile(Offset.Zero, size)
     val bottomRight = camera.screenToTile(Offset(size.width, size.height), size)
     val i0 = floor((topLeft.x - ox) / span).toInt()
@@ -249,6 +253,13 @@ private fun unit(k: Int): Float {
 
 /** A cloud texture covers this many tiles before it repeats. */
 private const val CLOUD_TILES = 48f
+
+/** How far clouds go in a second, in tiles, still and at the windiest. */
+internal const val CLOUD_DRIFT = 0.2f
+internal const val CLOUD_WIND_DRIFT = 1.2f
+
+/** Seconds a change of cloud cover takes to fade in. */
+internal const val CLOUD_FADE = 3f
 
 private val RAIN = Color(0x8CC8D6E6)
 private val SNOW = Color(0xE6FFFFFF)

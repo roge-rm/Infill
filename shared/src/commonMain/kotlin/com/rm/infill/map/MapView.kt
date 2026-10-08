@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.BlendMode
@@ -224,6 +225,20 @@ fun MapView(
             game.city.tramRiders(it) + game.city.busRiders(it) + game.city.trolleyRiders(it) + game.city.subwayRiders(it)
         }
     }
+    // Where the clouds have drifted to, in tiles: on a little each frame at the wind of the moment, so a change of wind doesn't jump them.
+    var cloudDrift by remember { mutableStateOf(Offset.Zero) }
+    val windNow by rememberUpdatedState(weather)
+    // A change of cover fades in from the one before.
+    val cloudTexture = clouds?.forCloud(weather.cloud)
+    var cloudBefore by remember { mutableStateOf<ImageBitmap?>(null) }
+    var cloudShown by remember { mutableStateOf(cloudTexture) }
+    var cloudSince by remember { mutableFloatStateOf(-CLOUD_FADE) }
+    LaunchedEffect(cloudTexture) {
+        if (cloudTexture === cloudShown) return@LaunchedEffect
+        cloudBefore = cloudShown
+        cloudShown = cloudTexture
+        cloudSince = weatherTime
+    }
     LaunchedEffect(animate) {
         if (!animate) return@LaunchedEffect
         var last = withFrameNanos { it }
@@ -232,6 +247,9 @@ fun MapView(
             val seconds = (now - last) / 1e9f
             weatherTime += seconds
             travelTime += seconds * paceNow
+            val w = windNow
+            val step = (CLOUD_DRIFT + w.wind * CLOUD_WIND_DRIFT) * seconds * paceNow
+            cloudDrift += Offset(w.windX * step, w.windY * step)
             last = now
         }
     }
@@ -405,7 +423,8 @@ fun MapView(
         drawRough(rough, map.width, camera)
         drawPlumes(renderer, map, camera, plumes, weather, weatherTime, graphics.plumes)
         if (fires) drawFires(map, camera, weather, weatherTime)
-        drawWeather(weather, camera, clouds, travelTime, weatherTime, sun.strength, graphics)
+        val fade = if (animate) ((weatherTime - cloudSince) / CLOUD_FADE).coerceIn(0f, 1f) else 1f
+        drawWeather(weather, camera, clouds, cloudDrift, weatherTime, sun.strength, graphics, cloudBefore, fade)
         // Modulate rather than Multiply: the same for an opaque tint, and Android before 10 has only this one.
         if (tint != Color.White) drawRect(tint, blendMode = BlendMode.Modulate)
         if (underground) drawUnderground(map, camera, game.city.monthNow)
