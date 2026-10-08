@@ -25,8 +25,8 @@ class TransitTest {
     private fun City.line(tram: Boolean, vararg xs: Int, vehicles: Int = 3) =
         apply(Action.AddLine(tram, IntArray(xs.size) { i(xs[it], 16) }, vehicles))
 
-    /** Trips from the west end of the street to the east, everyone on foot or by what runs. */
-    private fun City.trips(workers: Int, cars: Int = 0): Traffic {
+    /** Trips from the west end of the street to the east, everyone on foot or by what runs; with no [search] for parking, drivers park at once. */
+    private fun City.trips(workers: Int, cars: Int = 0, search: Boolean = true): Traffic {
         val t = City::class.java.getDeclaredField("traffic").apply { isAccessible = true }.get(this) as Traffic
         val n = map.size
         // The networks as they are now.
@@ -37,6 +37,7 @@ class TransitTest {
         val c = IntArray(n).also { it[i(2, 16)] = cars }
         val j = IntArray(n).also { it[i(60, 16)] = workers }
         t.newMonth(w, IntArray(n), IntArray(n), j, IntArray(n), 0, carWorkersAt = c)
+        if (!search) (Traffic::class.java.getDeclaredField("parkingSearch").apply { isAccessible = true }.get(t) as IntArray).fill(0)
         t.sendDay(1, 1)
         t.newMonth(IntArray(n), IntArray(n), IntArray(n), IntArray(n), IntArray(n), 0)
         return t
@@ -305,7 +306,7 @@ class TransitTest {
             c.line(false, 2, 60, vehicles = 10)
             if (lane) assertTrue(c.apply(Action.BuildLane(Action.roadPath(c.map, 0, 16, 63, 16, true))).ok)
             // A jam of cars along the street, then the bus riders.
-            repeat(2) { c.trips(3_000, 3_000) }
+            repeat(2) { c.trips(3_000, 3_000, search = false) }
             val t = c.trips(20)
             return t.commute[c.i(2, 16)]
         }

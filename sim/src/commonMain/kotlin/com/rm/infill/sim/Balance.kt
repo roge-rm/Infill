@@ -1177,6 +1177,10 @@ object Balance {
     /** What a car parked a day for a month pays where parking is paid for, in dollars. */
     const val PARKING_FEE = 0.40
 
+    /** Finding a space at the end of a drive: a second for every this many jobs on the street, and at most this many seconds. */
+    const val JOBS_A_SECOND_OF_SEARCH = 4
+    const val PARKING_SEARCH_MOST = 600
+
     /** How far from a station or stop a park and ride can be, in tiles from its edge. */
     const val PARK_AND_RIDE_REACH = 2
 

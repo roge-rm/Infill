@@ -84,6 +84,9 @@ internal class Traffic(private val map: CityMap) {
 
     /** Room left for workers and shoppers at each road tile. */
     private val jobsLeft = IntArray(map.size)
+
+    /** Seconds a driver spends finding a space at each road tile, by the work there. */
+    private val parkingSearch = IntArray(map.size)
     private val shopsLeft = IntArray(map.size)
 
     /** This month so far, by starting tile: workers placed, their seconds of travel, freight that got out. */
@@ -440,6 +443,8 @@ internal class Traffic(private val map: CityMap) {
 
         jobsAt.copyInto(jobsLeft)
         shopsAt.copyInto(shopsLeft)
+        // The more work on a street, the longer a driver looks for a space on it.
+        for (i in 0 until map.size) parkingSearch[i] = min(Balance.PARKING_SEARCH_MOST, jobsAt[i] / Balance.JOBS_A_SECOND_OF_SEARCH)
         val starts = ArrayList<Int>()
         for (i in 0 until map.size) {
             if (workersAt[i] > 0 || shoppersAt[i] > 0 || freightAt[i] > 0 || goodsAt?.any { it[i] > 0 } == true) starts += i
@@ -556,8 +561,10 @@ internal class Traffic(private val map: CityMap) {
             }
             val layer = st / n
             val a = st % n
-            // People get where they're going on foot, by bicycle or by car; the transit layers only carry them between stops.
-            if (layer == WALK || layer == CAR || layer == BIKE) {
+            // A driver with somewhere to go here looks for a space first.
+            if (layer == CAR && (w > 0 && jobsLeft[a] > 0 || s > 0 && shopsLeft[a] > 0)) reach(state(ARRIVED, a), d + parkingSearch[a], st)
+            // People get where they're going on foot, by bicycle or once they've parked; the transit layers only carry them between stops.
+            if (layer == WALK || layer == ARRIVED || layer == BIKE) {
                 // No more of them than there are spaces left where they parked, if they did; the rest look again.
                 val lot = if (layer == WALK && anyParking) lotOn(st) else -1
                 val room = if (lot >= 0) spacesLeft[lot] else Int.MAX_VALUE
@@ -1241,6 +1248,17 @@ internal class Traffic(private val map: CityMap) {
         for (a in arrayOf(walkVolume, lastWalkVolume, bikeVolume, lastBikeVolume)) sparse(r, a)
     }
 
+    /** Since save version 51: parking, at the park and rides and at the end of a drive. */
+    internal fun writeParking(w: SaveWriter) {
+        for (a in arrayOf(parked, lastParked, spacesLeft, parkingSearch)) sparse(w, a)
+        w.int(paidParked); w.int(lastPaidParked)
+    }
+
+    internal fun readParking(r: SaveReader) {
+        for (a in arrayOf(parked, lastParked, spacesLeft, parkingSearch)) sparse(r, a)
+        paidParked = r.int(); lastPaidParked = r.int()
+    }
+
     /** Since save version 3. */
     internal fun writeRail(w: SaveWriter) {
         for (a in arrayOf(riders, lastRiders, railFreight, lastRailFreight)) sparse(w, a)
@@ -1307,7 +1325,10 @@ internal class Traffic(private val map: CityMap) {
 
         /** On foot from a park and ride, on the way to a train or stop: they can't walk to work from there. */
         const val PARKED = 8
-        const val LAYERS = 9
+
+        /** Out of the car at the end of the trip, once a space is found. */
+        const val ARRIVED = 9
+        const val LAYERS = 10
 
         // What a trip's for.
         private const val WORKER = 0

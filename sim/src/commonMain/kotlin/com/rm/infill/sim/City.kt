@@ -9301,6 +9301,7 @@ class City(
         val paid = buildings.values.filter { it.paidParking }
         w.count(paid.size)
         for (b in paid) w.int(b.id)
+        traffic.writeParking(w)
     }
 
     companion object {
@@ -9680,7 +9681,10 @@ class City(
                                 c.traffic.readCycling(r)
                             }
                             if (version >= 50) c.legacyMet = r.int()
-                            if (version >= 51) repeat(r.count()) { c.buildings[r.int()]?.paidParking = true }
+                            if (version >= 51) {
+                                repeat(r.count()) { c.buildings[r.int()]?.paidParking = true }
+                                c.traffic.readParking(r)
+                            }
                         }
                     }
                 } else {

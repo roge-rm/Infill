@@ -113,6 +113,25 @@ class ParkRideTest {
     }
 
     @Test
+    fun aBusyStreetTakesLongerToParkOn() {
+        val quiet = city().let { it.trips(50).commute[it.i(2, 16)] }
+        // The same drive, to a street with a thousand jobs on it.
+        val c = city()
+        val tr = c.traffic
+        val n = c.map.size
+        City::class.java.getDeclaredMethod("updateNetworks").apply { isAccessible = true }.invoke(c)
+        tr.cycling = 0
+        val w = IntArray(n).also { it[c.i(2, 16)] = 50 }
+        val j = IntArray(n).also { it[c.i(120, 16)] = 1_000 }
+        tr.newMonth(w, IntArray(n), IntArray(n), j, IntArray(n), 0, carWorkersAt = w.copyOf())
+        tr.sendDay(1, 1)
+        tr.newMonth(IntArray(n), IntArray(n), IntArray(n), IntArray(n), IntArray(n), 0)
+        assertEquals(50, tr.lastModes[Mode.CAR.ordinal], "modes ${tr.lastModes.toList()}")
+        // The quiet street has its 50 jobs to look among, the busy one a thousand.
+        assertEquals(quiet - 50 / Balance.JOBS_A_SECOND_OF_SEARCH + 1_000 / Balance.JOBS_A_SECOND_OF_SEARCH, tr.commute[c.i(2, 16)])
+    }
+
+    @Test
     fun theLotBecomesAGarage() {
         assertEquals(BuildingType.PARK_AND_RIDE, BuildingType.PARKING_GARAGE.root)
         assertTrue(BuildingType.PARKING_GARAGE.parkRide)

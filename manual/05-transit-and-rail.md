@@ -5,7 +5,7 @@ People go the quickest way they can. Those with a car can drive, some without on
 
 ## How people choose
 
-There's no choosing as such. Each trip takes whatever gets there soonest, counting the walk to the stop, the wait and the ride. Walking is slow, a minute a tile. A trip is counted as the best way it used, so someone who walks to the tram is a tram rider.
+There's no choosing as such. Each trip takes whatever gets there soonest, counting the walk to the stop, the wait and the ride. Walking is slow, a minute a tile. A driver has to find a space at the end, and the more jobs on that street, the longer it takes: a few seconds by a shop, minutes downtown, at most ten. A trip is counted as the best way it used, so someone who walks to the tram is a tram rider.
 
 ## Cycling
 

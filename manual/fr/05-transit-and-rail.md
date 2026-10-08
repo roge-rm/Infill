@@ -5,7 +5,7 @@ Les habitants prennent le moyen le plus rapide possible. Ceux qui ont une auto p
 
 ## Comment les gens choisissent
 
-Il n'y a pas vraiment de choix. Chaque déplacement prend ce qui arrive le plus tôt, en comptant la marche jusqu'à l'arrêt, l'attente et le trajet. La marche est lente, une minute par case. Un déplacement compte comme le meilleur moyen qu'il a pris, donc quelqu'un qui marche jusqu'au tramway est un usager du tramway.
+Il n'y a pas vraiment de choix. Chaque déplacement prend ce qui arrive le plus tôt, en comptant la marche jusqu'à l'arrêt, l'attente et le trajet. La marche est lente, une minute par case. Un automobiliste doit trouver une place à l'arrivée, et plus il y a d'emplois dans cette rue, plus c'est long : quelques secondes près d'un magasin, des minutes au centre-ville, dix au plus. Un déplacement compte comme le meilleur moyen qu'il a pris, donc quelqu'un qui marche jusqu'au tramway est un usager du tramway.
 
 ## Vélo
 

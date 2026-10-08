@@ -843,20 +843,23 @@ class Player(private val c: City, private val withRail: Boolean, private val not
     private val parkTried = HashSet<Int>()
 
     /**
-     * Park and ride once it comes in, a lot a quarter: beside the subway
-     * station or bus stop furthest out from the middle that hasn't had one
-     * tried yet, since drivers come in from the edges. Up to [MOST_LOTS].
+     * Park and ride once it comes in, a lot a quarter: beside a subway or
+     * train station, the furthest out from the middle first, since drivers
+     * come in from the outskirts; by a bus stop only once there's no station
+     * left to try. Not at the edge of the map, where nobody drives past. Up
+     * to [MOST_LOTS].
      */
     private fun parkAndRide() {
         val type = c.newest(BuildingType.PARK_AND_RIDE)
         if (!c.allows(type) || count(type) >= MOST_LOTS) return
         val price = c.plan(Action.PlaceBuilding(type, 0, 0)).cost
         if (!afford(price, 20_000)) return
-        val anchors = ArrayList<Int>()
-        for (b in c.allBuildings) if (b.type == BuildingType.SUBWAY_STATION || b.type.station) anchors += m.index(b.x, b.y)
-        for (i in 0 until m.size) if (m.stop[i].toInt() != 0) anchors += i
+        fun inland(i: Int) = i % m.width in S until m.width - S && i / m.width in S until m.height - S
+        val stations = c.allBuildings.filter { it.type == BuildingType.SUBWAY_STATION || it.type.station }.map { m.index(it.x, it.y) }
+        val stops = (0 until m.size).filter { m.stop[it].toInt() != 0 }
         val mid = centre * S + S / 2
-        val anchor = anchors.filter { it !in parkTried }.maxByOrNull { abs(it % m.width - mid) + abs(it / m.width - mid) } ?: return
+        fun outmost(from: List<Int>) = from.filter { it !in parkTried && inland(it) }.maxByOrNull { abs(it % m.width - mid) + abs(it / m.width - mid) }
+        val anchor = outmost(stations) ?: outmost(stops) ?: return
         parkTried += anchor
         val ax = anchor % m.width
         val ay = anchor / m.width
