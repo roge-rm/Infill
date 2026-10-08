@@ -52,8 +52,9 @@ internal class Traffic(private val map: CityMap) {
     private val bikeVolume = IntArray(map.size)
     val lastBikeVolume = IntArray(map.size)
 
-    /** Percent of those without a car who ride a bicycle, set by the city for its year. */
+    /** Percent of those without a car who ride a bicycle, and of those with one, set by the city for its year. */
     var cycling = 0
+    var carCycling = 0
 
     /** Workers' trips by [Mode] this month so far, and last month's. */
     private val modes = IntArray(Mode.entries.size)
@@ -490,6 +491,9 @@ internal class Traffic(private val map: CityMap) {
             val round = (origins[k] * 31 + p * 17).mod(100)
             val wBike = (w * cycling + round) / 100
             val sBike = (s * cycling + round) / 100
+            // And some of those with one, where there are cycle lanes.
+            val wCarBike = (wCar * carCycling + round) / 100
+            val sCarBike = (sCar * carCycling + round) / 100
             val f = share(freight[k], p)
             var c = 0
             for (g in 0 until Good.COUNT) {
@@ -497,8 +501,8 @@ internal class Traffic(private val map: CityMap) {
                 c += cargo[g]
             }
             if (w + s - wBike - sBike > 0) send(origins[k], w - wBike, s - sBike, 0, car = false, null)
-            if (wBike + sBike > 0) send(origins[k], wBike, sBike, 0, car = false, null, bike = true)
-            if (wCar + sCar > 0) send(origins[k], wCar, sCar, 0, car = true, null)
+            if (wBike + sBike + wCarBike + sCarBike > 0) send(origins[k], wBike + wCarBike, sBike + sCarBike, 0, car = false, null, bike = true)
+            if (wCar + sCar - wCarBike - sCarBike > 0) send(origins[k], wCar - wCarBike, sCar - sCarBike, 0, car = true, null)
             // Freight goes by truck, on its own way round.
             if (f + c > 0) {
                 truck = true

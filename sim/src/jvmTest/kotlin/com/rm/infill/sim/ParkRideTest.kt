@@ -132,6 +132,49 @@ class ParkRideTest {
     }
 
     @Test
+    fun someWithCarsCycleWhereThereAreLanes() {
+        val c = city()
+        val t = c.traffic
+        val n = c.map.size
+        City::class.java.getDeclaredMethod("updateNetworks").apply { isAccessible = true }.invoke(c)
+        t.cycling = 0
+        t.carCycling = 20
+        val w = IntArray(n).also { it[c.i(2, 16)] = 100 }
+        val j = IntArray(n).also { it[c.i(30, 16)] = 100 }
+        t.newMonth(w, IntArray(n), IntArray(n), j, IntArray(n), 0, carWorkersAt = w.copyOf())
+        t.sendDay(1, 1)
+        t.newMonth(IntArray(n), IntArray(n), IntArray(n), IntArray(n), IntArray(n), 0)
+        assertEquals(20, t.lastModes[Mode.BIKE.ordinal], "modes ${t.lastModes.toList()}")
+        assertEquals(80, t.lastModes[Mode.CAR.ordinal])
+        // None before 1990, and only as far as the roads have lanes.
+        City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, 1985)
+        assertEquals(0, c.carCyclingShare())
+        City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, 2000)
+        assertEquals(0, c.carCyclingShare())
+        assertTrue(c.apply(Action.BuildCycleLane(Action.roadPath(c.map, 0, 16, 127, 16, true))).ok)
+        assertEquals(Balance.CAR_CYCLE_PULL, c.carCyclingShare())
+    }
+
+    @Test
+    fun fewerKeepACarNearAStationFrom1990() {
+        val c = city()
+        val fewer = City::class.java.getDeclaredMethod("fewerCars", Building::class.java, BooleanArray::class.java).apply { isAccessible = true }
+        val near = City::class.java.getDeclaredMethod("nearStations").apply { isAccessible = true }
+        val year = City::class.java.getDeclaredField("year").apply { isAccessible = true }
+        val home = Building(1, BuildingType.HOUSE, 41, 14, 0)
+        val far = Building(2, BuildingType.HOUSE, 2, 14, 0)
+        year.setInt(c, 1980)
+        assertEquals(null, near.invoke(c))
+        year.setInt(c, 2020)
+        val n = near.invoke(c) as BooleanArray
+        assertEquals(Balance.STATION_CAR_CUT, fewer.invoke(c, home, n))
+        assertEquals(0, fewer.invoke(c, far, n))
+        assertEquals(Balance.TOWER_CAR_CUT, fewer.invoke(c, Building(3, BuildingType.SKYSCRAPER, 2, 10, 0), n), "a tower anywhere")
+        year.setInt(c, 2005)
+        assertEquals(Balance.STATION_CAR_CUT / 2, fewer.invoke(c, home, near.invoke(c) as BooleanArray), "half way in")
+    }
+
+    @Test
     fun theLotBecomesAGarage() {
         assertEquals(BuildingType.PARK_AND_RIDE, BuildingType.PARKING_GARAGE.root)
         assertTrue(BuildingType.PARKING_GARAGE.parkRide)

@@ -11,7 +11,7 @@ Il n'y a pas vraiment de choix. Chaque déplacement prend ce qui arrive le plus 
 
 Une partie des gens sans auto se déplacent à vélo : un cinquième en 1900, un tiers dans les années 1930, moins quand les autos et les autobus prennent le dessus, et de nouveau plus à partir des années 1990. Le vélo est plus de deux fois plus rapide que la marche. Une route achalandée ralentit les cyclistes, et ils évitent les autoroutes.
 
-Dès 1970, **Piste cyclable**, dans l'onglet **Autobus** de **Collectif**, se glisse le long des routes comme une voie réservée, à 40 $ par case. Les cyclistes sur une piste cyclable ne sont pas retardés par la circulation, et plus les routes de la ville en ont, plus les gens font du vélo. **Retirer** l'enlève.
+Dès 1970, **Piste cyclable**, dans l'onglet **Autobus** de **Collectif**, se glisse le long des routes comme une voie réservée, à 40 $ par case. Les cyclistes sur une piste cyclable ne sont pas retardés par la circulation, et plus les routes de la ville en ont, plus les gens font du vélo. Dès 1990, certains qui ont une auto font aussi du vélo, jusqu'au cinquième quand toutes les routes ont une piste cyclable. **Retirer** l'enlève.
 
 Vous pouvez voir des gens marcher dans les rues et rouler à vélo au bord de la chaussée, plus nombreux là où il en est passé plus le mois dernier.
 

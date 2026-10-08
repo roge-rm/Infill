@@ -35,7 +35,7 @@ Les travailleurs prennent les emplois libres les plus proches, les plus scolaris
 
 ## Déplacements
 
-Chaque trajet vers le travail ou les commerces prend le chemin le plus rapide : à pied, en auto, en autobus, en trolleybus, en tramway, en métro ou en train. La part des ménages qui ont une auto passe de presque aucun avant 1910 à la plupart en 1980, moins chez les pauvres et plus chez les aisés. Un long trajet au travail éloigne les gens d'un logement.
+Chaque trajet vers le travail ou les commerces prend le chemin le plus rapide : à pied, en auto, en autobus, en trolleybus, en tramway, en métro ou en train. La part des ménages qui ont une auto passe de presque aucun avant 1910 à la plupart en 1980, moins chez les pauvres et plus chez les aisés. Dès 1990, moins de gens en gardent une là où ils n'en ont pas besoin : en 2020, 30 % de moins à 6 cases ou moins d'une gare ou d'une station de métro, et 15 % de moins dans les logements à haute densité, 25 % dans les tours. Un long trajet au travail éloigne les gens d'un logement.
 
 ## Santé
 

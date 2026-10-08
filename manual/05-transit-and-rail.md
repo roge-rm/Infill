@@ -11,7 +11,7 @@ There's no choosing as such. Each trip takes whatever gets there soonest, counti
 
 Some of the people without a car ride a bicycle: a fifth in 1900, a third by the 1930s, fewer once cars and buses take over, and more again from the 1990s. Cycling is more than twice as fast as walking. A busy road slows cyclists down, and they keep off highways.
 
-From 1970, **Cycle lane** in the **Buses** tab of **Transit** is dragged along roads like a bus lane, at $40 a tile. Cyclists on a cycle lane aren't held up by the traffic, and the more of the town's roads have one, the more people cycle. **Remove** takes it up again.
+From 1970, **Cycle lane** in the **Buses** tab of **Transit** is dragged along roads like a bus lane, at $40 a tile. Cyclists on a cycle lane aren't held up by the traffic, and the more of the town's roads have one, the more people cycle. From 1990 some people with a car cycle too, up to a fifth of them when every road has a cycle lane. **Remove** takes it up again.
 
 You can see people walking along the streets and cycling at the kerb, more of them where more went by last month.
 

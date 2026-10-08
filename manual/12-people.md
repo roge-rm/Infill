@@ -35,7 +35,7 @@ From 2000, some well-schooled people with broadband work from home.
 
 ## Getting about
 
-Each trip to work or the shops goes the quickest way: on foot, by car, bus, trolleybus, tram, subway or train. How many households have a car goes up from almost none before 1910 to most by 1980, fewer for the poor and more for the well off. A long commute puts people off a home.
+Each trip to work or the shops goes the quickest way: on foot, by car, bus, trolleybus, tram, subway or train. How many households have a car goes up from almost none before 1910 to most by 1980, fewer for the poor and more for the well off. From 1990 fewer keep one where they don't need it: by 2020, 30% fewer within 6 tiles of a train or subway station, and 15% fewer in high density homes, 25% in towers. A long commute puts people off a home.
 
 ## Health
 

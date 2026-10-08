@@ -1122,6 +1122,22 @@ object Balance {
     /** How many more in a hundred cycle in a town with cycle lanes on every road, and fewer as fewer have them. */
     const val CYCLE_LANE_PULL = 15
 
+    /** Of those with a car, how many in a hundred cycle instead in a town with cycle lanes on every road, from [CAR_CYCLE_YEAR]. */
+    const val CAR_CYCLE_PULL = 20
+    const val CAR_CYCLE_YEAR = 1990
+
+    /**
+     * Fewer cars, in percent less of a home's people with one: within
+     * [CAR_FREE_REACH] tiles of a train or subway station, and in high
+     * density and tower homes. Coming in over [FEWER_CARS_FROM] to [FEWER_CARS_BY].
+     */
+    const val CAR_FREE_REACH = 6
+    const val STATION_CAR_CUT = 30
+    const val HIGH_CAR_CUT = 15
+    const val TOWER_CAR_CUT = 25
+    const val FEWER_CARS_FROM = 1990
+    const val FEWER_CARS_BY = 2020
+
     /** Ferries: seconds across each tile of water, the wait for one, the furthest they go in tiles, and the year they take cars. */
     const val FERRY_TILE = 12
     const val FERRY_WAIT = 600

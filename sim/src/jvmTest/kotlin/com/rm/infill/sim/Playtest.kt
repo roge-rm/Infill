@@ -580,16 +580,27 @@ class Player(private val c: City, private val withRail: Boolean, private val not
         go()
     }
 
+    /** Whether a first main's gone down one street before the town could pay for the rest. */
+    private var starterMain = false
+
     /** Mains: pipes under the streets and a source, a pumping station by water or a well field. */
     private fun water(more: Boolean) {
         if (!mainsUp) {
-            val cost = segments.sumOf { it.size } * Pipe.WATER.price
-            if (!afford(cost, 6000)) return
-            mainsUp = true
-            note("mains under ${segments.size} streets")
-            for (s in segments) c.apply(Action.BuildPipe(s, Pipe.WATER))
+            val cost = segments.sumOf { seg -> seg.count { m.waterPipe[it].toInt() == 0 } } * Pipe.WATER.price
+            if (afford(cost, 6000)) {
+                mainsUp = true
+                note("mains under ${segments.size} streets")
+                for (s in segments) lay(s, m.waterPipe) { Action.BuildPipe(it, Pipe.WATER) }
+            } else {
+                // Short of the next era for want of any mains: a main down the first street and a source, while it saves for the rest.
+                val waiting = c.era.next?.let { e -> c.goals(e).any { it.kind == GoalKind.MainsOrStation && !it.met } } == true
+                if (!waiting || starterMain || segments.isEmpty() || !afford(segments[0].size * Pipe.WATER.price, 6000)) return
+                starterMain = true
+                note("a starter main down the first street")
+                lay(segments[0], m.waterPipe) { Action.BuildPipe(it, Pipe.WATER) }
+            }
         }
-        if (more && (sources() == 0 || weeks % 8 == 0)) {
+        if ((more || starterMain && sources() == 0) && (sources() == 0 || weeks % 8 == 0)) {
             if (!byWater(BuildingType.PUMPING_STATION, Pipe.WATER) && !place(BuildingType.WELL_FIELD, utility = true) && c.stats.waterShort > 0) clearFor(BuildingType.WELL_FIELD)
         }
         if (!mainsUp) return
@@ -782,21 +793,21 @@ class Player(private val c: City, private val withRail: Boolean, private val not
         }
     }
 
-    private var widened = 0
-
-    /** Widens the main street and the cross street through the middle, then a street further out each time. */
+    /**
+     * Widens the street line with the most traffic stuck on it, along every
+     * row and column the streets run on, to the widest road the town can
+     * build; a line already that wide is left alone.
+     */
     private fun upgradeRoads() {
         val type = listOf(RoadType.AVENUE, RoadType.STREET).firstOrNull { c.allows(it) } ?: return
-        val k = widened++
-        val off = (k / 2 + 1) / 2 * (if (k / 2 % 2 == 0) 1 else -1) * 2 * S
-        val lines = if (k == 0) listOf(Action.roadPath(m, 0, mainY, m.width - 1, mainY, true), Action.roadPath(m, centre * S, S, centre * S, m.height - S, false))
-        else if (k % 2 == 0) listOf(Action.roadPath(m, 0, (mainY + off).coerceIn(S, m.height - S), m.width - 1, (mainY + off).coerceIn(S, m.height - S), true))
-        else listOf(Action.roadPath(m, (centre * S + off).coerceIn(S, m.width - S), S, (centre * S + off).coerceIn(S, m.width - S), m.height - S, false))
-        for (tiles in lines) {
-            val built = tiles.filter { m.road[it] != Road.NONE }.toIntArray()
-            if (built.isEmpty()) continue
-            act("upgrade to $type", Action.BuildRoad(built, type, pipes = mainsUp))
-        }
+        val lines = ArrayList<IntArray>()
+        for (k in 0..m.height / S) lines += Action.roadPath(m, 0, (k * S).coerceIn(0, m.height - 1), m.width - 1, (k * S).coerceIn(0, m.height - 1), true)
+        for (k in 0..m.width / S) lines += Action.roadPath(m, (k * S).coerceIn(0, m.width - 1), 0, (k * S).coerceIn(0, m.width - 1), m.height - 1, false)
+        fun narrow(i: Int) = m.road[i] != Road.NONE && RoadType.of(m.road[i]).let { it != null && it != type && !it.limited && !it.ramp && it.capacity < type.capacity }
+        val worst = lines.maxByOrNull { line -> line.filter { narrow(it) }.sumOf { m.congestion[it].toInt() and 0xff } } ?: return
+        val built = worst.filter { narrow(it) }.toIntArray()
+        if (built.isEmpty()) return
+        act("upgrade to $type", Action.BuildRoad(built, type, pipes = mainsUp))
     }
 
     // ---- transit ----
@@ -1132,6 +1143,7 @@ class Player(private val c: City, private val withRail: Boolean, private val not
             s.roadUpkeep + s.railUpkeep, s.waterUpkeep, s.powerUpkeep, s.policeUpkeep + s.fireUpkeep, s.parkUpkeep, s.schoolUpkeep + s.healthUpkeep,
             s.transitUpkeep, s.repairCost, s.environmentUpkeep, s.civicUpkeep, s.ordinanceCost, s.landBuilt, "\"${c.concerns.joinToString(" ")}\"", c.petitions.size, c.grant?.kind ?: "",
             c.allBuildings.filter { it.type.parkRide }.sumOf { c.parkedAt(it) }, c.allBuildings.filter { it.type.parkRide }.sumOf { c.spacesAt(it) }, s.greenTrips,
+            *Mode.entries.map { s.byMode[it.ordinal] }.toTypedArray(),
         ).joinToString(",")
     }
 
@@ -1152,6 +1164,7 @@ class Player(private val c: City, private val withRail: Boolean, private val not
         const val SPARE = 125
         const val LOW_TAX = 4
         const val HEADER = "year,era,population,shopJobs,industryJobs,farmJobs,officeJobs,workers,funds,income,upkeep," +
-            "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,leisure,homeCrime,laws,advice,goals,approval,worst,pricedOut,rough,sheltered,drought,births,deaths,inHomes,inShops,inWorks,inOffices,inFares,inTrade,upRoads,upWater,upPower,upSafety,upParks,upSchoolHealth,upTransit,upRepairs,upEnv,upCivic,upLaws,landBuilt,concerns,petitions,grant,parked,spaces,greenTrips"
+            "demandR,demandC,demandI,demandF,demandO,tax,emptyHomes,health,onMains,onSewer,powered,blocksR,blocksC,blocksI,blocksF,blocksO,buildings,leisure,homeCrime,laws,advice,goals,approval,worst,pricedOut,rough,sheltered,drought,births,deaths,inHomes,inShops,inWorks,inOffices,inFares,inTrade,upRoads,upWater,upPower,upSafety,upParks,upSchoolHealth,upTransit,upRepairs,upEnv,upCivic,upLaws,landBuilt,concerns,petitions,grant,parked,spaces,greenTrips," +
+            "byWalk,byCar,byBus,byTrolley,byTram,bySubway,byTrain,byBike,byFerry"
     }
 }

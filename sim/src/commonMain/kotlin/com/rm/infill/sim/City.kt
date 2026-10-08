@@ -2161,6 +2161,7 @@ class City(
     /** Moves on a day: growth every day, the census and demand each week, and money and grime on the first of each month. */
     fun tick() {
         traffic.cycling = cyclingShare()
+        traffic.carCycling = carCyclingShare()
         if (networksDirty) updateNetworks()
         for (b in buildings.values) b.age++
         burnDay()
@@ -3914,6 +3915,7 @@ class City(
         val carWorkers = IntArray(n)
         val carShoppers = IntArray(n)
         var wfh = 0
+        val nearStations = nearStations()
         for (b in buildings.values) {
             if (b.underway > 0) continue
             val node = accessOf(b)
@@ -3930,7 +3932,8 @@ class City(
                     val wealth = b.people?.wealth ?: Wealth.MIDDLE
                     // Where parking's limited, fewer drive.
                     val share = Cars.share(year, wealth) * (if (districtAt(node)?.parking == true || districtAt(map.index(b.x, b.y))?.parking == true) 100 - Balance.PARKING_CUT else 100) / 100 *
-                        (if (has(Ordinance.PARKING_METERS)) Balance.METER_DRIVERS else 100) / 100 * (if (has(Ordinance.CONGESTION_CHARGE)) Balance.CHARGE_DRIVERS else 100) / 100
+                        (if (has(Ordinance.PARKING_METERS)) Balance.METER_DRIVERS else 100) / 100 * (if (has(Ordinance.CONGESTION_CHARGE)) Balance.CHARGE_DRIVERS else 100) / 100 *
+                        (100 - fewerCars(b, nearStations)) / 100
                     // From 2000, some educated workers with good internet work from home.
                     val stayHome = workFromHome(b)
                     wfh += stayHome
@@ -5784,14 +5787,49 @@ class City(
     fun roadVolume(i: Int): Int = traffic.lastVolume[i]
 
     /** Percent of those without a car who cycle: by the year, and more the more of the roads have cycle lanes. */
-    fun cyclingShare(): Int {
+    fun cyclingShare(): Int = Bikes.share(year) + Balance.CYCLE_LANE_PULL * laneShare() / 100
+
+    /** Percent of those with a car who cycle instead, from [Balance.CAR_CYCLE_YEAR], the more of the roads have cycle lanes. */
+    fun carCyclingShare(): Int = if (year < Balance.CAR_CYCLE_YEAR) 0 else Balance.CAR_CYCLE_PULL * laneShare() / 100
+
+    /** Percent of the roads with a cycle lane. */
+    private fun laneShare(): Int {
         var roads = 0
         var lanes = 0
         for (i in 0 until map.size) if (map.road[i] != Road.NONE) {
             roads++
             lanes += map.cycleLane[i]
         }
-        return Bikes.share(year) + if (roads == 0) 0 else Balance.CYCLE_LANE_PULL * lanes / roads
+        return if (roads == 0) 0 else lanes * 100 / roads
+    }
+
+    /**
+     * Tiles within [Balance.CAR_FREE_REACH] of a working train or subway
+     * station, or null before fewer people keep a car near one.
+     */
+    private fun nearStations(): BooleanArray? {
+        if (year <= Balance.FEWER_CARS_FROM) return null
+        val near = BooleanArray(map.size)
+        val r = Balance.CAR_FREE_REACH
+        for (b in buildings.values) {
+            if (b.underway > 0 || !(b.type.station || b.type == BuildingType.SUBWAY_STATION)) continue
+            forRect(b.x - r, b.y - r, b.x + b.type.width - 1 + r, b.y + b.type.height - 1 + r) { near[it] = true }
+        }
+        return near
+    }
+
+    /** Percent fewer of the people at home [b] who keep a car: near a station, and in dense homes, coming in from 1990. */
+    private fun fewerCars(b: Building, near: BooleanArray?): Int {
+        if (near == null) return 0
+        val station = if (near[map.index(b.x, b.y)]) Balance.STATION_CAR_CUT else 0
+        val dense = when (b.type.density) {
+            Density.TOWER -> Balance.TOWER_CAR_CUT
+            Density.HIGH -> Balance.HIGH_CAR_CUT
+            else -> 0
+        }
+        val cut = 100 - (100 - station) * (100 - dense) / 100
+        val ramp = ((year - Balance.FEWER_CARS_FROM) * 100 / (Balance.FEWER_CARS_BY - Balance.FEWER_CARS_FROM)).coerceIn(0, 100)
+        return cut * ramp / 100
     }
 
     /** Last month's people on foot and on bicycles across road tile [i], for the map. */
