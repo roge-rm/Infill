@@ -1122,9 +1122,13 @@ object Balance {
     /** How many more in a hundred cycle in a town with cycle lanes on every road, and fewer as fewer have them. */
     const val CYCLE_LANE_PULL = 15
 
-    /** Of those with a car, how many in a hundred cycle instead in a town with cycle lanes on every road, from [CAR_CYCLE_YEAR]. */
+    /**
+     * Of those with a car, how many in a hundred cycle instead where every
+     * road within [CAR_CYCLE_REACH] tiles of home has a cycle lane, from [CAR_CYCLE_YEAR].
+     */
     const val CAR_CYCLE_PULL = 20
     const val CAR_CYCLE_YEAR = 1990
+    const val CAR_CYCLE_REACH = 8
 
     /**
      * Fewer cars, in percent less of a home's people with one: within
@@ -1228,7 +1232,7 @@ object Balance {
     const val SEA_RISE_WARMING = 5
     const val TIDE_CM = 15
     const val TIDE_FLOOD = 96
-    const val FUTURE_GREEN_TRIPS = 33
+    const val FUTURE_GREEN_TRIPS = 40
 
     // What homes expect as the years go by: mains water, the sewer and power go
     // from a draw to expected, and going without counts against a home.

@@ -60,11 +60,18 @@ class Graphics(val level: GraphicsLevel) {
         GraphicsLevel.High -> 160L shl 20
     } * cacheScale
 
-    fun sunStep(step: Int) = if (movingShadows) step else FIXED_STEP
+    /** Where the shadows are baked for: the sun's [step], or held at mid-morning when they don't move or the game's going [fast]. */
+    fun sunStep(step: Int, fast: Boolean = false) = if (movingShadows && !fast) step else FIXED_STEP
 
-    private companion object {
+    companion object {
         /** About half past ten. */
-        const val FIXED_STEP = 14
+        private const val FIXED_STEP = 14
+
+        /**
+         * From this speed up a day goes by too quickly to bake the shadows
+         * for each step of the sun, and they'd jump about, so they're held.
+         */
+        const val FAST_SHADOWS = 10
     }
 }
 

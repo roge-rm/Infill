@@ -684,8 +684,9 @@ class City(
                 if (ok) forRect(action.x, action.y, action.x + t.width - 1, action.y + t.height - 1) { i ->
                     // Turbines out on the water stand on nothing else.
                     val water = m.terrain[i] == Terrain.WATER
+                    // Zoned land will do while nothing's built on it.
                     if (!allows(t) || water != t.inWater || !inWaterFits(t, i) || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
-                        m.zone[i] != Zone.NONE || m.building[i] != 0 || m.rail[i] != Rail.NONE || m.bank[i].toInt() != 0 || m.portal[i].toInt() != 0
+                        m.building[i] != 0 || m.rail[i] != Rail.NONE || m.bank[i].toInt() != 0 || m.portal[i].toInt() != 0
                     ) {
                         blocked += i
                         ok = false
@@ -707,7 +708,7 @@ class City(
             }
             is Action.PlaceParks -> forRect(action.x0, action.y0, action.x1, action.y1) { i ->
                 if (!action.kind.painted || !allows(action.kind) || m.terrain[i] == Terrain.WATER || m.road[i] != Road.NONE || m.power[i] != Power.NONE ||
-                    m.zone[i] != Zone.NONE || m.building[i] != 0 || m.rail[i] != Rail.NONE || m.bank[i].toInt() != 0
+                    m.building[i] != 0 || m.rail[i] != Rail.NONE || m.bank[i].toInt() != 0
                 ) {
                     blocked += i
                 } else {
@@ -1700,6 +1701,11 @@ class City(
                 val t = action.type
                 for (i in plan.changes) {
                     clearTrees(i)
+                    // The zone goes with it.
+                    if (t.zone == Zone.NONE) {
+                        m.zone[i] = Zone.NONE
+                        m.density[i] = Density.NONE
+                    }
                     val x = i % m.width
                     val y = i / m.width
                     // Outside the building's own lot: the reservoir.
@@ -1712,6 +1718,8 @@ class City(
             }
             is Action.PlaceParks -> for (i in plan.changes) {
                 clearTrees(i)
+                m.zone[i] = Zone.NONE
+                m.density[i] = Density.NONE
                 added += addBuilding(action.kind, i % m.width, i / m.width, rng.nextInt(1000))
             }
             is Action.PlantTrees -> for (i in plan.changes) {
@@ -2161,7 +2169,7 @@ class City(
     /** Moves on a day: growth every day, the census and demand each week, and money and grime on the first of each month. */
     fun tick() {
         traffic.cycling = cyclingShare()
-        traffic.carCycling = carCyclingShare()
+        traffic.carCycling = carCycling()
         if (networksDirty) updateNetworks()
         for (b in buildings.values) b.age++
         burnDay()
@@ -5789,8 +5797,41 @@ class City(
     /** Percent of those without a car who cycle: by the year, and more the more of the roads have cycle lanes. */
     fun cyclingShare(): Int = Bikes.share(year) + Balance.CYCLE_LANE_PULL * laneShare() / 100
 
-    /** Percent of those with a car who cycle instead, from [Balance.CAR_CYCLE_YEAR], the more of the roads have cycle lanes. */
-    fun carCyclingShare(): Int = if (year < Balance.CAR_CYCLE_YEAR) 0 else Balance.CAR_CYCLE_PULL * laneShare() / 100
+    /**
+     * Percent of those with a car who cycle instead, by each tile: from
+     * [Balance.CAR_CYCLE_YEAR], the more of the roads within
+     * [Balance.CAR_CYCLE_REACH] tiles have cycle lanes. Null when nobody does.
+     */
+    fun carCycling(): IntArray? {
+        if (year < Balance.CAR_CYCLE_YEAR || map.cycleLane.none { it.toInt() != 0 }) return null
+        // Running totals of roads and lanes over the map, so any square's count is four lookups.
+        val w = map.width
+        val h = map.height
+        val roads = IntArray((w + 1) * (h + 1))
+        val lanes = IntArray((w + 1) * (h + 1))
+        for (y in 0 until h) for (x in 0 until w) {
+            val i = map.index(x, y)
+            val at = (y + 1) * (w + 1) + x + 1
+            val road = if (map.road[i] != Road.NONE) 1 else 0
+            roads[at] = road + roads[at - 1] + roads[at - w - 1] - roads[at - w - 2]
+            lanes[at] = map.cycleLane[i] * road + lanes[at - 1] + lanes[at - w - 1] - lanes[at - w - 2]
+        }
+        fun sum(a: IntArray, x0: Int, y0: Int, x1: Int, y1: Int) =
+            a[(y1 + 1) * (w + 1) + x1 + 1] - a[y0 * (w + 1) + x1 + 1] - a[(y1 + 1) * (w + 1) + x0] + a[y0 * (w + 1) + x0]
+        val r = Balance.CAR_CYCLE_REACH
+        val out = IntArray(map.size)
+        for (y in 0 until h) for (x in 0 until w) {
+            val i = map.index(x, y)
+            if (map.road[i] == Road.NONE) continue
+            val x0 = maxOf(0, x - r)
+            val y0 = maxOf(0, y - r)
+            val x1 = minOf(w - 1, x + r)
+            val y1 = minOf(h - 1, y + r)
+            val n = sum(roads, x0, y0, x1, y1)
+            if (n > 0) out[i] = Balance.CAR_CYCLE_PULL * sum(lanes, x0, y0, x1, y1) / n
+        }
+        return out
+    }
 
     /** Percent of the roads with a cycle lane. */
     private fun laneShare(): Int {

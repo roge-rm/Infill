@@ -39,7 +39,7 @@ From 2020 people work from home: that year three in ten office jobs move home, s
 
 ## Future, from 2030
 
-Needs nine tenths of the roads, pipes and track within their life, a third of commutes on foot, by bicycle or by transit, and carbon down to 500 kg a person a month.
+Needs nine tenths of the roads, pipes and track within their life, two in five commutes on foot, by bicycle or by transit, and carbon down to 500 kg a person a month.
 
 Batteries.
 

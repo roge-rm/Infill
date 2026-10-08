@@ -113,7 +113,7 @@ internal fun DrawScope.drawPreview(p: Preview, map: CityMap, camera: Camera, mea
             rect(a.x, a.y, a.x + a.type.width - 1, a.y + a.type.height - 1, camera, if (ok) PLACE_FILL else BLOCKED, if (ok) PLACE_EDGE else BULLDOZE_EDGE)
         }
     }
-    if (p.plan.problem == Problem.NothingToDo || p.plan.problem == Problem.Blocked) return
+    if (p.plan.problem == Problem.NothingToDo || p.plan.problem == Problem.Blocked || costText.isEmpty()) return
     // The cost, just above and right of where the drag is.
     val style = TextStyle(
         color = if (p.plan.problem == Problem.NotEnoughMoney) Color(0xFFFF8A80) else Color.White,

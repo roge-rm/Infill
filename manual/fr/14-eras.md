@@ -39,7 +39,7 @@ Les gens veulent de nouveau vivre en ville : à partir de 2000, les logements �
 
 ## Avenir, à partir de 2030
 
-Demande que neuf dixièmes des routes, des conduites et des voies ferrées soient dans leur durée de vie, qu'un tiers des trajets au travail se fassent à pied, à vélo ou en transport en commun, et que le carbone descende à 500 kg par personne par mois.
+Demande que neuf dixièmes des routes, des conduites et des voies ferrées soient dans leur durée de vie, que deux trajets au travail sur cinq se fassent à pied, à vélo ou en transport en commun, et que le carbone descende à 500 kg par personne par mois.
 
 Les batteries.
 

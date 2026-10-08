@@ -52,9 +52,9 @@ internal class Traffic(private val map: CityMap) {
     private val bikeVolume = IntArray(map.size)
     val lastBikeVolume = IntArray(map.size)
 
-    /** Percent of those without a car who ride a bicycle, and of those with one, set by the city for its year. */
+    /** Percent of those without a car who ride a bicycle, set by the city for its year; and of those with one, by the road tile they set out from, or null for none. */
     var cycling = 0
-    var carCycling = 0
+    var carCycling: IntArray? = null
 
     /** Workers' trips by [Mode] this month so far, and last month's. */
     private val modes = IntArray(Mode.entries.size)
@@ -492,8 +492,9 @@ internal class Traffic(private val map: CityMap) {
             val wBike = (w * cycling + round) / 100
             val sBike = (s * cycling + round) / 100
             // And some of those with one, where there are cycle lanes.
-            val wCarBike = (wCar * carCycling + round) / 100
-            val sCarBike = (sCar * carCycling + round) / 100
+            val pull = carCycling?.get(origins[k]) ?: 0
+            val wCarBike = (wCar * pull + round) / 100
+            val sCarBike = (sCar * pull + round) / 100
             val f = share(freight[k], p)
             var c = 0
             for (g in 0 until Good.COUNT) {
@@ -1436,3 +1437,6 @@ internal class LongHeap {
         return top
     }
 }
+
+/** Whether traffic can go from road tile [a] to its neighbour [b], heading [h], as the trips do: for drawing the vehicles. */
+fun CityMap.drivable(a: Int, b: Int, h: Int): Boolean = Traffic.canMove(this, a, b, h)

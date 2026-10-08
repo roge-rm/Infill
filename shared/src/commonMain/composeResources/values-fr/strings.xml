@@ -140,6 +140,10 @@
     <string name="building_mill">Moulin</string>
     <string name="building_warehouse">Entrepôt</string>
     <string name="building_factory">Usine</string>
+    <plurals name="drag_tiles">
+        <item quantity="one">%1$d case</item>
+        <item quantity="other">%1$d cases</item>
+    </plurals>
     <plurals name="riders">
         <item quantity="one">%1$d passager le mois dernier</item>
         <item quantity="other">%1$d passagers le mois dernier</item>
@@ -399,6 +403,8 @@
     <string name="more_of">%1$s, plus</string>
     <!-- Two things in a list, "trams, buses"; longer lists repeat it. -->
     <string name="list_join">%1$s, %2$s</string>
+    <string name="drag_area">%1$d×%2$d</string>
+    <string name="drag_label">%1$s · %2$s</string>
     <!-- A name and its value, as a screen reader says it: "Population 1,200". -->
     <string name="name_value">%1$s %2$s</string>
     <string name="name_colon_value">%1$s&#160;: %2$s</string>

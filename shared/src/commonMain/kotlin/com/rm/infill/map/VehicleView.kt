@@ -10,6 +10,7 @@ import com.rm.infill.sim.Mode
 import com.rm.infill.sim.LineState
 import com.rm.infill.sim.Heading
 import com.rm.infill.sim.Stop
+import com.rm.infill.sim.drivable
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
@@ -36,14 +37,23 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
     // Cars start to show up after 1905 and are most of the traffic by the 1940s.
     val cars = ((year - 1905) / 40f).coerceIn(0f, 0.9f)
     fun road(x: Int, y: Int) = map.inside(x, y) && map.road[map.index(x, y)].toInt() != 0
+    // Whether traffic passes between x, y and its neighbour toward [h] one way or the other: not across the middle of a boulevard.
+    fun linked(x: Int, y: Int, h: Int): Boolean {
+        val nx = x + Heading.DX[h]
+        val ny = y + Heading.DY[h]
+        if (!road(nx, ny)) return false
+        val a = map.index(x, y)
+        val b = map.index(nx, ny)
+        return map.drivable(a, b, h) || map.drivable(b, a, Heading.opposite(h))
+    }
     // Each row's and column's speed, worked out once a frame.
     val speeds = HashMap<Int, Float>()
     for (y in y0..y1) for (x in x0..x1) {
         val i = map.index(x, y)
         // Nothing on a road that's dug up.
         if (map.road[i].toInt() == 0 || i in crossings || map.closed(i)) continue
-        val across = road(x - 1, y) || road(x + 1, y)
-        val down = road(x, y - 1) || road(x, y + 1)
+        val across = linked(x, y, Heading.WEST.toInt()) || linked(x, y, Heading.EAST.toInt())
+        val down = linked(x, y, Heading.NORTH.toInt()) || linked(x, y, Heading.SOUTH.toInt())
         val heading = map.roadHeading[i].toInt()
         // One direction of travel's lanes across tile x, y, for the stretch of tile from [lo] to [hi] along it.
         // Each lane's cars are spaced down the whole row or column and move along it together, so a car carries
@@ -92,8 +102,8 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                         // of it round the corner, left or right, to the right of the way it's going.
                         val into = (pos - (if (across) x else y)).let { if (forward) it else 1f - it }
                         val inbound = map.index(x - Heading.DX[dir], y - Heading.DY[dir]) == stem
-                        val exits = (0 until 4).map { map.index(x + Heading.DX[it + 1], y + Heading.DY[it + 1]) }
-                            .filter { it != stem && road(it % map.width, it / map.width) && turnable(map, i, it, inbound) }
+                        val exits = (0 until 4).filter { linked(x, y, it + 1) }.map { map.index(x + Heading.DX[it + 1], y + Heading.DY[it + 1]) }
+                            .filter { it != stem && turnable(map, i, it, inbound) }
                         if (exits.isEmpty()) continue
                         val other = exits[(unit(seed * 11) * exits.size).toInt().coerceAtMost(exits.size - 1)]
                         val offset = (side - 0.5f) * (if (dir == Heading.EAST.toInt() || dir == Heading.NORTH.toInt()) 1f else -1f)
@@ -109,7 +119,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
         }
         fun busyAt(x: Int, y: Int) = if (road(x, y)) map.congestion[map.index(x, y)].toInt() and 0xff else 0
         if (across && down) {
-            val ways = (0 until 4).filter { road(x + Heading.DX[it + 1], y + Heading.DY[it + 1]) }
+            val ways = (0 until 4).filter { linked(x, y, it + 1) }
             if (ways.size == 2 && heading == 0) {
                 // Round a bend of a two-way road, each lane in from one side and out the other.
                 val a = map.index(x + Heading.DX[ways[0] + 1], y + Heading.DY[ways[0] + 1])
@@ -128,13 +138,30 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                 }
                 continue
             }
-            if (ways.size == 2) continue
+            if (ways.size == 2) {
+                // Round a bend of a one-way road or a boulevard's carriageway, both lanes in from the road behind and out to the one ahead.
+                val a = map.index(x + Heading.DX[ways[0] + 1], y + Heading.DY[ways[0] + 1])
+                val b = map.index(x + Heading.DX[ways[1] + 1], y + Heading.DY[ways[1] + 1])
+                val (from, to) = if (map.drivable(a, i, Heading.opposite(ways[0] + 1))) a to b else b to a
+                val busy = maxOf(map.congestion[i].toInt() and 0xff, map.congestion[a].toInt() and 0xff, map.congestion[b].toInt() and 0xff)
+                if (busy == 0) continue
+                val slots = min(most, 1 + busy / 96)
+                val speed = BASE_SPEED * (1f - min(0.75f, busy / 340f))
+                for (lane in 0..1) for (k in 0 until slots) {
+                    val seed = x * 7919 + y * 104729 + lane * 31 + k * 977
+                    if (k == 0 && unit(seed) * 128f > busy + 16) continue
+                    val along = (time * speed + (k + unit(seed * 3) * 0.5f) / slots) % 1f
+                    val (cx, cy, angle) = pointThrough(from, i, to, along, map.width, if (lane == 0) LANE else -LANE)
+                    if (!behind(cx, cy)) vehicle(camera.tileToScreen(cx, cy, size), t, angle, unit(seed * 5) < cars, seed)
+                }
+                continue
+            }
             // A junction: each road's streams carry on across it, as busy as the road either side, so the cars
             // seen coming up to it go on through. A side street that stops here turns its cars onto the cross road.
             for (axis in 0..1) {
                 val row = axis == 0
-                val before = if (row) road(x - 1, y) else road(x, y - 1)
-                val after = if (row) road(x + 1, y) else road(x, y + 1)
+                val before = if (row) linked(x, y, Heading.WEST.toInt()) else linked(x, y, Heading.NORTH.toInt())
+                val after = if (row) linked(x, y, Heading.EAST.toInt()) else linked(x, y, Heading.SOUTH.toInt())
                 val busy = if (row) max(busyAt(x - 1, y), busyAt(x + 1, y)) else max(busyAt(x, y - 1), busyAt(x, y + 1))
                 if (busy == 0) continue
                 val from = if (row) (if (before) x - 1 else x + 1) else x

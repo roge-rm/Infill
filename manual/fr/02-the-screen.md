@@ -24,9 +24,9 @@ La barre d'outils a sept boutons : **Inspecter**, **Démolir**, **Zonage**, **T
 
 Un bouton ouvre son plateau : des onglets pour les outils qui le partagent, une ligne qui nomme ce qui est choisi et son prix, et les choix en tuiles. Touchez la ligne pour replier le plateau, et il se replie tout seul une fois que vous avez construit quelque chose. Toucher de nouveau le même bouton range l'outil et revient à **Inspecter**. Seul ce que l'année et l'ère permettent est affiché.
 
-Avec un outil choisi, un doigt construit et deux doigts déplacent et zooment la carte. Les tracés comme les routes, les voies ferrées et les conduites se glissent, et vont dans un sens puis dans l'autre. Les bâtiments se placent là où vous levez le doigt.
+Avec un outil choisi, un doigt construit et deux doigts déplacent et zooment la carte. Les tracés comme les routes, les voies ferrées et les conduites se glissent, et vont dans un sens puis dans l'autre. Les bâtiments se placent là où vous levez le doigt. Pendant que vous glissez, la taille et le coût s'affichent à côté, comme 10×5 pour une zone ou 24 cases pour un tracé. Un bâtiment peut aller sur un terrain zoné où rien n'est encore construit, et le zonage dessous disparaît.
 
-<!-- desktop: Le bouton gauche de la souris utilise l'outil. Le bouton droit ou du milieu déplace toujours la carte, et la molette zoome autour du pointeur. -->
+<!-- desktop: Le bouton gauche de la souris utilise l'outil. Le bouton droit ou du milieu déplace toujours la carte, et la molette zoome autour du pointeur. Avant de cliquer, le pointeur montre tout ce que l'outil pose. -->
 
 ## Inspecter
 

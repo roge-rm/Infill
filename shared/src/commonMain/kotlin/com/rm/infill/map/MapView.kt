@@ -96,6 +96,8 @@ fun MapView(
     costText: String,
     overlay: Overlay,
     underground: Boolean = false,
+    /** What the tool would put down at a tile, shown under the mouse or the keyboard's cursor before a drag. */
+    placeAt: ((Int, Int) -> Preview?)? = null,
     /** The map tile being inspected, for the views that follow one road; -1 if none. */
     focus: Int = -1,
     /** Districts to draw over the map, by id and name, while they're being painted. */
@@ -120,6 +122,12 @@ fun MapView(
     var redraw by remember { mutableIntStateOf(0) }
     var hoverX by remember { mutableIntStateOf(-1) }
     var hoverY by remember { mutableIntStateOf(-1) }
+    // The building or whatever the tool puts down, its whole footprint, under the mouse or else the keyboard's cursor.
+    val pointX = if (hoverX >= 0) hoverX else cursor?.first ?: -1
+    val pointY = if (hoverX >= 0) hoverY else cursor?.second ?: -1
+    val pointed = remember(pointX, pointY, placeAt, gestures.toolActive, preview) {
+        if (preview == null && gestures.toolActive && pointX >= 0) placeAt?.invoke(pointX, pointY) else null
+    }
     val g by rememberUpdatedState(gestures)
     // Made away from the screen's thread, so loading a town doesn't wait on them; no clouds until then.
     val clouds by produceState<CloudTextures?>(null) { value = withContext(Dispatchers.Default) { CloudTextures.make() } }
@@ -406,6 +414,7 @@ fun MapView(
         else if (overlay == Overlay.Mood) drawDistrictMoods(moodLabels, map, camera, measurer)
         if (lines.isNotEmpty()) drawLines(lines, map, camera)
         if (preview != null) drawPreview(preview, map, camera, measurer, costText)
+        else if (pointed != null) drawPreview(pointed, map, camera, measurer, "")
         else if (gestures.toolActive && hoverX >= 0) drawHover(hoverX, hoverY, camera)
         cursor?.let { (x, y) -> drawCursor(x, y, camera, cursorColour) }
     }

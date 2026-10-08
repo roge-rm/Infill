@@ -138,7 +138,7 @@ class ParkRideTest {
         val n = c.map.size
         City::class.java.getDeclaredMethod("updateNetworks").apply { isAccessible = true }.invoke(c)
         t.cycling = 0
-        t.carCycling = 20
+        t.carCycling = IntArray(n) { 20 }
         val w = IntArray(n).also { it[c.i(2, 16)] = 100 }
         val j = IntArray(n).also { it[c.i(30, 16)] = 100 }
         t.newMonth(w, IntArray(n), IntArray(n), j, IntArray(n), 0, carWorkersAt = w.copyOf())
@@ -146,13 +146,17 @@ class ParkRideTest {
         t.newMonth(IntArray(n), IntArray(n), IntArray(n), IntArray(n), IntArray(n), 0)
         assertEquals(20, t.lastModes[Mode.BIKE.ordinal], "modes ${t.lastModes.toList()}")
         assertEquals(80, t.lastModes[Mode.CAR.ordinal])
-        // None before 1990, and only as far as the roads have lanes.
-        City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, 1985)
-        assertEquals(0, c.carCyclingShare())
-        City::class.java.getDeclaredField("year").apply { isAccessible = true }.setInt(c, 2000)
-        assertEquals(0, c.carCyclingShare())
-        assertTrue(c.apply(Action.BuildCycleLane(Action.roadPath(c.map, 0, 16, 127, 16, true))).ok)
-        assertEquals(Balance.CAR_CYCLE_PULL, c.carCyclingShare())
+        // None before 1990, and only as far as the roads near home have lanes.
+        val year = City::class.java.getDeclaredField("year").apply { isAccessible = true }
+        year.setInt(c, 2000)
+        assertEquals(null, c.carCycling())
+        assertTrue(c.apply(Action.BuildCycleLane(Action.roadPath(c.map, 0, 16, 40, 16, true))).ok)
+        val pull = c.carCycling()!!
+        assertEquals(Balance.CAR_CYCLE_PULL, pull[c.i(2, 16)], "lanes on every road near the west end")
+        assertEquals(0, pull[c.i(100, 16)], "none near the east end")
+        assertTrue(pull[c.i(44, 16)] in 1 until Balance.CAR_CYCLE_PULL, "some, just past the end of the lanes")
+        year.setInt(c, 1985)
+        assertEquals(null, c.carCycling())
     }
 
     @Test

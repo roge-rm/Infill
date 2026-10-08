@@ -136,6 +136,9 @@ import com.rm.infill.res.key_cursor_right
 import com.rm.infill.res.key_cursor_up
 import com.rm.infill.res.key_use
 import com.rm.infill.res.let_go
+import com.rm.infill.res.drag_area
+import com.rm.infill.res.drag_label
+import com.rm.infill.res.drag_tiles
 import com.rm.infill.res.list_join
 import com.rm.infill.res.map_no_cursor
 import com.rm.infill.res.name_colon_value
@@ -184,6 +187,7 @@ import com.rm.infill.sim.Problem
 import com.rm.infill.ui.InspectPanel
 import com.rm.infill.ui.MessageChip
 import com.rm.infill.ui.Preview
+import com.rm.infill.ui.dragSize
 import com.rm.infill.ui.ToolDrag
 import com.rm.infill.ui.ZoneKind
 import com.rm.infill.ui.AdviceLine
@@ -882,7 +886,7 @@ private fun GameScreen(
         val graphics = remember(settings.graphics) { Graphics(settings.graphics) }
         // Chunks are baked for a sun step and how clear the sky is, four levels of it.
         val clear = weather.clearness
-        val shadowStep = graphics.sunStep(sunStep) * 4 + clear
+        val shadowStep = graphics.sunStep(sunStep, SPEEDS[speed] >= Graphics.FAST_SHADOWS) * 4 + clear
         val sun = remember(shadowStep, month) {
             Sky.sun(shadowStep / 4, month).let { it.copy(strength = it.strength * SHADOW_KEEP[clear]) }
         }
@@ -969,6 +973,16 @@ private fun GameScreen(
             else if (it.plan.problem == Problem.Overseen) stringResource(Res.string.overseen)
             else if (it.plan.problem == Problem.Protest) stringResource(Res.string.protest)
             else moneyText(it.plan.cost)
+        }?.let { cost ->
+            // How big it is, ahead of what it costs.
+            when (val size = dragSize(preview.action)) {
+                null -> cost
+                else -> stringResource(
+                    Res.string.drag_label,
+                    if (size.second == 0) pluralStringResource(Res.plurals.drag_tiles, size.first, size.first) else stringResource(Res.string.drag_area, size.first, size.second),
+                    cost,
+                )
+            }
         } ?: ""
 
         /** Steps the tool's kind on by [by], round to the start after the last: the next road, zone, service and so on. */
@@ -1120,6 +1134,9 @@ private fun GameScreen(
             tool, zoneKind, densityKind.within(zoneKind, city), bulldozeKind, powerKind, if (tool == Tool.Leisure) leisureKind else serviceKind, roadKind, roadPipes, railKind, waterKind, transitKind, city.map,
             junctionKind, districtChoice, phoneKind, portKind, bridgeKind, tunnelling, airKind, city::newest,
         )
+
+        /** What the tool would put down at [x], [y], for the outline under the mouse or the keyboard's cursor. */
+        fun placeAt(x: Int, y: Int): Preview? = actionOf(ToolDrag(x, y, x, y))?.let { Preview(it, game.plan(it), x, y) }
 
         /** Does [action] and tells how it went. */
         fun applyAction(action: Action) {
@@ -1425,6 +1442,7 @@ private fun GameScreen(
                 focus = inspected?.let { (x, y) -> city.map.index(x, y) } ?: -1,
                 districts = if (tool != Tool.Districts) emptyList() else { game.revision; city.districts.map { it.id to it.name } },
                 photo = photo,
+                placeAt = ::placeAt,
                 lines = if (tool != Tool.Transit) emptyList() else {
                     game.revision
                     val drawn = city.lines.mapNotNull { line -> city.lineState(line.id)?.takeIf { it.route.isNotEmpty() }?.let { line.id to it.route } }

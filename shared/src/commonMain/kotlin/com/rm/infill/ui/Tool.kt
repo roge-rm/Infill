@@ -766,6 +766,48 @@ data class ToolDrag(val x0: Int, val y0: Int, val x1: Int, val y1: Int, val acro
 }
 
 /** A drag's action and what it would do, for drawing over the map. */
+/**
+ * How big a dragged [action] is, for the label beside the drag: an area as
+ * its width and height, or a run of road, track, wire or pipe as its length
+ * and 0. Null for one tile, or for what isn't dragged out.
+ */
+fun dragSize(action: Action): Pair<Int, Int>? {
+    fun area(x0: Int, y0: Int, x1: Int, y1: Int): Pair<Int, Int>? {
+        val w = kotlin.math.abs(x1 - x0) + 1
+        val h = kotlin.math.abs(y1 - y0) + 1
+        return if (w * h > 1) w to h else null
+    }
+    fun run(tiles: IntArray) = if (tiles.size > 1) tiles.size to 0 else null
+    return when (action) {
+        is Action.PlaceZone -> area(action.x0, action.y0, action.x1, action.y1)
+        is Action.Bulldoze -> area(action.x0, action.y0, action.x1, action.y1)
+        is Action.ConvertToHomes -> area(action.x0, action.y0, action.x1, action.y1)
+        is Action.PaintDistrict -> area(action.x0, action.y0, action.x1, action.y1)
+        is Action.RemoveTransit -> area(action.x0, action.y0, action.x1, action.y1)
+        is Action.RenewArea -> area(action.x0, action.y0, action.x1, action.y1)
+        is Action.RemovePipes -> area(action.x0, action.y0, action.x1, action.y1)
+        is Action.RemovePhone -> area(action.x0, action.y0, action.x1, action.y1)
+        is Action.RemoveTunnel -> area(action.x0, action.y0, action.x1, action.y1)
+        is Action.PlaceParks -> area(action.x0, action.y0, action.x1, action.y1)
+        is Action.PlantTrees -> area(action.x0, action.y0, action.x1, action.y1)
+        is Action.FillWater -> area(action.x0, action.y0, action.x1, action.y1)
+        is Action.DigWater -> area(action.x0, action.y0, action.x1, action.y1)
+        is Action.BuildRoad -> run(action.tiles)
+        is Action.BuildRail -> run(action.tiles)
+        is Action.BuildTram -> run(action.tiles)
+        is Action.BuildWire -> run(action.tiles)
+        is Action.BuildSubway -> run(action.tiles)
+        is Action.BuildLane -> run(action.tiles)
+        is Action.BuildCycleLane -> run(action.tiles)
+        is Action.BuildPowerLine -> run(action.tiles)
+        is Action.BuildPhoneLine -> run(action.tiles)
+        is Action.BuildPipe -> run(action.tiles)
+        is Action.BuildBank -> run(action.tiles)
+        is Action.PlantStreetTrees -> run(action.tiles)
+        else -> null
+    }
+}
+
 class Preview(val action: Action, val plan: Plan, val endX: Int, val endY: Int) {
     val blocked: Set<Int> = plan.blocked.toHashSet()
 }
