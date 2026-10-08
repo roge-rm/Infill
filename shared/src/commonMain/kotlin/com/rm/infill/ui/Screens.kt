@@ -8,6 +8,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import com.rm.infill.res.chronicle
@@ -234,18 +236,14 @@ fun NewCityScreen(
             terrainImage(m)
         }
     }
-    Page {
+    val head: @Composable () -> Unit = {
         Text(stringResource(Res.string.new_city), color = c.text, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
         // A town, a region, or a challenge: a town already under way with goals to meet.
         Chips(listOf(0, 1, 2), if (challenge) 2 else if (region) 1 else 0, {
             stringResource(when (it) { 1 -> Res.string.kind_region; 2 -> Res.string.kind_challenge; else -> Res.string.kind_town })
         }) { challenge = it == 2; region = it == 1 }
-        if (challenge) {
-            ChallengeList(onChallenge)
-            BigButton(stringResource(Res.string.back), onClick = onBack)
-            return@Page
-        }
-        Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(c.button)) {
+    }
+    val map: @Composable (Modifier) -> Unit = { modifier -> Box(modifier.aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(c.button)) {
             preview?.let { Image(it, null, Modifier.fillMaxSize(), filterQuality = FilterQuality.None) }
             // A region's squares.
             if (region) androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
@@ -257,6 +255,8 @@ fun NewCityScreen(
                 }
             }
         }
+    }
+    val form: @Composable () -> Unit = {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FormField(name, { typed = it.take(30) }, stringResource(if (region) Res.string.region_name else Res.string.city_name), Modifier.weight(1f))
             Box(Modifier.widthIn(max = 160.dp)) {
@@ -323,6 +323,49 @@ fun NewCityScreen(
             onStart(name.ifBlank { TownNames.make(seed) }, seed, TerrainOptions(water, trees, river, quakes, climate, sea, seaSides), if (region) grid else 0, side, guide && !region, sandbox && !region)
         }
         BigButton(stringResource(Res.string.back), onClick = onBack)
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        // On a screen wider than it's tall, the map beside the choices, so it all fits.
+        if (!challenge && maxWidth > maxHeight && maxWidth >= WIDE_PAGE) {
+            SplitPage(map) {
+                head()
+                form()
+            }
+        } else Page {
+            head()
+            if (challenge) {
+                ChallengeList(onChallenge)
+                BigButton(stringResource(Res.string.back), onClick = onBack)
+            } else {
+                map(Modifier.fillMaxWidth())
+                form()
+            }
+        }
+    }
+}
+
+/** How wide a screen has to be for the new town's map to go beside its choices, and how wide the choices are then. */
+private val WIDE_PAGE = 560.dp
+private val SPLIT_CHOICES = 340.dp
+
+/**
+ * A page for a screen wider than it's tall: [side] as tall as the screen
+ * on the left, and the rest beside it, scrolling if it has to.
+ */
+@Composable
+private fun SplitPage(side: @Composable (Modifier) -> Unit, content: @Composable () -> Unit) {
+    val c = Infill.colors
+    Row(
+        Modifier.fillMaxSize().background(c.page).windowInsetsPadding(WindowInsets.safeDrawing).padding(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // The choices their own width, and the map as big a square as fits in the rest.
+        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) { side(Modifier) }
+        Column(
+            Modifier.width(SPLIT_CHOICES).fillMaxHeight().verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) { content() }
     }
 }
 
