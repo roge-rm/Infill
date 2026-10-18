@@ -365,7 +365,7 @@ private val SPREAD_MOST = 1100.dp
 
 /**
  * The new town's screen, laid out for its shape. Wider than it's tall: the
- * map on the left as tall as the screen, and the choices beside it. About
+ * map on the left and the choices beside it in a centred, bounded panel. About
  * square: a band across the top with a smaller map and, beside it, the
  * title, name and map number, and the rest the full width below. Taller
  * than it's wide: the map above the choices, a third of the height so they start
@@ -397,24 +397,24 @@ private fun NewCityLayout(
         val h = maxHeight
         val ratio = w / h
         when {
-            ratio > 1.2f -> Row(
-                Modifier.fillMaxHeight().widthIn(max = SPREAD_MOST).fillMaxWidth().align(Alignment.Center),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                // The map leaves the choices room for two to a row, and is no taller than the screen.
+            ratio > 1.2f -> {
                 val across = minOf(w, SPREAD_MOST)
                 val square = minOf(h, maxOf(across - PAIRS_FROM - 16.dp, across * 0.35f))
-                Box(Modifier.fillMaxHeight(), contentAlignment = Alignment.Center) { map(Modifier.size(square)) }
-                Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (across - square - 16.dp >= PAIRS_FROM) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        title()
-                        Box(Modifier.weight(1f)) { kinds() }
-                    } else {
+                // Keep the actions near the form on large monitors, while leaving
+                // room for the choices to scroll in shorter windows.
+                val panelHeight = minOf(h, maxOf(square, 640.dp))
+                Row(
+                    Modifier.height(panelHeight).widthIn(max = SPREAD_MOST).fillMaxWidth().align(Alignment.Center),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    // The map leaves the choices room for two to a row, and is no taller than the screen.
+                    map(Modifier.size(square))
+                    Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         title()
                         kinds()
+                        choices(withIdentity = true)
+                        footer()
                     }
-                    choices(withIdentity = true)
-                    footer()
                 }
             }
             ratio >= 0.85f -> Column(
