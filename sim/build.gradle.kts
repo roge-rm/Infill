@@ -9,7 +9,9 @@ plugins {
 }
 
 kotlin {
-    jvm()
+    jvm {
+        compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21) }
+    }
 
     android {
         namespace = "com.rm.infill.sim"

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Infill
+GenericName=City builder
+Comment=Build a town and guide it through the century
+Exec=infill
+Icon=infill
+Terminal=false
+Categories=Game;Simulation;
+Keywords=city;town;transport;building;
+StartupWMClass=com-rm-infill-desktop-MainKt

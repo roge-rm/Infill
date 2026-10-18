@@ -1,7 +1,7 @@
 # Infill
 
 Infill is a city builder for Android 8.1 and up.
-It also runs in a web browser, and it's in English and French.
+It also runs on Debian Trixie (amd64) and in a web browser, and it's in English and French.
 
 You start with a small town in 1900 and a few simple tools, and as the years go by the town and everything that keeps it running gets deeper. New things arrive in eras, and parts of your town get redone as they do: wells give way to water mains, streetcars to cars and back to transit, low houses to something denser.
 
@@ -87,7 +87,26 @@ The whole manual is in the game, under Help, and the book button on most windows
 
 ## Building
 
-You need the Android SDK.
+You need the Android SDK for Android builds. The desktop build uses JDK 21,
+CMake, a C++ compiler and `dpkg-deb`. On Debian Trixie amd64:
+
+```sh
+sudo apt install openjdk-21-jdk cmake g++ dpkg-dev
+./gradlew :desktop:run          # play in a desktop window
+./gradlew :desktop:debAmd64     # build the Debian package
+```
+
+The package is `desktop/build/deb/infill_<version>_amd64.deb` (under the
+configured build root if `infill.buildRoot` is set). Install it with
+`sudo apt install ./desktop/build/deb/infill_<version>_amd64.deb`, then run
+`infill` or use the application menu. It uses the system Java runtime. Build
+the package on Trixie amd64 so the native audio library matches the target.
+Saves and settings live in `$XDG_DATA_HOME/infill`, or
+`~/.local/share/infill` by default. Town import/export and pictures use
+desktop file dialogs. The desktop build shares the phone’s mouse and
+keyboard controls; gamepad support currently remains on Android and web.
+
+Other builds and development tools:
 
 ```sh
 ./gradlew :app:assembleDebug                   # debug APK

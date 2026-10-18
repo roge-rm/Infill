@@ -1,0 +1,13 @@
+Package: infill
+Version: @VERSION@
+Architecture: amd64
+Maintainer: Dan Hunke <14335001+roge-rm@users.noreply.github.com>
+Installed-Size: @SIZE@
+Depends: openjdk-21-jre | java21-runtime, libc6 (>= 2.34), libstdc++6, libgcc-s1, libgl1
+Recommends: libpulse0, libasound2t64
+Section: games
+Priority: optional
+Homepage: https://github.com/roge-rm/Infill
+Description: city builder from 1900 into the future
+ Build a town and guide it through six eras, with transport, services,
+ industry and people whose lives change with the century.

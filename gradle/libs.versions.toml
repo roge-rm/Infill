@@ -22,6 +22,7 @@ kotlinx-browser = { group = "org.jetbrains.kotlinx", name = "kotlinx-browser", v
 oboe = { group = "com.google.oboe", name = "oboe", version.ref = "oboe" }
 
 [plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

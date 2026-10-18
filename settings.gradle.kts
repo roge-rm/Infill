@@ -64,3 +64,6 @@ include(":sim")
 include(":shared")
 // The Android app.
 include(":app")
+
+// The desktop app and Debian package.
+include(":desktop")

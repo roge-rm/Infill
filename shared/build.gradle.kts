@@ -33,6 +33,10 @@ kotlin {
         androidResources { enable = true }
     }
 
+    jvm("desktop") {
+        compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21) }
+    }
+
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         outputModuleName = "infill"
@@ -53,6 +57,15 @@ kotlin {
             implementation(libs.jb.compose.material3)
             implementation(libs.jb.compose.resources)
             implementation(libs.kotlinx.coroutines.core)
+        }
+        val desktopTest by getting {
+            dependencies { implementation(kotlin("test")) }
+        }
+        val desktopMain by getting {
+            dependencies {
+                implementation(compose.desktop.common)
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:${libs.versions.kotlinxCoroutines.get()}")
+            }
         }
         wasmJsMain.dependencies {
             implementation(libs.kotlinx.browser)

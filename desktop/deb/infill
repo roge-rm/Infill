@@ -1,0 +1,9 @@
+#!/bin/sh
+crashes="${XDG_DATA_HOME:-$HOME/.local/share}/infill/crashes"
+mkdir -p "$crashes"
+exec java \
+    -XX:ErrorFile="$crashes/hs_err_%p.log" \
+    -Djava.library.path=/usr/lib/infill/native \
+    --enable-native-access=ALL-UNNAMED \
+    -cp '/usr/lib/infill/lib/*' \
+    com.rm.infill.desktop.MainKt "$@"
