@@ -27,6 +27,61 @@ class PathwayTest {
         return c
     }
 
+    private fun add(c: City, type: BuildingType, x: Int, y: Int, underway: Int = 0): Building =
+        City::class.java.getDeclaredMethod("addBuilding", BuildingType::class.java, Int::class.java, Int::class.java, Int::class.java, Int::class.java)
+            .apply { isAccessible = true }.invoke(c, type, x, y, 0, underway) as Building
+
+    private fun remove(c: City, b: Building) {
+        City::class.java.getDeclaredMethod("removeBuilding", Building::class.java)
+            .apply { isAccessible = true }.invoke(c, b)
+    }
+
+    private fun redevelopmentTown(crossStreet: Boolean = true): City {
+        val c = City(6, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.everything = true; it.disasterLevel = 0 }
+        assertTrue(c.apply(Action.BuildRoad(Action.roadPath(c.map, 0, 10, 63, 10, true))).ok)
+        if (crossStreet) assertTrue(c.apply(Action.BuildRoad(Action.roadPath(c.map, 8, 0, 8, 63, true))).ok)
+        return c
+    }
+
+    @Test
+    fun redevelopmentRemovesLaneInsideMansionOnTheNextDay() {
+        val c = redevelopmentTown()
+        val m = c.map
+        val cottages = (11..12).flatMap { y -> (10..11).map { x -> add(c, BuildingType.COTTAGE, x, y) } }
+        val neighbour = add(c, BuildingType.COTTAGE, 12, 12)
+        m.density[m.index(12, 12)] = Density.MEDIUM
+        c.reachable(neighbour) // Bring road access up to date.
+        c.updatePathways()
+        assertTrue(m.pathway[m.index(10, 12)].toInt() and 0x10 != 0, "lane between the cottages")
+        cottages.forEach { remove(c, it) }
+        add(c, BuildingType.MANSION, 10, 11, underway = 90)
+        val changed = mutableSetOf<Int>()
+        c.takeTownChanges { }
+        c.tick()
+        c.takeTownChanges { changed += it }
+        for (x in 10..11) {
+            assertEquals(0, m.pathway[m.index(x, 12)].toInt() and 0x10, "no lane inside the new footprint")
+        }
+        assertTrue(m.index(10, 12) in changed, "removed lane invalidates its map tile")
+        assertTrue(m.pathway[m.index(12, 12)].toInt() and 1 != 0, "neighbour now takes a path straight to the street")
+    }
+
+    @Test
+    fun pathGoesAroundLargerNeighbourInsteadOfThroughItsInterior() {
+        val c = redevelopmentTown(crossStreet = false)
+        val m = c.map
+        val neighbour = add(c, BuildingType.COTTAGE, 11, 13)
+        c.reachable(neighbour)
+        c.updatePathways()
+        assertTrue(m.pathway[m.index(11, 12)].toInt() and 1 != 0, "old path crosses separate lots")
+        add(c, BuildingType.MANSION, 10, 11)
+        c.updatePathways()
+        assertEquals(0, m.pathway[m.index(11, 12)].toInt() and 1, "no path through the mansion's internal west edge")
+        assertTrue(m.pathway[m.index(11, 13)].toInt() and 15 != 0, "the neighbour keeps a way out")
+        assertTrue(m.pathway[m.index(12, 12)].toInt() and 1 != 0 || m.pathway[m.index(10, 12)].toInt() and 1 != 0,
+            "the path runs around an outside edge")
+    }
+
     @Test
     fun everyPathAndLaneMeetsARoad() {
         val c = town()

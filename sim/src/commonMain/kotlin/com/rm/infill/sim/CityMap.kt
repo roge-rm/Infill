@@ -224,7 +224,7 @@ class CityMap(val width: Int, val height: Int) {
      * its edges, the same four shifted up 4, since a tile where a lane along a
      * row meets one down a column has two; and what it's made of (bits 8 and
      * 9: dirt, gravel or paved). Bit 10: the way's as wide as a lane, for the
-     * deliveries to shops and works. Worked out each month.
+     * deliveries to shops and works. Worked out each month and after buildings change.
      */
     val pathway = ShortArray(size)
 

@@ -328,6 +328,7 @@ class City(
 
     /** Tiles the town changed since the UI last asked, as map indices. */
     private val townChanges = ArrayList<Int>()
+    private var pathwaysDirty = false
 
     fun takeTownChanges(each: (Int) -> Unit) {
         for (i in townChanges) each(i)
@@ -2111,6 +2112,7 @@ class City(
     }
 
     private fun removeBuilding(b: Building) {
+        pathwaysDirty = true
         b.people?.let { departures += it.size }
         buildings.remove(b.id)
         sites.remove(b.id)
@@ -2127,6 +2129,7 @@ class City(
 
     /** Writes a building onto its tiles, for the map to draw. */
     private fun stamp(b: Building) {
+        pathwaysDirty = true
         forRect(b.x, b.y, b.x + b.type.width - 1, b.y + b.type.height - 1) { i ->
             map.building[i] = b.id
             map.buildingType[i] = (b.type.ordinal + 1).toShort()
@@ -2216,6 +2219,7 @@ class City(
             // Demand's looked at again each week, and each day while a new town waits for its first building.
             newWeek()
         }
+        if (pathwaysDirty) updatePathways()
         refreshViews()
     }
 
@@ -4379,6 +4383,7 @@ class City(
      * deliveries, so theirs is a lane however dense the block.
      */
     internal fun updatePathways() {
+        pathwaysDirty = false
         val m = map
         val w = m.width
         val next = ShortArray(m.size)
@@ -4395,6 +4400,20 @@ class City(
             return m.terrain[i] != Terrain.WATER && m.rail[i] == Rail.NONE && m.road[i] == Road.NONE
         }
         fun road(x: Int, y: Int) = m.inside(x, y) && m.road[m.index(x, y)] != Road.NONE
+        // Ways follow lot boundaries. A boundary swallowed by one building
+        // is no longer a yard edge, even while that building is going up.
+        fun boundary(x: Int, y: Int, nx: Int, ny: Int): Boolean {
+            if (!m.inside(x, y) || !m.inside(nx, ny)) return true
+            val id = m.building[m.index(x, y)]
+            return id == 0 || id != m.building[m.index(nx, ny)]
+        }
+        fun step(x: Int, y: Int, sx: Int, sy: Int): Boolean = when {
+            sy < 0 -> boundary(x - 1, y, x, y)
+            sy > 0 -> boundary(x - 1, y + 1, x, y + 1)
+            sx > 0 -> boundary(x, y, x, y + 1)
+            else -> boundary(x - 1, y, x - 1, y + 1)
+        }
+        fun laneEdge(x: Int, y: Int, sx: Int, sy: Int) = boundary(x, y, x + sx, y + sy)
         for (b in buildings.values.sortedBy { it.id }) {
             if (b.underway > 0) continue
             val t = b.type
@@ -4403,11 +4422,12 @@ class City(
             if (a < 0) continue
             val ax = a % w
             val ay = a / w
-            // A building on more than one lot sets out from its lot nearest the road, and needs no way if one's on it.
-            val bx = ax.coerceIn(b.x, b.x + t.width - 1)
+            // A building beside the road needs no way. Otherwise set out along its west yard edge.
+            val nearestX = ax.coerceIn(b.x, b.x + t.width - 1)
+            val bx = b.x // The west yard edge remains outside a larger footprint.
             val by = ay.coerceIn(b.y, b.y + t.height - 1)
             val start = m.index(bx, by)
-            if (abs(ax - bx) + abs(ay - by) <= 1) continue
+            if (abs(ax - nearestX) + abs(ay - by) <= 1) continue
             val business = t.zone != Zone.RESIDENTIAL
             val surface = (when (RoadType.of(m.road[a])) {
                 RoadType.DIRT -> 0
@@ -4434,6 +4454,7 @@ class City(
                         var cy = y
                         var ok = false
                         for (k in 0 until LANE_REACH) {
+                            if (!laneEdge(cx, cy, sx, sy)) break
                             run += cy * w + cx
                             // The lane's corner reaches the road along the cross street, or the lot in front gives way.
                             if (road(cx + px, cy + py)) { ok = true; break }
@@ -4450,6 +4471,7 @@ class City(
                         break
                     }
                 }
+                if (!step(x, y, sx, sy)) break
                 marks += i to (bit(sx, sy) or surface)
                 x += sx
                 y += sy
@@ -4459,7 +4481,41 @@ class City(
                 marks += j to (bit(-sx, -sy) or surface)
                 if (abs(ax - x) + abs(ay - y) == 0) { reached = true; break }
             }
-            if (!reached) continue
+            if (!reached) {
+                // A larger neighbour may block the old straight way. Find a
+                // short way around its outside instead of keeping its old lane.
+                marks.clear()
+                val previous = hashMapOf(start to -1)
+                val queue = ArrayDeque<Int>()
+                queue.addLast(start)
+                var end = -1
+                while (queue.isNotEmpty() && end < 0) {
+                    val i = queue.removeFirst()
+                    val cx = i % w
+                    val cy = i / w
+                    for (k in 0 until 4) {
+                        val nx = cx + DX[k]
+                        val ny = cy + DY[k]
+                        if (!m.inside(nx, ny) || abs(nx - bx) + abs(ny - by) > LANE_REACH) continue
+                        val j = m.index(nx, ny)
+                        val meetsRoad = road(nx, ny) && access[j] == j
+                        if (j in previous || !step(cx, cy, DX[k], DY[k]) || (!meetsRoad && !open(nx, ny))) continue
+                        previous[j] = i
+                        if (meetsRoad) { end = j; break }
+                        queue.addLast(j)
+                    }
+                }
+                if (end < 0) continue
+                var j = end
+                while (j != start) {
+                    val i = previous.getValue(j)
+                    val sx = j % w - i % w
+                    val sy = j / w - i / w
+                    marks += i to (bit(sx, sy) or surface)
+                    if (j != end) marks += j to (bit(-sx, -sy) or surface)
+                    j = i
+                }
+            }
             for ((j, v) in marks) next[j] = (next[j].toInt() or v).toShort()
         }
         for (i in 0 until m.size) if (next[i] != m.pathway[i]) {
