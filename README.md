@@ -1,15 +1,14 @@
 # Infill
 
-Infill is a city builder for Android 8.1 and up.
-It also runs on Debian Trixie (amd64) and in a web browser, and it's in English and French.
+Infill is a city builder for Android 8.1 and up. It's also available for web and for linux desktop - more build targets coming soon.
 
-You start with a small town in 1900 and a few simple tools, and as the years go by the town and everything that keeps it running gets deeper. New things arrive in eras, and parts of your town get redone as they do: wells give way to water mains, streetcars to cars and back to transit, low houses to something denser.
+Help your city grow outwards and then inwards again when you hit the city limits. As time and technology advance your city will too, and you'll have to replace old things with new to keep up with the times. Everything ages and must be replaced, people resist change but demand more from you, pollution and traffic take their toll but solutions can be found... for most problems. I tried to make the game about what it really takes to run a city and deal with the problems a city faces - internal and external.
 
-On Debian, add my apt repo with the commands on https://hunke.ws/apt/ and then `sudo apt install infill`.
+Check out the features and manual below for more information or just start playing - the game will give you hints about what you need to do next or what's missing.
 
-It's at 0.14 and very playable, but not finished. Let me know what works and what doesn't in the #infill channel **[on my discord](https://discord.gg/9Wun47jGC6)**, or open an issue here.
+Let me know what works and what doesn't in the #infill channel **[on my discord](https://discord.gg/9Wun47jGC6)**, or open an issue here.
 
-Dan (rm)
+Dan
 
 ---
 
