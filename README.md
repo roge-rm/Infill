@@ -1,6 +1,6 @@
 # Infill
 
-Infill is a city builder for Android 8.1 and up. It's also available for [web](https://hunke.ws/fdroid/play/infill/) and for [linux desktop](https://github.com/roge-rm/Infill/releases/latest) - more build targets coming soon.
+Infill is a city builder for Android 8.1 or newer. It also runs in a [browser](https://hunke.ws/fdroid/play/infill/) and on [Linux](https://github.com/roge-rm/Infill/releases/latest).
 
 Help your city grow outwards and then inwards again when you hit the city limits. As time and technology advance your city will too, and you'll have to replace old things with new to keep up with the times. Everything ages and must be replaced, people resist change but demand more from you, pollution and traffic take their toll but solutions can be found... for most problems. I tried to make the game about what it takes to run a city and deal with problems inside it and outside it.
 
