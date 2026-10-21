@@ -2,11 +2,11 @@
 
 Infill is a city builder for Android 8.1 and up. It's also available for [web](https://hunke.ws/fdroid/play/infill/) and for [linux desktop](https://github.com/roge-rm/Infill/releases/latest) - more build targets coming soon.
 
-Help your city grow outwards and then inwards again when you hit the city limits. As time and technology advance your city will too, and you'll have to replace old things with new to keep up with the times. Everything ages and must be replaced, people resist change but demand more from you, pollution and traffic take their toll but solutions can be found... for most problems. I tried to make the game about what it really takes to run a city and deal with the problems a city faces - internal and external.
+Help your city grow outwards and then inwards again when you hit the city limits. As time and technology advance your city will too, and you'll have to replace old things with new to keep up with the times. Everything ages and must be replaced, people resist change but demand more from you, pollution and traffic take their toll but solutions can be found... for most problems. I tried to make the game about what it takes to run a city and deal with problems inside it and outside it.
 
-Check out the features and manual below for more information or just start playing - the game will give you hints about what you need to do next or what's missing.
+The game gives hints as you build, and Help opens the manual.
 
-Let me know what works and what doesn't in the #infill channel **[on my discord](https://discord.gg/9Wun47jGC6)**, or open an issue here.
+Let me know what works and what doesn't in the #infill channel [on my discord](https://discord.gg/9Wun47jGC6), or open an issue here.
 
 Dan
 
@@ -42,7 +42,7 @@ Dan
 - Parks, sport and culture, which every home wants nearby, and fashions that come and go
 - Crime of different kinds, with courts and jails to deal with it
 - Ordinances, from the building code to prohibition and a carbon price, that history brings in and ends
-- Money with teeth: bonds, a credit rating, and an overseer if the debt gets out of hand
+- Bonds, a credit rating and an overseer if the debt gets out of hand
 - Public opinion: approval that weighs different things in each era, petitions, grants, protests and elections
 - People who live through the century: a baby boom, smaller households, wealth that follows schooling, the poor priced out of dear land, and cholera, consumption and influenza until medicine comes
 - Land that changes: mines and wells that run out, droughts, storm surges and high tides as the seas rise, woods that spread, and water you can fill in or dig out
