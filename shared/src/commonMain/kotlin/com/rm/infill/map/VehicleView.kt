@@ -19,16 +19,15 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Extra carts and cars looping along roads that were over capacity last
- * month, on top of the trips [TripMovers] follows, so a jam looks full. Only
- * the share of traffic over [over] shows, and they go slower the busier the
- * road. They keep to the right, and fill both lanes of a one-way road.
- * [most] is how many there can be in a lane on one tile. At the level
- * [crossings] a train is on, the road is clear and traffic waits either side,
- * and at lights traffic waits on amber and red with that way across clear.
- * A road shut for works has nothing on it.
+ * Carts and cars looping along roads by last month's traffic, when there are
+ * no trips for [TripMovers] to follow, just after loading or on Low graphics.
+ * They go slower the busier the road. They keep to the right, and fill both
+ * lanes of a one-way road. [most] is how many there can be in a lane on one
+ * tile. At the level [crossings] a train is on, the road is clear and
+ * traffic waits either side, and at lights traffic waits on amber and red
+ * with that way across clear. A road shut for works has nothing on it.
  */
-internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, time: Float, most: Int, crossings: Set<Int> = emptySet(), over: Int = 0, behind: (Float, Float) -> Boolean = { _, _ -> false }) {
+internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, time: Float, most: Int, crossings: Set<Int> = emptySet(), behind: (Float, Float) -> Boolean = { _, _ -> false }) {
     val t = camera.tilePx
     if (most == 0 || t < MIN_TILE_PX) return
     val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -38,8 +37,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
     val x1 = ceil(bottomRight.x).toInt().coerceAtMost(map.width - 1)
     val y1 = ceil(bottomRight.y).toInt().coerceAtMost(map.height - 1)
     val cars = carShare(year)
-    // How busy a tile counts as here: only what's over [over].
-    fun load(i: Int) = max(0, (map.congestion[i].toInt() and 0xff) - over)
+    fun load(i: Int) = map.congestion[i].toInt() and 0xff
     fun road(x: Int, y: Int) = map.inside(x, y) && map.road[map.index(x, y)].toInt() != 0
     // Whether traffic passes between x, y and its neighbour toward [h] one way or the other: not across the middle of a boulevard.
     fun linked(x: Int, y: Int, h: Int): Boolean {
@@ -134,7 +132,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                 val busy = maxOf(load(i), load(a), load(b))
                 if (busy == 0) continue
                 val slots = min(most, 1 + busy / 96)
-                val speed = BASE_SPEED * (1f - min(0.75f, (busy + over) / 340f))
+                val speed = BASE_SPEED * (1f - min(0.75f, busy / 340f))
                 for (lane in 0..1) for (k in 0 until slots) {
                     val seed = x * 7919 + y * 104729 + lane * 31 + k * 977
                     if (k == 0 && unit(seed) * 128f > busy + 16) continue
@@ -152,7 +150,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                 val busy = maxOf(load(i), load(a), load(b))
                 if (busy == 0) continue
                 val slots = min(most, 1 + busy / 96)
-                val speed = BASE_SPEED * (1f - min(0.75f, (busy + over) / 340f))
+                val speed = BASE_SPEED * (1f - min(0.75f, busy / 340f))
                 for (lane in 0..1) for (k in 0 until slots) {
                     val seed = x * 7919 + y * 104729 + lane * 31 + k * 977
                     if (k == 0 && unit(seed) * 128f > busy + 16) continue

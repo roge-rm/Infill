@@ -423,8 +423,6 @@ fun MapView(
                 drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped, behind = behind)
             } else {
                 with(movers) { draw(map, camera, game.city.year, behind) }
-                // A few more on roads over capacity, so a jam looks full.
-                drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped, over = AT_CAPACITY, behind = behind)
             }
             drawTransit(map, camera, travelTime, game.city.lineStates(), transitRoom, behind)
             services.update(game.city.callouts, map, travelTime, game.city.year)
@@ -510,6 +508,3 @@ private const val NEAR_TILE_DP = 64f
 
 /** From when trains are electric, after diesel. */
 private const val ELECTRIC_TRAINS_FROM = 1995
-
-/** How full a road is at capacity, on the scale of CityMap.congestion; looping traffic shows only what's over it. */
-private const val AT_CAPACITY = 128

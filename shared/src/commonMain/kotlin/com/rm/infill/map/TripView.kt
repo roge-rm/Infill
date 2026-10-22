@@ -68,6 +68,14 @@ internal class TripMovers {
         var fade = 1f
         var leaving = false
         /**
+         * One of the extras on a road over capacity, the route tile it fades
+         * out on while still moving, once past the jam, or [n] or more for
+         * none, and how far along its way that is.
+         */
+        var jam = false
+        var stopAt = Int.MAX_VALUE
+        var stop = Float.MAX_VALUE
+        /**
          * Kept for the route tile [at] it's on, so a frame reads little: the
          * tile and whether it's in a tunnel, its speed there, its chain in
          * the queues or -1 off the road, where its lane on the tile starts in
@@ -121,6 +129,22 @@ internal class TripMovers {
     private var filling = false
     /** The setting last asked for, so fewer wanted takes the extras off at once. */
     private var lastMost = -1
+
+    /**
+     * Extras on roads over capacity, so a jam looks full: the sample the
+     * table was made for, each route's running total of trips times how far
+     * over capacity its tiles are, how many the jams call for on the whole
+     * map, how many are out and how many are owed.
+     */
+    private var jamFor: TripSample? = null
+    private var jamCum = LongArray(0)
+    private var jamTotal = 0L
+    private var jamCount = 0
+    private var jams = 0
+    private var jamDue = 0f
+    /** The route tiles an extra about to be placed starts on and fades out on, as [jamStretch] picks them. */
+    private var jamFrom = 0
+    private var jamUntil = 0
 
     /**
      * Who's where, noted into [noting] as each mover moves and read from
@@ -249,12 +273,17 @@ internal class TripMovers {
      * going onto it, wait for a tram or bus of [lines] to cross, and queue
      * behind the one ahead. One held still for [STILL_MOST] seconds leaves the
      * map, so no jam lasts for good. When [revision] moves on, those with a
-     * crossing ahead whose control has changed find their way again.
+     * crossing ahead whose control has changed find their way again. Up to
+     * a third of them are extras on roads over capacity last month, each
+     * driving through the jam and fading out past it.
      */
     fun update(sample: TripSample, map: CityMap, time: Float, most: Int, stopped: Set<Int>, lines: Collection<LineState> = emptyList(), revision: Int = 0) {
         val dt = if (last.isNaN()) 0f else (time - last).coerceIn(0f, MAX_STEP)
         last = time
-        val want = if (sample.size == 0) 0 else min((most.toLong() * map.size / AREA).toInt(), (sample.trips / TRIPS_EACH).toInt())
+        val cap = (most.toLong() * map.size / AREA).toInt()
+        if (sample.size > 0 && sample !== jamFor) jamTable(sample, map)
+        val jamWant = if (sample.size == 0) 0 else min(jamCount, cap / JAM_SHARE)
+        val want = if (sample.size == 0) 0 else min(cap - jamWant, (sample.trips / TRIPS_EACH).toInt())
         val lowered = most < lastMost
         lastMost = most
         if (want == 0) {
@@ -263,10 +292,12 @@ internal class TripMovers {
             filled = null
             filling = false
             due = 0f
+            jams = 0
+            jamDue = 0f
             return
         }
         // Graphics turned down: the extras go now.
-        if (lowered) while (movers.size > want) retire(movers.size - 1)
+        if (lowered) while (movers.size > want + jamWant) retire(movers.size - 1)
         if (blocked.size != map.size) {
             blocked = BooleanArray(map.size)
             firstAt = FloatArray(map.size)
@@ -302,7 +333,17 @@ internal class TripMovers {
         seen = noting
         noting = was
         if (stopped.isNotEmpty()) for (i in stopped) blocked[i] = false
-        if (movers.isEmpty() && filled !== sample) {
+        // The extras fade in on the jams, a few at a time.
+        if (jams < jamWant && jamTotal > 0L) {
+            jamDue += dt * jamWant / SPREAD
+            while (jamDue >= 1f && jams < jamWant) {
+                spawn(sample, map, time, partway = false, jam = true)
+                jamDue -= 1f
+            }
+        } else {
+            jamDue = 0f
+        }
+        if (movers.size - jams == 0 && filled !== sample) {
             filled = sample
             filling = true
         }
@@ -310,26 +351,130 @@ internal class TripMovers {
             // Starting out, say just after loading: each somewhere along its way, a batch a frame.
             var budget = FILL_EACH_FRAME
             var failed = 0
-            while (budget-- > 0 && movers.size < want && failed < FILL_FAILS) if (!spawn(sample, map, time, partway = true)) failed++
+            while (budget-- > 0 && movers.size - jams < want && failed < FILL_FAILS) if (!spawn(sample, map, time, partway = true)) failed++
             // Nothing can be built from this sample: stop until the next one.
-            if (movers.size >= want || failed >= FILL_FAILS) filling = false
+            if (movers.size - jams >= want || failed >= FILL_FAILS) filling = false
             due = 0f
             return
         }
-        if (movers.size >= want) {
+        if (movers.size - jams >= want) {
             due = 0f
             return
         }
         due += dt * want / SPREAD
-        while (due >= 1f && movers.size < want) {
+        while (due >= 1f && movers.size - jams < want) {
             spawn(sample, map, time, partway = false)
             due -= 1f
         }
     }
 
+    /** How far over capacity tile [i] was last month, 0 if it wasn't, isn't a road or is shut. */
+    private fun overload(map: CityMap, i: Int): Int {
+        if (map.road[i].toInt() == 0 || map.closed(i)) return 0
+        return max(0, (map.congestion[i].toInt() and 0xff) - JAM_OVER)
+    }
+
+    /** Works out the extras' table for [sample] on [map]'s congestion, which changes with it at the month end. */
+    private fun jamTable(sample: TripSample, map: CityMap) {
+        jamFor = sample
+        if (jamCum.size < sample.size) jamCum = LongArray(sample.size)
+        var sum = 0L
+        for (r in 0 until sample.size) {
+            val kind = sample.kind(r)
+            if (kind == TripSample.CAR || kind == TripSample.TRUCK) {
+                var load = 0L
+                for (j in 0 until sample.length(r)) if (!sample.under(r, j)) load += overload(map, sample.tile(r, j))
+                sum += load * sample.weight(r)
+            }
+            jamCum[r] = sum
+        }
+        jamTotal = sum
+        // As many as the loopers had: one a lane for every 96 over capacity, a few short of it counting as one.
+        var count = 0
+        for (i in 0 until map.size) {
+            val load = overload(map, i)
+            if (load > 0) count += (load + JAM_ROUND) * 2
+        }
+        jamCount = if (sum > 0L) count / JAM_EACH else 0
+    }
+
+    /** The route of a trip through a jam, by its share of [jamTotal] from [roll]. */
+    private fun pickJam(roll: Long, size: Int): Int {
+        var lo = 0
+        var hi = size - 1
+        while (lo < hi) {
+            val mid = (lo + hi) ushr 1
+            if (jamCum[mid] > roll) hi = mid else lo = mid + 1
+        }
+        return lo
+    }
+
+    /**
+     * For an extra on route [r] of [sample], picks the route tile it starts on
+     * by how far over capacity each was, into [jamFrom], and the one it fades
+     * out on past the jam, at least [JAM_MIN] tiles on and at most [JAM_RUN],
+     * into [jamUntil]. False if the route doesn't touch the jam, or if a queue
+     * on that stretch has backed up over a whole tile in the last
+     * [PACKED_HOLD] seconds before [time], so a jam fills no faster than the
+     * lights clear it. Read from the sample, before the way's built.
+     */
+    private fun jamStretch(sample: TripSample, r: Int, map: CityMap, time: Float): Boolean {
+        // Only up to the first jump between tiles that don't touch, as [build] has it.
+        val w = map.width
+        var n = sample.length(r)
+        for (j in 1 until n) {
+            val a = sample.tile(r, j - 1)
+            val b = sample.tile(r, j)
+            if (abs(a % w - b % w) + abs(a / w - b / w) != 1) {
+                n = j
+                break
+            }
+        }
+        if (n < 2) return false
+        var sum = 0
+        for (j in 0 until n) if (!sample.under(r, j)) sum += overload(map, sample.tile(r, j))
+        if (sum == 0) return false
+        var roll = (next() * sum).toInt()
+        // Congestion can change on the sim thread between the two passes, at the month end: none picked then.
+        var j = 0
+        while (j < n) {
+            if (!sample.under(r, j)) {
+                roll -= overload(map, sample.tile(r, j))
+                if (roll < 0) break
+            }
+            j++
+        }
+        if (j >= n) return false
+        var k = j + 1
+        while (k < n && k - j < JAM_RUN && (k - j < JAM_MIN || overload(map, sample.tile(r, k)) > 0)) k++
+        jamFrom = j
+        jamUntil = k
+        for (i in j until k) {
+            if (sample.under(r, i)) continue
+            val w = if (i > 0) way(sample.tile(r, i - 1), sample.tile(r, i)) else way(sample.tile(r, 0), sample.tile(r, 1))
+            val at = packedAt[sample.tile(r, i) * 4 + w]
+            // A clock that's gone back, after loading say, leaves it clear.
+            if (at <= time && time - at < PACKED_HOLD) return false
+        }
+        return true
+    }
+
+    /** Puts extra [m] somewhere on route tile [jamFrom] and has it fade out from [jamUntil]; false if its way as built stops short of it, at a ferry say. */
+    private fun intoJam(m: Mover): Boolean {
+        val j = jamFrom
+        if (j >= m.n) return false
+        val from = m.enter[j]
+        val to = if (j < m.n - 1) m.enter[j + 1] else m.length
+        m.dist = from + next().toFloat() * (to - from)
+        m.stopAt = jamUntil
+        m.stop = if (jamUntil >= m.n) Float.MAX_VALUE else m.enter[jamUntil]
+        return true
+    }
+
     /** Takes mover [k] off the map, keeping it to set off again, and its place in [into]. */
     private fun retire(k: Int, into: Notes = seen) {
         val m = movers[k]
+        if (m.jam) jams--
         val last = movers.size - 1
         movers[k] = movers[last]
         movers.removeAt(last)
@@ -416,6 +561,7 @@ internal class TripMovers {
         if (!build(sample, m.r, map, m.seed, m) || m.n != n) return false
         val to = if (j < n - 1) m.enter[j + 1] else m.length
         m.dist = m.enter[j] + share * (to - m.enter[j])
+        m.stop = if (m.stopAt >= m.n) Float.MAX_VALUE else m.enter[m.stopAt]
         m.still = still
         settle(m, map)
         return true
@@ -727,7 +873,13 @@ internal class TripMovers {
             m.fade -= dt / FADE
             return m.fade > 0f
         }
-        if (m.fade < 1f) m.fade = min(1f, m.fade + dt / FADE)
+        // An extra past its jam fades as it goes on.
+        if (m.dist >= m.stop) {
+            m.fade -= dt / FADE
+            if (m.fade <= 0f) return false
+        } else if (m.fade < 1f) {
+            m.fade = min(1f, m.fade + dt / FADE)
+        }
         val j = m.at
         if (m.heldAt != j + 1) {
             m.heldAt = j + 1
@@ -839,26 +991,41 @@ internal class TripMovers {
     /** Where [m] waits for the next tile: its front at the edge of it, or a walker at the curb. */
     private fun line(m: Mover) = if (m.rides) m.edge - m.half else m.edge - CURB_GAP
 
-    /** Starts a trip picked from [sample] by weight at [time], at its start or, if [partway], somewhere along it. */
-    private fun spawn(sample: TripSample, map: CityMap, time: Float, partway: Boolean): Boolean {
-        repeat(TRIES) {
-            val roll = (next() * sample.totalWeight).toLong().coerceIn(0L, sample.totalWeight - 1)
+    /**
+     * Starts a trip picked from [sample] by weight at [time], at its start or,
+     * if [partway], somewhere along it; or if [jam], an extra picked by how
+     * far over capacity its way is, fading in on a tile that's over.
+     */
+    private fun spawn(sample: TripSample, map: CityMap, time: Float, partway: Boolean, jam: Boolean = false): Boolean {
+        val mid = partway || jam
+        repeat(if (jam) JAM_TRIES else TRIES) {
+            val total = if (jam) jamTotal else sample.totalWeight
+            val roll = (next() * total).toLong().coerceIn(0L, total - 1)
+            val r = if (jam) pickJam(roll, sample.size) else sample.pick(roll)
+            if (jam && !jamStretch(sample, r, map, time)) return@repeat
             val into = if (spare.isEmpty()) Mover() else spare.removeAt(spare.size - 1)
-            if (!build(sample, sample.pick(roll), map, (state ushr 32).toInt(), into)) {
+            if (!build(sample, r, map, (state ushr 32).toInt(), into)) {
+                spare.add(into)
+                return@repeat
+            }
+            into.jam = jam
+            into.stopAt = Int.MAX_VALUE
+            into.stop = Float.MAX_VALUE
+            if (jam && !intoJam(into)) {
                 spare.add(into)
                 return@repeat
             }
             if (partway) into.dist = next().toFloat() * into.length
             settle(into, map)
             // Not on a crossing it'd have stopped or given way at: back on the tile before it.
-            if (partway && into.at > 0 && controlled(into, map)) {
+            if (mid && into.at > 0 && controlled(into, map)) {
                 into.dist = max(0f, into.enter[into.at] - LINE_SLACK)
                 into.seg = 0
                 into.at = -1
                 settle(into, map)
             }
             // Not past the line of a crossing it'd stop at, so it still stops there: back at the line.
-            if (partway && into.next >= 0 && !into.nextUnder && map.control[into.next] != Junction.NONE && into.dist > line(into)) {
+            if (mid && into.next >= 0 && !into.nextUnder && map.control[into.next] != Junction.NONE && into.dist > line(into)) {
                 into.dist = max(0f, line(into))
                 into.seg = 0
                 into.at = -1
@@ -870,8 +1037,8 @@ internal class TripMovers {
                 return@repeat
             }
             // Not on top of one already there, at the back of a queue say: another trip instead.
-            // Nor into a queue ahead of it that's backed up, so a jam fills no faster than the lights clear it.
-            if (into.chainKey >= 0 && crowded(into) || into.rides && packed(into, time)) {
+            // Nor into a queue ahead of it that's backed up, so a jam fills no faster than the lights clear it; an extra's own stretch was looked at before.
+            if (into.chainKey >= 0 && crowded(into) || into.rides && !jam && packed(into, time)) {
                 spare.add(into)
                 return@repeat
             }
@@ -879,6 +1046,7 @@ internal class TripMovers {
             into.fade = if (partway) 1f else 0f
             into.leaving = false
             movers.add(into)
+            if (jam) jams++
             note(seen, movers.size - 1, into, map)
             if (into.chainKey >= 0 && chainedAt == frame) chain(movers.size - 1)
             return true
@@ -1237,8 +1405,9 @@ private const val TRIPS_EACH = 5L
 /** Seconds at normal speed for a town's worth of movers to set off, so they don't all go at once. */
 private const val SPREAD = 4f
 
-/** Routes tried before giving up on starting a mover this time. */
+/** Routes tried before giving up on starting a mover this time, fewer for an extra, as there are many of them due each second. */
 private const val TRIES = 4
+private const val JAM_TRIES = 2
 
 /** The longest step a mover takes in one frame, in seconds, so a stall doesn't send it jumping on. */
 private const val MAX_STEP = 0.25f
@@ -1275,6 +1444,20 @@ private val DIRT_ID = RoadType.DIRT.id
 /** North, east, south and west, the order a tile's sides are looked at for a lot. */
 private val LOT_DX = intArrayOf(0, 1, 0, -1)
 private val LOT_DY = intArrayOf(-1, 0, 1, 0)
+
+/**
+ * Extras for jams: over how much congestion a road counts as over capacity,
+ * what's added to each tile's overload and how much overload each one is
+ * for, both lanes counted, so a lane gets one for every 96 over. They take
+ * up at most a third of all movers, and each goes on for so many tiles past
+ * where it starts, the most while it's still in the jam.
+ */
+private const val JAM_OVER = 128
+private const val JAM_ROUND = 16
+private const val JAM_EACH = 96
+private const val JAM_SHARE = 3
+private const val JAM_MIN = 2
+private const val JAM_RUN = 6
 
 /** Movers set off part-way along their trips in one frame when the map fills. */
 private const val FILL_EACH_FRAME = 300
