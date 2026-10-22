@@ -21,6 +21,7 @@ STRINGS = "shared/src/commonMain/composeResources/values/strings.xml"
 
 # Canadian English, word by word: these are the US spellings that keep turning up.
 US = {
+    "kerb": "curb", "kerbs": "curbs", "kerbed": "curbed",
     "color": "colour", "colors": "colours", "colored": "coloured", "colorful": "colourful",
     "center": "centre", "centers": "centres", "centered": "centred",
     "gray": "grey", "harbor": "harbour", "harbors": "harbours",

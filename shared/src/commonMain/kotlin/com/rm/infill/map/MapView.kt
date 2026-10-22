@@ -140,6 +140,7 @@ fun MapView(
     var weatherTime by remember { mutableFloatStateOf(0f) }
     var travelTime by remember { mutableFloatStateOf(0f) }
     val services = remember(game.city) { ServiceTrips() }
+    val movers = remember(game.city) { TripMovers() }
     val moving = remember(renderer) { renderer?.let { MovingLayer(map, it) } }
     val paceNow by rememberUpdatedState(pace)
     val fires = game.city.burningNow > 0
@@ -411,8 +412,17 @@ fun MapView(
         val stopped = (if (trains) drawTrains(game.city.trainRoutes, map, camera, travelTime, graphics.trains, graphics.smoke, steam = game.city.year < Balance.STEAM_TRAINS_UNTIL, behind = behind) else emptySet()) + raised
         if (ferries) drawFerries(game.city.ferryRoutes, map, camera, travelTime)
         if (traffic) {
-            drawPeople(game.city, map, camera, game.city.year, travelTime, behind)
-            drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped, behind)
+            val sample = game.city.tripSample
+            movers.update(sample, map, travelTime, graphics.movers, stopped)
+            if (sample.size == 0 || graphics.movers == 0) {
+                // No trips to follow, just after loading say, or graphics too low for them: traffic looping by last month's volumes instead.
+                drawPeople(game.city, map, camera, game.city.year, travelTime, behind)
+                drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped, behind = behind)
+            } else {
+                with(movers) { draw(map, camera, game.city.year, behind) }
+                // A few more on roads over capacity, so a jam looks full.
+                drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped, over = AT_CAPACITY, behind = behind)
+            }
             drawTransit(map, camera, travelTime, game.city.lineStates(), behind)
             services.update(game.city.callouts, map, travelTime, game.city.year)
             with(services) { draw(map, camera, game.city.year, weatherTime, behind) }
@@ -497,3 +507,6 @@ private const val NEAR_TILE_DP = 64f
 
 /** From when trains are electric, after diesel. */
 private const val ELECTRIC_TRAINS_FROM = 1995
+
+/** How full a road is at capacity, on the scale of CityMap.congestion; looping traffic shows only what's over it. */
+private const val AT_CAPACITY = 128

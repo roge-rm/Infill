@@ -178,6 +178,26 @@ internal class Traffic(private val map: CityMap) {
     private var routes = IntList()
     private var lastRoutes = IntList()
 
+    /**
+     * This month's legs of every kind of trip, for the map's sample:
+     * [kind, start, end, trips, tiles, tile...] with the tiles from start to
+     * end, a tunnel's as -1 - tile. [legTiles] is one leg being built. Past
+     * [legCap] ints, every other leg kept is dropped and the rest count
+     * double, and from then on only every [legEvery]th leg goes in, so the
+     * whole month stays evenly sampled. [legTrips] counts every leg's trips.
+     */
+    private val legs = IntList()
+    private val legTiles = IntList()
+    internal var legCap = LEG_CAP
+    private var legEvery = 1
+    private var legSeen = 0L
+    private var legTrips = 0L
+
+    /** Last month's trips, a few thousand legs picked by how many went. Replaced whole, so any thread may read it. */
+    @kotlin.concurrent.Volatile
+    var tripSample = TripSample.EMPTY
+        private set
+
     /** Set by the city from its districts: stops boarded free, and streets heavy trucks are kept off. */
     var freeStop = BooleanArray(map.size)
     var noTrucks = BooleanArray(map.size)
@@ -393,6 +413,11 @@ internal class Traffic(private val map: CityMap) {
         lastFlow = if (tookSeconds <= 0) 100 else (freeSeconds * 100 / tookSeconds).toInt().coerceIn(0, 100)
         freeSeconds = 0
         tookSeconds = 0
+        tripSample = TripSample.build(legs, salt, legTrips)
+        legs.clearAndTrim()
+        legEvery = 1
+        legSeen = 0L
+        legTrips = 0L
         val swap = lastRoutes
         lastRoutes = routes
         routes = swap
@@ -890,9 +915,23 @@ internal class Traffic(private val map: CityMap) {
         // The road tiles a vehicle took, for following the trip on the map.
         val head = routes.size
         routes.add(0); routes.add(end % n); routes.add(trips); routes.add(0)
+        var group = -1
+        legTiles.size = 0
         while (st >= 0) {
             val layer = st / n
             val at = st % n
+            val g = when (layer) {
+                CAR, UNDER -> 0
+                WALK, PARKED -> 1
+                BIKE -> 2
+                else -> -1
+            }
+            if (g != group) {
+                endLeg(group, kind, trips)
+                group = g
+            }
+            // A tile in a tunnel goes in as -1 - tile, so the map can hide what's under the ground.
+            if (g >= 0 && (legTiles.size == 0 || TripSample.tileOf(legTiles[legTiles.size - 1]) != at)) legTiles.add(if (layer == UNDER) -1 - at else at)
             if (layer == CAR) {
                 routes.add(at)
                 val p = from[st]
@@ -1005,10 +1044,51 @@ internal class Traffic(private val map: CityMap) {
             }
             st = prev
         }
+        endLeg(group, kind, trips)
         if (kind == WORKER) modes[mode] += trips
         // Only trips that drove are kept.
         val tiles = routes.size - head - 4
         if (tiles == 0) routes.size = head else routes[head + 3] = tiles
+    }
+
+    /** Files the leg just walked back along ([legTiles], end first) under its [group]: vehicle, walk or bike. */
+    private fun endLeg(group: Int, kind: Int, trips: Int) {
+        val count = legTiles.size
+        if (group < 0 || count < 2 || trips <= 0) {
+            legTiles.size = 0
+            return
+        }
+        legTrips += trips
+        legSeen++
+        if (legSeen % legEvery != 0L) {
+            legTiles.size = 0
+            return
+        }
+        // Walking back from the end, so the tiles go in reversed.
+        legs.add(if (group == 0) (if (kind == FREIGHT) TripSample.TRUCK else TripSample.CAR) else if (group == 1) TripSample.WALKER else TripSample.CYCLIST)
+        legs.add(TripSample.tileOf(legTiles[count - 1])); legs.add(TripSample.tileOf(legTiles[0])); legs.add(scaled(trips, legEvery)); legs.add(count)
+        for (j in count - 1 downTo 0) legs.add(legTiles[j])
+        legTiles.size = 0
+        if (legs.size > legCap) thinLegs()
+    }
+
+    /** Keeps every second leg, the ones a sample of every [legEvery] * 2 would have taken, each counting double. */
+    private fun thinLegs() {
+        var read = 0
+        var write = 0
+        var k = 0
+        while (read < legs.size) {
+            val len = 5 + legs[read + 4]
+            if (k % 2 == 1) {
+                for (j in 0 until len) legs[write + j] = legs[read + j]
+                legs[write + 3] = scaled(legs[write + 3], 2)
+                write += len
+            }
+            read += len
+            k++
+        }
+        legs.size = write
+        legEvery *= 2
     }
 
     /** Seconds to walk across a tile, more over a level crossing or through floodwater. */
@@ -1336,6 +1416,11 @@ internal class Traffic(private val map: CityMap) {
         const val LAYERS = 10
 
         // What a trip's for.
+        /** The most ints of legs kept in a month, about 8 MB. */
+        private const val LEG_CAP = 2_000_000
+
+        /** [trips] standing for [times] as many, kept within an Int. */
+        private fun scaled(trips: Int, times: Int) = min(Int.MAX_VALUE.toLong(), trips.toLong() * times).toInt()
         private const val WORKER = 0
         private const val SHOPPER = 1
         private const val FREIGHT = 2
@@ -1401,6 +1486,12 @@ internal class IntList {
 
     operator fun set(i: Int, v: Int) {
         a[i] = v
+    }
+
+    /** Empties it, and gives back room it's grown far beyond what it held. */
+    fun clearAndTrim() {
+        if (a.size > 1024 && size < a.size / 4) a = IntArray(max(1024, a.size / 4))
+        size = 0
     }
 }
 

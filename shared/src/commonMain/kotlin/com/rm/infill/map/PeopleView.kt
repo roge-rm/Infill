@@ -15,7 +15,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * People on the pavements and cyclists at the kerb, more of them where more
+ * People on the pavements and cyclists at the curb, more of them where more
  * went by last month. Each pavement has people going both ways, spaced down
  * the whole row or column of road and moving along it together, so someone
  * carries on from tile to tile; how busy a tile is decides who shows on it.
@@ -71,7 +71,7 @@ internal fun DrawScope.drawPeople(city: City, map: CityMap, camera: Camera, year
                     walker(at, t, clothes[(seed ushr 4).mod(clothes.size)], HAIR[(seed ushr 9).mod(HAIR.size)])
                 }
             }
-            // Cycling: at the kerb on the right, each way.
+            // Cycling: at the curb on the right, each way.
             val riding = min(MOST_CYCLISTS.toFloat(), cyclists / PER_CYCLIST)
             for (way in 0..1) {
                 val line = line0 + 4 + way
@@ -87,6 +87,18 @@ internal fun DrawScope.drawPeople(city: City, map: CityMap, camera: Camera, year
             }
         }
     }
+}
+
+/** Someone on foot, dressed for [year], their clothes and hair picked by [seed]. */
+internal fun DrawScope.person(at: Offset, t: Float, year: Int, seed: Int) {
+    val clothes = if (year < BRIGHT_YEAR) DRAB else BRIGHT
+    walker(at, t, clothes[(seed ushr 4).mod(clothes.size)], HAIR[(seed ushr 9).mod(HAIR.size)])
+}
+
+/** Someone cycling, [heading] degrees clockwise from east, dressed for [year]. */
+internal fun DrawScope.rider(at: Offset, t: Float, heading: Float, year: Int, seed: Int) {
+    val clothes = if (year < BRIGHT_YEAR) DRAB else BRIGHT
+    cyclist(at, t, heading, clothes[(seed ushr 4).mod(clothes.size)])
 }
 
 /** Someone on foot from above: shoulders in their clothes, and the top of their head. */
@@ -201,7 +213,7 @@ private const val BIKE_SPEED = 0.3f
 private val PAVEMENT = floatArrayOf(0.15f, 0.85f)
 private const val STEP = 0.02f
 
-/** Where cyclists keep, inside each kerb. */
+/** Where cyclists keep, inside each curb. */
 private const val KERB_NEAR = 0.25f
 private const val KERB_FAR = 0.75f
 

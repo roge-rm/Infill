@@ -13,7 +13,7 @@ Some of the people without a car ride a bicycle: a fifth in 1900, a third by the
 
 From 1970, **Cycle lane** in the **Buses** tab of **Transit** is dragged along roads like a bus lane, at $40 a tile. Cyclists on a cycle lane aren't held up by the traffic, and the more of the town's roads have one, the more people cycle. From 1990 some people with a car cycle too, up to a fifth of them where every road within 8 tiles of home has a cycle lane. **Remove** takes it up again.
 
-You can see people walking along the streets and cycling at the kerb, more of them where more went by last month.
+You can see people walking along the streets and cycling at the curb, more of them where more went by last month.
 
 ## Trams
 

@@ -17,15 +17,15 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Carts and, as the years go on, more and more cars along the runs of road
- * and through their junctions. A road has more of them the busier it was
- * last month, and they go slower. They keep to the right, and fill both
- * lanes of a one-way road.
+ * Extra carts and cars looping along roads that were over capacity last
+ * month, on top of the trips [TripMovers] follows, so a jam looks full. Only
+ * the share of traffic over [over] shows, and they go slower the busier the
+ * road. They keep to the right, and fill both lanes of a one-way road.
  * [most] is how many there can be in a lane on one tile. At the level
  * [crossings] a train is on, the road is clear and traffic waits either side.
  * A road shut for works has nothing on it.
  */
-internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, time: Float, most: Int, crossings: Set<Int> = emptySet(), behind: (Float, Float) -> Boolean = { _, _ -> false }) {
+internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, time: Float, most: Int, crossings: Set<Int> = emptySet(), over: Int = 0, behind: (Float, Float) -> Boolean = { _, _ -> false }) {
     val t = camera.tilePx
     if (most == 0 || t < MIN_TILE_PX) return
     val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -34,8 +34,9 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
     val y0 = floor(topLeft.y).toInt().coerceAtLeast(0)
     val x1 = ceil(bottomRight.x).toInt().coerceAtMost(map.width - 1)
     val y1 = ceil(bottomRight.y).toInt().coerceAtMost(map.height - 1)
-    // Cars start to show up after 1905 and are most of the traffic by the 1940s.
-    val cars = ((year - 1905) / 40f).coerceIn(0f, 0.9f)
+    val cars = carShare(year)
+    // How busy a tile counts as here: only what's over [over].
+    fun load(i: Int) = max(0, (map.congestion[i].toInt() and 0xff) - over)
     fun road(x: Int, y: Int) = map.inside(x, y) && map.road[map.index(x, y)].toInt() != 0
     // Whether traffic passes between x, y and its neighbour toward [h] one way or the other: not across the middle of a boulevard.
     fun linked(x: Int, y: Int, h: Int): Boolean {
@@ -117,7 +118,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                 }
             }
         }
-        fun busyAt(x: Int, y: Int) = if (road(x, y)) map.congestion[map.index(x, y)].toInt() and 0xff else 0
+        fun busyAt(x: Int, y: Int) = if (road(x, y)) load(map.index(x, y)) else 0
         if (across && down) {
             val ways = (0 until 4).filter { linked(x, y, it + 1) }
             if (ways.size == 2 && heading == 0) {
@@ -125,10 +126,10 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                 val a = map.index(x + Heading.DX[ways[0] + 1], y + Heading.DY[ways[0] + 1])
                 val b = map.index(x + Heading.DX[ways[1] + 1], y + Heading.DY[ways[1] + 1])
                 // As busy as the busier road either side, so what comes up to the bend is seen going round it.
-                val busy = maxOf(map.congestion[i].toInt() and 0xff, map.congestion[a].toInt() and 0xff, map.congestion[b].toInt() and 0xff)
+                val busy = maxOf(load(i), load(a), load(b))
                 if (busy == 0) continue
                 val slots = min(most, 1 + busy / 96)
-                val speed = BASE_SPEED * (1f - min(0.75f, busy / 340f))
+                val speed = BASE_SPEED * (1f - min(0.75f, (busy + over) / 340f))
                 for (lane in 0..1) for (k in 0 until slots) {
                     val seed = x * 7919 + y * 104729 + lane * 31 + k * 977
                     if (k == 0 && unit(seed) * 128f > busy + 16) continue
@@ -143,10 +144,10 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                 val a = map.index(x + Heading.DX[ways[0] + 1], y + Heading.DY[ways[0] + 1])
                 val b = map.index(x + Heading.DX[ways[1] + 1], y + Heading.DY[ways[1] + 1])
                 val (from, to) = if (map.drivable(a, i, Heading.opposite(ways[0] + 1))) a to b else b to a
-                val busy = maxOf(map.congestion[i].toInt() and 0xff, map.congestion[a].toInt() and 0xff, map.congestion[b].toInt() and 0xff)
+                val busy = maxOf(load(i), load(a), load(b))
                 if (busy == 0) continue
                 val slots = min(most, 1 + busy / 96)
-                val speed = BASE_SPEED * (1f - min(0.75f, busy / 340f))
+                val speed = BASE_SPEED * (1f - min(0.75f, (busy + over) / 340f))
                 for (lane in 0..1) for (k in 0 until slots) {
                     val seed = x * 7919 + y * 104729 + lane * 31 + k * 977
                     if (k == 0 && unit(seed) * 128f > busy + 16) continue
@@ -175,7 +176,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
             continue
         }
         // Along straight runs.
-        val busy = map.congestion[i].toInt() and 0xff
+        val busy = load(i)
         if (busy == 0 || !across && !down) continue
         stream(across, heading, busy, 0f, 1f, queue = true)
     }
@@ -304,6 +305,35 @@ private fun DrawScope.car(at: Offset, t: Float, heading: Float, length: Float, w
     }
 }
 
+/** The share of road traffic that's cars in [year]: they start to show up after 1905 and are most of it by the 1940s. */
+internal fun carShare(year: Int) = ((year - 1905) / 40f).coerceIn(0f, 0.9f)
+
+/**
+ * A cart or car, or a [truck], picked by [seed] for [year], centred on [at],
+ * [heading] degrees clockwise from east.
+ */
+internal fun DrawScope.roadVehicle(at: Offset, t: Float, heading: Float, year: Int, seed: Int, truck: Boolean) {
+    val motor = unit(seed * 5) < carShare(year)
+    if (truck) lorry(at, t, heading, motor) else vehicle(at, t, heading, motor, seed)
+}
+
+/** A goods wagon behind a horse, or a lorry with its cab ahead of the box. */
+private fun DrawScope.lorry(at: Offset, t: Float, heading: Float, motor: Boolean) {
+    val length = t * 0.4f
+    val width = t * 0.15f
+    rotate(heading, at) {
+        val topLeft = Offset(at.x - length / 2, at.y - width / 2)
+        if (motor) {
+            drawRect(BOX, topLeft, Size(length * 0.72f, width))
+            drawRect(CAB, Offset(topLeft.x + length * 0.76f, topLeft.y + width * 0.08f), Size(length * 0.24f, width * 0.84f))
+            drawRect(GLASS, Offset(topLeft.x + length * 0.9f, topLeft.y + width * 0.15f), Size(length * 0.08f, width * 0.7f))
+        } else {
+            drawRect(WAGON, topLeft, Size(length * 0.68f, width))
+            drawRect(HORSE, Offset(topLeft.x + length * 0.72f, at.y - width * 0.25f), Size(length * 0.28f, width * 0.5f))
+        }
+    }
+}
+
 /** One vehicle centred on [at], [heading] degrees clockwise from east: a horse and cart, or a car. */
 private fun DrawScope.vehicle(at: Offset, t: Float, heading: Float, car: Boolean, seed: Int) {
     val length = t * 0.28f
@@ -337,7 +367,7 @@ private const val LINES = 1 shl 16
 
 /**
  * Where the two lanes run across a tile: either side of the centre line,
- * which is at the tile's middle, with room for a car between it and the kerb.
+ * which is at the tile's middle, with room for a car between it and the curb.
  */
 private const val NEAR = 0.65f
 private const val FAR = 0.35f
@@ -372,5 +402,8 @@ private val TROLLEY_BODY = Color(0xFF2F5F9A)
 private val POLE = Color(0xFF2A2A2E)
 private val HORSE = Color(0xFF4E3322)
 private val GLASS = Color(0xFF2B3440)
+private val BOX = Color(0xFFB8B2A4)
+private val CAB = Color(0xFF7A2A26)
+private val WAGON = Color(0xFF6E5236)
 private val CART_COLOURS = listOf(Color(0xFF8B6B45), Color(0xFF6E5236), Color(0xFFA07A4A), Color(0xFF3F3A34))
 private val CAR_COLOURS = listOf(Color(0xFF26262A), Color(0xFF6B2330), Color(0xFF2E4A3A), Color(0xFF263A5A), Color(0xFFD9CFB0))

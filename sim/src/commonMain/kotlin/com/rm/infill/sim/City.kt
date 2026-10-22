@@ -3897,6 +3897,9 @@ class City(
     /** Last month's vehicles through road tile [i], by the road tiles they crossed. */
     fun tripsThrough(i: Int): IntArray = traffic.tripsThrough(i)
 
+    /** Last month's trips, sampled for the map. Safe to read from any thread: it is replaced whole each month. */
+    val tripSample: TripSample get() = traffic.tripSample
+
     /** Seconds by road from road tile [i] to every other, as the traffic is now; -1 out of reach. */
     fun travelTimes(i: Int): IntArray = traffic.travelTimes(i)
 

@@ -917,7 +917,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         return map.portal[i].toInt() == h && (if (rail) map.lowRail[i].toInt() != 0 else map.lowRoad[i].toInt() != 0)
     }
 
-    /** A bus and tram lane: a red band along each kerb, the way the road runs, left off at crossings. */
+    /** A bus and tram lane: a red band along each curb, the way the road runs, left off at crossings. */
     private fun lanes(surface: BakeSurface, tx: Int, ty: Int, dx: Int, dy: Int, s: Int) {
         val mask = roadMask(tx, ty)
         val across = mask and 10 != 0 && mask and 5 == 0
@@ -935,7 +935,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         }
     }
 
-    /** A cycle lane: a green strip right at each kerb, the way the road runs, left off at crossings. */
+    /** A cycle lane: a green strip right at each curb, the way the road runs, left off at crossings. */
     private fun cycleLanes(surface: BakeSurface, tx: Int, ty: Int, dx: Int, dy: Int, s: Int) {
         val mask = roadMask(tx, ty)
         val across = mask and 10 != 0 && mask and 5 == 0
@@ -953,7 +953,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         }
     }
 
-    /** Tram track set in the street, and the stops at its kerb. */
+    /** Tram track set in the street, and the stops at its curb. */
     private fun transitOn(surface: BakeSurface, base: Int, i: Int, tx: Int, ty: Int, dx: Int, dy: Int) {
         if (map.tram[i].toInt() != 0) surface.blend(base + Atlas.TRAMWAY + tramMask(tx, ty), dx, dy)
         if (map.wire[i].toInt() != 0) surface.blend(base + Atlas.TROLLEY_WIRE + layerMask(map.wire, tx, ty), dx, dy)

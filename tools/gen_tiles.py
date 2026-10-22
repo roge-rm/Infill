@@ -1936,7 +1936,7 @@ def track(look, mask):
 
 
 # Tramways: rails set in the street along the track's pieces, with the poles
-# for the overhead wire at the kerb. Drawn over the road tile.
+# for the overhead wire at the curb. Drawn over the road tile.
 
 TRAM_RAIL = c("#4a4c50")
 TRAM_GROOVE = c("#2c2d30")
@@ -1955,7 +1955,7 @@ def tramway(look, mask):
                     px[x, y] = TRAM_RAIL if col == RAIL_STEEL else TRAM_GROOVE
                     break
     d = ImageDraw.Draw(img)
-    # Poles for the wire, at the kerb either side of a straight run, and the wire between them.
+    # Poles for the wire, at the curb either side of a straight run, and the wire between them.
     # The span wire between the poles crosses the street; the contact wire runs along the track.
     if mask in (5, 1, 4):
         for x in (1, T - 2):
@@ -1971,7 +1971,7 @@ def tramway(look, mask):
 
 
 def trolley_wire(look, mask):
-    """Trolleybus wire over a road: a pair of wires along each way it's joined, and poles at the kerb on straight runs."""
+    """Trolleybus wire over a road: a pair of wires along each way it's joined, and poles at the curb on straight runs."""
     img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     wire = (36, 38, 42, 170)
@@ -1997,7 +1997,7 @@ def trolley_wire(look, mask):
 
 
 def tram_stop(look):
-    """A shelter at the kerb and a stop sign, at the tile's north west corner."""
+    """A shelter at the curb and a stop sign, at the tile's north west corner."""
     img = Image.new("RGBA", (T, T), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     d.rectangle([1, 1, 9, 4], SNOW_ROOF[0] if look == "snow" else c("#3f6a4a"), OUTLINE)
@@ -4275,7 +4275,7 @@ def roundabout(look, mask):
                 continue
             d.point((cx + dx * r, cy + dy * r), white)
             d.point((cx + dx * r + dy, cy + dy * r + dx), white)
-        # The splitter: a small kerbed triangle pointing out along the road.
+        # The splitter: a small curbed triangle pointing out along the road.
         tip = (cx + dx * 15, cy + dy * 15)
         base_l = (cx + dx * 11 - dy * 2, cy + dy * 11 - dx * 2)
         base_r = (cx + dx * 11 + dy * 3, cy + dy * 11 + dx * 3)
@@ -5346,7 +5346,7 @@ def police_hq(look, v):
         d.point((cx + k, y1 - 12), c("#a8c4ff"))
     d.rectangle(wall, outline=OUTLINE)
     flat_roof(b.img, roof, look, rng, [("stack", 8, 4), ("hatch", 40, 10), ("vent", 70, 8), ("vent", 20, 20)], parapet=STONE)
-    # The flag, and the patrol cars at the kerb.
+    # The flag, and the patrol cars at the curb.
     fx, fy = b.ground(20, 54)
     d.line([fx, fy, fx, fy - 22], c("#d0d0d0"))
     d.rectangle([fx + 1, fy - 22, fx + 6, fy - 19], c("#c0392b"))
@@ -10364,7 +10364,7 @@ def span(height, base, gaps, wire, cx, across):
 
 
 def street_trees(look):
-    """Small trees along the kerbs, one at each corner of the tile."""
+    """Small trees along the curbs, one at each corner of the tile."""
     img = Image.new("RGBA", (T, SPRITE_H), (0, 0, 0, 0))
     rng = random.Random(9800)
     casters = []

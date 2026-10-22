@@ -31,6 +31,13 @@ class Graphics(val level: GraphicsLevel) {
         GraphicsLevel.High -> 3
     }
 
+    /** How many trips are followed across the map at once, on a map 128 tiles square; more or fewer by area. */
+    val movers = when (level) {
+        GraphicsLevel.Low -> 0
+        GraphicsLevel.Medium -> 1000
+        GraphicsLevel.High -> 3000
+    }
+
     /** How many trains can run on each line at once, and whether they smoke. */
     val trains = when (level) {
         GraphicsLevel.Low -> 0

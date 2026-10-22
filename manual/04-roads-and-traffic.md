@@ -41,6 +41,8 @@ The more a crossing is asked to take beyond what its control handles, the longer
 
 Every month the town works out its trips: people to work and to the shops, freight from the works to the edge, and goods to whoever buys them. Each trip takes the quickest way it can, on foot, by car or by transit, and trips go out across the month a part at a time, so later ones see the roads the earlier ones filled.
 
+The cars, trucks, walkers and cyclists on the map are last month's trips. Each one sets off where its trip started, follows its way round the corners and is gone at its end, so the busiest roads get the most. Cars and trucks pull out from the curb by the lot they leave. A road over capacity fills up with more slow traffic, so a jam shows. **Graphics** in Settings sets how many you see.
+
 A road at its capacity takes half as long again to cross, and up to three times as long when it's well over. Level crossings and opening bridges hold traffic up too. Busy roads are noisy, which lowers land value, and slow traffic puts out more fumes.
 
 **Traffic flowing** in the Traffic view is how long trips would take on clear roads, as a share of how long they take. Shops and offices do better when traffic flows, and the Renewal era asks for 55% or better.
