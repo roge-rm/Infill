@@ -68,8 +68,8 @@ import com.rm.infill.res.no_sea_route
 import com.rm.infill.res.load_failed
 import com.rm.infill.res.not_a_town
 import com.rm.infill.res.saved
-import com.rm.infill.sim.SaveError
 import com.rm.infill.sim.SaveGame
+import com.rm.infill.sim.SaveSummary
 import com.rm.infill.ui.LoadWindow
 import com.rm.infill.ui.MenuWindow
 import com.rm.infill.ui.DisastersWindow
@@ -272,6 +272,8 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.DisposableEffect
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.launch
 import com.rm.infill.ui.PadButton
 import com.rm.infill.ui.PadListener
@@ -320,6 +322,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import kotlin.math.max
 import com.rm.infill.ui.screenLayout
 import com.rm.infill.ui.theme.InfillTheme
+import com.rm.infill.ui.theme.Infill
+import androidx.compose.foundation.background
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.graphics.Color
+import kotlin.coroutines.cancellation.CancellationException
 import com.rm.infill.audio.AudioEngine
 import com.rm.infill.audio.Music
 import com.rm.infill.audio.Sounds
@@ -343,6 +350,8 @@ fun App() {
             var help by remember { mutableStateOf<HelpAt?>(null) }
             // Played from the keyboard since a key went down, until the next touch or click.
             var keyboardPlay by remember { mutableStateOf(false) }
+            // A town or region being read: key presses don't reach the screens under the wait, but Esc still stops it.
+            val reading = remember { mutableStateOf(false) }
             CompositionLocalProvider(
                 // A new one when the language changes, so every string is looked up again, in place.
                 LocalDensity provides remember(base, settings.uiScale, settings.language) { ScaledDensity(base.density * settings.uiScale, base.fontScale) },
@@ -355,7 +364,8 @@ fun App() {
                         .onPreviewKeyEvent { e ->
                             keyboardPlay = true
                             // Esc closes what's on top, wherever the keys are.
-                            e.key == Key.Escape && e.type == KeyEventType.KeyDown && Escape.press()
+                            val esc = e.key == Key.Escape && e.type == KeyEventType.KeyDown && Escape.press()
+                            esc || (reading.value && e.type == KeyEventType.KeyDown)
                         }
                         .pointerInput(Unit) {
                             awaitPointerEventScope {
@@ -366,7 +376,7 @@ fun App() {
                             }
                         },
                 ) {
-                    Screens(settings)
+                    Screens(settings, reading)
                     help?.let { h ->
                         key(h) { HelpWindow({ help = null }, h.section) }
                     }
@@ -444,11 +454,33 @@ private class ScaledDensity(override val density: Float, override val fontScale:
 
 private enum class Screen { Start, New, Game, Region }
 
+/** The saved towns, the autosave first, and the regions, for the start screen and the Load window. */
+private class SavesList(val towns: List<Pair<String, SaveSummary>>, val regions: List<RegionRow>)
+
+/** Every save read through once: towns in a region are opened from the region, so they're left out of the towns. */
+private fun listSaves(): SavesList {
+    val inRegions = HashSet<String>()
+    val regions = ArrayList<RegionRow>()
+    val towns = ArrayList<Pair<String, SaveSummary>>()
+    for (f in platform.saves()) {
+        val bytes = platform.readSave(f) ?: continue
+        if (Region.isRegion(bytes)) {
+            runCatching { Region.read(bytes) }.getOrNull()?.let { r ->
+                r.towns.forEach { t -> t?.let { inRegions += it.file } }
+                regions += RegionRow(f, r.name, r.towns.count { it != null }, r.towns.size)
+            }
+        } else {
+            SaveGame.summary(bytes)?.let { towns += f to it }
+        }
+    }
+    return SavesList(towns.filter { it.first !in inRegions }.sortedBy { if (it.first == AUTOSAVE) 0 else 1 }, regions)
+}
+
 /** The help opened at [section], or at the contents; a new one each time so it starts again. */
 private class HelpAt(val section: String?)
 
 @Composable
-private fun Screens(settings: Settings) {
+private fun Screens(settings: Settings, reading: MutableState<Boolean>) {
     var screen by remember { mutableStateOf(Screen.Start) }
     var game by remember { mutableStateOf<GameState?>(null) }
     var loadOpen by remember { mutableStateOf(false) }
@@ -462,26 +494,65 @@ private fun Screens(settings: Settings) {
     var menuOpen by remember { mutableStateOf(false) }
     val notice = remember { mutableStateOf<Message?>(null) }
     var savesChanged by remember { mutableIntStateOf(0) }
-    // Regions, and the files of the towns in them, which are opened from the region rather than listed as towns.
-    val regionsAndTowns = remember(savesChanged, loadOpen, screen) {
-        val towns = HashSet<String>()
-        val rows = platform.saves().mapNotNull { f ->
-            platform.readSave(f)?.takeIf { Region.isRegion(it) }?.let { bytes ->
-                runCatching { Region.read(bytes) }.getOrNull()?.let { r ->
-                    r.towns.forEach { t -> t?.let { towns += it.file } }
-                    RegionRow(f, r.name, r.towns.count { it != null }, r.towns.size)
-                }
+    // The saved towns and regions, read away from the screen's thread; the last list stays up until the new one's read.
+    // Until then just the autosave, so Continue is there from the first frame.
+    var listed by remember {
+        val auto = platform.readSave(AUTOSAVE)?.let { SaveGame.summary(it) }
+        mutableStateOf(SavesList(listOfNotNull(auto?.let { AUTOSAVE to it }), emptyList()))
+    }
+    // Saves being deleted, kept off any list read before they're gone.
+    val deleting = remember { HashSet<String>() }
+    LaunchedEffect(savesChanged, loadOpen, screen) {
+        val got = withContext(Dispatchers.Default) { listSaves() }
+        listed = SavesList(got.towns.filter { it.first !in deleting }, got.regions.filter { it.file !in deleting })
+    }
+    val regions = listed.regions
+    val saves = listed.towns
+    val lastSave = saves.firstOrNull { it.first == AUTOSAVE }?.second
+
+    // For work the screens start that outlives a tap, such as reading a challenge's town.
+    val appScope = rememberCoroutineScope()
+
+    // A town being read. Only one at a time; Back stops it, and so does leaving the screen it was started from.
+    var loading by remember { mutableStateOf<Job?>(null) }
+
+    /**
+     * Reads a town or region with [read] away from the screen's thread, then hands it to [then].
+     * [read] gives null, or throws, for a file that can't be read, and [failed] is shown.
+     */
+    fun <T : Any> loadAway(failed: StringResource, read: suspend () -> T?, then: (T) -> Unit) {
+        if (loading?.isActive == true) return
+        val from = screen
+        val job = appScope.launch {
+            // Two frames first so the wait has been drawn, since a page has no other thread to read it on.
+            repeat(2) { withFrameNanos { } }
+            val got = try {
+                withContext(Dispatchers.Default) { read() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
+            if (screen != from) return@launch
+            if (got == null) notice.value = Message(failed)
+            else then(got)
+        }
+        loading = job
+        reading.value = true
+        job.invokeOnCompletion {
+            if (loading === job) {
+                loading = null
+                reading.value = false
             }
         }
-        rows to towns
     }
-    val regions = regionsAndTowns.first
-    val saves = remember(savesChanged, loadOpen, screen, regionsAndTowns) {
-        platform.saves().filter { it !in regionsAndTowns.second }
-            .mapNotNull { f -> platform.readSave(f)?.let { SaveGame.summary(it) }?.let { f to it } }
-            .sortedBy { if (it.first == AUTOSAVE) 0 else 1 }
+
+    /** Stops waiting for the town being read: the read can't be stopped part way, so it finishes unseen and is thrown away. */
+    fun stopLoading() {
+        loading?.cancel()
+        loading = null
+        reading.value = false
     }
-    val lastSave = saves.firstOrNull { it.first == AUTOSAVE }?.second
 
     /** The region [file], read, or null if it can't be. */
     fun readRegion(file: String): Region? = platform.readSave(file)?.let { runCatching { Region.read(it) }.getOrNull() }
@@ -506,8 +577,11 @@ private fun Screens(settings: Settings) {
         }
     }
 
-    /** The autosave at the turn of each month, written out on the sim's thread so the screen doesn't stop for it. */
-    suspend fun autosaveAway() {
+    // Held by the month's autosave while it writes the town and its region.
+    val saving = remember { Mutex() }
+
+    /** The month's autosave itself, once [saving] is held. */
+    suspend fun autosaveNow() {
         val g = game ?: return
         val file = g.city.region
         val r = if (file == null) null else (if (regionFile == file) region else null) ?: readRegion(file)
@@ -527,13 +601,15 @@ private fun Screens(settings: Settings) {
         }
     }
 
-    /** Shows the region [file]. */
-    fun openRegion(file: String) {
-        val r = readRegion(file)
-        if (r == null) {
-            notice.value = Message(Res.string.load_failed)
-            return
-        }
+    /** The autosave at the turn of each month, written out on the sim's thread so the screen doesn't stop for it. */
+    suspend fun autosaveAway() {
+        // Not while a town or region's read: leaving for the region waits on [saving] for one already under way.
+        if (loading != null) return
+        saving.withLock { autosaveNow() }
+    }
+
+    /** Shows the region [r], kept in [file]. */
+    fun showRegion(file: String, r: Region) {
         region = r
         regionFile = file
         loadOpen = false
@@ -541,10 +617,13 @@ private fun Screens(settings: Settings) {
         screen = Screen.Region
     }
 
-    /** Plays [city], with its neighbours' borders if it's in a region. */
-    fun play(city: City) {
+    /** Shows the region [file], once it's read. */
+    fun openRegion(file: String) = loadAway(Res.string.load_failed, { readRegion(file) }) { showRegion(file, it) }
+
+    /** Plays [city], with its neighbours' borders if it's in a region: [read] is that region, if it's been read already. */
+    fun play(city: City, read: Region? = city.region?.let { readRegion(it) }) {
         city.region?.let { file ->
-            readRegion(file)?.let { r ->
+            read?.let { r ->
                 region = r
                 regionFile = file
                 city.neighbourSpare = r.neighboursOf(city)
@@ -559,37 +638,27 @@ private fun Screens(settings: Settings) {
         screen = Screen.Game
     }
 
-    // For work the screens start that outlives a tap, such as reading a challenge's town.
-    val appScope = rememberCoroutineScope()
+    /** The town [bytes], with its region if it's in one. */
+    fun readTown(bytes: ByteArray): Pair<City, Region?> {
+        val city = SaveGame.read(bytes)
+        return city to city.region?.let { readRegion(it) }
+    }
 
-    fun load(file: String) {
-        val bytes = platform.readSave(file)
-        val city = try {
-            bytes?.let { SaveGame.read(it) }
-        } catch (e: SaveError) {
-            null
-        }
-        if (city == null) {
-            notice.value = Message(Res.string.load_failed)
-            return
-        }
-        play(city)
+    fun load(file: String) = loadAway(Res.string.load_failed, { platform.readSave(file)?.let { readTown(it) } }) { (city, r) ->
+        play(city, r)
     }
 
     /** A town from a file the player picks: kept with the saves under a name of its own, then played. */
     fun openTown() = platform.openFile { name, bytes ->
-        if (runCatching { SaveGame.read(bytes) }.isFailure) {
-            notice.value = Message(Res.string.not_a_town)
-            return@openFile
+        loadAway(Res.string.not_a_town, { readTown(bytes) }) { (city, r) ->
+            val base = saveFileName(name)
+            var file = base
+            var n = 2
+            while (file in platform.saves()) file = "$base-${n++}"
+            platform.writeSave(file, bytes)
+            savesChanged++
+            play(city, r)
         }
-        val base = saveFileName(name)
-        var file = base
-        var n = 2
-        while (file in platform.saves()) file = "$base-${n++}"
-        platform.writeSave(file, bytes)
-        savesChanged++
-        loadOpen = false
-        load(file)
     }
 
     // Put away or hidden: the game saves itself and goes quiet.
@@ -647,19 +716,11 @@ private fun Screens(settings: Settings) {
                 }
             },
             onChallenge = { ch ->
-                appScope.launch {
-                    val city = try {
-                        SaveGame.read(Res.readBytes("files/challenges/${ch.id}.infill"))
-                    } catch (e: Exception) {
-                        null
-                    }
-                    if (city == null) notice.value = Message(Res.string.load_failed)
-                    else {
-                        city.challenge = ch
-                        city.challengeStart = city.monthNow
-                        game = GameState(city)
-                        screen = Screen.Game
-                    }
+                loadAway(Res.string.load_failed, { SaveGame.read(Res.readBytes("files/challenges/${ch.id}.infill")) }) { city ->
+                    city.challenge = ch
+                    city.challengeStart = city.monthNow
+                    game = GameState(city)
+                    screen = Screen.Game
                 }
             },
             onBack = { screen = if (game != null) Screen.Game else Screen.Start },
@@ -685,7 +746,7 @@ private fun Screens(settings: Settings) {
         Screen.Game -> game?.let { g ->
             key(g) {
                 GameScreen(
-                    g, settings, notice, windowOpen = menuOpen || loadOpen || settingsOpen || disastersOpen,
+                    g, settings, notice, windowOpen = menuOpen || loadOpen || settingsOpen || disastersOpen, hold = loading != null,
                     onMenu = { menuOpen = true }, onNewMonth = { autosaveAway() }, photo = mapPhoto,
                 )
             }
@@ -729,20 +790,38 @@ private fun Screens(settings: Settings) {
             },
             onRegion = game?.city?.region?.let { file ->
                 {
-                    autosave()
-                    game = null
-                    savesChanged++
-                    openRegion(file)
+                    // Once any month's autosave under way is written, saved here, which leaves the region up to date in memory.
+                    loadAway(Res.string.load_failed, { saving.withLock { } }) {
+                        autosave()
+                        val r = if (regionFile == file) region else null
+                        if (r != null) {
+                            game = null
+                            savesChanged++
+                            showRegion(file, r)
+                        } else {
+                            notice.value = Message(Res.string.load_failed)
+                        }
+                    }
                 }
             },
         )
     }
     if (loadOpen) {
         LoadWindow(saves, ::load, { file ->
-            // A region goes with its towns.
-            readRegion(file)?.towns?.forEach { t -> t?.let { platform.deleteSave(it.file) } }
-            platform.deleteSave(file)
-            savesChanged++
+            // Off the list at once; a region goes with its towns, read away from the screen's thread.
+            listed = SavesList(listed.towns.filter { it.first != file }, listed.regions.filter { it.file != file })
+            deleting += file
+            appScope.launch {
+                try {
+                    withContext(Dispatchers.Default) {
+                        readRegion(file)?.towns?.forEach { t -> t?.let { platform.deleteSave(it.file) } }
+                        platform.deleteSave(file)
+                    }
+                } finally {
+                    deleting -= file
+                    savesChanged++
+                }
+            }
         }, { loadOpen = false }, regions, ::openRegion, onOpenFile = ::openTown)
     }
     if (settingsOpen) SettingsWindow(settings) { settingsOpen = false }
@@ -757,6 +836,23 @@ private fun Screens(settings: Settings) {
             loadOpen -> loadOpen = false
             menuOpen -> menuOpen = false
             screen == Screen.New || screen == Screen.Region -> screen = if (game != null) Screen.Game else Screen.Start
+        }
+    }
+    // While a town's read: the screen dimmed, taps and the controller kept off it, and Back or Esc stops it.
+    if (loading != null) {
+        BackButton(enabled = true) { stopLoading() }
+        // Presses are kept from the screens underneath; lets go reach them, so nothing held stays held.
+        PadListener { b, pressed ->
+            if (pressed && settings.padMap(Pad.shifted)[b] == KeyAction.Back) stopLoading()
+            pressed
+        }
+        Box(
+            Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)).pointerInput(Unit) {
+                awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } }
+            },
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator(color = Infill.colors.accent)
         }
     }
     if (screen != Screen.Game) {
@@ -779,6 +875,7 @@ private fun GameScreen(
     onMenu: () -> Unit,
     onNewMonth: suspend () -> Unit,
     photo: MapPhoto? = null,
+    hold: Boolean = false,
 ) {
     run {
         val city = game.city
@@ -899,7 +996,15 @@ private fun GameScreen(
             Achievements.check(city, e).firstOrNull()?.let { message = Message(Res.string.achievement_earned, arg = it.title) }
         }
 
+        // While another town's read, time stands still and the news waits, so no window opens over the wait.
+        val holding by rememberUpdatedState(hold)
+        val heldEvents = remember { ArrayList<CityEvent>() }
+
         fun showEvent(e: CityEvent) {
+            if (holding) {
+                heldEvents += e
+                return
+            }
             Sounds.event(e.kind)
             // A challenge met, or its time out: the era card says how it went.
             if (e.kind == EventKind.ChallengeWon || e.kind == EventKind.ChallengeLost) {
@@ -925,6 +1030,10 @@ private fun GameScreen(
             var working: Job? = null
             while (true) {
                 val now = withFrameNanos { it }
+                if (holding) {
+                    last = now
+                    continue
+                }
                 val monthDays = City.daysIn(city.month, city.year)
                 var progress = dayProgress + ((now - last) / 1e9 * monthDays / SECONDS_PER_MONTH * SPEEDS[speed]).toFloat()
                 last = now
@@ -944,6 +1053,14 @@ private fun GameScreen(
                         }
                     }
                 }
+            }
+        }
+
+        LaunchedEffect(hold) {
+            if (!hold) {
+                val waiting = heldEvents.toList()
+                heldEvents.clear()
+                waiting.forEach(::showEvent)
             }
         }
 
