@@ -275,6 +275,7 @@ internal fun transitShown(camera: Camera) = camera.tilePx >= MIN_TILE_PX
 internal class TransitRoom {
     var moving = FloatArray(0)
     var pause = FloatArray(0)
+    var hold = FloatArray(0)
     var starts = FloatArray(0)
     val spot = FloatArray(3)
 
@@ -282,6 +283,7 @@ internal class TransitRoom {
         if (n <= moving.size) return
         moving = FloatArray(n)
         pause = FloatArray(n)
+        hold = FloatArray(n)
         starts = FloatArray(n + 1)
     }
 }
@@ -291,7 +293,9 @@ internal class TransitRoom {
  * where it is along the route in tiles, each tile's middle a whole number,
  * and whether it's standing at a stop: spaced along the route and going
  * round it out and back, pausing at each stop, slowed in traffic where
- * there's no lane kept for it. Works in [room].
+ * there's no lane kept for it. Buses and trolleybuses also stop at the line
+ * of each crossing with stop signs, and make the time up between, so the
+ * timetable's round takes as long as without them. Works in [room].
  */
 private inline fun eachTransit(map: CityMap, time: Float, lines: Collection<LineState>, room: TransitRoom, each: (LineState, Float, Boolean) -> Unit) {
     for (line in lines) {
@@ -305,15 +309,30 @@ private inline fun eachTransit(map: CityMap, time: Float, lines: Collection<Line
         room.room(n)
         val moving = room.moving
         val pause = room.pause
+        val hold = room.hold
         val starts = room.starts
-        starts[0] = 0f
+        var moves = 0f
+        var holds = 0f
         for (j in 0 until n) {
             val i = route[j]
             val busy = map.congestion[i].toInt() and 0xff
             val jammed = map.road[i].toInt() != 0 && map.lane[i].toInt() == 0
             moving[j] = 1f / speed / (if (jammed) 1f - min(0.75f, busy / 340f) else 1f)
             pause[j] = if (map.stop[i].toInt() and stopBit != 0) STOP_SECONDS else 0f
-            starts[j + 1] = starts[j] + moving[j] + pause[j]
+            val next = route[(j + 1) % n]
+            hold[j] = if (!tram && map.control[next] == Junction.STOP && map.road[next].toInt() != 0 && map.road[i].toInt() != 0 && beside(map, i, next)) SIGN_SECONDS else 0f
+            moves += moving[j]
+            holds += hold[j]
+        }
+        // The holds taken out of the time moving, shortened if there'd be too little left.
+        val most = moves * CATCH_UP
+        val holdShare = if (holds > most) most / holds else 1f
+        val moveShare = if (moves > 0f) 1f - holds * holdShare / moves else 1f
+        starts[0] = 0f
+        for (j in 0 until n) {
+            moving[j] *= moveShare
+            hold[j] *= holdShare
+            starts[j + 1] = starts[j] + moving[j] + pause[j] + hold[j]
         }
         val period = starts[n]
         for (k in 0 until line.vehicles) {
@@ -323,13 +342,19 @@ private inline fun eachTransit(map: CityMap, time: Float, lines: Collection<Line
             while (j < n - 1 && starts[j + 1] <= at) j++
             val into = at - starts[j]
             val half = moving[j] / 2f
-            val standing = into >= half && into < half + pause[j]
+            // Then on to the stop sign's line, its front just short of the crossing, any hold there and the rest of the way.
+            val signAt = (1f - BUS_HALF - SIGN_SHORT) * moving[j]
+            val after = into - pause[j]
+            val atStop = into >= half && into < half + pause[j]
+            val atSign = hold[j] > 0f && !atStop && after >= signAt && after < signAt + hold[j]
             val pos = when {
                 into < half -> j - 0.5f + into / moving[j]
-                standing -> j.toFloat()
-                else -> j - 0.5f + (into - pause[j]) / moving[j]
+                atStop -> j.toFloat()
+                atSign -> j + 0.5f - BUS_HALF - SIGN_SHORT
+                after < signAt -> j - 0.5f + after / moving[j]
+                else -> j - 0.5f + (after - hold[j]) / moving[j]
             }
-            each(line, pos, standing)
+            each(line, pos, atStop || atSign)
         }
     }
 }
@@ -389,41 +414,41 @@ internal fun carShare(year: Int) = ((year - 1905) / 40f).coerceIn(0f, 0.9f)
  * A cart or car, or a [truck], picked by [seed] for [year], centred on [at],
  * [heading] degrees clockwise from east.
  */
-internal fun DrawScope.roadVehicle(at: Offset, t: Float, heading: Float, year: Int, seed: Int, truck: Boolean) {
+internal fun DrawScope.roadVehicle(at: Offset, t: Float, heading: Float, year: Int, seed: Int, truck: Boolean, alpha: Float = 1f) {
     val motor = unit(seed * 5) < carShare(year)
-    if (truck) lorry(at, t, heading, motor) else vehicle(at, t, heading, motor, seed)
+    if (truck) lorry(at, t, heading, motor, alpha) else vehicle(at, t, heading, motor, seed, alpha)
 }
 
 /** A goods wagon behind a horse, or a lorry with its cab ahead of the box. */
-private fun DrawScope.lorry(at: Offset, t: Float, heading: Float, motor: Boolean) {
+private fun DrawScope.lorry(at: Offset, t: Float, heading: Float, motor: Boolean, alpha: Float = 1f) {
     val length = t * 0.4f
     val width = t * 0.15f
     rotate(heading, at) {
         val topLeft = Offset(at.x - length / 2, at.y - width / 2)
         if (motor) {
-            drawRect(BOX, topLeft, Size(length * 0.72f, width))
-            drawRect(CAB, Offset(topLeft.x + length * 0.76f, topLeft.y + width * 0.08f), Size(length * 0.24f, width * 0.84f))
-            drawRect(GLASS, Offset(topLeft.x + length * 0.9f, topLeft.y + width * 0.15f), Size(length * 0.08f, width * 0.7f))
+            drawRect(BOX, topLeft, Size(length * 0.72f, width), alpha)
+            drawRect(CAB, Offset(topLeft.x + length * 0.76f, topLeft.y + width * 0.08f), Size(length * 0.24f, width * 0.84f), alpha)
+            drawRect(GLASS, Offset(topLeft.x + length * 0.9f, topLeft.y + width * 0.15f), Size(length * 0.08f, width * 0.7f), alpha)
         } else {
-            drawRect(WAGON, topLeft, Size(length * 0.68f, width))
-            drawRect(HORSE, Offset(topLeft.x + length * 0.72f, at.y - width * 0.25f), Size(length * 0.28f, width * 0.5f))
+            drawRect(WAGON, topLeft, Size(length * 0.68f, width), alpha)
+            drawRect(HORSE, Offset(topLeft.x + length * 0.72f, at.y - width * 0.25f), Size(length * 0.28f, width * 0.5f), alpha)
         }
     }
 }
 
 /** One vehicle centred on [at], [heading] degrees clockwise from east: a horse and cart, or a car. */
-private fun DrawScope.vehicle(at: Offset, t: Float, heading: Float, car: Boolean, seed: Int) {
+private fun DrawScope.vehicle(at: Offset, t: Float, heading: Float, car: Boolean, seed: Int, alpha: Float = 1f) {
     val length = t * 0.28f
     val width = t * 0.13f
     val body = if (car) CAR_COLOURS[(seed ushr 3).mod(CAR_COLOURS.size)] else CART_COLOURS[(seed ushr 3).mod(CART_COLOURS.size)]
     // Drawn facing east, then turned.
     rotate(heading, at) {
         val topLeft = Offset(at.x - length / 2, at.y - width / 2)
-        drawRect(body, topLeft, Size(length, width))
+        drawRect(body, topLeft, Size(length, width), alpha)
         // The front: a horse ahead of a cart, or a windscreen.
         val front = if (car) 0.3f else 0.4f
         val part = Size(length * front, width * (if (car) 0.8f else 0.6f))
-        drawRect(if (car) GLASS else HORSE, Offset(topLeft.x + length * (1 - front), topLeft.y + (width - part.height) / 2), part)
+        drawRect(if (car) GLASS else HORSE, Offset(topLeft.x + length * (1 - front), topLeft.y + (width - part.height) / 2), part, alpha)
     }
 }
 
@@ -470,6 +495,16 @@ private const val STOP_SECONDS = 1.2f
 private const val TRAM_HALF = 0.35f
 private const val BUS_HALF = 0.225f
 private const val TRANSIT_LEAD = 0.3f
+
+/**
+ * How long a bus or trolleybus stops at the line of a crossing with stop
+ * signs, in seconds at normal speed, how far short of the crossing its front
+ * stops, in tiles, and the most of its time moving taken back to make up for
+ * those stops.
+ */
+private const val SIGN_SECONDS = 1f
+private const val SIGN_SHORT = 0.02f
+private const val CATCH_UP = 0.15f
 
 /** Riders show once a tile is this big, and as heads in this many seats. */
 private const val RIDERS_TILE_PX = 28f

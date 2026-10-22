@@ -89,34 +89,34 @@ internal fun DrawScope.drawPeople(city: City, map: CityMap, camera: Camera, year
     }
 }
 
-/** Someone on foot, dressed for [year], their clothes and hair picked by [seed]. */
-internal fun DrawScope.person(at: Offset, t: Float, year: Int, seed: Int) {
+/** Someone on foot, dressed for [year], their clothes and hair picked by [seed], at [alpha] opacity. */
+internal fun DrawScope.person(at: Offset, t: Float, year: Int, seed: Int, alpha: Float = 1f) {
     val clothes = if (year < BRIGHT_YEAR) DRAB else BRIGHT
-    walker(at, t, clothes[(seed ushr 4).mod(clothes.size)], HAIR[(seed ushr 9).mod(HAIR.size)])
+    walker(at, t, clothes[(seed ushr 4).mod(clothes.size)], HAIR[(seed ushr 9).mod(HAIR.size)], alpha)
 }
 
-/** Someone cycling, [heading] degrees clockwise from east, dressed for [year]. */
-internal fun DrawScope.rider(at: Offset, t: Float, heading: Float, year: Int, seed: Int) {
+/** Someone cycling, [heading] degrees clockwise from east, dressed for [year], at [alpha] opacity. */
+internal fun DrawScope.rider(at: Offset, t: Float, heading: Float, year: Int, seed: Int, alpha: Float = 1f) {
     val clothes = if (year < BRIGHT_YEAR) DRAB else BRIGHT
-    cyclist(at, t, heading, clothes[(seed ushr 4).mod(clothes.size)])
+    cyclist(at, t, heading, clothes[(seed ushr 4).mod(clothes.size)], alpha)
 }
 
 /** Someone on foot from above: shoulders in their clothes, and the top of their head. */
-private fun DrawScope.walker(at: Offset, t: Float, clothes: Color, hair: Color) {
-    drawCircle(clothes, max(1.2f, t * 0.045f), at)
-    drawCircle(hair, max(0.8f, t * 0.026f), at)
+private fun DrawScope.walker(at: Offset, t: Float, clothes: Color, hair: Color, alpha: Float = 1f) {
+    drawCircle(clothes, max(1.2f, t * 0.045f), at, alpha)
+    drawCircle(hair, max(0.8f, t * 0.026f), at, alpha)
 }
 
 /** A cyclist from above, [heading] degrees clockwise from east: the wheels ahead and behind, and the rider between. */
-private fun DrawScope.cyclist(at: Offset, t: Float, heading: Float, clothes: Color) {
+private fun DrawScope.cyclist(at: Offset, t: Float, heading: Float, clothes: Color, alpha: Float = 1f) {
     rotate(heading, at) {
         val long = t * 0.26f
         val thin = max(1f, t * 0.03f)
-        drawRect(FRAME, Offset(at.x - long / 2, at.y - thin / 2), Size(long, thin))
+        drawRect(FRAME, Offset(at.x - long / 2, at.y - thin / 2), Size(long, thin), alpha)
         // Handlebars across the front.
-        drawRect(FRAME, Offset(at.x + long * 0.22f, at.y - t * 0.05f), Size(thin, t * 0.1f))
-        drawOval(clothes, Offset(at.x - t * 0.06f, at.y - t * 0.055f), Size(t * 0.1f, t * 0.11f))
-        drawCircle(HAIR[0], max(0.8f, t * 0.027f), Offset(at.x + t * 0.01f, at.y))
+        drawRect(FRAME, Offset(at.x + long * 0.22f, at.y - t * 0.05f), Size(thin, t * 0.1f), alpha)
+        drawOval(clothes, Offset(at.x - t * 0.06f, at.y - t * 0.055f), Size(t * 0.1f, t * 0.11f), alpha)
+        drawCircle(HAIR[0], max(0.8f, t * 0.027f), Offset(at.x + t * 0.01f, at.y), alpha)
     }
 }
 

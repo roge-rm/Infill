@@ -64,6 +64,9 @@ internal class TripMovers {
         /** Whether it barely moved this frame, and since when it's barely moved on the game clock, or -1. */
         var stuck = false
         var still = -1f
+        /** How far it's faded in, 0 to 1, and whether it's fading out to leave the map. */
+        var fade = 1f
+        var leaving = false
         /**
          * Kept for the route tile [at] it's on, so a frame reads little: the
          * tile and whether it's in a tunnel, its speed there, its chain in
@@ -146,6 +149,8 @@ internal class TripMovers {
         var nextOf = IntArray(0)
         var reachOf = IntArray(0)
         var leftOf = BooleanArray(0)
+        /** For a walker on, stepping onto or waiting at a crossing with stop signs, the crossing * 4 and whose way it's in, as [walkWays] has it, or -1. */
+        var walkOf = IntArray(0)
 
         fun room(n: Int) {
             if (n <= keyOf.size) return
@@ -159,6 +164,7 @@ internal class TripMovers {
             nextOf = nextOf.copyOf(room)
             reachOf = reachOf.copyOf(room)
             leftOf = leftOf.copyOf(room)
+            walkOf = walkOf.copyOf(room)
         }
 
         fun copy(from: Int, to: Int) {
@@ -171,6 +177,7 @@ internal class TripMovers {
             nextOf[to] = nextOf[from]
             reachOf[to] = reachOf[from]
             leftOf[to] = leftOf[from]
+            walkOf[to] = walkOf[from]
         }
     }
 
@@ -200,6 +207,16 @@ internal class TripMovers {
     /** On each crossing with lights or stop signs: the frame it was last marked in and which ways those on it came, as [mark] has them. */
     private var boxStamp = IntArray(0)
     private var boxWays = IntArray(0)
+    /**
+     * On each crossing with stop signs: the frame walkers were last marked on
+     * it, and whose way they're in, bit 0 for traffic going north or south
+     * and bit 1 east or west; and the earliest arrival of those waiting at
+     * its curbs this frame, on the game clock.
+     */
+    private var walkStamp = IntArray(0)
+    private var walkWays = IntArray(0)
+    private var walkFirstStamp = IntArray(0)
+    private var walkFirst = FloatArray(0)
     /** By tile and the way it's come onto: when a queue there last reached back to where it comes on, on the game clock. */
     private var packedAt = FloatArray(0)
     /** The frame a tram or bus was last on or coming onto each crossing. */
@@ -257,6 +274,10 @@ internal class TripMovers {
             freeAt = FloatArray(map.size)
             boxStamp = IntArray(map.size)
             boxWays = IntArray(map.size)
+            walkStamp = IntArray(map.size)
+            walkWays = IntArray(map.size)
+            walkFirstStamp = IntArray(map.size)
+            walkFirst = FloatArray(map.size)
             packedAt = FloatArray(map.size * 4).also { it.fill(-PACKED_HOLD) }
             transitAt = IntArray(map.size)
             controlSeen = map.control.copyOf()
@@ -338,11 +359,50 @@ internal class TripMovers {
                 break
             }
             if (changed) {
-                if (rebuild(m, map)) note(seen, k, m, map) else retire(k)
+                if (rebuild(m, map)) {
+                    lineUp(k, m, map)
+                    note(seen, k, m, map)
+                } else {
+                    retire(k)
+                }
             }
             k--
         }
         control.copyInto(controlSeen)
+    }
+
+    /**
+     * Puts [m], number [k] in [movers], back at the line if it's only just
+     * over it at a crossing that's now got lights or stop signs, so it stops
+     * there, unless the one behind it in its lane is too close. One further
+     * on is on the crossing and clears it, as [reach] has the others wait for it.
+     */
+    private fun lineUp(k: Int, m: Mover, map: CityMap) {
+        val next = m.next
+        if (next < 0 || m.nextUnder || controlSeen[next] == map.control[next] || !signed(map.control[next])) return
+        val line = line(m)
+        val was = m.dist
+        if (was <= line || was >= line + BRAKE || line < m.enter[m.at]) return
+        m.dist = line
+        m.seg = 0
+        m.at = -1
+        settle(m, map)
+        val key = m.chainKey
+        if (key < 0) return
+        val p = m.chainPos
+        val keyOf = seen.keyOf
+        val pos = seen.pos
+        for (o in 0 until movers.size) {
+            if (o == k || keyOf[o] != key || pos[o] > p + (was - line)) continue
+            if (pos[o] + seen.half[o] + m.half + FOLLOW_GAP > p) {
+                // No room: it stays where it was and clears the crossing.
+                m.dist = was
+                m.seg = 0
+                m.at = -1
+                settle(m, map)
+                return
+            }
+        }
     }
 
     private fun rebuild(m: Mover, map: CityMap): Boolean {
@@ -374,6 +434,43 @@ internal class TripMovers {
         notes.nextOf[k] = m.next
         notes.reachOf[k] = reach(m, map)
         notes.leftOf[k] = m.at >= 0 && left(m, m.at)
+        notes.walkOf[k] = if (m.kind == TripSample.WALKER) walking(m, map, waiting) else -1
+    }
+
+    /**
+     * For walker [m], the crossing with stop signs it's on and not yet back
+     * on the pavement at the far side of, or stepping onto, or [waiting] at
+     * the curb of, * 4 and whose way it's in, as [Notes.walkOf] has it, or -1.
+     */
+    private fun walking(m: Mover, map: CityMap, waiting: Boolean): Int {
+        if (m.at < 0) return -1
+        val j = m.at
+        if (!m.hereUnder && map.control[m.tile] == Junction.STOP) {
+            val end = if (m.last) m.length else m.edge
+            val u = if (end > m.from) (m.dist - m.from) / (end - m.from) else 0f
+            if (u < 1f - ROAD_FROM) return m.tile * 4 + walkWay(m, j)
+        }
+        // Waiting at the curb, or stepped off it.
+        val off = m.next >= 0 && m.dist > line(m) && map.control[m.next] == Junction.STOP
+        return if ((waiting || off) && !m.nextUnder) m.next * 4 + walkWay(m, j + 1) else -1
+    }
+
+    /** Whose way walker [m] is in on route tile [j]: bit 0 for traffic going north or south, bit 1 east or west, both if it turns there. */
+    private fun walkWay(m: Mover, j: Int): Int {
+        val tile = m.route[j]
+        if (m.n < 2) return 3
+        val into = if (j > 0) way(m.route[j - 1], tile) else way(tile, m.route[1])
+        val out = if (j < m.n - 1) way(tile, m.route[j + 1]) else into
+        return if (into != out) 3 else if (into % 2 == 0) 2 else 1
+    }
+
+    /** Whether a walker is on crossing [next] in the way of [m] coming onto it from route tile [j], or got to its curb before [m] got to the line. */
+    private fun walkers(m: Mover, j: Int, next: Int): Boolean {
+        if (walkFirstStamp[next] == frame && walkFirst[next] < m.held) return true
+        if (walkStamp[next] != frame) return false
+        val w = way(m.route[j], next)
+        val turns = j + 2 < m.n && way(next, m.route[j + 2]) != w
+        return walkWays[next] and (if (turns) 3 else if (w % 2 == 0) 1 else 2) != 0
     }
 
     /** Whether [m] turns left or back on route tile [j]: across the way of those coming the other way. */
@@ -406,7 +503,8 @@ internal class TripMovers {
     /**
      * Chains every mover on the road by its tile, the way it came onto it and
      * its lane, for [ahead], from where they were noted, and marks which ways
-     * those on each crossing with lights or stop signs came onto it.
+     * those on each crossing with lights or stop signs came onto it, and
+     * where walkers are on and at crossings with stop signs.
      */
     private fun snapshot(map: CityMap) {
         val count = movers.size
@@ -416,6 +514,18 @@ internal class TripMovers {
             // Reaching onto a crossing from the tile before or after it.
             val reach = seen.reachOf[k]
             if (reach >= 0) mark(reach / 8, reach / 2 % 4, reach % 2 == 1)
+            val walk = seen.walkOf[k]
+            if (walk >= 0) {
+                val tile = walk / 4
+                val wait = seen.waitOf[k]
+                if (tile == seen.nextOf[k] && wait >= 0f) {
+                    // Waiting at the curb: it takes its turn with the traffic by when it got there.
+                    if (walkFirstStamp[tile] != frame || wait < walkFirst[tile]) walkFirst[tile] = wait
+                    walkFirstStamp[tile] = frame
+                } else {
+                    markWalk(tile, walk % 4)
+                }
+            }
             val key = keyOf[k]
             if (key < 0) continue
             chain(k)
@@ -439,6 +549,15 @@ internal class TripMovers {
             boxWays[tile] = 0
         }
         boxWays[tile] = boxWays[tile] or (1 shl way) or (if (left) 1 shl (4 + way) else 0)
+    }
+
+    /** Notes that a walker's on crossing [tile] in the way of [ways], as [walkWays] has them. */
+    private fun markWalk(tile: Int, ways: Int) {
+        if (walkStamp[tile] != frame) {
+            walkStamp[tile] = frame
+            walkWays[tile] = 0
+        }
+        walkWays[tile] = walkWays[tile] or ways
     }
 
     /** Empties the slots, with room for [count] movers in them. */
@@ -516,6 +635,8 @@ internal class TripMovers {
             else -> ROAD_TILES * (1f - min(0.75f, (map.congestion[tile].toInt() and 0xff) / 340f))
         }
         if (m.rides && !m.hereUnder && map.control[tile] == Junction.ROUNDABOUT) speed *= ROUND_SLOW
+        // Walkers step out briskly over a crossing with stop signs, where traffic waits for them.
+        if (!m.rides && !m.hereUnder && map.control[tile] == Junction.STOP) speed *= WALK_BRISK
         m.speed = speed
         m.next = if (m.last) -1 else m.route[j + 1]
         m.edge = if (m.last) 0f else m.enter[j + 1]
@@ -601,6 +722,12 @@ internal class TripMovers {
 
     /** Moves [m], number [k] in [movers], on by [dt] seconds to [time]; false once it's at its end. */
     private fun move(k: Int, m: Mover, map: CityMap, dt: Float, time: Float): Boolean {
+        // Given up: it fades where it stands, still in the way, then goes.
+        if (m.leaving) {
+            m.fade -= dt / FADE
+            return m.fade > 0f
+        }
+        if (m.fade < 1f) m.fade = min(1f, m.fade + dt / FADE)
         val j = m.at
         if (m.heldAt != j + 1) {
             m.heldAt = j + 1
@@ -628,6 +755,10 @@ internal class TripMovers {
                     d = max(m.dist, line)
                     if (m.held < 0f) m.held = time
                 }
+            } else if (m.rides && !m.nextUnder && map.control[next] == Junction.STOP) {
+                // Let go at a stop sign but held short of the crossing, by the one ahead say: a walker who's stepped out since goes first.
+                val line = line(m)
+                if (m.dist <= line && d > line && walkers(m, j, next)) d = max(m.dist, line)
             }
         }
         if (m.rides) {
@@ -637,11 +768,11 @@ internal class TripMovers {
         m.stuck = d - m.dist < dt * m.speed * STUCK
         m.dist = d
         if (d >= m.length) return false
-        // Held still too long, in a ring of queues that's locked up say: it goes, which frees the rest.
+        // Held still too long, in a ring of queues that's locked up say: it fades and goes, which frees the rest.
         if (dt > 0f) {
             if (!m.stuck) m.still = -1f
             else if (m.still < 0f || m.still > time) m.still = time
-            else if (time - m.still > STILL_MOST) return false
+            else if (time - m.still > STILL_MOST) m.leaving = true
         }
         // Held in a queue that reaches back to where its lane comes onto the tile: nobody new sets off this way for a while.
         if (m.stuck && m.key >= 0 && d - m.from - m.half < PACKED_BACK) packedAt[m.key / 3] = time
@@ -654,9 +785,11 @@ internal class TripMovers {
      * Whether [m], on route tile [j] and about to cross its line onto the
      * crossing at [next], has to wait there at [time]. Lights go by the way
      * it comes in, whichever way it turns; on amber it stops unless it was
-     * already within [BRAKE] of the line on green. At a stop sign it waits a moment, then goes once those there
-     * before it have. At a roundabout it gives way to those already on it
-     * from the road to its left, but not for ever.
+     * already within [BRAKE] of the line on green. At a stop sign it waits a
+     * moment, then goes once those there before it have and no walker's in
+     * its way; a walker waits for vehicles there before it and on the
+     * crossing. At a roundabout it gives way to those already on it from the
+     * road to its left, but not for ever.
      */
     private fun waits(m: Mover, map: CityMap, j: Int, next: Int, time: Float): Boolean {
         when (map.control[next]) {
@@ -669,14 +802,25 @@ internal class TripMovers {
                 }
             }
             Junction.STOP -> {
-                if (!m.rides) return false
+                if (!m.rides) {
+                    // It waits while a vehicle's on the crossing, and for those at the line before it, unless they've waited so long they must be locked in.
+                    val since = if (m.held < 0f) time else m.held
+                    val before = firstStamp[next] == frame && firstAt[next] < since && time - firstAt[next] < WALK_MOST
+                    if (boxStamp[next] == frame && boxWays[next] != 0 || before) return true
+                    // Out on it at once, so traffic deciding later this frame sees it.
+                    markWalk(next, walkWay(m, j + 1))
+                    m.cleared = true
+                    return false
+                }
                 if (m.held < 0f) return true
                 val free = freeAt[next]
                 // A clock that's gone back, after loading say, leaves it free.
                 val clear = free <= time || free > time + CROSS_GAP
                 val first = firstStamp[next] != frame || m.held <= firstAt[next]
-                if (time - m.held < STOP_WAIT || !clear || !first || boxed(m, map, j, next)) return true
+                if (time - m.held < STOP_WAIT || !clear || !first || boxed(m, map, j, next) || walkers(m, j, next)) return true
                 freeAt[next] = time + CROSS_GAP
+                // On it at once, so walkers deciding later this frame see it.
+                mark(next, way(m.route[j], next), left(m, j + 1))
                 m.cleared = true
                 return false
             }
@@ -706,6 +850,13 @@ internal class TripMovers {
             }
             if (partway) into.dist = next().toFloat() * into.length
             settle(into, map)
+            // Not on a crossing it'd have stopped or given way at: back on the tile before it.
+            if (partway && into.at > 0 && controlled(into, map)) {
+                into.dist = max(0f, into.enter[into.at] - LINE_SLACK)
+                into.seg = 0
+                into.at = -1
+                settle(into, map)
+            }
             // Not past the line of a crossing it'd stop at, so it still stops there: back at the line.
             if (partway && into.next >= 0 && !into.nextUnder && map.control[into.next] != Junction.NONE && into.dist > line(into)) {
                 into.dist = max(0f, line(into))
@@ -713,18 +864,32 @@ internal class TripMovers {
                 into.at = -1
                 settle(into, map)
             }
+            // Nor setting off from the curb on such a crossing, which it'd then ignore: another trip instead.
+            if (controlled(into, map)) {
+                spare.add(into)
+                return@repeat
+            }
             // Not on top of one already there, at the back of a queue say: another trip instead.
             // Nor into a queue ahead of it that's backed up, so a jam fills no faster than the lights clear it.
             if (into.chainKey >= 0 && crowded(into) || into.rides && packed(into, time)) {
                 spare.add(into)
                 return@repeat
             }
+            // Fading in where it pulls out, or there already when the map fills.
+            into.fade = if (partway) 1f else 0f
+            into.leaving = false
             movers.add(into)
             note(seen, movers.size - 1, into, map)
             if (into.chainKey >= 0 && chainedAt == frame) chain(movers.size - 1)
             return true
         }
         return false
+    }
+
+    /** Whether [m] is on a crossing with lights, stop signs or a roundabout. */
+    private fun controlled(m: Mover, map: CityMap): Boolean {
+        val control = map.control[m.tile]
+        return !m.hereUnder && (signed(control) || control == Junction.ROUNDABOUT)
     }
 
     /** Whether a queue on the way ahead of [m] has reached back over a whole tile in the last [PACKED_HOLD] seconds before [time]. */
@@ -1047,9 +1212,9 @@ internal class TripMovers {
             if (behind(cx, cy)) continue
             val at = camera.tileToScreen(cx, cy, size)
             when (m.kind) {
-                TripSample.WALKER -> person(at, t, year, m.seed)
-                TripSample.CYCLIST -> rider(at, t, m.heading[s], year, m.seed)
-                else -> roadVehicle(at, t, m.heading[s], year, m.seed, truck = m.kind == TripSample.TRUCK)
+                TripSample.WALKER -> person(at, t, year, m.seed, m.fade)
+                TripSample.CYCLIST -> rider(at, t, m.heading[s], year, m.seed, m.fade)
+                else -> roadVehicle(at, t, m.heading[s], year, m.seed, truck = m.kind == TripSample.TRUCK, alpha = m.fade)
             }
         }
     }
@@ -1145,6 +1310,9 @@ private const val BRAKE = 0.15f
 private const val STUCK = 0.5f
 private const val STILL_MOST = 25f
 
+/** Seconds to fade in on setting off from the curb, and out on giving up. */
+private const val FADE = 0.5f
+
 /**
  * A queue whose last one is held this close to where its lane comes onto the
  * tile, in tiles, has filled the tile; for so many seconds after, no trip
@@ -1156,6 +1324,13 @@ private const val PACKED_HOLD = 5f
 /** Seconds at a stop sign before going, and after one goes before the next can. */
 private const val STOP_WAIT = 1f
 private const val CROSS_GAP = 0.8f
+
+/** How much faster walkers go over a crossing with stop signs, and the last share of their way across it that's back on the pavement. */
+private const val WALK_BRISK = 2f
+private const val ROAD_FROM = 0.3f
+
+/** A walker at a stop sign gives way to a vehicle that got there first, unless that vehicle's been held there this long, in seconds. */
+private const val WALK_MOST = 10f
 
 /** How far out from a roundabout's middle traffic goes round, in tiles, past the island, plus how far right it keeps. */
 private const val RING = 0.2f
