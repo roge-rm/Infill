@@ -9,8 +9,10 @@ import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Mode
 import com.rm.infill.sim.LineState
 import com.rm.infill.sim.Heading
+import com.rm.infill.sim.Junction
 import com.rm.infill.sim.Stop
 import com.rm.infill.sim.drivable
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
@@ -22,7 +24,8 @@ import kotlin.math.min
  * the share of traffic over [over] shows, and they go slower the busier the
  * road. They keep to the right, and fill both lanes of a one-way road.
  * [most] is how many there can be in a lane on one tile. At the level
- * [crossings] a train is on, the road is clear and traffic waits either side.
+ * [crossings] a train is on, the road is clear and traffic waits either side,
+ * and at lights traffic waits on amber and red with that way across clear.
  * A road shut for works has nothing on it.
  */
 internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, time: Float, most: Int, crossings: Set<Int> = emptySet(), over: Int = 0, behind: (Float, Float) -> Boolean = { _, _ -> false }) {
@@ -47,6 +50,8 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
         val b = map.index(nx, ny)
         return map.drivable(a, b, h) || map.drivable(b, a, Heading.opposite(h))
     }
+    // Whether lights at crossing [i] are holding traffic going north or south if [vertical], else east or west.
+    fun held(i: Int, vertical: Boolean) = map.control[i] == Junction.LIGHTS && signal(i, vertical, time) != LIGHT_GREEN
     // Each row's and column's speed, worked out once a frame.
     val speeds = HashMap<Int, Float>()
     for (y in y0..y1) for (x in x0..x1) {
@@ -74,7 +79,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                 // Waiting at a crossing just ahead: queued up to it.
                 val ax = x + Heading.DX[dir]
                 val ay = y + Heading.DY[dir]
-                if (queue && crossings.isNotEmpty() && map.inside(ax, ay) && map.index(ax, ay) in crossings) {
+                if (queue && map.inside(ax, ay) && (crossings.isNotEmpty() && map.index(ax, ay) in crossings || held(map.index(ax, ay), !across))) {
                     for (k in 0 until min(most, 1 + busy / 96)) {
                         val seed = x * 7919 + y * 104729 + lane * 31 + k * 977
                         val u = if (forward) 0.8f - k * 0.3f else 0.2f + k * 0.3f
@@ -159,8 +164,11 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
             }
             // A junction: each road's streams carry on across it, as busy as the road either side, so the cars
             // seen coming up to it go on through. A side street that stops here turns its cars onto the cross road.
+            // None straight over a roundabout's island, nor at a stop sign, where they'd go on across with no turns taken.
+            if (map.control[i] == Junction.ROUNDABOUT || map.control[i] == Junction.STOP) continue
             for (axis in 0..1) {
                 val row = axis == 0
+                if (held(i, vertical = !row)) continue
                 val before = if (row) linked(x, y, Heading.WEST.toInt()) else linked(x, y, Heading.NORTH.toInt())
                 val after = if (row) linked(x, y, Heading.EAST.toInt()) else linked(x, y, Heading.SOUTH.toInt())
                 val busy = if (row) max(busyAt(x - 1, y), busyAt(x + 1, y)) else max(busyAt(x, y - 1), busyAt(x, y + 1))
@@ -218,11 +226,74 @@ private fun lineSpeed(map: CityMap, across: Boolean, at: Int): Float {
  * traffic where there's no lane kept for them; the fuller the line, the more
  * riders show in the windows.
  */
-internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, lines: Collection<LineState>, behind: (Float, Float) -> Boolean = { _, _ -> false }) {
+internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, lines: Collection<LineState>, room: TransitRoom, behind: (Float, Float) -> Boolean = { _, _ -> false }) {
     val t = camera.tilePx
-    if (t < MIN_TILE_PX) return
+    if (!transitShown(camera)) return
     val topLeft = camera.screenToTile(Offset.Zero, size)
     val bottomRight = camera.screenToTile(Offset(size.width, size.height), size)
+    val spot = room.spot
+    eachTransit(map, time, lines, room) { line, pos, _ ->
+        val route = line.route
+        val n = route.size
+        val tram = line.mode == Mode.TRAM
+        val seats = if (tram) TRAM_SEATS else BUS_SEATS
+        val seated = min(seats, ceil(seats * line.full / 100f).toInt())
+        val i = floor(pos + 0.5f).toInt()
+        val u = pos + 0.5f - i
+        val prev = route[(i - 1 + n) % n]
+        val here = route[i.mod(n)]
+        val next = route[(i + 1) % n]
+        // Buses round a roundabout's island; trams keep to their track through the middle.
+        if (!tram && map.control[here] == Junction.ROUNDABOUT && map.road[here].toInt() != 0 && beside(map, prev, here) && beside(map, here, next)) pointRoundInto(prev, here, next, u, map.width, KERB, spot)
+        else pointThroughInto(prev, here, next, u, map.width, if (tram) 0f else KERB, spot)
+        val cx = spot[0]
+        val cy = spot[1]
+        val heading = spot[2]
+        if (cx < topLeft.x - 1 || cx > bottomRight.x + 1 || cy < topLeft.y - 1 || cy > bottomRight.y + 1) return@eachTransit
+        if (behind(cx, cy)) return@eachTransit
+        val spot = camera.tileToScreen(cx, cy, size)
+        when (line.mode) {
+            Mode.TRAM -> car(spot, t, heading, 0.7f, 0.24f, TRAM_BODY, TRAM_ENDS)
+            Mode.TROLLEY -> {
+                car(spot, t, heading, 0.45f, 0.17f, TROLLEY_BODY, GLASS)
+                // Its two poles back and up to the wire.
+                rotate(heading, spot) {
+                    val back = Offset(spot.x - t * 0.15f, spot.y)
+                    drawLine(POLE, back, Offset(back.x - t * 0.2f, back.y - t * 0.05f), max(1f, t * 0.03f))
+                }
+            }
+            else -> car(spot, t, heading, 0.45f, 0.17f, BUS_BODY, GLASS)
+        }
+        if (seated > 0 && t >= RIDERS_TILE_PX) riders(spot, t, heading, if (tram) 0.7f else 0.45f, seats, seated)
+    }
+}
+
+/** Whether trams and buses are drawn at [camera]'s zoom. */
+internal fun transitShown(camera: Camera) = camera.tilePx >= MIN_TILE_PX
+
+/** Room for working out the trams' and buses' timetables, kept between frames. */
+internal class TransitRoom {
+    var moving = FloatArray(0)
+    var pause = FloatArray(0)
+    var starts = FloatArray(0)
+    val spot = FloatArray(3)
+
+    fun room(n: Int) {
+        if (n <= moving.size) return
+        moving = FloatArray(n)
+        pause = FloatArray(n)
+        starts = FloatArray(n + 1)
+    }
+}
+
+/**
+ * Each of [lines]' trams, buses and trolleybuses at [time], as its line,
+ * where it is along the route in tiles, each tile's middle a whole number,
+ * and whether it's standing at a stop: spaced along the route and going
+ * round it out and back, pausing at each stop, slowed in traffic where
+ * there's no lane kept for it. Works in [room].
+ */
+private inline fun eachTransit(map: CityMap, time: Float, lines: Collection<LineState>, room: TransitRoom, each: (LineState, Float, Boolean) -> Unit) {
     for (line in lines) {
         val route = line.route
         if (!line.running || route.size < 2 || line.vehicles <= 0) continue
@@ -231,9 +302,11 @@ internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, li
         val speed = if (tram) TRAM_TILES else BUS_TILES
         val stopBit = if (tram) Stop.TRAM else Stop.BUS
         // The line's timetable: how long each tile takes to cross, and the pause at a stop in its middle.
-        val moving = FloatArray(n)
-        val pause = FloatArray(n)
-        val starts = FloatArray(n + 1)
+        room.room(n)
+        val moving = room.moving
+        val pause = room.pause
+        val starts = room.starts
+        starts[0] = 0f
         for (j in 0 until n) {
             val i = route[j]
             val busy = map.congestion[i].toInt() and 0xff
@@ -243,8 +316,6 @@ internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, li
             starts[j + 1] = starts[j] + moving[j] + pause[j]
         }
         val period = starts[n]
-        val seats = if (tram) TRAM_SEATS else BUS_SEATS
-        val seated = min(seats, ceil(seats * line.full / 100f).toInt())
         for (k in 0 until line.vehicles) {
             // Where it is on the timetable, then on the route: half across its tile, any pause, the other half.
             val at = (time + k * period / line.vehicles).mod(period)
@@ -252,33 +323,39 @@ internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, li
             while (j < n - 1 && starts[j + 1] <= at) j++
             val into = at - starts[j]
             val half = moving[j] / 2f
+            val standing = into >= half && into < half + pause[j]
             val pos = when {
                 into < half -> j - 0.5f + into / moving[j]
-                into < half + pause[j] -> j.toFloat()
+                standing -> j.toFloat()
                 else -> j - 0.5f + (into - pause[j]) / moving[j]
             }
-            val i = floor(pos + 0.5f).toInt()
-            val u = pos + 0.5f - i
-            val (cx, cy, heading) = pointThrough(route[(i - 1 + n) % n], route[i.mod(n)], route[(i + 1) % n], u, map.width, if (tram) 0f else KERB)
-            if (cx < topLeft.x - 1 || cx > bottomRight.x + 1 || cy < topLeft.y - 1 || cy > bottomRight.y + 1) continue
-            if (behind(cx, cy)) continue
-            val spot = camera.tileToScreen(cx, cy, size)
-            when (line.mode) {
-                Mode.TRAM -> car(spot, t, heading, 0.7f, 0.24f, TRAM_BODY, TRAM_ENDS)
-                Mode.TROLLEY -> {
-                    car(spot, t, heading, 0.45f, 0.17f, TROLLEY_BODY, GLASS)
-                    // Its two poles back and up to the wire.
-                    rotate(heading, spot) {
-                        val back = Offset(spot.x - t * 0.15f, spot.y)
-                        drawLine(POLE, back, Offset(back.x - t * 0.2f, back.y - t * 0.05f), max(1f, t * 0.03f))
-                    }
-                }
-                else -> car(spot, t, heading, 0.45f, 0.17f, BUS_BODY, GLASS)
-            }
-            if (seated > 0 && t >= RIDERS_TILE_PX) riders(spot, t, heading, if (tram) 0.7f else 0.45f, seats, seated)
+            each(line, pos, standing)
         }
     }
 }
+
+/**
+ * Calls [mark] for each crossing a tram, bus or trolleybus is on at [time],
+ * or about to come onto while moving, so road traffic can wait for it to
+ * pass. Not interchanges, where the roads don't meet. Works in [room].
+ */
+internal fun markTransit(map: CityMap, time: Float, lines: Collection<LineState>, room: TransitRoom, mark: (Int) -> Unit) {
+    eachTransit(map, time, lines, room) { line, pos, standing ->
+        val route = line.route
+        val n = route.size
+        val half = if (line.mode == Mode.TRAM) TRAM_HALF else BUS_HALF
+        val back = floor(pos - half + 0.5f).toInt()
+        val front = floor(pos + half + (if (standing) 0f else TRANSIT_LEAD) + 0.5f).toInt()
+        for (j in back..front) {
+            val i = route[j.mod(n)]
+            val control = map.control[i]
+            if (control != Junction.NONE && control != Junction.INTERCHANGE && map.road[i].toInt() != 0) mark(i)
+        }
+    }
+}
+
+/** Whether tiles [a] and [b] are side by side. */
+private fun beside(map: CityMap, a: Int, b: Int) = abs(a % map.width - b % map.width) + abs(a / map.width - b / map.width) == 1
 
 /** [count] of [seats] riders as heads in a row down the middle of a tram or bus [length] tiles long. */
 private fun DrawScope.riders(at: Offset, t: Float, heading: Float, length: Float, seats: Int, count: Int) {
@@ -388,6 +465,11 @@ private const val KERB = 0.15f
 
 /** How long a tram or bus waits at a stop, in seconds at normal speed. */
 private const val STOP_SECONDS = 1.2f
+
+/** Half a tram's length and a bus's, in tiles, and how far ahead of one a crossing counts as taken. */
+private const val TRAM_HALF = 0.35f
+private const val BUS_HALF = 0.225f
+private const val TRANSIT_LEAD = 0.3f
 
 /** Riders show once a tile is this big, and as heads in this many seats. */
 private const val RIDERS_TILE_PX = 28f

@@ -141,6 +141,7 @@ fun MapView(
     var travelTime by remember { mutableFloatStateOf(0f) }
     val services = remember(game.city) { ServiceTrips() }
     val movers = remember(game.city) { TripMovers() }
+    val transitRoom = remember { TransitRoom() }
     val moving = remember(renderer) { renderer?.let { MovingLayer(map, it) } }
     val paceNow by rememberUpdatedState(pace)
     val fires = game.city.burningNow > 0
@@ -412,8 +413,10 @@ fun MapView(
         val stopped = (if (trains) drawTrains(game.city.trainRoutes, map, camera, travelTime, graphics.trains, graphics.smoke, steam = game.city.year < Balance.STEAM_TRAINS_UNTIL, behind = behind) else emptySet()) + raised
         if (ferries) drawFerries(game.city.ferryRoutes, map, camera, travelTime)
         if (traffic) {
+            drawSignals(map, camera, travelTime, behind)
             val sample = game.city.tripSample
-            movers.update(sample, map, travelTime, graphics.movers, stopped)
+            // Traffic waits for trams and buses only where they're drawn.
+            movers.update(sample, map, travelTime, graphics.movers, stopped, if (transitShown(camera)) game.city.lineStates() else emptyList(), game.revision)
             if (sample.size == 0 || graphics.movers == 0) {
                 // No trips to follow, just after loading say, or graphics too low for them: traffic looping by last month's volumes instead.
                 drawPeople(game.city, map, camera, game.city.year, travelTime, behind)
@@ -423,7 +426,7 @@ fun MapView(
                 // A few more on roads over capacity, so a jam looks full.
                 drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped, over = AT_CAPACITY, behind = behind)
             }
-            drawTransit(map, camera, travelTime, game.city.lineStates(), behind)
+            drawTransit(map, camera, travelTime, game.city.lineStates(), transitRoom, behind)
             services.update(game.city.callouts, map, travelTime, game.city.year)
             with(services) { draw(map, camera, game.city.year, weatherTime, behind) }
         }
