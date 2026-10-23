@@ -34,9 +34,12 @@ TOOLS=$(ls -d "$HOME"/Android/Sdk/build-tools/*/ | sort -V | tail -1)
 CERT=94a967c788b7f85c658af1bb2bfc087bb169ac020598396a271fd595397ac1e5
 CODE=$(sed -n 's/^ *versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts)
 f=$APP/outputs/apk/release/app-release.apk
-"${TOOLS}aapt2" dump badging "$f" | grep -E "^package|native-code"
-"${TOOLS}aapt2" dump badging "$f" | grep -q "versionCode='$CODE' versionName='$V'" || { echo "$f: not version $V ($CODE)"; exit 1; }
-"${TOOLS}apksigner" verify --print-certs "$f" | grep -q "SHA-256 digest: $CERT" || { echo "$f: wrong key"; exit 1; }
+# Read into variables first: grep -q stops reading early, which fails the pipe under pipefail.
+BADGING=$("${TOOLS}aapt2" dump badging "$f")
+grep -E "^package|native-code" <<< "$BADGING"
+grep -q "versionCode='$CODE' versionName='$V'" <<< "$BADGING" || { echo "$f: not version $V ($CODE)"; exit 1; }
+CERTS=$("${TOOLS}apksigner" verify --print-certs "$f")
+grep -q "SHA-256 digest: $CERT" <<< "$CERTS" || { echo "$f: wrong key"; exit 1; }
 cp "$f" "$OUT/infill-$V.apk"
 
 # The browser version. The F-Droid publisher builds its own from the tag; this is to see it builds.
