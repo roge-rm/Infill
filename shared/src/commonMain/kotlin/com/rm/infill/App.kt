@@ -495,19 +495,20 @@ private fun Screens(settings: Settings, reading: MutableState<Boolean>) {
     val notice = remember { mutableStateOf<Message?>(null) }
     var savesChanged by remember { mutableIntStateOf(0) }
     // The saved towns and regions, read away from the screen's thread; the last list stays up until the new one's read.
-    // Until then just the autosave, so Continue is there from the first frame.
-    var listed by remember {
-        val auto = platform.readSave(AUTOSAVE)?.let { SaveGame.summary(it) }
-        mutableStateOf(SavesList(listOfNotNull(auto?.let { AUTOSAVE to it }), emptyList()))
-    }
+    // Null until the autosave's been read, which is read first so Continue doesn't wait on every other save.
+    var listed by remember { mutableStateOf<SavesList?>(null) }
     // Saves being deleted, kept off any list read before they're gone.
     val deleting = remember { HashSet<String>() }
     LaunchedEffect(savesChanged, loadOpen, screen) {
+        if (listed == null) {
+            val auto = withContext(Dispatchers.Default) { platform.readSave(AUTOSAVE)?.let { SaveGame.summary(it) } }
+            listed = SavesList(listOfNotNull(auto?.let { AUTOSAVE to it }), emptyList())
+        }
         val got = withContext(Dispatchers.Default) { listSaves() }
         listed = SavesList(got.towns.filter { it.first !in deleting }, got.regions.filter { it.file !in deleting })
     }
-    val regions = listed.regions
-    val saves = listed.towns
+    val regions = listed?.regions.orEmpty()
+    val saves = listed?.towns.orEmpty()
     val lastSave = saves.firstOrNull { it.first == AUTOSAVE }?.second
 
     // For work the screens start that outlives a tap, such as reading a challenge's town.
@@ -696,6 +697,7 @@ private fun Screens(settings: Settings, reading: MutableState<Boolean>) {
 
     when (screen) {
         Screen.Start -> StartScreen(
+            listed != null,
             lastSave,
             onContinue = { load(AUTOSAVE) },
             onNew = { screen = Screen.New },
@@ -809,7 +811,7 @@ private fun Screens(settings: Settings, reading: MutableState<Boolean>) {
     if (loadOpen) {
         LoadWindow(saves, ::load, { file ->
             // Off the list at once; a region goes with its towns, read away from the screen's thread.
-            listed = SavesList(listed.towns.filter { it.first != file }, listed.regions.filter { it.file != file })
+            listed = SavesList(saves.filter { it.first != file }, regions.filter { it.file != file })
             deleting += file
             appScope.launch {
                 try {

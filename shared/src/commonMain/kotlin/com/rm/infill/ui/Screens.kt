@@ -162,9 +162,10 @@ fun Page(background: ImageBitmap? = null, content: @Composable () -> Unit) {
     }
 }
 
-/** The first screen: carry on, start a new city, load one, or change settings. */
+/** The first screen: carry on, start a new city, load one, or change settings. The buttons wait until the saves are [ready]. */
 @Composable
 fun StartScreen(
+    ready: Boolean,
     lastSave: SaveSummary?,
     onContinue: () -> Unit,
     onNew: () -> Unit,
@@ -178,6 +179,7 @@ fun StartScreen(
             Image(painterResource(Res.drawable.app_icon), null, Modifier.size(64.dp).clip(RoundedCornerShape(14.dp)))
             Text(stringResource(Res.string.app_name), color = c.text, fontSize = 44.sp, fontWeight = FontWeight.Bold)
         }
+        if (!ready) return@Page
         if (lastSave != null) {
             BigButton(stringResource(Res.string.continue_town, lastSave.name), primary = true, onClick = onContinue)
             Text(summaryLine(lastSave), color = c.textDim, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
