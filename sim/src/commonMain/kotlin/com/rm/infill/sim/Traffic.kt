@@ -86,6 +86,17 @@ internal class Traffic(private val map: CityMap) {
     /** Room left for workers and shoppers at each road tile. */
     private val jobsLeft = IntArray(map.size)
 
+    /** The jobs at each road tile this month, and the percent of last month's that nobody got to, 0 where all were filled. */
+    private val jobsTotal = IntArray(map.size)
+    private val unfilledAt = IntArray(map.size)
+    private var measured = false
+
+    /** Percent of the jobs at road tile [i] filled by workers who got there last month; 100 before the first month is done. */
+    fun reachedAt(i: Int): Int = 100 - unfilledAt[i]
+
+    /** Whether a month's commute has been counted yet. */
+    val commuteCounted: Boolean get() = measured
+
     /** Seconds a driver spends finding a space at each road tile, by the work there. */
     private val parkingSearch = IntArray(map.size)
     private val shopsLeft = IntArray(map.size)
@@ -467,6 +478,10 @@ internal class Traffic(private val map: CityMap) {
         travel.fill(0)
         shipped.fill(0)
 
+        // The month just ended: how much of each tile's work was filled.
+        for (i in 0 until map.size) unfilledAt[i] = if (jobsTotal[i] > 0) (jobsLeft[i].coerceIn(0, jobsTotal[i]) * 100 + jobsTotal[i] - 1) / jobsTotal[i] else 0
+        measured = measured || jobsTotal.any { it > 0 }
+        jobsAt.copyInto(jobsTotal)
         jobsAt.copyInto(jobsLeft)
         shopsAt.copyInto(shopsLeft)
         // The more work on a street, the longer a driver looks for a space on it.
@@ -1337,6 +1352,17 @@ internal class Traffic(private val map: CityMap) {
     internal fun writeParking(w: SaveWriter) {
         for (a in arrayOf(parked, lastParked, spacesLeft, parkingSearch)) sparse(w, a)
         w.int(paidParked); w.int(lastPaidParked)
+    }
+
+    /** Since save version 52: the jobs each month and how many were filled, for each building's staffing. */
+    internal fun writeStaffing(w: SaveWriter) {
+        for (a in arrayOf(jobsTotal, unfilledAt)) sparse(w, a)
+        w.bool(measured)
+    }
+
+    internal fun readStaffing(r: SaveReader) {
+        for (a in arrayOf(jobsTotal, unfilledAt)) sparse(r, a)
+        measured = r.bool()
     }
 
     internal fun readParking(r: SaveReader) {

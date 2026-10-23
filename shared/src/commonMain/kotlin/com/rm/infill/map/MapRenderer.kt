@@ -52,7 +52,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         /** The same chunk baked for other lights, whose map and roofs are kept so only the lights are baked again. */
         var reuse: Baked? = null
 
-        /** How staffed each kind of building is, as [staffing] last took it, and that snapshot's count. */
+        /** How staffed each building is, as [staffing] last took it, and that snapshot's count. */
         var staff = NO_STAFF
         var staffCount = 0
     }
@@ -116,20 +116,20 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     private var nowLights = -1
     private var lastLights = -1
 
-    // How staffed each kind of building is, in percent by ordinal, empty for all of them; replaced whole, never changed, so a bake can hold it.
+    // How staffed each building is, in percent by the tile at its top left, empty for all of them; replaced whole, never changed, so a bake can hold it.
     private var staff = NO_STAFF
     private var staffCount = 0
 
     /**
-     * Takes how staffed each kind of building is, in percent by [BuildingType]
-     * ordinal, for the lit windows at work. Kept in steps of a tenth, and only
+     * Takes how staffed each building is, in percent by the tile at its top
+     * left, for the lit windows at work. Kept in steps of a tenth, and only
      * a change of step bakes the lights again, leaving the map under them.
      */
-    fun staffing(shares: IntArray) {
+    fun staffing(shares: ByteArray) {
         var same = shares.size == staff.size
-        if (same) for (k in shares.indices) if (step(shares[k]) != staff[k]) { same = false; break }
+        if (same) for (k in shares.indices) if (step(shares[k].toInt()) != staff[k].toInt()) { same = false; break }
         if (same) return
-        staff = IntArray(shares.size) { step(shares[it]) }
+        staff = ByteArray(shares.size) { step(shares[it].toInt()).toByte() }
         staffCount++
     }
 
@@ -524,10 +524,10 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     /**
      * Lights some of the windows of the building drawn at [dx], [dy] from its
      * top left tile [ax], [ay]: in homes with people living in them, and at
-     * work as it's staffed ([staff], by kind) and open, more or fewer by the
+     * work as it's staffed ([staff], by building) and open, more or fewer by the
      * [stage] of the night.
      */
-    private fun lightWindows(surface: BakeSurface, level: Int, sprite: Int, ax: Int, ay: Int, dx: Int, dy: Int, stage: Int, staff: IntArray) {
+    private fun lightWindows(surface: BakeSurface, level: Int, sprite: Int, ax: Int, ay: Int, dx: Int, dy: Int, stage: Int, staff: ByteArray) {
         val i = map.index(ax, ay)
         if (map.site[i].toInt() != 0 || map.forSale[i] || map.fire[i].toInt() != 0) return
         val panes = atlas.lights.panes(level, sprite) ?: return
@@ -536,7 +536,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         val home = zone == Zone.RESIDENTIAL || zone == Zone.MIXED
         // Work shut by floodwater is dark, as the sim shuts it.
         if (!home && (map.flood[i].toInt() and 0xff) >= Balance.FLOODED) return
-        val staffed = if (type < staff.size) staff[type] else 100
+        val staffed = if (i < staff.size) staff[i].toInt() else 100
         val share = if (home) WindowLights.HOME_SHARE[stage] else WindowLights.WORK_SHARE[stage] * staffed / 100
         if (share == 0) return
         // The same seed all night, so the windows lit later are some of those lit earlier.
@@ -1366,7 +1366,7 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             ((lights + 1).toLong() shl 8) or (step + 1).toLong()
 
     companion object {
-        private val NO_STAFF = IntArray(0)
+        private val NO_STAFF = ByteArray(0)
 
         /** How far a street lamp's pool sits from the middle of its road tile towards the lots, in tiles. */
         private const val LAMP_LEAN = 0.18f

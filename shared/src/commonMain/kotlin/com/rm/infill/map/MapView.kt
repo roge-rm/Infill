@@ -373,10 +373,10 @@ fun MapView(
         drawRect(page)
         if (renderer == null) return@Canvas
         game.takeChanges { i -> renderer.changed(i % map.width, i / map.width) }
-        // How staffed each kind of work is changes with the month; taken when the sim lets go of the town.
+        // How staffed each work building is changes with the month; taken when the sim lets go of the town.
         if (game.city.monthNow != staffMonth[0]) {
             game.tryLocked {
-                renderer.staffing(IntArray(BuildingType.entries.size) { game.city.staffShare(BuildingType.entries[it]) })
+                renderer.staffing(game.city.staffShareByLot())
                 staffMonth[0] = game.city.monthNow
             }
         }

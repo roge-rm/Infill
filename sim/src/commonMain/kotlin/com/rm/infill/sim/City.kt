@@ -4745,6 +4745,32 @@ class City(
         return (share / 100).coerceIn(0, 100)
     }
 
+    /**
+     * Percent of [b]'s jobs filled last month by workers who got there, 0 to
+     * 100. Buildings on one road tile share its figure. Full before the first
+     * month's commute is counted, in a town with no people, and for work still
+     * being built.
+     */
+    fun reached(b: Building): Int {
+        if (stats.population == 0 || !traffic.commuteCounted || b.underway > 0) return 100
+        val node = accessOf(b)
+        return if (node < 0) 0 else traffic.reachedAt(node)
+    }
+
+    /** As [staffShare], scaled by how many of [b]'s workers can reach it. */
+    fun staffShareOf(b: Building): Int = reached(b) * staffShare(b.type) / 100
+
+    /** [staffShareOf] for each work building, by the tile at its top left; 100 on every other tile. */
+    fun staffShareByLot(): ByteArray {
+        val out = ByteArray(map.size) { 100 }
+        for (b in buildings.values) {
+            val zone = b.type.zone
+            if (zone == Zone.RESIDENTIAL || zone == Zone.MIXED) continue
+            out[map.index(b.x, b.y)] = staffShareOf(b).coerceIn(0, 100).toByte()
+        }
+        return out
+    }
+
     /** Cover by road from [stations]: full within [full] seconds' drive, none past [most], both stretched by [strength]. */
     private fun responseCover(stations: List<Building>, full: Int, most: Int, strength: Int, out: ByteArray) {
         if (stations.isEmpty()) {
@@ -9443,6 +9469,8 @@ class City(
         w.count(paid.size)
         for (b in paid) w.int(b.id)
         traffic.writeParking(w)
+        // Since version 52: how many of each tile's jobs were filled.
+        traffic.writeStaffing(w)
     }
 
     companion object {
@@ -9826,6 +9854,7 @@ class City(
                                 repeat(r.count()) { c.buildings[r.int()]?.paidParking = true }
                                 c.traffic.readParking(r)
                             }
+                            if (version >= 52) c.traffic.readStaffing(r)
                         }
                     }
                 } else {
