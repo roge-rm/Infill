@@ -107,12 +107,11 @@ class StaffingTest {
         for (x in 31..70) assertTrue(c.whyNotAt(m.index(x, 66)) != AdviceKind.UNREACHED, "lot at $x")
     }
 
-    @Test
-    fun anIslandBehindAShutBridgeIsCutOffTillItOpens() {
+    /** Homes on the west bank, works on an island to the east, a bridge between. */
+    private fun islandTown(): City {
         val c = City(17, 64, 64, TerrainOptions(water = 0, trees = 0, river = false)).also { it.disasterLevel = 0 }
         val m = c.map
         for (y in 0 until 64) for (x in 30..32) m.terrain[m.index(x, y)] = Terrain.WATER
-        // Homes on the west bank, works on the island to the east, a bridge between.
         assertTrue(c.apply(Action.BuildRoad(Action.roadPath(m, 0, 30, 55, 30, true))).ok)
         assertTrue(c.apply(Action.PlaceZone(5, 26, 28, 29, Zone.RESIDENTIAL)).ok)
         assertTrue(c.apply(Action.PlaceZone(35, 31, 55, 33, Zone.INDUSTRIAL)).ok)
@@ -120,6 +119,13 @@ class StaffingTest {
         assertTrue(c.apply(Action.BuildPowerLine(Action.roadPath(m, 7, 32, 7, 25, false))).ok)
         assertTrue(c.apply(Action.PlaceBuilding(BuildingType.COAL_PLANT, 50, 36)).ok)
         assertTrue(c.apply(Action.BuildPowerLine(Action.roadPath(m, 50, 35, 50, 34, false))).ok)
+        return c
+    }
+
+    @Test
+    fun anIslandBehindAShutBridgeIsCutOffTillItOpens() {
+        val c = islandTown()
+        val m = c.map
         c.months(18)
         val island = m.index(45, 30)
         assertTrue(!c.unreachedRoad(island))
@@ -150,6 +156,74 @@ class StaffingTest {
         back.months(1)
         assertTrue(SaveGame.write(c).contentEquals(SaveGame.write(back)), "saves differ after a month")
     }
+
+    @Test
+    fun workThatCameDownShortOfStaffComesBackWhenStaffed() {
+        val c = islandTown()
+        val m = c.map
+        c.months(36)
+        val grown = c.allBuildings.filter { it.type.zone == Zone.INDUSTRIAL && it.underway == 0 && it.type.previous != null }
+        assertTrue(grown.isNotEmpty(), "no works past the first rung")
+        // Shut the bridge till some come down a rung for want of staff.
+        val bridge = intArrayOf(m.index(30, 30), m.index(31, 30), m.index(32, 30))
+        assertTrue(c.apply(Action.SetBridge(bridge, shut = true)).ok)
+        var months = 0
+        while (months < 24 && c.allBuildings.none { it.shrunkShort }) {
+            c.months(1)
+            months++
+        }
+        assertTrue(c.allBuildings.any { it.shrunkShort }, "none came down in $months months")
+        // Still short, it's still held back, and it says why.
+        c.months(2)
+        val ids = c.allBuildings.filter { it.shrunkShort }.map { it.id }.toSet()
+        assertTrue(ids.isNotEmpty())
+        for (b in c.allBuildings.filter { it.id in ids }) assertTrue(c.whyNotAt(m.index(b.x, b.y)) != null, "at ${b.x}, ${b.y}")
+        // The flag keeps through a save.
+        val back = SaveGame.read(SaveGame.write(c))
+        assertEquals(ids, back.allBuildings.filter { it.shrunkShort }.map { it.id }.toSet())
+        // Open again and staffed for a month, it may grow.
+        assertTrue(c.apply(Action.SetBridge(bridge, shut = false)).ok)
+        c.months(3)
+        val staffed = c.allBuildings.filter { it.id in ids && c.staffShareOf(it) >= Balance.STAFF_LOW }
+        assertTrue(staffed.isNotEmpty())
+        for (b in staffed) assertTrue(!b.shrunkShort, "at ${b.x}, ${b.y}")
+    }
+
+    @Test
+    fun workThatCameDownShortOfStaffDoesntGrowWhileShort() {
+        val c = City(1900)
+        val m = c.map
+        // A few homes at one end of a long street and more work along it than they can staff.
+        c.apply(Action.BuildRoad(Action.roadPath(m, 0, 64, 110, 64, true)))
+        c.apply(Action.PlaceZone(10, 60, 30, 63, Zone.RESIDENTIAL))
+        c.apply(Action.PlaceZone(31, 65, 70, 67, Zone.INDUSTRIAL))
+        c.apply(Action.PlaceZone(31, 60, 70, 63, Zone.COMMERCIAL))
+        c.apply(Action.PlaceBuilding(BuildingType.COAL_PLANT, 105, 66))
+        c.apply(Action.BuildPowerLine(Action.roadPath(m, 104, 66, 10, 59, false)))
+        c.months(24)
+        // As if each had just come down a rung short of staff.
+        val work = c.allBuildings.filter { paysByStaffType(it.type) && it.underway == 0 }
+        for (b in work) { b.shrunkShort = true; b.understaffed = 0 }
+        val sizes = work.associate { it.id to it.type }
+        var grewShort = 0
+        repeat(3) {
+            c.months(1)
+            for (b in c.allBuildings) if (b.id in sizes && b.type != sizes[b.id] && b.shrunkShort) grewShort++
+        }
+        val short = c.allBuildings.filter { it.id in sizes && c.staffShareOf(it) < Balance.STAFF_LOW }
+        val staffed = c.allBuildings.filter { it.id in sizes && c.staffShareOf(it) >= Balance.STAFF_LOW }
+        println("held back: ${short.size} short, ${staffed.size} staffed, $grewShort grew while short")
+        assertTrue(short.isNotEmpty() && staffed.isNotEmpty())
+        assertEquals(0, grewShort)
+        // Short, it keeps the mark before its months are up, and says why it can't grow.
+        for (b in short) {
+            assertTrue(b.shrunkShort && b.understaffed < Balance.STAFF_MONTHS, "at ${b.x}, ${b.y}")
+            assertEquals(AdviceKind.FEW_WORKERS, c.whyNotAt(m.index(b.x, b.y)), "at ${b.x}, ${b.y}")
+        }
+        for (b in staffed) assertTrue(!b.shrunkShort, "at ${b.x}, ${b.y}")
+    }
+
+    private fun paysByStaffType(t: BuildingType) = t.zone == Zone.INDUSTRIAL || t.zone == Zone.COMMERCIAL
 
     @Test
     fun anOldSaveStartsWithNoMonthsShort() {

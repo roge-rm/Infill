@@ -7381,8 +7381,9 @@ class City(
             if (b != null && districtAt(i)?.heritage == true && isHeritage(b)) return@repeat
             // No one to build on to an empty home.
             if (b?.people?.empty == true) return@repeat
-            // Work that's long been short of staff doesn't grow, nor does work where its workers can't get to.
-            if (b != null && b.understaffed >= Balance.STAFF_MONTHS) return@repeat
+            // Work that's long been short of staff, or came down for it and isn't staffed again yet,
+            // doesn't grow, nor does work where its workers can't get to.
+            if (b != null && (b.understaffed >= Balance.STAFF_MONTHS || b.shrunkShort)) return@repeat
             if (unreachedLot(i, zone)) return@repeat
             val pull = attraction(i, zone)
             val options = choices(b, i, zone, pull)
@@ -7495,6 +7496,8 @@ class City(
                 val inside = there != null && there.id == replacing?.id && there.x >= ax && there.y >= ay &&
                     there.x + there.type.width <= ax + t.width && there.y + there.type.height <= ay + t.height
                 if (there != null && (there.type.large && !inside || there.underway > 0 || there.burning > 0)) ok = false
+                // Work held back for want of staff isn't taken in either.
+                if (there != null && (there.shrunkShort || there.understaffed >= Balance.STAFF_MONTHS)) ok = false
                 // Up to medium density, a bigger building only takes in neighbours a rung or more below it,
                 // a mansion over old cottages, never ones as good as itself.
                 if (there != null && !inside && there.id != replacing?.id && Density.rank(t.density) <= Density.rank(Density.MEDIUM) &&
@@ -7664,7 +7667,8 @@ class City(
     /**
      * Counts the months each shop, works, office and farm has been under
      * [Balance.STAFF_LOW] percent staffed. Past [Balance.STAFF_MONTHS] it
-     * stops growing and comes down a rung now and then, a third of them a month.
+     * stops growing and comes down a rung now and then, a third of them a month,
+     * and doesn't grow again until it's been staffed for a month.
      */
     private fun understaffing() {
         // Which roads any worker could get to this month, by the ways they travel now.
@@ -7674,6 +7678,7 @@ class City(
         for (b in buildings.values) {
             if (!counted || !paysByStaff(b.type) || b.type.zone == Zone.MIXED || b.underway > 0 || staffShareOf(b) >= Balance.STAFF_LOW) {
                 b.understaffed = 0
+                if (counted) b.shrunkShort = false
                 continue
             }
             b.understaffed++
@@ -7683,6 +7688,8 @@ class City(
         for (b in low?.sortedBy { it.id } ?: return) if (rng.nextInt(3) == 0) {
             shrink(b)
             b.understaffed = 0
+            // A large building comes down as a new one on its first lot.
+            buildings[map.building[map.index(b.x, b.y)]]?.shrunkShort = true
         }
     }
 
@@ -8678,7 +8685,7 @@ class City(
      */
     private fun whyNot(b: Building?, i: Int, zone: Byte): AdviceKind? {
         if (!nearRoad[i]) return AdviceKind.NO_ROAD
-        if (b != null && b.understaffed >= Balance.STAFF_MONTHS) return when (staffShort(b)) {
+        if (b != null && (b.understaffed >= Balance.STAFF_MONTHS || b.shrunkShort)) return when (staffShort(b)) {
             StaffShort.UNREACHED -> AdviceKind.UNREACHED
             StaffShort.WORKERS -> AdviceKind.FEW_WORKERS
             StaffShort.SCHOOLING -> AdviceKind.NO_STAFF
@@ -9630,6 +9637,10 @@ class City(
             for (id in set.sorted()) w.int(id)
         }
         w.bool(networksDirty)
+        // Work that came down for want of staff and isn't staffed yet.
+        val shrunk = buildings.values.filter { it.shrunkShort }
+        w.count(shrunk.size)
+        for (b in shrunk) w.int(b.id)
     }
 
     companion object {
@@ -10025,6 +10036,7 @@ class City(
                                 c.arrestCarry = r.long()
                                 for (set in arrayOf(c.darkLastMonth, c.dryLastMonth)) repeat(r.count()) { set += r.int() }
                                 savedDirty = r.bool()
+                                repeat(r.count()) { c.buildings[r.int()]?.shrunkShort = true }
                             }
                         }
                     }
