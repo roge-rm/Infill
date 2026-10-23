@@ -28,12 +28,14 @@ fun targetRuntime(name: String): Configuration = configurations.create(name) {
 }
 val debAmd64Runtime = targetRuntime("debAmd64Runtime")
 val debArm64Runtime = targetRuntime("debArm64Runtime")
+val windowsX64Runtime = targetRuntime("windowsX64Runtime")
 dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.common)
     runtimeOnly(compose.desktop.currentOs)
     debAmd64Runtime(compose.desktop.linux_x64)
     debArm64Runtime(compose.desktop.linux_arm64)
+    windowsX64Runtime(compose.desktop.windows_x64)
 }
 
 val nativeBuild = layout.buildDirectory.dir("native")
@@ -188,8 +190,8 @@ fun fetch(d: Download, into: File): File {
 }
 
 /** Runs [command] and returns its output, failing the build with the output if it fails. */
-fun runCommand(vararg command: String, env: Map<String, String> = emptyMap()): String {
-    val process = ProcessBuilder(*command).redirectErrorStream(true).apply { environment().putAll(env) }.start()
+fun runCommand(vararg command: String, env: Map<String, String> = emptyMap(), dir: File? = null): String {
+    val process = ProcessBuilder(*command).redirectErrorStream(true).apply { environment().putAll(env); dir?.let { directory(it) } }.start()
     val said = process.inputStream.bufferedReader().readText()
     check(process.waitFor() == 0) { "${command.first().substringAfterLast('/')} failed: $said" }
     return said.trim()
@@ -301,3 +303,100 @@ registerAppImage(
     ),
     "-DCMAKE_TOOLCHAIN_FILE=aarch64-linux-gnu.cmake",
 )
+
+// --- Windows -------------------------------------------------------------------
+//
+// 64-bit Windows 10 and 11, cross-built here: the sound engine and Infill.exe with MinGW-w64
+// (native/Dockerfile.windows), the same jars with Skia's Windows natives, and Eclipse Temurin's
+// Java runtime for Windows. As an installer (NSIS) and a portable zip.
+
+val nativeWindows = layout.buildDirectory.dir("native-windows")
+val buildEngineWindows = tasks.register<Exec>("buildEngineWindows") {
+    inputs.dir("native")
+    inputs.dir("windows")
+    inputs.dir(rootProject.file("app/src/main/cpp/synth"))
+    inputs.property("version", versionName)
+    outputs.dir(nativeWindows)
+    val out = nativeWindows.get().asFile.path
+    val src = file("native").absolutePath
+    val version = versionName
+    workingDir = file("native")
+    commandLine(
+        "sh", "-c",
+        "docker build -q -t infill-windows -f Dockerfile.windows . >/dev/null && " +
+            "docker run --rm -u \$(id -u):\$(id -g) ${containerArgs("windows")} -w '$src' infill-windows sh -c '" +
+            "J=/usr/lib/jvm/java-21-openjdk-amd64/include; " +
+            "cmake -S . -B $out -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=x86_64-w64-mingw32.cmake $launcher " +
+            "\"-DJNI_INCLUDE_DIRS=\$J;$src/win32\" -DINFILL_VERSION=$version >/dev/null && " +
+            "cmake --build $out -j8'",
+    )
+}
+
+val windowsStage = layout.buildDirectory.dir("windows/Infill")
+val stageWindows = tasks.register<Sync>("stageWindowsX64") {
+    dependsOn(buildEngineWindows)
+    into(windowsStage)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(nativeWindows.map { it.file("Infill.exe") })
+    from(nativeWindows.map { it.file("infill_audio.dll") }) { into("app") }
+    from(tasks.named("jar")) { into("app/lib") }
+    from(rootProject.file("LICENSE")) { rename { "LICENSE.txt" } }
+    from("native/THIRD-PARTY-LICENSES.txt")
+    // The runtime is added later and replaced each build.
+    preserve { include("runtime/**") }
+}
+
+tasks.register("windowsX64") {
+    group = "distribution"
+    description = "Builds infill-$versionName-setup.exe and the portable zip for 64-bit Windows"
+    notCompatibleWithConfigurationCache("uses the build script's download and exec helpers")
+    dependsOn(stageWindows)
+    val artifacts = windowsX64Runtime.incoming.artifacts.resolvedArtifacts
+    val appJar = tasks.named<Jar>("jar").get().archiveFile.get().asFile
+    val stage = windowsStage.get().asFile
+    val out = layout.buildDirectory.dir("windows").get().asFile
+    val cache = downloads.get().asFile
+    val version = versionName
+    val jre = Download(
+        "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jre_x64_windows_hotspot_21.0.12.1_1.zip",
+        "d35f31e712f0fcf6ac5a093edc90204fbff22f720ba3950bd09d331d5e621636",
+    )
+    inputs.files(windowsX64Runtime)
+    inputs.dir(windowsStage)
+    inputs.dir("windows")
+    inputs.property("downloads", listOf(jre.sha256))
+    inputs.property("version", versionName)
+    val setup = "infill-$version-setup.exe"
+    val portable = "infill-$version-windows-x64.zip"
+    outputs.files(File(out, setup), File(out, portable))
+    doLast {
+        val lib = File(stage, "app/lib")
+        lib.listFiles()?.forEach { it.delete() }
+        lib.mkdirs()
+        for (artifact in artifacts.get()) {
+            val id = artifact.id.componentIdentifier
+            val name = if (id is org.gradle.api.artifacts.component.ModuleComponentIdentifier)
+                "${id.group}-${artifact.file.name}" else artifact.file.name
+            artifact.file.copyTo(File(lib, name), overwrite = true)
+        }
+        appJar.copyTo(File(lib, appJar.name), overwrite = true)
+        val runtime = File(stage, "runtime")
+        runtime.deleteRecursively()
+        val unpacked = File(out, "jre-unpacked").apply { deleteRecursively(); mkdirs() }
+        runCommand("unzip", "-q", fetch(jre, cache).path, "-d", unpacked.path)
+        unpacked.listFiles()!!.single().renameTo(runtime)
+        unpacked.delete()
+        File(out, setup).delete()
+        File(out, portable).delete()
+        // The output folder at the same path inside the container.
+        val inContainer = out.absolutePath
+        runCommand("docker", "build", "-q", "-t", "infill-windows", "-f", "Dockerfile.windows", ".", dir = file("native"))
+        runCommand(
+            "docker", "run", "--rm", "-u", "${runCommand("id", "-u")}:${runCommand("id", "-g")}",
+            "-v", "$inContainer:$inContainer", "-v", "${file("windows").absolutePath}:/windows",
+            "-w", "/windows", "infill-windows", "sh", "-c",
+            "makensis -V2 -DVERSION=$version -DSTAGE=$inContainer/Infill -DOUT=$inContainer/$setup installer.nsi && " +
+                "cd $inContainer && zip -qr $portable Infill",
+        )
+    }
+}

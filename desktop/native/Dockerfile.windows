@@ -1,0 +1,8 @@
+# The toolchain for the Windows build: Debian Trixie's MinGW-w64 cross compiler, a JDK for jni.h
+# (win32/jni_md.h has the Windows part), and NSIS and zip for the installer and portable zip. It
+# runs no Windows code.
+FROM debian:trixie
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        g++-mingw-w64-x86-64-posix gcc-mingw-w64-x86-64-posix binutils-mingw-w64-x86-64 \
+        cmake make ccache openjdk-21-jdk-headless nsis zip unzip \
+    && rm -rf /var/lib/apt/lists/*

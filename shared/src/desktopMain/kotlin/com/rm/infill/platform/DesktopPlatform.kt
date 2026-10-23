@@ -11,11 +11,16 @@ import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.util.Properties
 import javax.imageio.ImageIO
 
-/** Desktop data follows XDG_DATA_HOME, independently of the installation folder. */
-class DesktopPlatform(val folder: File = File(
-    System.getenv("XDG_DATA_HOME")?.takeIf { it.isNotBlank() }
-        ?: "${System.getProperty("user.home")}/.local/share", "infill",
-)) : Platform {
+/** Where desktop data lives, independently of the installation folder: %APPDATA%\Infill on Windows, XDG_DATA_HOME on Linux. */
+fun defaultDataFolder(): File {
+    val home = System.getProperty("user.home")
+    if (System.getProperty("os.name").startsWith("Windows")) {
+        return File(System.getenv("APPDATA")?.takeIf { it.isNotBlank() } ?: File(home, "AppData/Roaming").path, "Infill")
+    }
+    return File(System.getenv("XDG_DATA_HOME")?.takeIf { it.isNotBlank() } ?: "$home/.local/share", "infill")
+}
+
+class DesktopPlatform(val folder: File = defaultDataFolder()) : Platform {
     private val saveFolder = File(folder, "saves").apply { mkdirs() }
     private val settingsFile = File(folder, "settings.properties")
     private val settings = Properties().apply {
