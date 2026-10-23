@@ -1,0 +1,9 @@
+# The toolchain for the AppImages: Ubuntu 22.04, so the sound engine links against glibc 2.35 and
+# runs on it and anything newer (Ubuntu 22.04 and 24.04, Fedora, Arch, the Steam Deck). The Debian
+# package's is built on Trixie and needs 2.41. The C++ runtime is linked in (see build.gradle.kts),
+# so glibc is the only system library it needs. Builds for x86-64 natively and for 64-bit ARM with
+# the cross compiler, without running any ARM code.
+FROM ubuntu:22.04
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        g++ gcc g++-aarch64-linux-gnu gcc-aarch64-linux-gnu cmake make ccache openjdk-17-jdk-headless \
+    && rm -rf /var/lib/apt/lists/*

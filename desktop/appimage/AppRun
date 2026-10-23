@@ -1,0 +1,12 @@
+#!/bin/sh
+# Infill as an AppImage: the app's jars on the Java runtime it carries, with the sound engine
+# beside them. The Debian package's launcher (deb/infill), with everything found inside the image.
+here="$(dirname "$(readlink -f "$0")")"
+crashes="${XDG_DATA_HOME:-$HOME/.local/share}/infill/crashes"
+mkdir -p "$crashes"
+exec "$here/usr/lib/infill/jre/bin/java" \
+    -XX:ErrorFile="$crashes/hs_err_%p.log" \
+    -Djava.library.path="$here/usr/lib/infill/native" \
+    --enable-native-access=ALL-UNNAMED \
+    -cp "$here/usr/lib/infill/lib/*" \
+    com.rm.infill.desktop.MainKt "$@"
