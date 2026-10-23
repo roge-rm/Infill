@@ -36,6 +36,18 @@ dependencies {
     debAmd64Runtime(compose.desktop.linux_x64)
     debArm64Runtime(compose.desktop.linux_arm64)
     windowsX64Runtime(compose.desktop.windows_x64)
+    // GLFW reads the game controllers; each runtime gets the natives for its own system.
+    val lwjgl = libs.versions.lwjgl.get()
+    val host = System.getProperty("os.name").let { os ->
+        if (os.startsWith("Windows")) "natives-windows"
+        else if (System.getProperty("os.arch") == "aarch64") "natives-linux-arm64" else "natives-linux"
+    }
+    for (module in listOf("lwjgl", "lwjgl-glfw")) {
+        runtimeOnly("org.lwjgl:$module:$lwjgl:$host")
+        debAmd64Runtime("org.lwjgl:$module:$lwjgl:natives-linux")
+        debArm64Runtime("org.lwjgl:$module:$lwjgl:natives-linux-arm64")
+        windowsX64Runtime("org.lwjgl:$module:$lwjgl:natives-windows")
+    }
 }
 
 val nativeBuild = layout.buildDirectory.dir("native")

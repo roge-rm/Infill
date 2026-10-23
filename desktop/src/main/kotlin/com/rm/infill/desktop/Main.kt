@@ -7,6 +7,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.rm.infill.App
 import com.rm.infill.audio.AudioEngine
+import com.rm.infill.platform.DesktopPad
 import com.rm.infill.platform.DesktopPlatform
 import com.rm.infill.platform.platform
 import java.awt.event.WindowAdapter
@@ -15,6 +16,7 @@ import java.awt.event.WindowEvent
 fun main() {
     val desktop = DesktopPlatform()
     platform = desktop
+    DesktopPad.start()
     application {
         Window(
             title = "Infill",

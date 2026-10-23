@@ -64,6 +64,8 @@ kotlin {
         val desktopMain by getting {
             dependencies {
                 implementation(compose.desktop.common)
+                implementation("org.lwjgl:lwjgl:${libs.versions.lwjgl.get()}")
+                implementation("org.lwjgl:lwjgl-glfw:${libs.versions.lwjgl.get()}")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:${libs.versions.kotlinxCoroutines.get()}")
             }
         }
