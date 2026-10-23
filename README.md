@@ -1,6 +1,6 @@
 # Infill
 
-Infill is a city builder for Android 8.1 or newer. It also runs in a [browser](https://hunke.ws/fdroid/play/infill/) and on [Linux](https://github.com/roge-rm/Infill/releases/latest).
+Infill is a city builder for Android 8.1 or newer. It also runs in a [browser](https://hunke.ws/fdroid/play/infill/), on Linux and on Windows. See [Installing](#installing).
 
 Help your city grow outwards and then inwards again when you hit the city limits. As time and technology advance your city will too, and you'll have to replace old things with new to keep up with the times. Everything ages and must be replaced, people resist change but demand more from you, pollution and traffic take their toll but solutions can be found... for most problems. I tried to make the game about what it takes to run a city and deal with problems inside it and outside it.
 
@@ -86,26 +86,57 @@ The whole manual is in the game, under Help, and the book button on most windows
 
 <!-- /contents -->
 
+## Installing
+
+On Android, add [my F-Droid repo](https://hunke.ws/fdroid/repo?fingerprint=80438B253C257BCCE05CDCB9E3AC9B6174C2250659962B14FCBE7F32FD42D53E), then search for Infill. F-Droid offers new versions as updates. You can also get an APK from [Releases](https://github.com/roge-rm/Infill/releases). It needs Android 8.1 or newer.
+
+You can also play it in a [browser](https://hunke.ws/fdroid/play/infill/).
+
+### Linux
+
+On Debian 13 (Trixie), Ubuntu 24.04 and newer, and Raspberry Pi OS (64-bit, Trixie), the easiest way is my apt repo, so it updates with the rest of the system. Add it once:
+
+```
+sudo curl -fsSLo /etc/apt/keyrings/hunke.asc https://hunke.ws/apt/hunke.asc
+echo "deb [signed-by=/etc/apt/keyrings/hunke.asc] https://hunke.ws/apt stable main" | sudo tee /etc/apt/sources.list.d/hunke.list
+sudo apt update
+```
+
+Then `sudo apt install infill`. It brings Java 21 with it. Run `infill` or use the application menu.
+
+Or from the [Releases](https://github.com/roge-rm/Infill/releases) page:
+
+- Debian 13 and Raspberry Pi OS (Trixie): the `.deb` for your machine, amd64 or arm64. Install it with `sudo apt install ./infill_*.deb`.
+- Other distributions (Ubuntu 22.04 and newer, Fedora, Arch, the Steam Deck): the AppImage, x86_64 or aarch64. It has its own Java, so just make it executable and run it.
+
+Saves and settings live in `$XDG_DATA_HOME/infill`, or `~/.local/share/infill` by default.
+
+### Steam Deck
+
+Use the x86_64 AppImage. In Desktop Mode, download it, right-click it and turn on Is executable under Properties > Permissions. Then add it to Steam with Add a Non-Steam Game so it's in your library in Game Mode. The Deck's controls work like any gamepad.
+
+### Windows
+
+Windows 10 or 11, 64-bit. From the [Releases](https://github.com/roge-rm/Infill/releases) page, run `infill-*-setup.exe`, or unzip `infill-*-windows-x64.zip` anywhere and run `Infill.exe`. They aren't signed, so Windows will warn you: choose More info and then Run anyway. Saves and settings live in `%APPDATA%\Infill`.
+
+Town import and export and pictures use the desktop's file dialogs. A gamepad works on every platform, and the controller scheme is in Settings.
+
 ## Building
 
-You need the Android SDK for Android builds. The desktop build uses JDK 21,
-CMake, a C++ compiler and `dpkg-deb`. On Debian Trixie amd64:
+You need the Android SDK for Android builds. The desktop builds use JDK 21, CMake, a C++ compiler and `dpkg-deb`, and Docker for the arm64, AppImage and Windows ones, which build in containers. On Debian Trixie amd64:
 
 ```sh
 sudo apt install openjdk-21-jdk cmake g++ dpkg-dev
-./gradlew :desktop:run          # play in a desktop window
-./gradlew :desktop:debAmd64     # build the Debian package
+./gradlew :desktop:run             # play in a desktop window
+./gradlew :desktop:debAmd64        # Debian package, amd64
+./gradlew :desktop:debArm64        # Debian package, arm64
+./gradlew :desktop:appImageAmd64   # AppImage, x86_64
+./gradlew :desktop:appImageArm64   # AppImage, aarch64
+./gradlew :desktop:windowsX64      # Windows installer and zip
+tools/build-release.sh 0.15.0      # every file of a release, with SHA256SUMS
 ```
 
-The package is `desktop/build/deb/infill_<version>_amd64.deb` (under the
-configured build root if `infill.buildRoot` is set). Install it with
-`sudo apt install ./desktop/build/deb/infill_<version>_amd64.deb`, then run
-`infill` or use the application menu. It uses the system Java runtime. Build
-the package on Trixie amd64 so the native audio library matches the target.
-Saves and settings live in `$XDG_DATA_HOME/infill`, or
-`~/.local/share/infill` by default. Town import/export and pictures use
-desktop file dialogs. The desktop build shares the phone’s mouse and
-keyboard controls; gamepad support currently remains on Android and web.
+The files come out in `desktop/build/deb`, `appimage` and `windows` (under the configured build root if `infill.buildRoot` is set). Build the Debian packages on Trixie so the native audio library matches the target. The release script needs the release key beside the project and the music files, which aren't in git.
 
 Other builds and development tools:
 
