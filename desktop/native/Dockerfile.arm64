@@ -1,0 +1,7 @@
+# The toolchain for the arm64 Debian package: Debian Trixie with its aarch64 cross compiler, so the
+# sound engine links against the same glibc and libstdc++ as Trixie and Raspberry Pi OS. It only
+# compiles and runs no ARM code.
+FROM debian:trixie
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        g++-aarch64-linux-gnu gcc-aarch64-linux-gnu cmake make ccache openjdk-21-jdk-headless \
+    && rm -rf /var/lib/apt/lists/*

@@ -1,6 +1,6 @@
 Package: infill
 Version: @VERSION@
-Architecture: amd64
+Architecture: @ARCH@
 Maintainer: Dan Hunke <14335001+roge-rm@users.noreply.github.com>
 Installed-Size: @SIZE@
 Depends: openjdk-21-jre | java21-runtime, libc6 (>= 2.34), libstdc++6, libgcc-s1, libgl1
