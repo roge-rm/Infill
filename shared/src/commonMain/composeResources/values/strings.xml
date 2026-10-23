@@ -443,6 +443,8 @@
     <string name="advice_no_sewer">%1$s can't grow: no sewer</string>
     <string name="advice_no_staff">%1$s can't grow: not enough schooled workers</string>
     <string name="advice_unappealing">%1$s can't grow: nobody wants to build there</string>
+    <string name="advice_unreached">%1$s short of workers: they can't get there, link them to homes by road or transit</string>
+    <string name="advice_few_workers">%1$s can't grow: not enough workers, zone more homes</string>
     <string name="advice_leisure">%1$s can't grow: too little to do nearby, build parks and leisure</string>
     <string name="advice_garbage">Garbage is piling up: build a dump</string>
     <string name="advice_garbage_far">Garbage is piling up far from the dumps: build a transfer station or a dump nearer</string>
@@ -519,6 +521,9 @@
     </plurals>
     <string name="pill_nonconforming">Doesn't fit the zoning</string>
     <string name="pill_upset">Neighbours upset by clearing</string>
+    <string name="pill_staff_unreached">Short of staff: workers can't get here</string>
+    <string name="pill_staff_workers">Short of staff: not enough workers in town</string>
+    <string name="pill_staff_schooling">Short of staff: not enough schooled workers</string>
 
     <string name="level_none">none</string>
     <string name="level_low">low</string>

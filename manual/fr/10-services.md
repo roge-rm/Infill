@@ -10,7 +10,7 @@ Vous pouvez les voir au travail sur les routes : un camion de pompiers part ver
 La portée d'un service et ce qu'il fait dépendent de son financement, de son personnel et de son état.
 
 - Le financement se règle dans le budget. À 0 %, un service fait quand même un peu.
-- Le personnel est embauché parmi les travailleurs de la ville. Une école veut des enseignants qui sont allés à l'école secondaire, et si la ville en manque, l'école fait moins.
+- Le personnel est embauché parmi les travailleurs de la ville qui peuvent s'y rendre, alors construisez les services sur une route près des logements. Une école veut des enseignants qui sont allés à l'école secondaire, et si la ville en manque, l'école fait moins. Même à court de personnel, un service fait au moins 30 %.
 - L'état reste complet jusqu'à ce qu'un bâtiment dépasse sa durée de vie prévue, puis baisse. Les vieux bâtiments tombent en panne plus souvent, et une panne les ferme jusqu'à ce qu'ils soient réparés. **Rénover** sur la fiche d'inspection le remet à neuf, pour une partie de son prix et un mois de fermeture.
 
 Les services ont aussi besoin d'électricité, d'eau, du téléphone et plus tard de la large bande au fil des ans. Un service construit avant qu'un besoin apparaisse doit être rénové pour y être adapté.

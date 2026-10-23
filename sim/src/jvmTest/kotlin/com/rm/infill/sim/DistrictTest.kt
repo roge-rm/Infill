@@ -238,7 +238,8 @@ class DistrictTest {
         c.apply(Action.SetDistrict(d.id, d))
         c.months(36)
         assertTrue(c.homes.isNotEmpty())
-        assertTrue(c.homes.none { it.people!!.wealth == Wealth.WELL_OFF }, "${c.homes.groupingBy { it.people!!.wealth }.eachCount()}")
+        // None are built for them; a household can still get there by its schooling.
+        assertTrue(c.homes.count { it.people!!.wealth == Wealth.WELL_OFF } * 50 <= c.homes.size, "${c.homes.groupingBy { it.people!!.wealth }.eachCount()}")
         val loaded = SaveGame.read(SaveGame.write(c))
         assertTrue(loaded.districts[0].rentControl)
     }

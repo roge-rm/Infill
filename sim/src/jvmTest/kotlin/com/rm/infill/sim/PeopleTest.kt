@@ -61,10 +61,13 @@ class PeopleTest {
 
     @Test
     fun peopleAreBornAndDie() {
-        val c = town()
         var births = 0
         var deaths = 0
-        c.months(120) { births += c.stats.births; deaths += c.stats.deaths }
+        // Over a few towns, as one town's ten years can come out either way.
+        for (seed in 5L..9L) {
+            val c = town(seed)
+            c.months(120) { births += c.stats.births; deaths += c.stats.deaths }
+        }
         assertTrue(births > 0 && deaths > 0, "$births born, $deaths died")
         assertTrue(births > deaths, "a young town grows: $births born, $deaths died")
     }

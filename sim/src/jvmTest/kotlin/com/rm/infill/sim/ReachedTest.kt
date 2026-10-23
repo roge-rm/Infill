@@ -29,7 +29,8 @@ class ReachedTest {
         // Work on a street of its own, with no road to the homes.
         c.apply(Action.BuildRoad(Action.roadPath(m, 20, 20, 80, 20, true)))
         c.apply(Action.PlaceZone(20, 21, 80, 23, Zone.INDUSTRIAL))
-        repeat(3 * 365) { c.tick() }
+        // Long enough for the works apart to be counted, before they come down.
+        c.months(7)
         val linked = works(c, 60, 70)
         val apart = works(c, 18, 30)
         assertTrue(linked.isNotEmpty() && apart.isNotEmpty(), "${linked.size} linked, ${apart.size} apart")

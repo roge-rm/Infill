@@ -60,6 +60,9 @@ class OpinionTest {
         val y = i / c.map.width
         c.petitions.clear()
         c.petitions += Petition(Want.POLICE, x, y, c.monthNow + 12)
+        // On a back street, so its staff can get to it.
+        assertTrue(c.apply(Action.BuildRoad(Action.roadPath(c.map, 4, 30, 4, y - 3, true))).ok)
+        assertTrue(c.apply(Action.BuildRoad(Action.roadPath(c.map, 4, y - 3, 45, y - 3, true))).ok)
         assertTrue(c.apply(Action.PlaceBuilding(BuildingType.POLICE_STATION, x, y - 4)).ok)
         c.takeEvents { }
         val before = c.approval

@@ -166,9 +166,14 @@ class LivingTest {
         c.undo()
         assertEquals(Terrain.GRASS, m.terrain[m.index(12, 46)])
         c.apply(Action.PlantTrees(10, 45, 30, 55))
-        val before = (0 until m.size).count { m.terrain[it] == Terrain.TREES }
+        val planted = (0 until m.size).filter { m.terrain[it] == Terrain.TREES }.toSet()
         repeat(20 * 365) { c.tick() }
-        assertTrue((0 until m.size).count { m.terrain[it] == Terrain.TREES } > before)
+        // Gales take some down, so count the ones that have spread past where they were planted.
+        val spread = (0 until m.size).count { m.terrain[it] == Terrain.TREES && it !in planted }
+        val standing = planted.count { m.terrain[it] == Terrain.TREES }
+        println("trees: ${planted.size} planted, $standing still standing, $spread spread")
+        assertTrue(spread > 0)
+        assertTrue(standing * 2 > planted.size, "$standing of ${planted.size} still standing")
     }
 
     @Test

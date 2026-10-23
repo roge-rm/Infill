@@ -111,6 +111,8 @@ internal fun adviceText(a: Advice): String {
         AdviceKind.NO_SEWER -> stringResource(Res.string.advice_no_sewer, zone)
         AdviceKind.NO_STAFF -> stringResource(Res.string.advice_no_staff, zone)
         AdviceKind.UNAPPEALING -> stringResource(Res.string.advice_unappealing, zone)
+        AdviceKind.UNREACHED -> stringResource(Res.string.advice_unreached, zone)
+        AdviceKind.FEW_WORKERS -> stringResource(Res.string.advice_few_workers, zone)
         AdviceKind.LEISURE -> stringResource(Res.string.advice_leisure, zone)
         AdviceKind.GARBAGE -> stringResource(Res.string.advice_garbage)
         AdviceKind.GARBAGE_FAR -> stringResource(Res.string.advice_garbage_far)
@@ -134,14 +136,14 @@ internal fun adviceGlyph(kind: AdviceKind): Glyph = when (kind) {
     AdviceKind.POWER_SHORT, AdviceKind.NO_POWER -> Glyph.Bolt
     AdviceKind.WATER_SHORT, AdviceKind.NO_WATER, AdviceKind.NO_SEWER -> Glyph.Drop
     AdviceKind.ZONE_MORE -> Glyph.Zone
-    AdviceKind.NO_ROAD, AdviceKind.NO_WAY_IN -> Glyph.Road
+    AdviceKind.NO_ROAD, AdviceKind.NO_WAY_IN, AdviceKind.UNREACHED -> Glyph.Road
     AdviceKind.NO_PORT -> Glyph.Anchor
     AdviceKind.NO_STAFF -> Glyph.Cap
     AdviceKind.UNAPPEALING -> Glyph.Warn
     AdviceKind.LEISURE -> Glyph.Tree
     AdviceKind.GARBAGE, AdviceKind.GARBAGE_FAR -> Glyph.Bin
     AdviceKind.FLOODING -> Glyph.Rain
-    AdviceKind.UNHAPPY -> Glyph.Person
+    AdviceKind.UNHAPPY, AdviceKind.FEW_WORKERS -> Glyph.Person
     AdviceKind.ROUGH_SLEEPERS -> Glyph.Building
 }
 

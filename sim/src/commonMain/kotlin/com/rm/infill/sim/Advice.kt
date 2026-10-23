@@ -31,6 +31,12 @@ enum class AdviceKind {
     NO_STAFF,
     UNAPPEALING,
 
+    /** Shops, works, offices or farms short of staff because workers can't get there: no road from the homes, too far or jammed. */
+    UNREACHED,
+
+    /** Shops, works, offices or farms long short of staff because the town hasn't the workers. */
+    FEW_WORKERS,
+
     /** Homes are wanted, but nothing can grow where they're zoned for want of leisure nearby: parks, sport and culture. */
     LEISURE,
 
@@ -48,6 +54,18 @@ enum class AdviceKind {
 
     /** People think poorly of how the town's run; [Advice.concern] is what they mind most. */
     UNHAPPY,
+}
+
+/** Why a shop, works, office or farm is short of staff. */
+enum class StaffShort {
+    /** Workers can't get there: no road from the homes, too far or jammed. */
+    UNREACHED,
+
+    /** The town hasn't the workers for its jobs. */
+    WORKERS,
+
+    /** The town hasn't the workers with the schooling it needs. */
+    SCHOOLING,
 }
 
 /** One piece of advice: what, which zone it's about if any, a place to look at (-1 if none), and for [AdviceKind.UNHAPPY] the complaint. */

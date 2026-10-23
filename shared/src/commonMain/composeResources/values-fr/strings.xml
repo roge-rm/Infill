@@ -442,6 +442,8 @@
     <string name="advice_no_sewer">%1$s ne peuvent pas croître&#160;: pas d'égout</string>
     <string name="advice_no_staff">%1$s ne peuvent pas croître&#160;: pas assez de travailleurs instruits</string>
     <string name="advice_unappealing">%1$s ne peuvent pas croître&#160;: personne ne veut y construire</string>
+    <string name="advice_unreached">%1$s manquent de travailleurs&#160;: ils ne peuvent pas s'y rendre, reliez-les aux logements par la route ou le transport en commun</string>
+    <string name="advice_few_workers">%1$s ne peuvent pas croître&#160;: pas assez de travailleurs, zonez plus de logements</string>
     <string name="advice_leisure">%1$s ne peuvent pas croître&#160;: trop peu à faire autour, construisez des parcs et des loisirs</string>
     <string name="advice_garbage">Les ordures s'accumulent&#160;: construisez un dépotoir</string>
     <string name="advice_garbage_far">Les ordures s'accumulent loin des dépotoirs&#160;: construisez un centre de transbordement ou un dépotoir plus près</string>
@@ -518,6 +520,9 @@
     </plurals>
     <string name="pill_nonconforming">Non conforme au zonage</string>
     <string name="pill_upset">Voisins mécontents des démolitions</string>
+    <string name="pill_staff_unreached">Manque de personnel&#160;: les travailleurs ne peuvent pas s'y rendre</string>
+    <string name="pill_staff_workers">Manque de personnel&#160;: pas assez de travailleurs en ville</string>
+    <string name="pill_staff_schooling">Manque de personnel&#160;: pas assez de travailleurs instruits</string>
 
     <string name="level_none">aucun</string>
     <string name="level_low">faible</string>

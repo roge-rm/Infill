@@ -29,7 +29,9 @@ class CivicTest {
         assertTrue(c.apply(Action.BuildPowerLine(Action.roadPath(m, 51, 27, 5, 27, true))).ok)
         assertTrue(c.apply(Action.BuildPowerLine(Action.roadPath(m, 51, 27, 51, 33, true))).ok)
         assertTrue(c.apply(Action.BuildPowerLine(Action.roadPath(m, 50, 33, 5, 33, true))).ok)
-        if (school) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.SCHOOL, 10, 35)).ok)
+        // A side street south, so the schools' staff can get to them.
+        assertTrue(c.apply(Action.BuildRoad(Action.roadPath(m, 19, 30, 19, 40, true))).ok)
+        if (school) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.SCHOOL, 17, 35)).ok)
         if (highSchool) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.HIGH_SCHOOL, 20, 35)).ok)
         return c
     }
@@ -61,10 +63,11 @@ class CivicTest {
     @Test
     fun aJuniorHighTakesTheYoungerTeens() {
         fun teens(junior: Boolean): Int {
-            val c = town(1935)
-            if (junior) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.JUNIOR_HIGH, 30, 35)).ok)
+            // With no high school, so it's the only place for them.
+            val c = town(1935, highSchool = false)
+            if (junior) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.JUNIOR_HIGH, 20, 35)).ok)
             c.months(14)
-            if (junior) assertTrue(c.buildingAt(30, 35)!!.served > 0, "the junior high took ${c.buildingAt(30, 35)!!.served}")
+            if (junior) assertTrue(c.buildingAt(20, 35)!!.served > 0, "the junior high took ${c.buildingAt(20, 35)!!.served}")
             // Of the teens, the share at school of either kind.
             val homes = c.homesNow()
             return homes.sumOf { it.highSchooling } / maxOf(1, homes.size)
@@ -78,12 +81,12 @@ class CivicTest {
     fun aKindergartenGivesTheLittleOnesAStart() {
         fun schooling(kindergarten: Boolean): Int {
             val c = town(1925)
-            if (kindergarten) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.KINDERGARTEN, 16, 35)).ok)
+            if (kindergarten) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.KINDERGARTEN, 18, 34)).ok)
             c.months(30)
-            if (kindergarten) assertTrue(c.buildingAt(16, 35)!!.served > 0, "the kindergarten took ${c.buildingAt(16, 35)!!.served}")
+            if (kindergarten) assertTrue(c.buildingAt(18, 34)!!.served > 0, "the kindergarten took ${c.buildingAt(18, 34)!!.served}")
             // The homes it reaches, in tenths of a point.
             val near = (0 until c.map.size).mapNotNull { c.building(c.map.building[it]) }.distinct()
-                .filter { b -> b.people?.let { it.size > 0 } == true && kotlin.math.abs(b.x - 16) + kotlin.math.abs(b.y - 35) <= Balance.KINDERGARTEN_REACH }
+                .filter { b -> b.people?.let { it.size > 0 } == true && kotlin.math.abs(b.x - 18) + kotlin.math.abs(b.y - 34) <= Balance.KINDERGARTEN_REACH }
             return near.sumOf { it.people!!.schooling } * 10 / maxOf(1, near.size)
         }
         val with = schooling(true)

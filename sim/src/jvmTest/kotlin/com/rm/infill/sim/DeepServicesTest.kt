@@ -34,7 +34,7 @@ class DeepServicesTest {
         assertTrue(c.apply(Action.PlaceBuilding(BuildingType.SCHOOL, 10, 35)).ok)
         if (highSchool) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.HIGH_SCHOOL, 20, 35)).ok)
         if (college) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.COLLEGE, 30, 35)).ok)
-        if (library) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.LIBRARY, 25, 25)).ok)
+        if (library) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.LIBRARY, 21, 31)).ok)
         if (ambulance) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.AMBULANCE_STATION, 22, 31)).ok)
         if (nursing) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.NURSING_HOME, 34, 25)).ok)
         return c

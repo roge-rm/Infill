@@ -91,8 +91,14 @@ internal class Traffic(private val map: CityMap) {
     private val unfilledAt = IntArray(map.size)
     private var measured = false
 
+    /** Road tiles no worker could get to this month within [Balance.LONGEST_TRIP], by [findUnreached]. */
+    private val unreached = BooleanArray(map.size)
+
     /** Percent of the jobs at road tile [i] filled by workers who got there last month; 100 before the first month is done. */
     fun reachedAt(i: Int): Int = 100 - unfilledAt[i]
+
+    /** Whether no worker could get to road tile [i] this month; false before the first search and with nobody to send. */
+    fun unreachedAt(i: Int): Boolean = unreached[i]
 
     /** Whether a month's commute has been counted yet. */
     val commuteCounted: Boolean get() = measured
@@ -679,6 +685,55 @@ internal class Traffic(private val map: CityMap) {
         if (full && (w > 0 || s > 0)) send(start, w, s, 0, car, null, bike)
     }
 
+    /**
+     * Marks the road tiles no worker setting out this month could get to
+     * within [Balance.LONGEST_TRIP]: one search from every home and commuter
+     * link at once, by the ways the commute goes, with no jobs taken. Snow
+     * isn't counted, so a blizzard doesn't cut a street off for the month.
+     */
+    fun findUnreached() {
+        unreached.fill(false)
+        if (workers.none { it > 0 }) return
+        val snow = snowedIn
+        snowedIn = false
+        val net = transit?.takeIf { it.any }
+        search++
+        heapSize = 0
+        for (k in origins.indices) {
+            if (workers[k] == 0) continue
+            val o = origins[k]
+            reach(state(WALK, o), 0, -1)
+            if (carWorkers[k] > 0) reach(state(CAR, o), 0, -1)
+            if (cycling > 0 || (carCycling?.get(o) ?: 0) > 0) reach(state(BIKE, o), 0, -1)
+        }
+        val got = BooleanArray(n)
+        while (heapSize > 0) {
+            val d = heapKeys[0]
+            val st = pop()
+            if (d > dist[st]) continue
+            if (d > Balance.LONGEST_TRIP) break
+            val layer = st / n
+            val a = st % n
+            when (layer) {
+                WALK, ARRIVED, BIKE -> got[a] = true
+                CAR -> if (d + parkingSearch[a] <= Balance.LONGEST_TRIP) got[a] = true
+            }
+            when (layer) {
+                WALK -> walkFrom(a, d, st, net)
+                PARKED -> walkFrom(a, d, st, net, PARKED)
+                CAR -> driveFrom(a, d, st)
+                BIKE -> bikeFrom(a, d, st)
+                BUS -> busFrom(a, d, st, net!!)
+                TROLLEY -> trolleyFrom(a, d, st, net!!)
+                TRAM -> tramFrom(a, d, st, net!!)
+                SUBWAY -> subwayFrom(a, d, st, net!!)
+                UNDER -> underFrom(a, d, st)
+            }
+        }
+        snowedIn = snow
+        for (i in 0 until map.size) unreached[i] = map.road[i] != Road.NONE && !got[i]
+    }
+
     /** The park and ride's road tile on the way back from state [st], where its travellers left their car, or -1. */
     private fun lotOn(st: Int): Int {
         var at = st
@@ -730,8 +785,9 @@ internal class Traffic(private val map: CityMap) {
             // Nobody walks along a highway or its ramps; they cross it at an interchange.
             val walked = RoadType.of(map.road[b])
             if ((walked?.limited == true || walked?.ramp == true) && map.control[b] != Junction.INTERCHANGE) continue
-            // Deep floodwater stops walkers too; a dug-up street doesn't.
+            // Deep floodwater stops walkers too, as does a shut bridge; a dug-up street doesn't.
             if ((map.flood[b].toInt() and 0xff) >= Balance.FLOOD_DAMAGE) continue
+            if (map.terrain[b] == Terrain.WATER && map.bridgeClosed(b)) continue
             reach(state(layer, b), d + walkTime(b), st)
         }
         if (layer == WALK) ferryFrom(a, d, st, WALK)
@@ -1363,6 +1419,17 @@ internal class Traffic(private val map: CityMap) {
     internal fun readStaffing(r: SaveReader) {
         for (a in arrayOf(jobsTotal, unfilledAt)) sparse(r, a)
         measured = r.bool()
+    }
+
+    /** Since save version 53: the road tiles out of every worker's reach this month. */
+    internal fun writeUnreached(w: SaveWriter) {
+        w.count(unreached.count { it })
+        for (i in unreached.indices) if (unreached[i]) w.int(i)
+    }
+
+    internal fun readUnreached(r: SaveReader) {
+        unreached.fill(false)
+        repeat(r.count()) { unreached[tile(r)] = true }
     }
 
     internal fun readParking(r: SaveReader) {

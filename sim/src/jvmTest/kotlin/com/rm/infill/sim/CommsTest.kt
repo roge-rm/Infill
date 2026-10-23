@@ -49,7 +49,7 @@ class CommsTest {
         val c = town(1920)
         c.months(36)
         val exchange = c.buildingAt(22, 24)!!
-        assertEquals(Balance.EXCHANGE_LINES * c.staffed(BuildingType.EXCHANGE) / 100, exchange.room)
+        assertEquals(Balance.EXCHANGE_LINES * c.strength(exchange, 100) / 100, exchange.room)
         assertTrue(exchange.served in 1..exchange.room)
     }
 

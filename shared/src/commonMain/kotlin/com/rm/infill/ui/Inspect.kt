@@ -110,6 +110,7 @@ import com.rm.infill.sim.RoadType
 import com.rm.infill.sim.Stop
 import com.rm.infill.sim.Terrain
 import com.rm.infill.sim.Zone
+import com.rm.infill.sim.StaffShort
 import com.rm.infill.ui.theme.Infill
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -293,9 +294,24 @@ private fun buildingCard(city: City, b: Building, onAction: (Action) -> Unit): C
         stats += StatItem(Glyph.Briefcase, stringResource(Res.string.label_jobs), groupThousands(t.capacity.toLong()))
     }
 
+    // A shop, works, office or farm: its own staff.
+    if (built && h == null && t.capacity > 0 && t.zone != Zone.NONE && t.zone != Zone.RESIDENTIAL) {
+        val staffed = city.staffShareOf(b)
+        stats += StatItem(Glyph.Person, stringResource(Res.string.label_staffed), stringResource(Res.string.percent, staffed), staffed / 100f, toneOf(staffed, 90, Balance.STAFF_WARN))
+    }
+    // Why it's short of staff, for work and services alike.
+    if (built) city.staffShort(b)?.let {
+        val why = when (it) {
+            StaffShort.UNREACHED -> Res.string.pill_staff_unreached
+            StaffShort.WORKERS -> Res.string.pill_staff_workers
+            StaffShort.SCHOOLING -> Res.string.pill_staff_schooling
+        }
+        pills += PillItem(Glyph.Person, stringResource(why), if (city.staffShareOf(b) < Balance.STAFF_LOW) Tone.Bad else Tone.Warn)
+    }
+
     // A service: staff, wear, and how full it is.
     if ((t.service || t.leisure || t == BuildingType.EXCHANGE) && !t.green && built) {
-        val staffed = city.staffed(t)
+        val staffed = city.staffShareOf(b).coerceAtLeast(Balance.LEAST_STAFF)
         stats += StatItem(Glyph.Person, stringResource(Res.string.label_staffed), stringResource(Res.string.percent, staffed), staffed / 100f, toneOf(staffed, 90, 60))
         if (t.life > 0 || unmet.isNotEmpty()) {
             val condition = city.condition(b)

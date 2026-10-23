@@ -10,7 +10,7 @@ You can see them at work on the roads: a fire engine out to each fire, waiting t
 How far a service reaches and how much it does depends on its funding, its staff and its condition.
 
 - Funding is set in the budget. At 0% a service still does a little.
-- Staff are hired from the town's workers. A school wants teachers who went to high school, and if the town is short of them, the school does less.
+- Staff are hired from the town's workers who can get there, so build services on a road near homes. A school wants teachers who went to high school, and if the town is short of them, the school does less. Even short of staff, a service does at least 30%.
 - Condition stays full until a building passes its expected life, then falls. Old buildings break down more often, and a breakdown closes them until they're mended. **Renovate** on the inspect card brings one back as new, for a part of its price and a month closed.
 
 Services also need power, water, a phone and later broadband as the years go by. One built before a need came in has to be renovated to be fitted for it.

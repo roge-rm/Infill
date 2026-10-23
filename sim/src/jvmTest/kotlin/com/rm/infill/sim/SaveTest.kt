@@ -62,6 +62,23 @@ class SaveTest {
     }
 
     @Test
+    fun aTownWithoutPowerCarriesOnTheSame() {
+        // Who was dark last month comes down this month, so a loaded town has to know it.
+        val original = town()
+        assertTrue(original.apply(Action.Bulldoze(105, 65, 110, 70)).ok)
+        while (original.day != 1) original.tick()
+        repeat(5) { original.tick() }
+        val loaded = SaveGame.read(SaveGame.write(original))
+        repeat(70) {
+            original.tick()
+            loaded.tick()
+        }
+        assertEquals(original.fingerprint(), loaded.fingerprint())
+        assertEquals(original.buildingCount, loaded.buildingCount)
+        assertEquals(original.stats.arrests, loaded.stats.arrests)
+    }
+
+    @Test
     fun theSummaryReadsWithoutLoading() {
         val c = town()
         val s = assertNotNull(SaveGame.summary(SaveGame.write(c)))

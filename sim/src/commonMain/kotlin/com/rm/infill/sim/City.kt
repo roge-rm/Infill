@@ -2301,6 +2301,7 @@ class City(
         tourism()
         between()
         startTraffic()
+        understaffing()
         between()
         trade()
         between()
@@ -3708,6 +3709,9 @@ class City(
         return g to t.capacity * rate * soil / 100
     }
 
+    /** What [b] makes a month for the staff it had last month, in hundredths of a load. */
+    internal fun output(b: Building): Pair<Good, Int>? = makes(b)?.let { (g, h) -> g to h * workStaff(b) / 100 }
+
     /** What [b] needs a month, in hundredths of a load: a works its makings, a coal station its coal. */
     private fun needs(b: Building): List<Pair<Good, Int>> {
         b.worksKind?.let { k -> return k.inputs.map { (g, rate) -> g to b.type.capacity * rate } }
@@ -3938,9 +3942,10 @@ class City(
             val c = b.type.capacity
             val zone = b.type.zone
             // Homes over shops send out workers and shoppers and take in both.
+            // Shops serve as many as they have the staff for.
             if (zone == Zone.MIXED) {
                 jobsAt[node] += b.type.jobs
-                shopsAt[node] += b.type.jobs * Balance.SHOPPERS_PER_SHOP_JOB
+                shopsAt[node] += b.type.jobs * Balance.SHOPPERS_PER_SHOP_JOB * workStaff(b) / 100
             }
             when (if (zone == Zone.MIXED) Zone.RESIDENTIAL else zone) {
                 Zone.RESIDENTIAL -> {
@@ -3961,7 +3966,7 @@ class City(
                 }
                 Zone.COMMERCIAL -> {
                     jobsAt[node] += c
-                    shopsAt[node] += c * Balance.SHOPPERS_PER_SHOP_JOB
+                    shopsAt[node] += c * Balance.SHOPPERS_PER_SHOP_JOB * workStaff(b) / 100
                 }
                 Zone.OFFICE -> jobsAt[node] += c
                 Zone.INDUSTRIAL -> {
@@ -4008,8 +4013,10 @@ class City(
             if (b.underway > 0 || b.outage > 0) continue
             val node = accessOf(b)
             if (node < 0) continue
-            makes(b)?.let { (g, h) -> goodsAt[g.ordinal][node] += h }
-            for ((g, h) in needs(b)) wantedAt[g.ordinal][node] += h
+            // Works make, and shops and works take in, by their staff.
+            val staff = workStaff(b)
+            output(b)?.let { (g, h) -> goodsAt[g.ordinal][node] += h }
+            for ((g, h) in needs(b)) wantedAt[g.ordinal][node] += h * staff / 100
         }
         // What's made to the nearest load; what's wanted up to the next, so any need asks for something.
         for (g in 0 until Good.COUNT) for (i in 0 until n) {
@@ -4417,7 +4424,39 @@ class City(
             else -> boundary(x - 1, y, x - 1, y + 1)
         }
         fun laneEdge(x: Int, y: Int, sx: Int, sy: Int) = boundary(x, y, x + sx, y + sy)
-        for (b in buildings.values.sortedBy { it.id }) {
+        // For the searches round a neighbour: the tile each was reached from, and which search last reached it.
+        val from = IntArray(m.size)
+        val seenIn = IntArray(m.size)
+        val queue = IntArray(m.size)
+        var searchNo = 0
+        // The way, a tile and its marks at a time, kept only if it gets there.
+        var markAt = IntArray(64)
+        var markBits = IntArray(64)
+        var marked = 0
+        fun mark(j: Int, v: Int) {
+            if (marked == markAt.size) {
+                markAt = markAt.copyOf(marked * 2)
+                markBits = markBits.copyOf(marked * 2)
+            }
+            markAt[marked] = j
+            markBits[marked++] = v
+        }
+        // How many tiles a back lane from (x, y) along edge (sx, sy) runs, going (px, py), to meet a road; -1 if it doesn't.
+        fun laneRun(x: Int, y: Int, sx: Int, sy: Int, px: Int, py: Int): Int {
+            var cx = x
+            var cy = y
+            for (k in 0 until LANE_REACH) {
+                if (!laneEdge(cx, cy, sx, sy)) break
+                // The lane's corner reaches the road along the cross street, or the lot in front gives way.
+                if (road(cx + px, cy + py)) return k + 1
+                if (!open(cx + px, cy + py) || !open(cx + px + sx, cy + py + sy) && !road(cx + px + sx, cy + py + sy)) break
+                cx += px
+                cy += py
+            }
+            return -1
+        }
+        // In any order: the ways are added together.
+        for (b in buildings.values) {
             if (b.underway > 0) continue
             val t = b.type
             if (t.zone == Zone.NONE || t.zone == Zone.FARMLAND) continue
@@ -4438,8 +4477,7 @@ class City(
                 else -> 2
             } shl 8) or (if (business) WIDE_WAY else 0)
             val dense = business || Density.rank(m.density[start]) >= Density.rank(Density.MEDIUM)
-            // The way, a tile and its marks at a time, kept only if it gets there.
-            val marks = ArrayList<Pair<Int, Int>>()
+            marked = 0
             var x = bx
             var y = by
             var reached = false
@@ -4447,53 +4485,47 @@ class City(
                 val i = y * w + x
                 val rx = ax - x
                 val ry = ay - y
-                val (sx, sy) = if (abs(ry) >= abs(rx)) 0 to (if (ry > 0) 1 else -1) else (if (rx > 0) 1 else -1) to 0
+                val upDown = abs(ry) >= abs(rx)
+                val sx = if (upDown) 0 else if (rx > 0) 1 else -1
+                val sy = if (!upDown) 0 else if (ry > 0) 1 else -1
                 if (dense && abs(rx) + abs(ry) == 2) {
                     // A back lane along this row's edge facing the road, out to whichever end meets a road sooner.
                     val lane = (bit(sx, sy) shl 4) or surface
-                    val ways = listOf(sy to sx, -sy to -sx).map { (px, py) ->
-                        val run = ArrayList<Int>()
-                        var cx = x
-                        var cy = y
-                        var ok = false
-                        for (k in 0 until LANE_REACH) {
-                            if (!laneEdge(cx, cy, sx, sy)) break
-                            run += cy * w + cx
-                            // The lane's corner reaches the road along the cross street, or the lot in front gives way.
-                            if (road(cx + px, cy + py)) { ok = true; break }
-                            if (!open(cx + px, cy + py) || !open(cx + px + sx, cy + py + sy) && !road(cx + px + sx, cy + py + sy)) break
-                            cx += px
-                            cy += py
-                        }
-                        if (ok) run else null
-                    }
-                    val best = ways.filterNotNull().minByOrNull { it.size }
-                    if (best != null) {
-                        for (j in best) marks += j to lane
+                    // The shorter of the two, the first if they're even.
+                    val one = laneRun(x, y, sx, sy, sy, sx)
+                    val other = laneRun(x, y, sx, sy, -sy, -sx)
+                    val first = one >= 0 && (other < 0 || one <= other)
+                    if (first || other >= 0) {
+                        val px = if (first) sy else -sy
+                        val py = if (first) sx else -sx
+                        for (k in 0 until if (first) one else other) mark((y + k * py) * w + x + k * px, lane)
                         reached = true
                         break
                     }
                 }
                 if (!step(x, y, sx, sy)) break
-                marks += i to (bit(sx, sy) or surface)
+                mark(i, bit(sx, sy) or surface)
                 x += sx
                 y += sy
                 val j = y * w + x
                 if (road(x, y)) { reached = true; break }
                 if (!open(x, y)) break
-                marks += j to (bit(-sx, -sy) or surface)
+                mark(j, bit(-sx, -sy) or surface)
                 if (abs(ax - x) + abs(ay - y) == 0) { reached = true; break }
             }
             if (!reached) {
                 // A larger neighbour may block the old straight way. Find a
                 // short way around its outside instead of keeping its old lane.
-                marks.clear()
-                val previous = hashMapOf(start to -1)
-                val queue = ArrayDeque<Int>()
-                queue.addLast(start)
+                marked = 0
+                searchNo++
+                seenIn[start] = searchNo
+                from[start] = -1
+                var head = 0
+                var tail = 0
+                queue[tail++] = start
                 var end = -1
-                while (queue.isNotEmpty() && end < 0) {
-                    val i = queue.removeFirst()
+                while (head < tail && end < 0) {
+                    val i = queue[head++]
                     val cx = i % w
                     val cy = i / w
                     for (k in 0 until 4) {
@@ -4502,24 +4534,25 @@ class City(
                         if (!m.inside(nx, ny) || abs(nx - bx) + abs(ny - by) > LANE_REACH) continue
                         val j = m.index(nx, ny)
                         val meetsRoad = road(nx, ny) && access[j] == j
-                        if (j in previous || !step(cx, cy, DX[k], DY[k]) || (!meetsRoad && !open(nx, ny))) continue
-                        previous[j] = i
+                        if (seenIn[j] == searchNo || !step(cx, cy, DX[k], DY[k]) || (!meetsRoad && !open(nx, ny))) continue
+                        seenIn[j] = searchNo
+                        from[j] = i
                         if (meetsRoad) { end = j; break }
-                        queue.addLast(j)
+                        queue[tail++] = j
                     }
                 }
                 if (end < 0) continue
                 var j = end
                 while (j != start) {
-                    val i = previous.getValue(j)
+                    val i = from[j]
                     val sx = j % w - i % w
                     val sy = j / w - i / w
-                    marks += i to (bit(sx, sy) or surface)
-                    if (j != end) marks += j to (bit(-sx, -sy) or surface)
+                    mark(i, bit(sx, sy) or surface)
+                    if (j != end) mark(j, bit(-sx, -sy) or surface)
                     j = i
                 }
             }
-            for ((j, v) in marks) next[j] = (next[j].toInt() or v).toShort()
+            for (k in 0 until marked) next[markAt[k]] = (next[markAt[k]].toInt() or markBits[k]).toShort()
         }
         for (i in 0 until m.size) if (next[i] != m.pathway[i]) {
             m.pathway[i] = next[i]
@@ -4718,7 +4751,19 @@ class City(
 
     /** [b]'s strength: its kind's, for its age, nothing while it's shut. */
     private fun strengthOf(b: Building, funding: Int): Int =
-        if (b.outage > 0 || b.underway > 0) 0 else strength(b.type, funding) * condition(b) / 100
+        if (b.outage > 0 || b.underway > 0) 0 else strength(b, funding) * condition(b) / 100
+
+    /** As [strength], by [b]'s own staffing: the share of its staff the town has and that can get there. */
+    internal fun strength(b: Building, funding: Int): Int {
+        val funded = 40 + 60 * funding.coerceIn(0, 100) / 100
+        return funded * staffShareOf(b).coerceAtLeast(Balance.LEAST_STAFF) / 100
+    }
+
+    /** Whether [type] is work that pays by its staff: shops, works, offices, farms and the shops under homes. */
+    private fun paysByStaff(type: BuildingType): Boolean = type.zone != Zone.NONE && type.zone != Zone.RESIDENTIAL
+
+    /** [b]'s staffing in percent if it's a shop, works, office or farm, else 100. */
+    private fun workStaff(b: Building): Int = if (paysByStaff(b.type)) staffShareOf(b).coerceIn(0, 100) else 100
 
     /**
      * How strong a service is, in percent: its funding (40% at none) and the
@@ -4757,8 +4802,48 @@ class City(
         return if (node < 0) 0 else traffic.reachedAt(node)
     }
 
-    /** As [staffShare], scaled by how many of [b]'s workers can reach it. */
-    fun staffShareOf(b: Building): Int = reached(b) * staffShare(b.type) / 100
+    /**
+     * [b]'s share of its staff, in percent: the share of its jobs filled by
+     * workers who got there, less for the schooling its work needs where the
+     * town is shorter of that than of workers as a whole. Both count heads, so
+     * the town-wide shortage is only taken once.
+     */
+    fun staffShareOf(b: Building): Int = reached(b) * schoolingShare(b.type) / 100
+
+    /** [staffShare] against [headsShare], in percent, at most 100. */
+    private fun schoolingShare(type: BuildingType): Int {
+        val share = staffShare(type)
+        if (stats.population == 0) return share
+        val all = headsShare()
+        return if (all <= 0) share else min(100, share * 100 / all)
+    }
+
+    /** The share of all the town's jobs it has the workers for, in percent; 100 with no people. */
+    private fun headsShare(): Int {
+        if (stats.population == 0) return 100
+        var jobs = 0L
+        var filled = 0L
+        for (k in 0 until Education.LEVELS) {
+            jobs += stats.jobsBy[k]
+            filled += stats.jobsBy[k].toLong() * (100 - skillShortage[k])
+        }
+        return if (jobs == 0L) 100 else (filled / jobs).toInt()
+    }
+
+    /**
+     * Why [b], a shop, works, office, farm or service, is short of staff, or
+     * null if it's at least [Balance.STAFF_WARN] percent staffed: workers
+     * can't get there, the town hasn't enough workers, or not enough with the schooling.
+     */
+    fun staffShort(b: Building): StaffShort? {
+        val t = b.type
+        if (!paysByStaff(t) && !t.service && !t.leisure && t != BuildingType.EXCHANGE || t.zone == Zone.MIXED || t.capacity == 0 || b.underway > 0) return null
+        if (staffShareOf(b) >= Balance.STAFF_WARN) return null
+        // By its own road tile: workers who can't get there, or a town short of workers or of schooling.
+        val node = accessOf(b)
+        if (node < 0 || traffic.unreachedAt(node)) return StaffShort.UNREACHED
+        return if (schoolingShare(b.type) < 100 && reached(b) >= schoolingShare(b.type)) StaffShort.SCHOOLING else StaffShort.WORKERS
+    }
 
     /** [staffShareOf] for each work building, by the tile at its top left; 100 on every other tile. */
     fun staffShareByLot(): ByteArray {
@@ -4970,7 +5055,7 @@ class City(
             if (m.road[i] == Road.NONE) continue
             val x = i % m.width
             val y = i / m.width
-            if (m.leadsOut(i)) connected = true
+            if (!connected && m.leadsOut(i)) connected = true
             // No lot is reached from a highway or its ramps.
             val here = RoadType.of(m.road[i])
             if (here?.limited == true || here?.ramp == true) continue
@@ -5057,8 +5142,9 @@ class City(
         val runs = ArrayList<IntArray>()
         val seen = BooleanArray(m.size)
         for (i in 0 until m.size) {
-            if (seen[i] || !m.bridged(i)) {
-                if (!m.bridged(i) && m.bridge[i].toInt() != 0) m.bridge[i] = 0
+            val bridged = m.bridged(i)
+            if (seen[i] || !bridged) {
+                if (!bridged && m.bridge[i].toInt() != 0) m.bridge[i] = 0
                 continue
             }
             val rail = m.rail[i] != Rail.NONE
@@ -6963,7 +7049,7 @@ class City(
             if (place.type.root != type || place.underway > 0 || place.outage > 0) continue
             // Each kind in the line by its own numbers: a newer kind takes in more and reaches further.
             val kind = Lineage.kindOf(place.type)
-            val strong = strength(place.type, funding)
+            val strong = strength(place, funding)
             val r = reach * kind.reach / 100 * strong / 100
             val good = condition(place)
             val room = places * kind.serves / 100 * strong / 100 * good / 100
@@ -7024,19 +7110,21 @@ class City(
             val more = allot(type, places, reach, schoolFunding, homes) { teensIn(it) - (college[it.id] ?: 0) }
             for ((id, n) in more) college[id] = (college[id] ?: 0) + n
         }
-        // Each library by its kind and how well it works: a newer kind teaches more, a dated one less.
+        // Each library by its kind, how well it works and its staff: a newer kind teaches more, a dated one less.
         val libraries = SummedArea(m.width, m.height) { j ->
             val b = buildings[m.building[j]]
             if (b != null && b.type.root == BuildingType.LIBRARY && b.x == j % m.width && b.y == j / m.width && b.outage == 0 && b.underway == 0) {
-                Lineage.kindOf(b.type).serves * condition(b) / 100
+                Lineage.kindOf(b.type).serves * condition(b) / 100 * strength(b, schoolFunding) / 100
             } else 0
         }
         // A central library reaches across town, and a sanatorium takes in the consumptive.
-        fun placed(type: BuildingType) = SummedArea(m.width, m.height) { j ->
+        fun placed(type: BuildingType, staffed: Boolean = false) = SummedArea(m.width, m.height) { j ->
             val b = buildings[m.building[j]]
-            if (b != null && b.type == type && b.x == j % m.width && b.y == j / m.width && b.outage == 0 && b.underway == 0) condition(b) else 0
+            if (b != null && b.type == type && b.x == j % m.width && b.y == j / m.width && b.outage == 0 && b.underway == 0) {
+                if (staffed) condition(b) * strength(b, schoolFunding) / 100 else condition(b)
+            } else 0
         }
-        val central = if (buildings.values.any { it.type == BuildingType.CENTRAL_LIBRARY }) placed(BuildingType.CENTRAL_LIBRARY) else null
+        val central = if (buildings.values.any { it.type == BuildingType.CENTRAL_LIBRARY }) placed(BuildingType.CENTRAL_LIBRARY, staffed = true) else null
         val sanatoria = if (buildings.values.any { it.type == BuildingType.SANATORIUM }) placed(BuildingType.SANATORIUM) else null
         val watched = healthOffice()
         val fouled = if (m.brownfield.any { it.toInt() != 0 }) SummedArea(m.width, m.height) { m.brownfield[it].toInt() } else null
@@ -7052,10 +7140,8 @@ class City(
             // School: the share of the children with a place, which their schooling follows.
             val kids = h.children
             // A library nearby teaches some more, at school and after.
-            var library = Balance.LIBRARY_SCHOOLING * min(libraries.around(b.x, b.y, Balance.LIBRARY_REACH), Balance.LIBRARY_MOST) / 100 *
-                strength(BuildingType.LIBRARY, schoolFunding) / 100
-            if (central != null) library += Balance.CENTRAL_SCHOOLING * min(central.around(b.x, b.y, Balance.CENTRAL_REACH), 100) / 100 *
-                strength(BuildingType.CENTRAL_LIBRARY, schoolFunding) / 100
+            var library = Balance.LIBRARY_SCHOOLING * min(libraries.around(b.x, b.y, Balance.LIBRARY_REACH), Balance.LIBRARY_MOST) / 100
+            if (central != null) library += Balance.CENTRAL_SCHOOLING * min(central.around(b.x, b.y, Balance.CENTRAL_REACH), 100) / 100
             // A start at kindergarten.
             val young = (kids + Balance.LITTLE - 1) / Balance.LITTLE
             val kinder = if (young == 0) 0 else Balance.KINDERGARTEN_SCHOOLING * min(100, (little[b.id] ?: 0) * 100 / young) / 100
@@ -7295,6 +7381,9 @@ class City(
             if (b != null && districtAt(i)?.heritage == true && isHeritage(b)) return@repeat
             // No one to build on to an empty home.
             if (b?.people?.empty == true) return@repeat
+            // Work that's long been short of staff doesn't grow, nor does work where its workers can't get to.
+            if (b != null && b.understaffed >= Balance.STAFF_MONTHS) return@repeat
+            if (unreachedLot(i, zone)) return@repeat
             val pull = attraction(i, zone)
             val options = choices(b, i, zone, pull)
             if (options.isEmpty()) return@repeat
@@ -7552,6 +7641,8 @@ class City(
                 b.age = 0
                 stamp(b)
                 fitHousehold(b)
+                // What it draws on the water, sewers and power goes by its size.
+                networksChanged()
             }
         }
         townChanges += map.index(b.x, b.y)
@@ -7569,6 +7660,38 @@ class City(
         darkLastMonth = out.mapTo(HashSet()) { it.id }
         for (b in out) if (b.id in before && rng.nextInt(3) == 0) shrink(b)
     }
+
+    /**
+     * Counts the months each shop, works, office and farm has been under
+     * [Balance.STAFF_LOW] percent staffed. Past [Balance.STAFF_MONTHS] it
+     * stops growing and comes down a rung now and then, a third of them a month.
+     */
+    private fun understaffing() {
+        // Which roads any worker could get to this month, by the ways they travel now.
+        traffic.findUnreached()
+        val counted = traffic.commuteCounted && stats.population > 0
+        var low: ArrayList<Building>? = null
+        for (b in buildings.values) {
+            if (!counted || !paysByStaff(b.type) || b.type.zone == Zone.MIXED || b.underway > 0 || staffShareOf(b) >= Balance.STAFF_LOW) {
+                b.understaffed = 0
+                continue
+            }
+            b.understaffed++
+            if (b.understaffed >= Balance.STAFF_MONTHS) (low ?: ArrayList<Building>().also { low = it }) += b
+        }
+        // Each rung down gets its own months before the next.
+        for (b in low?.sortedBy { it.id } ?: return) if (rng.nextInt(3) == 0) {
+            shrink(b)
+            b.understaffed = 0
+        }
+    }
+
+    /** Whether no worker could get to road tile [i] this month. */
+    internal fun unreachedRoad(i: Int): Boolean = traffic.unreachedAt(i)
+
+    /** Whether lot [i] is zoned for work and no worker could get to its road tile this month. */
+    private fun unreachedLot(i: Int, zone: Byte): Boolean =
+        zone != Zone.RESIDENTIAL && zone != Zone.MIXED && access[i] >= 0 && traffic.unreachedAt(access[i])
 
     /** The buildings that were without power, and without water or the sewer, last month. */
     private var darkLastMonth = HashSet<Int>()
@@ -8482,6 +8605,20 @@ class City(
             stuck(zone)?.let { out += it }
         }
         grown.fill(0)
+        // Work short of staff because its workers can't get there.
+        if (out.none { it.kind == AdviceKind.UNREACHED }) {
+            buildings.values.firstOrNull { paysByStaff(it.type) && staffShareOf(it) < Balance.STAFF_LOW && staffShort(it) == StaffShort.UNREACHED }?.let {
+                out += Advice(AdviceKind.UNREACHED, it.type.zone, it.x, it.y)
+            } ?: run {
+                // Or an empty lot of work that's wanted, where no worker could get to.
+                for ((zone, demand) in wanted) {
+                    if (zone == Zone.RESIDENTIAL || demand < Balance.ADVICE_DEMAND || !allowsZone(zone)) continue
+                    val i = zoneLots(zone).firstOrNull { map.building[it] == 0 && unreachedLot(it, zone) } ?: continue
+                    out += Advice(AdviceKind.UNREACHED, zone, i % map.width, i / map.width)
+                    break
+                }
+            }
+        }
         if (s.wasteCollected < Balance.ADVICE_GARBAGE) {
             val b = buildings.values.firstOrNull { it.uncollected }
             // With room in the dumps, it's that they're out of reach.
@@ -8541,6 +8678,13 @@ class City(
      */
     private fun whyNot(b: Building?, i: Int, zone: Byte): AdviceKind? {
         if (!nearRoad[i]) return AdviceKind.NO_ROAD
+        if (b != null && b.understaffed >= Balance.STAFF_MONTHS) return when (staffShort(b)) {
+            StaffShort.UNREACHED -> AdviceKind.UNREACHED
+            StaffShort.WORKERS -> AdviceKind.FEW_WORKERS
+            StaffShort.SCHOOLING -> AdviceKind.NO_STAFF
+            null -> null
+        }
+        if (unreachedLot(i, zone)) return AdviceKind.UNREACHED
         if (choices(b, i, zone, attraction(i, zone)).isNotEmpty()) return null
         val rung = (if (b == null) BuildingType.rung(zone, 1) else b.type.next).filter { it.year <= year }
         if (rung.isEmpty()) return AdviceKind.ZONE_MORE
@@ -8647,22 +8791,24 @@ class City(
             val open = 1.0 - min(b.closedDays.toDouble(), days) / days
             b.closedDays = 0
             val worth = (Balance.WORTH_BASE + (map.landValue[map.index(b.x, b.y)].toInt() and 0xff) / Balance.WORTH_PER) * open
+            // Work pays by the staff it had.
+            val staffed = workStaff(b) / 100.0
             when {
                 // Homes over shops pay as both: the homes rate on the flats and the shops rate on the shops.
                 b.type.zone == Zone.MIXED -> {
                     homes += b.type.capacity * worth * Demography.TAX_BY_WEALTH[b.people?.wealth ?: Wealth.MIDDLE] / 100.0 * taxOf(b, residentialTax) *
                         (if (districtAt(map.index(b.x, b.y))?.rentControl == true) Balance.RENT_CONTROL_TAX / 100.0 else 1.0)
-                    shops += b.type.jobs * worth * taxOf(b, commercialTax, District.taxIndex(Zone.COMMERCIAL))
+                    shops += b.type.jobs * worth * staffed * taxOf(b, commercialTax, District.taxIndex(Zone.COMMERCIAL))
                 }
                 b.type.zone == Zone.RESIDENTIAL -> homes += b.type.capacity * worth * Demography.TAX_BY_WEALTH[b.people?.wealth ?: Wealth.MIDDLE] / 100.0 * taxOf(b, residentialTax) *
                     (if (districtAt(map.index(b.x, b.y))?.rentControl == true) Balance.RENT_CONTROL_TAX / 100.0 else 1.0)
-                b.type.office -> offices += b.type.capacity * worth * taxOf(b, commercialTax)
+                b.type.office -> offices += b.type.capacity * worth * staffed * taxOf(b, commercialTax)
                 b.type.zone == Zone.COMMERCIAL -> {
                     // A shop that has to bring in what it sells makes less, and one that can't get stock makes little.
                     val margin = if (shortOfStock(b)) Balance.NO_STOCK else 100 - (100 - b.local) * Balance.IMPORT_DRAG / 100
-                    shops += b.type.capacity * worth * margin / 100.0 * taxOf(b, commercialTax)
+                    shops += b.type.capacity * worth * staffed * margin / 100.0 * taxOf(b, commercialTax)
                 }
-                b.type.zone == Zone.INDUSTRIAL || b.type.zone == Zone.FARMLAND -> works += b.type.capacity * worth * taxOf(b, industrialTax)
+                b.type.zone == Zone.INDUSTRIAL || b.type.zone == Zone.FARMLAND -> works += b.type.capacity * worth * staffed * taxOf(b, industrialTax)
                 // Newer kinds cost more to run, by their share of the first's upkeep.
                 b.type.root == BuildingType.POLICE_STATION -> police += Lineage.kindOf(b.type).upkeep / 100.0
                 b.type.root == BuildingType.FIRE_STATION -> fire += Lineage.kindOf(b.type).upkeep / 100.0
@@ -9471,6 +9617,19 @@ class City(
         traffic.writeParking(w)
         // Since version 52: how many of each tile's jobs were filled.
         traffic.writeStaffing(w)
+        // Since version 53: months each work building's been short of staff.
+        val short = buildings.values.filter { it.understaffed > 0 }
+        w.count(short.size)
+        for (b in short) { w.int(b.id); w.int(b.understaffed) }
+        // Road tiles out of every worker's reach this month.
+        traffic.writeUnreached(w)
+        // What's left over of last month's arrests, and who was without power or water last month.
+        w.long(arrestCarry)
+        for (set in arrayOf(darkLastMonth, dryLastMonth)) {
+            w.count(set.size)
+            for (id in set.sorted()) w.int(id)
+        }
+        w.bool(networksDirty)
     }
 
     companion object {
@@ -9706,6 +9865,7 @@ class City(
                     val s = c.stats
                     s.phoneUpkeep = r.long(); s.withPhone = r.long().toInt(); s.withBroadband = r.long().toInt(); s.workingFromHome = r.long().toInt()
                 }
+                var savedDirty = true
                 val savedLoad = if (version >= 22) IntArray(m.size).also { a -> repeat(r.count()) { a[r.int()] = r.int() } } else null
                 if (version >= 23) {
                     c.traffic.readPorts(r)
@@ -9855,6 +10015,17 @@ class City(
                                 c.traffic.readParking(r)
                             }
                             if (version >= 52) c.traffic.readStaffing(r)
+                            if (version >= 53) repeat(r.count()) {
+                                val id = r.int()
+                                val months = r.int()
+                                c.buildings[id]?.understaffed = months
+                            }
+                            if (version >= 53) {
+                                c.traffic.readUnreached(r)
+                                c.arrestCarry = r.long()
+                                for (set in arrayOf(c.darkLastMonth, c.dryLastMonth)) repeat(r.count()) { set += r.int() }
+                                savedDirty = r.bool()
+                            }
                         }
                     }
                 } else {
@@ -9867,10 +10038,14 @@ class City(
                     c.scoreConcerns()
                     c.approval = Opinion.target(c.era, c.concerns)
                 }
+                // The lines' load goes in first: the losses on overloaded lines go by it.
+                savedLoad?.copyInto(c.grid.load)
                 c.updateNetworks()
                 c.markContainerTrains()
                 c.updateAirports()
                 savedLoad?.copyInto(c.grid.load)
+                // Worked out again on the first day only if the saved town would have, from the load it had.
+                c.networksDirty = savedDirty
                 c.updatePathways()
                 c.updateAdvice()
             } else {

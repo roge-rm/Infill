@@ -46,6 +46,10 @@ Les nouveaux bâtiments prennent du temps à construire, plus pour les gros, et 
 
 Un bâtiment qui perd l'électricité, l'eau ou l'égout dont il a besoin peut descendre d'un échelon. Un bâtiment dans une inondation profonde aussi.
 
+## Personnel
+
+Les commerces, les bureaux, les usines et les fermes ont pour personnel les travailleurs qui s'y rendent chaque mois. Les travailleurs prennent d'abord les emplois les plus proches, alors le travail loin des logements, coupé d'eux ou derrière les bouchons en reçoit moins. Un bâtiment produit, vend et paie des taxes selon la part de son personnel qu'il a. Un bâtiment à moins de 40 % de son personnel six mois de suite cesse de se développer et peut descendre d'un échelon. Le travail ne s'élève pas là où aucun travailleur ne pouvait arriver en une heure et demie ce mois-là, par aucun moyen ; dès qu'une route, un pont ou une ligne le leur permet, il peut s'y développer le mois suivant. **Inspecter** montre le personnel d'un bâtiment et pourquoi il en manque : les travailleurs ne peuvent pas s'y rendre, la ville n'a pas assez de travailleurs, ou pas assez ayant la scolarité voulue.
+
 ## Attrait
 
 L'attrait d'un lot pour les constructeurs dépend de sa zone.

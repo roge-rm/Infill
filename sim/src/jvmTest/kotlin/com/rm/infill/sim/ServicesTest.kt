@@ -17,10 +17,12 @@ class ServicesTest {
         assertTrue(c.apply(Action.BuildPowerLine(Action.roadPath(m, 51, 27, 5, 27, true))).ok)
         assertTrue(c.apply(Action.BuildPowerLine(Action.roadPath(m, 51, 27, 51, 33, true))).ok)
         assertTrue(c.apply(Action.BuildPowerLine(Action.roadPath(m, 50, 33, 5, 33, true))).ok)
-        if (police) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.POLICE_STATION, 20, 25)).ok)
+        // Amid the homes by the main street, so its constables can get to work.
+        if (police) assertTrue(c.apply(Action.PlaceBuilding(BuildingType.POLICE_STATION, 20, 28)).ok)
         if (fire) {
-            assertTrue(c.apply(Action.PlaceBuilding(BuildingType.FIRE_STATION, 10, 35)).ok)
-            assertTrue(c.apply(Action.PlaceBuilding(BuildingType.FIRE_STATION, 30, 35)).ok)
+            // On the main street amid the homes, so their crews can get to work.
+            assertTrue(c.apply(Action.PlaceBuilding(BuildingType.FIRE_STATION, 19, 31)).ok)
+            assertTrue(c.apply(Action.PlaceBuilding(BuildingType.FIRE_STATION, 21, 31)).ok)
         }
         if (parks) assertTrue(c.apply(Action.PlaceParks(10, 24, 30, 25)).ok)
         return c
@@ -133,7 +135,7 @@ class ServicesTest {
     fun fundingSetsReach() {
         val c = town(police = true)
         repeat(40) { c.tick() }
-        val far = c.map.index(21 + 12, 25)
+        val far = c.map.index(21 + 12, 28)
         assertTrue((c.map.policeCover[far].toInt() and 0xff) > 0)
         c.policeFunding = 20
         repeat(31) { c.tick() }

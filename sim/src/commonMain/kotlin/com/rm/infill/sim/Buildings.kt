@@ -701,6 +701,9 @@ class Building(val id: Int, var type: BuildingType, val x: Int, val y: Int, val 
      */
     var local = 0
 
+    /** For a shop, works, office or farm, months in a row it's been under [Balance.STAFF_LOW] percent staffed. */
+    var understaffed = 0
+
     val worksKind: WorksKind? get() = if (kind >= 0) WorksKind.entries[kind] else null
 }
 

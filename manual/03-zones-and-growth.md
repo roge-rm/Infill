@@ -46,6 +46,10 @@ New buildings take time to go up, longer for bigger ones, and twice as long in f
 
 A building that loses the power, water or sewer it needs may drop a rung. So may one in a deep flood.
 
+## Staff
+
+Shops, offices, works and farms are staffed by the workers who get to them each month. Workers take the nearest jobs first, so work far from the homes, cut off from them or behind jams gets fewer. A building makes, sells and pays tax for the share of its staff it has. One under 40% staffed for six months in a row stops growing and may drop a rung. Work doesn't go up where no worker could get within an hour and a half of travel that month, by any way they get about; once a road, bridge or line lets them, it can grow again the month after. **Inspect** shows a building's staff and why it's short: workers can't get there, the town hasn't enough workers, or not enough with the schooling the work wants.
+
 ## Appeal
 
 How much a lot appeals to builders depends on its zone.

@@ -411,6 +411,11 @@ object Balance {
     const val UPGRADE_SHARE = 60
     /** A service runs at no less than this share of its strength, however short of staff the town is. */
     const val LEAST_STAFF = 30
+    /** A shop, works, office or farm under this percent staffed for STAFF_MONTHS months in a row stops growing and may come down a rung. */
+    const val STAFF_LOW = 40
+    const val STAFF_MONTHS = 6
+    /** Inspect gives the reason for a work building under this percent staffed. */
+    const val STAFF_WARN = 60
 
     /** Motor fire engines, from this year, reach further. */
     const val MOTOR_FIRE_YEAR = 1915
