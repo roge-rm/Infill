@@ -989,6 +989,7 @@ private fun GameScreen(
         }
         val skyTint = remember(lightStep, month) { Sky.tint(lightStep / LIGHT_STEPS_PER_HOUR, month) }
         val tint = remember(skyTint, weather) { weatherTint(skyTint, weather) }
+        val dark = remember(lightStep, month) { Sky.dark(lightStep / LIGHT_STEPS_PER_HOUR, month) }
 
         /** Tells of what's happened: a message, or a new era, which stops the clock. */
         /** Says so when the town earns an achievement, now or with [e]. */
@@ -1578,7 +1579,7 @@ private fun GameScreen(
             val screenHeight = maxHeight
             viewSize = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
             MapView(
-                game, atlas, camera, look, shadowStep, sun, tint, weather, !paused, SPEEDS[speed].toFloat(), graphics, gestures, preview, costText, overlay,
+                game, atlas, camera, look, shadowStep, sun, tint, dark, weather, !paused, SPEEDS[speed].toFloat(), graphics, gestures, preview, costText, overlay,
                 underground = tool == Tool.Water || tunnelling && (tool == Tool.Road || tool == Tool.Rail && railKind == RailKind.Track) ||
                     tool == Tool.Bulldoze && bulldozeKind == BulldozeKind.Tunnel || (tool == Tool.Transit && (transitKind == TransitKind.Subway || transitKind == TransitKind.Station)) ||
                     (tool == Tool.Power && powerKind.buried) || (tool == Tool.Phone && phoneKind.duct),

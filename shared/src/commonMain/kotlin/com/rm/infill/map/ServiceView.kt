@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.toArgb
 import com.rm.infill.sim.Balance
 import com.rm.infill.sim.Callout
 import com.rm.infill.sim.CalloutKind
@@ -84,7 +85,7 @@ internal class ServiceTrips {
     }
 
     /** Each trip's vehicle where it is now, as it was in [year]; zoomed out too far to draw them, just the lights. */
-    fun DrawScope.draw(map: CityMap, camera: Camera, year: Int, seconds: Float, behind: (Float, Float) -> Boolean = { _, _ -> false }) {
+    fun DrawScope.draw(map: CityMap, camera: Camera, year: Int, seconds: Float, behind: (Float, Float) -> Boolean = { _, _ -> false }, night: NightLights? = null) {
         val t = camera.tilePx
         if (t < MIN_GLOW_PX) return
         val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -103,11 +104,18 @@ internal class ServiceTrips {
             if (behind(cx, cy)) continue
             val spot = camera.tileToScreen(cx, cy, size)
             val lights = lit(trip, map, year)
+            val shows = night != null && night.shows(cx, cy)
             if (t < MIN_TILE_PX) {
-                if (lights) glow(spot, max(MIN_GLOW_RADIUS, t * 0.45f), if (flash) RED else second(c.kind))
+                if (lights) {
+                    val radius = max(MIN_GLOW_RADIUS, t * 0.45f)
+                    val colour = if (flash) RED else second(c.kind)
+                    glow(spot, radius, colour)
+                    if (shows) nightGlow(night, spot.x, spot.y, radius, colour)
+                }
                 continue
             }
             vehicle(spot, t, heading, c.kind, year, if (lights) flash else null)
+            if (shows) nightLights(night, cx, cy, spot, t, heading, c.kind, year, if (lights) flash else null)
         }
     }
 }
@@ -159,6 +167,33 @@ private fun DrawScope.vehicle(at: Offset, t: Float, heading: Float, kind: Callou
             drawCircle(if (flash) DIM else LIT_SECOND[kind.ordinal], r, far)
         }
     }
+}
+
+/** The lights [vehicle] draws, into [night]: its headlights, and its flashing lights and their glow. */
+private fun nightLights(night: NightLights, x: Float, y: Float, at: Offset, t: Float, heading: Float, kind: CalloutKind, year: Int, flash: Boolean?) {
+    val horse = horseDrawn(kind, year)
+    val length = t * LENGTH[kind.ordinal]
+    val width = t * 0.17f
+    night.vehicle(x, y, at, t, heading, length, width, motor = !horse)
+    if (horse || flash == null) return
+    // Where [vehicle] puts them, ahead of the middle and either side.
+    val cab = length * if (kind == CalloutKind.POLICE) 0.3f else 0.22f
+    val r = max(1.5f, width * 0.3f)
+    val along = length / 2 - cab - r
+    val side = if (flash) -width * 0.3f else width * 0.3f
+    night.turn(heading)
+    val lx = night.ax(at, along, side)
+    val ly = night.ay(at, along, side)
+    nightGlow(night, lx, ly, t * 0.4f, if (flash) RED else second(kind))
+    night.lamp(lx, ly, r, (if (flash) LIT_RED else LIT_SECOND[kind.ordinal]).toArgb())
+}
+
+/** [glow], into [night]. */
+private fun nightGlow(night: NightLights, x: Float, y: Float, radius: Float, colour: Color) {
+    val c = colour.toArgb()
+    night.lamp(x, y, radius, c, 0.18f)
+    night.lamp(x, y, radius * 0.6f, c, 0.3f)
+    night.lamp(x, y, radius * 0.3f, c, 0.55f)
 }
 
 /** A soft glow of [colour], [radius] across, centred on [at]. */

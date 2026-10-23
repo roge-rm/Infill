@@ -558,6 +558,9 @@ object Balance {
     const val STEAM_UNTIL = 1950
     const val STEAM_TRAINS_UNTIL = 1955
 
+    /** Street lamps burn gas until the first year, then electric bulbs, sodium from the second and LED from the third. */
+    val LAMP_YEARS = intArrayOf(1920, 1960, 2000)
+
     // Warming: the world's from this year, in tenths of a degree a decade; the town's own share at most, in tenths,
     // and its carbon, in tonnes, for each tenth.
     const val WARMING_FROM = 1980

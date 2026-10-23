@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.toArgb
 import com.rm.infill.sim.CityMap
 import com.rm.infill.sim.Junction
 import kotlin.math.ceil
@@ -41,9 +42,10 @@ private fun signalOffset(tile: Int): Float {
 /**
  * Each lit crossing's lamps on screen, coloured as they show now, over the
  * lamps drawn on the crossing art: the north-west and south-east lamps for
- * traffic going north or south, the other two for east or west.
+ * traffic going north or south, the other two for east or west. At night
+ * each lamp also goes into [night], with a glow round it.
  */
-internal fun DrawScope.drawSignals(map: CityMap, camera: Camera, time: Float, behind: (Float, Float) -> Boolean = { _, _ -> false }) {
+internal fun DrawScope.drawSignals(map: CityMap, camera: Camera, time: Float, behind: (Float, Float) -> Boolean = { _, _ -> false }, night: NightLights? = null) {
     val t = camera.tilePx
     if (t < MIN_SIGNAL_PX) return
     val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -65,7 +67,12 @@ internal fun DrawScope.drawSignals(map: CityMap, camera: Camera, time: Float, be
             val ly = y + (LAMP_Y[k] + 0.5f) / ART_PX
             if (behind(lx, ly)) continue
             val at = camera.tileToScreen(lx, ly, size)
-            drawRect(if (k == 0 || k == 3) down else across, Offset(at.x - dot / 2, at.y - dot / 2), lamp)
+            val colour = if (k == 0 || k == 3) down else across
+            drawRect(colour, Offset(at.x - dot / 2, at.y - dot / 2), lamp)
+            if (night != null && night.shows(lx, ly)) {
+                night.lamp(at.x, at.y, dot * 2.2f, colour.toArgb(), SIGNAL_GLOW)
+                night.lamp(at.x, at.y, dot * 0.7f, colour.toArgb())
+            }
         }
     }
 }
@@ -82,6 +89,9 @@ private val LAMP_X = floatArrayOf(5f, 26f, 5f, 26f)
 private val LAMP_Y = floatArrayOf(3f, 3f, 24f, 24f)
 
 private val SIGNAL_COLOURS = arrayOf(Color(0xFF3FBF5A), Color(0xFFF0B030), Color(0xFFD84343))
+
+/** How strong a lamp's glow is at night. */
+private const val SIGNAL_GLOW = 0.3f
 
 /** Lamps too small to see below this. */
 private const val MIN_SIGNAL_PX = 16f

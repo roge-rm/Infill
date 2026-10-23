@@ -59,6 +59,14 @@ object Sky {
         }
     }
 
+    /** How dark it is at [hour], for the lights: 0 with the sun up, rising through dusk to 1 once it's [DARK_AT] below. */
+    fun dark(hour: Float, month: Int): Float {
+        val e = position(hour, month).first
+        if (e >= 0f) return 0f
+        val t = (-e / DARK_AT).coerceAtMost(1f)
+        return t * t * (3f - 2f * t)
+    }
+
     /**
      * The hour at [progress] (0 to 1) through a month's day and night, starting
      * at sunrise. The daylight and the hour of dusk after it take [DAY_SHARE]
@@ -102,6 +110,9 @@ object Sky {
     private const val DEG = (PI / 180.0).toFloat()
     private const val MAX_REACH = 1.6f
     private const val FULL_SHADOW_AT = 8f
+
+    /** Degrees below the horizon at which the lights are full. */
+    private const val DARK_AT = 8f
     private val GOLDEN = Color(0xFFFFE2BE)
     private val TWILIGHT = Color(0xFFA89ECC)
     private val NIGHT = Color(0xFF6470A6)

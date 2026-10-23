@@ -14,9 +14,9 @@ import kotlin.math.min
 /**
  * Ships on the way in to the ports they came to last month: in from the edge
  * of the map, tied up a while at the quay, and out again. A busier port has
- * more of them, up to [most].
+ * more of them, up to [most]. At night their lights go into [night].
  */
-internal fun DrawScope.drawShips(routes: List<ShipRoute>, map: CityMap, camera: Camera, time: Float, most: Int, smoke: Boolean): Set<Int> {
+internal fun DrawScope.drawShips(routes: List<ShipRoute>, map: CityMap, camera: Camera, time: Float, most: Int, smoke: Boolean, night: NightLights? = null): Set<Int> {
     val t = camera.tilePx
     if (most == 0 || routes.isEmpty() || t < MIN_SHIP_PX) return emptySet()
     // Where each ship is, worked out first so the bridges they pass can open before they're drawn.
@@ -56,7 +56,7 @@ internal fun DrawScope.drawShips(routes: List<ShipRoute>, map: CityMap, camera: 
             val quay = alongQuay(map, path.last()).let { q -> if (kotlin.math.abs(turn(way, q)) > 90f) q + 180f else q }
             val near = ((s - (length - SWING)) / SWING).coerceIn(0f, 1f)
             val facing = way + turn(way, quay) * near
-            placed += Placed(point, facing, route.kind, k + n, !berthed, smoke && route.kind != ShipRoute.CONTAINER && route.kind != ShipRoute.LINER)
+            placed += Placed(x, y, point, facing, route.kind, k + n, !berthed, smoke && route.kind != ShipRoute.CONTAINER && route.kind != ShipRoute.LINER)
         }
     }
     // The whole of each bridge that's opening, from bank to bank.
@@ -66,11 +66,12 @@ internal fun DrawScope.drawShips(routes: List<ShipRoute>, map: CityMap, camera: 
     for (p in placed) {
         ship(p.at, t, p.facing, p.kind, p.seed, wake = p.wake)
         if (p.smoke) puffs(p.at, t, time, p.seed)
+        night?.boat(p.x, p.y, p.at, t, p.facing, t * LENGTHS[p.kind])
     }
     return spans
 }
 
-private class Placed(val at: Offset, val facing: Float, val kind: Int, val seed: Int, val wake: Boolean, val smoke: Boolean)
+private class Placed(val x: Float, val y: Float, val at: Offset, val facing: Float, val kind: Int, val seed: Int, val wake: Boolean, val smoke: Boolean)
 
 /** The tiles of the bridge [i] is on, bank to bank. */
 private fun bridgeTiles(map: CityMap, i: Int): List<Int> {

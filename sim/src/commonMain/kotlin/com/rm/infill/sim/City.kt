@@ -4734,12 +4734,15 @@ class City(
      * its work needs. Before anyone lives here, the first few are run by
      * people from outside, and fully staffed.
      */
-    fun staffed(type: BuildingType): Int {
+    fun staffed(type: BuildingType): Int = staffShare(type).coerceAtLeast(Balance.LEAST_STAFF)
+
+    /** As [staffed], with no floor: the share of [type]'s jobs filled last month, in percent. */
+    fun staffShare(type: BuildingType): Int {
         if (stats.population == 0) return 100
         val skills = Demography.jobSkills(type)
         var share = 0
         for (k in 0 until Education.LEVELS) share += skills[k] * (100 - skillShortage[k])
-        return (share / 100).coerceIn(Balance.LEAST_STAFF, 100)
+        return (share / 100).coerceIn(0, 100)
     }
 
     /** Cover by road from [stations]: full within [full] seconds' drive, none past [most], both stretched by [strength]. */

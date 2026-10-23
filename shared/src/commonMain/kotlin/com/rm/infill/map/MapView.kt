@@ -75,7 +75,8 @@ class MapGestures(
 
 /**
  * The map. [look] is the season, [sunStep] and [sun] where the sun is, and
- * [tint] the light of the hour, multiplied over everything. [preview] is drawn
+ * [tint] the light of the hour, multiplied over everything. Lit windows are
+ * drawn over that, as strong as [dark] (from [Sky.dark]). [preview] is drawn
  * over it while a tool is being dragged.
  */
 @Composable
@@ -87,6 +88,8 @@ fun MapView(
     sunStep: Int,
     sun: Sun,
     tint: Color,
+    /** 0 by day to 1 at night, for the lights. */
+    dark: Float = 0f,
     weather: WeatherLook,
     running: Boolean,
     /** How fast the game's going, 1 at normal speed, for what travels across the map. */
@@ -143,6 +146,9 @@ fun MapView(
     val movers = remember(game.city) { TripMovers() }
     val transitRoom = remember { TransitRoom() }
     val moving = remember(renderer) { renderer?.let { MovingLayer(map, it) } }
+    val nightLights = remember(renderer) { renderer?.let { NightLights(it) } }
+    // The month the renderer last took how staffed work is.
+    val staffMonth = remember(renderer) { IntArray(1) { -1 } }
     val paceNow by rememberUpdatedState(pace)
     val fires = game.city.burningNow > 0
     // How hard each building with stacks is going, and where people sleep rough, looked over every couple of seconds while the town's free.
@@ -367,6 +373,13 @@ fun MapView(
         drawRect(page)
         if (renderer == null) return@Canvas
         game.takeChanges { i -> renderer.changed(i % map.width, i / map.width) }
+        // How staffed each kind of work is changes with the month; taken when the sim lets go of the town.
+        if (game.city.monthNow != staffMonth[0]) {
+            game.tryLocked {
+                renderer.staffing(IntArray(BuildingType.entries.size) { game.city.staffShare(BuildingType.entries[it]) })
+                staffMonth[0] = game.city.monthNow
+            }
+        }
         val level = renderer.levelFor(camera.tilePx)
         val chunk = MapRenderer.CHUNK
         val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -376,17 +389,25 @@ fun MapView(
         val cy0 = floor(topLeft.y / chunk).toInt()
         val cx1 = floor(bottomRight.x / chunk).toInt()
         val cy1 = floor((bottomRight.y + MapRenderer.SPRITE_ROWS) / chunk).toInt()
-        renderer.plan(level, cx0, cy0, cx1, cy1, look, sunStep, sun, camera.tilePx)
+        renderer.plan(level, cx0, cy0, cx1, cy1, look, sunStep, sun, camera.tilePx, lightsFor(dark, hour, game.city.monthNow))
         renderer.updateCover(level, look)
         // What moves on the roads and track goes on a layer of its own, so it can sit in the shadows and go behind buildings.
         val layer = moving ?: return@Canvas
         val behind: (Float, Float) -> Boolean = layer::mark
         if (!renderer.ready) return@Canvas
-        // The chunks, or on High the roofs over what moves.
-        fun chunks(roofs: Boolean) {
+        // What moves records its lamps here at night, to draw them again over the tint.
+        val night = if (dark > 0f) nightLights else null
+        // The lights at night, dimmed by fog, rain and heavy cloud.
+        val glow = dark * weather.lightsThrough
+        // The chunks, or on High the roofs over what moves, or the lit windows over the dark.
+        fun chunks(roofs: Boolean, lights: Boolean = false) {
             for (cy in max(0, cy0)..min(cy1, (map.height - 1) / chunk)) {
                 for (cx in max(0, cx0)..min(cx1, (map.width - 1) / chunk)) {
-                    val image = (if (roofs) renderer.roofs(cx, cy, level) else renderer.image(cx, cy, level)) ?: continue
+                    val image = when {
+                        lights -> renderer.lights(cx, cy, level)
+                        roofs -> renderer.roofs(cx, cy, level)
+                        else -> renderer.image(cx, cy, level)
+                    } ?: continue
                     // Whole pixels from each edge, so neighbouring chunks meet without a seam.
                     val a = camera.tileToScreen((cx * chunk).toFloat(), (cy * chunk).toFloat(), size)
                     val b = camera.tileToScreen(((cx + 1) * chunk).toFloat(), ((cy + 1) * chunk).toFloat(), size)
@@ -398,6 +419,7 @@ fun MapView(
                         srcSize = IntSize(image.width, image.height),
                         dstOffset = IntOffset(left, top),
                         dstSize = IntSize(b.x.roundToInt() - left, b.y.roundToInt() - top),
+                        alpha = if (lights) glow else 1f,
                         filterQuality = FilterQuality.None,
                     )
                 }
@@ -407,26 +429,26 @@ fun MapView(
         drawNeighbours(game.city.neighbours, map, camera, atlas, look)
         drawFloods(map, camera)
         drawWorks(map, camera)
-        val raised = if (ships) drawShips(game.city.shipRoutes, map, camera, travelTime, graphics.trains, graphics.smoke && game.city.year < Balance.STEAM_UNTIL) else emptySet()
+        val raised = if (ships) drawShips(game.city.shipRoutes, map, camera, travelTime, graphics.trains, graphics.smoke && game.city.year < Balance.STEAM_UNTIL, night) else emptySet()
         layer.begin(this)
         // Road traffic waits for a train at a crossing, and for a bridge that's open for a ship.
-        val stopped = (if (trains) drawTrains(game.city.trainRoutes, map, camera, travelTime, graphics.trains, graphics.smoke, steam = game.city.year < Balance.STEAM_TRAINS_UNTIL, behind = behind) else emptySet()) + raised
-        if (ferries) drawFerries(game.city.ferryRoutes, map, camera, travelTime)
+        val stopped = (if (trains) drawTrains(game.city.trainRoutes, map, camera, travelTime, graphics.trains, graphics.smoke, steam = game.city.year < Balance.STEAM_TRAINS_UNTIL, behind = behind, night = night) else emptySet()) + raised
+        if (ferries) drawFerries(game.city.ferryRoutes, map, camera, travelTime, night)
         if (traffic) {
-            drawSignals(map, camera, travelTime, behind)
+            drawSignals(map, camera, travelTime, behind, night)
             val sample = game.city.tripSample
             // Traffic waits for trams and buses only where they're drawn.
             movers.update(sample, map, travelTime, graphics.movers, stopped, if (transitShown(camera)) game.city.lineStates() else emptyList(), game.revision)
             if (sample.size == 0 || graphics.movers == 0) {
                 // No trips to follow, just after loading say, or graphics too low for them: traffic looping by last month's volumes instead.
                 drawPeople(game.city, map, camera, game.city.year, travelTime, behind)
-                drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped, behind = behind)
+                drawVehicles(map, camera, game.city.year, travelTime, graphics.vehicles, stopped, behind = behind, night = night)
             } else {
-                with(movers) { draw(map, camera, game.city.year, behind) }
+                with(movers) { draw(map, camera, game.city.year, behind, night) }
             }
-            drawTransit(map, camera, travelTime, game.city.lineStates(), transitRoom, behind)
+            drawTransit(map, camera, travelTime, game.city.lineStates(), transitRoom, behind, night)
             services.update(game.city.callouts, map, travelTime, game.city.year)
-            with(services) { draw(map, camera, game.city.year, weatherTime, behind) }
+            with(services) { draw(map, camera, game.city.year, weatherTime, behind, night) }
         }
         layer.end(this, camera, MapRenderer.SHADOW_ALPHA * sun.strength, roofs = renderer.exact)
         if (renderer.exact) chunks(roofs = true)
@@ -438,6 +460,8 @@ fun MapView(
         drawWeather(weather, camera, clouds, cloudDrift, weatherTime, sun.strength, graphics, cloudBefore, fade)
         // Modulate rather than Multiply: the same for an opaque tint, and Android before 10 has only this one.
         if (tint != Color.White) drawRect(tint, blendMode = BlendMode.Modulate)
+        if (dark > 0f) chunks(roofs = false, lights = true)
+        night?.draw(this, glow)
         if (underground) drawUnderground(map, camera, game.city.monthNow)
         overlayImage?.let { drawOverlay(it, map, camera, overlay) }
         if (districts.isNotEmpty()) drawDistricts(districts, map, camera, measurer)
@@ -508,3 +532,7 @@ private const val NEAR_TILE_DP = 64f
 
 /** From when trains are electric, after diesel. */
 private const val ELECTRIC_TRAINS_FROM = 1995
+
+/** What the chunks are lit for at night, for [MapRenderer.plan]: the windows' stage and the street lamps' era, or -1 by day. */
+private fun lightsFor(dark: Float, hour: Float, month: Int): Int =
+    if (dark > 0f) WindowLights.stage(hour) + WindowLights.STAGES * StreetLamps.era(1900 + month / 12) else -1

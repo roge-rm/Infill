@@ -20,6 +20,8 @@ class TileAtlas(
     private val packed: List<List<ByteArray>>,
     /** The 32 px summer sheet, for the pictures in the trays. */
     val icons: ImageBitmap,
+    /** Where the windows are, for lighting them at night. */
+    val lights: WindowLights,
 ) {
     /** How many sizes there are, biggest first. */
     val levels: Int get() = packed.size
@@ -71,5 +73,6 @@ class TileAtlas(
 fun rememberTileAtlas(): TileAtlas? = produceState<TileAtlas?>(null) {
     val names = listOf("spring", "summer", "autumn", "bare", "snow", "dry")
     val packed = listOf(32, 16, 8).map { size -> names.map { Res.readBytes("files/atlas_${size}_$it.png") } }
-    value = withContext(Dispatchers.Default) { TileAtlas(packed, packed[0][Atlas.SUMMER].decodeToImageBitmap()) }
+    val lights = listOf(32, 16, 8).map { size -> Res.readBytes("files/atlas_${size}_lights.png") }
+    value = withContext(Dispatchers.Default) { TileAtlas(packed, packed[0][Atlas.SUMMER].decodeToImageBitmap(), WindowLights(lights)) }
 }.value

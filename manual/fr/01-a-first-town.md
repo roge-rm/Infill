@@ -46,6 +46,8 @@ Chaque mois, la ville perçoit les taxes et paie l'entretien de tout ce que vous
 
 Chaque mois dure un jour et une nuit à l'écran. Les flèches dans la barre changent la vitesse, et le bouton à côté met en pause. Quand une nouvelle ère arrive, la partie se met en pause et dit ce qu'elle apporte.
 
+La nuit, les fenêtres des bâtiments habités s'allument, moins nombreuses tard dans la nuit. Les réverbères passent du gaz à l'électricité, puis au sodium orangé et aux DEL blanches au fil des ères. Les phares, les feux et les sirènes se voient dans le noir.
+
 ## Enregistrer
 
 La ville s'enregistre toute seule au début de chaque mois et quand vous quittez l'appli, et **Continuer** au premier écran reprend à partir de là. **Enregistrer** dans le menu garde une copie sous le nom de la ville.

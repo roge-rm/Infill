@@ -122,9 +122,9 @@ private fun DrawScope.cyclist(at: Offset, t: Float, heading: Float, clothes: Col
 
 /**
  * The ferries, one on each crossing, going back and forth between the two
- * terminals with a wait at each end.
+ * terminals with a wait at each end. At night their lights go into [night].
  */
-internal fun DrawScope.drawFerries(routes: List<IntArray>, map: CityMap, camera: Camera, time: Float) {
+internal fun DrawScope.drawFerries(routes: List<IntArray>, map: CityMap, camera: Camera, time: Float, night: NightLights? = null) {
     val t = camera.tilePx
     if (t < MIN_FERRY_PX) return
     val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -148,7 +148,9 @@ internal fun DrawScope.drawFerries(routes: List<IntArray>, map: CityMap, camera:
         val next = (i + dir).let { if (it in 0 until n) path[it] else -1 }
         val (cx, cy, heading) = pointThrough(prev, path[i], next, if (out) u else 1f - u, map.width)
         if (cx < topLeft.x - 1 || cx > bottomRight.x + 1 || cy < topLeft.y - 1 || cy > bottomRight.y + 1) continue
-        ferry(camera.tileToScreen(cx, cy, size), t, heading, inRun in 0f..crossing)
+        val spot = camera.tileToScreen(cx, cy, size)
+        ferry(spot, t, heading, inRun in 0f..crossing)
+        night?.boat(cx, cy, spot, t, heading, t * 0.85f)
     }
 }
 

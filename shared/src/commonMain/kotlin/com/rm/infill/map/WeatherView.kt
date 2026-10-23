@@ -38,6 +38,14 @@ data class WeatherLook(
      */
     val clearness: Int get() = (3 - cloud / 30 - if (precipitation != Precipitation.None) 1 else 0).coerceIn(0, 3)
 
+    /** How much of the night's lights shows through the weather, 0 to 1: fog dims them most, then rain or snow and heavy cloud. */
+    val lightsThrough: Float get() {
+        var through = 1f - ((cloud - 60) / 40f).coerceIn(0f, 1f) * 0.15f
+        if (precipitation != Precipitation.None) through -= intensity / 100f * 0.25f
+        if (fog) through -= 0.45f
+        return through.coerceIn(0.3f, 1f)
+    }
+
     companion object {
         val CLEAR = WeatherLook(0, Precipitation.None, 0, false, 1f, 0f, 0.3f)
         const val CLOUD_SHADOWS_FROM = 25

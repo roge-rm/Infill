@@ -3,6 +3,7 @@ package com.rm.infill.map
 import androidx.compose.ui.graphics.ImageBitmap
 import com.rm.infill.sim.Bridge
 import com.rm.infill.sim.BridgeKind
+import com.rm.infill.sim.Balance
 import com.rm.infill.sim.BuildingType
 import com.rm.infill.sim.Generation
 import com.rm.infill.sim.Density
@@ -44,25 +45,58 @@ import kotlin.math.sqrt
  * them wherever [bakeDispatcher] says and hands them back with [store].
  */
 internal class MapRenderer(private val map: CityMap, private val atlas: TileAtlas, private val graphics: Graphics) {
-    class Request(val key: Long, val cx: Int, val cy: Int, val level: Int, val look: Int, val sun: Sun?, val version: Int) {
+    class Request(val key: Long, val cx: Int, val cy: Int, val level: Int, val look: Int, val sun: Sun?, val version: Int, val lights: Int) {
         /** The buildings with stacks whose top left tile is in the chunk, as pairs of map index and look-free sprite. */
         var plumes = IntArray(0)
+
+        /** The same chunk baked for other lights, whose map and roofs are kept so only the lights are baked again. */
+        var reuse: Baked? = null
+
+        /** How staffed each kind of building is, as [staffing] last took it, and that snapshot's count. */
+        var staff = NO_STAFF
+        var staffCount = 0
     }
 
-    /** A baked chunk: the map, and on High what stands above its own tiles, drawn over what moves. */
-    class Baked(val image: ImageBitmap, val roofs: ImageBitmap?) {
-        val bytes get() = (image.width.toLong() * image.height + (roofs?.let { it.width.toLong() * it.height } ?: 0L)) * 4
-    }
+    /**
+     * A baked chunk: the map, on High what stands above its own tiles, drawn
+     * over what moves, and at night the lit windows, drawn over the dark.
+     */
+    class Baked(val image: ImageBitmap, val roofs: ImageBitmap?, val lights: ImageBitmap? = null)
 
     /** Whether the buildings' upper parts are baked apart, to go over what moves: on High. */
     val exact = graphics.level == GraphicsLevel.High
 
-    private class Entry(val cx: Int, val cy: Int, val level: Int, val baked: Baked, var used: Long, val version: Int) {
+    private class Entry(val cx: Int, val cy: Int, val level: Int, val baked: Baked, var used: Long, val version: Int, val lit: Boolean, val staffCount: Int) {
         val image get() = baked.image
     }
 
     private val cache = HashMap<Long, Entry>()
     private var bytes = 0L
+
+    /** How many cache entries hold each bitmap, since a chunk baked for other lights shares its map and roofs. Counted in [bytes] once. */
+    private val holders = HashMap<ImageBitmap, Int>()
+
+    private fun hold(baked: Baked) {
+        for (b in arrayOf(baked.image, baked.roofs, baked.lights)) {
+            if (b == null) continue
+            val n = holders[b] ?: 0
+            if (n == 0) bytes += b.width.toLong() * b.height * 4
+            holders[b] = n + 1
+        }
+    }
+
+    private fun release(baked: Baked) {
+        for (b in arrayOf(baked.image, baked.roofs, baked.lights)) {
+            if (b == null) continue
+            val n = holders[b] ?: continue
+            if (n <= 1) {
+                holders.remove(b)
+                bytes -= b.width.toLong() * b.height * 4
+            } else {
+                holders[b] = n - 1
+            }
+        }
+    }
     private var frame = 0L
 
     private val queue = ArrayList<Request>()
@@ -76,6 +110,30 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     // What each level is showing, which only changes once all of the screen can.
     private val shownLook = IntArray(LEVELS) { -1 }
     private val shownStep = IntArray(LEVELS)
+    private val shownLights = IntArray(LEVELS) { -1 }
+
+    // The lights asked for now and the ones before, whose chunks lend their map to a bake for new lights.
+    private var nowLights = -1
+    private var lastLights = -1
+
+    // How staffed each kind of building is, in percent by ordinal, empty for all of them; replaced whole, never changed, so a bake can hold it.
+    private var staff = NO_STAFF
+    private var staffCount = 0
+
+    /**
+     * Takes how staffed each kind of building is, in percent by [BuildingType]
+     * ordinal, for the lit windows at work. Kept in steps of a tenth, and only
+     * a change of step bakes the lights again, leaving the map under them.
+     */
+    fun staffing(shares: IntArray) {
+        var same = shares.size == staff.size
+        if (same) for (k in shares.indices) if (step(shares[k]) != staff[k]) { same = false; break }
+        if (same) return
+        staff = IntArray(shares.size) { step(shares[it]) }
+        staffCount++
+    }
+
+    private fun step(share: Int) = (share.coerceIn(0, 100) + 5) / 10 * 10
 
     /** Goes up whenever a frame leaves something to bake. */
     val requests = MutableStateFlow(0)
@@ -108,9 +166,18 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     private fun stepFor(level: Int, sunStep: Int, sun: Sun): Int =
         if (graphics.shadows && level < LEVELS - 1 && sun.strength > 0f) sunStep else -1
 
-    /** Works out what the screen shows and what to bake next. The screen covers chunks [cx0]..[cx1], [cy0]..[cy1]. */
-    fun plan(level: Int, cx0: Int, cy0: Int, cx1: Int, cy1: Int, look: Int, sunStep: Int, sun: Sun, tilePx: Float) {
+    /**
+     * Works out what the screen shows and what to bake next. The screen covers
+     * chunks [cx0]..[cx1], [cy0]..[cy1]. [lights] is the stage of the night
+     * the windows are lit for ([WindowLights.stage]) plus [WindowLights.STAGES]
+     * times the era of the street lamps ([StreetLamps.era]), or -1 for no lights.
+     */
+    fun plan(level: Int, cx0: Int, cy0: Int, cx1: Int, cy1: Int, look: Int, sunStep: Int, sun: Sun, tilePx: Float, lights: Int = -1) {
         frame++
+        if (lights != nowLights) {
+            lastLights = nowLights
+            nowLights = lights
+        }
         queue.clear()
         queued.clear()
         onScreen.clear()
@@ -122,28 +189,29 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         val step = stepFor(level, sunStep, sun)
         var complete = true
         forEachOutward(cx0, cy0, cx1, cy1, midX, midY) { cx, cy ->
-            val k = key(cx, cy, level, look, step)
+            val k = key(cx, cy, level, look, step, lights)
             if (!touch(k, cx, cy)) {
                 complete = false
                 onScreen += k
-                want(k, cx, cy, level, look, step, sun)
+                want(k, cx, cy, level, look, step, sun, lights)
             }
         }
         if (complete) {
             shownLook[level] = look
             shownStep[level] = step
+            shownLights[level] = lights
             ready = true
         } else if (shownLook[level] >= 0) {
             // Keep what's showing now until the change is ready.
             forEachOutward(cx0, cy0, cx1, cy1, midX, midY) { cx, cy ->
-                touch(key(cx, cy, level, shownLook[level], shownStep[level]), cx, cy)
+                touch(key(cx, cy, level, shownLook[level], shownStep[level], shownLights[level]), cx, cy)
             }
         }
 
         // A ring around the screen, for panning.
         forEachOutward(cx0 - RING, cy0 - RING, cx1 + RING, cy1 + RING, midX, midY) { cx, cy ->
-            val k = key(cx, cy, level, look, step)
-            if (!touch(k, cx, cy)) want(k, cx, cy, level, look, step, sun)
+            val k = key(cx, cy, level, look, step, lights)
+            if (!touch(k, cx, cy)) want(k, cx, cy, level, look, step, sun, lights)
         }
 
         // The sharper level, when a zoom in is getting near it.
@@ -151,8 +219,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
             val finer = level - 1
             val s = stepFor(finer, sunStep, sun)
             forEachOutward(cx0, cy0, cx1, cy1, midX, midY) { cx, cy ->
-                val k = key(cx, cy, finer, look, s)
-                if (!touch(k, cx, cy)) want(k, cx, cy, finer, look, s, sun)
+                val k = key(cx, cy, finer, look, s, lights)
+                if (!touch(k, cx, cy)) want(k, cx, cy, finer, look, s, sun, lights)
             }
         }
 
@@ -160,8 +228,8 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         for (coarse in max(level + 1, max(1, graphics.sharpest)) until LEVELS) {
             val s = stepFor(coarse, sunStep, sun)
             forEachOutward(0, 0, chunksX - 1, chunksY - 1, midX, midY) { cx, cy ->
-                val k = key(cx, cy, coarse, look, s)
-                if (!touch(k, cx, cy)) want(k, cx, cy, coarse, look, s, sun)
+                val k = key(cx, cy, coarse, look, s, lights)
+                if (!touch(k, cx, cy)) want(k, cx, cy, coarse, look, s, sun, lights)
             }
         }
 
@@ -174,9 +242,12 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
     /** The roofs to draw over what moves on a chunk, from the same bake as [image]. */
     fun roofs(cx: Int, cy: Int, level: Int): ImageBitmap? = baked(cx, cy, level)?.roofs
 
+    /** The lit windows to draw over the dark on a chunk, from the same bake as [image]; null if none are lit. */
+    fun lights(cx: Int, cy: Int, level: Int): ImageBitmap? = baked(cx, cy, level)?.lights
+
     private fun baked(cx: Int, cy: Int, level: Int): Baked? {
         if (shownLook[level] >= 0) {
-            cache[key(cx, cy, level, shownLook[level], shownStep[level])]?.let { return it.baked }
+            cache[key(cx, cy, level, shownLook[level], shownStep[level], shownLights[level])]?.let { return it.baked }
         }
         // Coarser levels first, since they're soft rather than too busy, then sharper ones.
         for (l in (level until LEVELS) + (level - 1 downTo 0)) {
@@ -215,13 +286,13 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         val old = cache[request.key]
         if (old != null) {
             if (old.version > request.version) return false
-            bytes -= old.baked.bytes
+            release(old.baked)
         }
-        cache[request.key] = Entry(request.cx, request.cy, request.level, image, frame, request.version)
-        bytes += image.bytes
+        cache[request.key] = Entry(request.cx, request.cy, request.level, image, frame, request.version, request.lights >= 0, request.staffCount)
+        hold(image)
         while (bytes > graphics.cacheBytes && cache.size > 1) {
             val oldest = cache.entries.minBy { it.value.used }
-            bytes -= oldest.value.baked.bytes
+            release(oldest.value.baked)
             cache.remove(oldest.key)
         }
         return request.key in onScreen
@@ -239,6 +310,9 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
 
     /** Bakes a chunk. Safe on a background thread with [PixelSurface], as long as the map isn't changed meanwhile. */
     fun bake(r: Request): Baked {
+        // Only the lights have changed: the map, roofs and shade are kept from the chunk this reuses.
+        val reuse = r.reuse
+        if (r.lights >= 0 && reuse != null) return bakeLights(r, reuse)
         val level = r.level
         val s = TILE shr level
         val surface = newSurface(atlas, level, CHUNK * s, roofs = exact)
@@ -388,7 +462,139 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         }
         surface.raiseAbove(BakeSurface.NO_ROOFS)
         r.plumes = stacks.toIntArray()
-        return Baked(surface.finish(), surface.finishRoofs())
+        val day = Baked(surface.finish(), surface.finishRoofs())
+        return if (r.lights >= 0) bakeLights(r, day) else day
+    }
+
+    /**
+     * The lights alone for [r], over the map and roofs of [reuse]: the street
+     * lamps, then the sprites in the same order as [bake], each hiding the
+     * lights behind it and lighting its own windows.
+     *
+     * Where there's a glow, the lights are baked with a pixel round the chunk
+     * from the tiles next to it, so the glow carries on across chunk edges.
+     */
+    private fun bakeLights(r: Request, reuse: Baked): Baked {
+        val level = r.level
+        val s = TILE shr level
+        val m = if (level == LEVELS - 1) 0 else 1
+        val surface = newSurface(atlas, level, CHUNK * s + 2 * m)
+        val x0 = r.cx * CHUNK
+        val y0 = r.cy * CHUNK
+        val x1 = min(x0 + CHUNK, map.width)
+        val y1 = min(y0 + CHUNK, map.height)
+        val base = r.look * Atlas.PER_LOOK
+        shown.clear()
+        val stacks = ArrayList<Int>()
+        surface.beginLights()
+        streetLamps(surface, x0, y0, x1, y1, s, level, r.lights / WindowLights.STAGES, m)
+        // One more column on the right and row above, whose sprites reach into the margin.
+        for (ty in max(0, y0 - m) until min(y1 + SPRITE_ROWS, map.height)) for (tx in max(0, x0 - WIDEST + 1) until min(x1 + m, map.width)) {
+            val i = map.index(tx, ty)
+            if (map.buildingType[i].toInt() != 0) {
+                val (ax, ay) = anchor(tx, ty)
+                if (ax != tx || ty != bottom(tx, ty)) continue
+                val sprite = buildingSprite(ax, ay)
+                val dx = (ax - x0) * s + m
+                val dy = (ay - y0) * s + m
+                surface.cover(base + sprite, dx, dy)
+                lightWindows(surface, level, sprite, ax, ay, dx, dy, r.lights % WindowLights.STAGES, r.staff)
+                if (ax in x0 until x1 && ay in y0 until y1 && Atlas.plumeCount[sprite] > 0) {
+                    stacks += map.index(ax, ay)
+                    stacks += sprite
+                }
+                if (map.forSale[i]) surface.cover(base + Atlas.FOR_SALE, dx, dy)
+                continue
+            }
+            val dx = (tx - x0) * s + m
+            val dy = (ty - y0) * s + m
+            if (map.terrain[i] == Terrain.TREES) {
+                val treeBase = if (map.grimeLevel(i) == 3 && r.look != Atlas.SNOW) Atlas.BARE * Atlas.PER_LOOK else base
+                surface.cover(treeBase + treeSprite(tx, ty), dx, dy)
+            } else {
+                if (map.streetTrees[i].toInt() != 0) surface.cover(base + Atlas.STREET_TREES, dx, dy)
+                if (map.power[i] != Power.NONE && !map.cable(i)) surface.cover(base + lineSprite(tx, ty), dx, dy)
+                else if (map.phone[i].toInt() != 0 && !map.duct(i)) surface.cover(base + phoneSprite(tx, ty), dx, dy)
+            }
+        }
+        r.plumes = stacks.toIntArray()
+        return Baked(reuse.image, reuse.roofs, surface.finishLights(m))
+    }
+
+    /**
+     * Lights some of the windows of the building drawn at [dx], [dy] from its
+     * top left tile [ax], [ay]: in homes with people living in them, and at
+     * work as it's staffed ([staff], by kind) and open, more or fewer by the
+     * [stage] of the night.
+     */
+    private fun lightWindows(surface: BakeSurface, level: Int, sprite: Int, ax: Int, ay: Int, dx: Int, dy: Int, stage: Int, staff: IntArray) {
+        val i = map.index(ax, ay)
+        if (map.site[i].toInt() != 0 || map.forSale[i] || map.fire[i].toInt() != 0) return
+        val panes = atlas.lights.panes(level, sprite) ?: return
+        val type = map.buildingType[i].toInt() - 1
+        val zone = BuildingType.entries[type].zone
+        val home = zone == Zone.RESIDENTIAL || zone == Zone.MIXED
+        // Work shut by floodwater is dark, as the sim shuts it.
+        if (!home && (map.flood[i].toInt() and 0xff) >= Balance.FLOODED) return
+        val staffed = if (type < staff.size) staff[type] else 100
+        val share = if (home) WindowLights.HOME_SHARE[stage] else WindowLights.WORK_SHARE[stage] * staffed / 100
+        if (share == 0) return
+        // The same seed all night, so the windows lit later are some of those lit earlier.
+        val seed = tileHash(ax, ay)
+        surface.light(panes, sprite, dx, dy, seed, share, if (home) WindowLights.HOME_COLOURS else WindowLights.WORK_COLOURS)
+    }
+
+    /**
+     * Pools of light under the street lamps of [era] ([StreetLamps.era]), from
+     * lamps on the chunk and a tile round it, so a pool over its edge carries
+     * on into the next chunk. Laid before the sprites, which hide them.
+     */
+    private fun streetLamps(surface: BakeSurface, x0: Int, y0: Int, x1: Int, y1: Int, s: Int, level: Int, era: Int, margin: Int) {
+        val peak = StreetLamps.PEAK[era] * StreetLamps.LEVEL_SHARE[level] / 4
+        val radius = s * StreetLamps.RADIUS[era] / 32f
+        val colour = StreetLamps.COLOURS[era]
+        for (ty in max(0, y0 - 1) until min(map.height, y1 + 1)) for (tx in max(0, x0 - 1) until min(map.width, x1 + 1)) {
+            val side = lampSide(tx, ty, era)
+            if (side < 0) continue
+            // The lamp stands on the curb by the lots, so its pool leans that way.
+            val ox = if (side == 1) LAMP_LEAN else if (side == 3) -LAMP_LEAN else 0f
+            val oy = if (side == 0) -LAMP_LEAN else 0f
+            surface.pool((tx - x0 + 0.5f + ox) * s + margin, (ty - y0 + 0.5f + oy) * s + margin, radius, peak, colour)
+        }
+    }
+
+    /**
+     * Whether road tile [tx], [ty] has a street lamp in [era], and if so which
+     * side it leans to: 0 north, 1 east, 3 west or 4 the middle; -1
+     * for none. Streets have them every other tile where they pass built lots
+     * other than farms, every third with gas; highways only where they meet another road.
+     */
+    private fun lampSide(tx: Int, ty: Int, era: Int): Int {
+        val i = map.index(tx, ty)
+        val road = RoadType.of(map.road[i]) ?: return -1
+        if (map.terrain[i] == Terrain.WATER) return -1
+        val h = tileHash(tx, ty)
+        if ((h ushr 8) % StreetLamps.OUT == 0) return -1
+        when (road) {
+            RoadType.HIGHWAY -> return if (era > 0 && map.control[i] == Junction.INTERCHANGE) 4 else -1
+            RoadType.RAMP -> return if (era > 0 && (tx + ty) % 2 == 0) 4 else -1
+            else -> {}
+        }
+        if ((tx + ty) % (if (era == 0) 3 else 2) != 0) return -1
+        fun built(x: Int, y: Int): Boolean {
+            if (!map.inside(x, y)) return false
+            val type = map.buildingType[map.index(x, y)].toInt()
+            return type != 0 && BuildingType.entries[type - 1].zone != Zone.FARMLAND
+        }
+        // The north side first, since buildings to the south stand up over the road and hide a pool on their side.
+        if (built(tx, ty - 1)) return 0
+        val east = built(tx + 1, ty)
+        val west = built(tx - 1, ty)
+        if (east && west) return if (h and 1 == 0) 1 else 3
+        if (east) return 1
+        if (west) return 3
+        // Lots only to the south, or across the diagonal at a corner.
+        return if (built(tx, ty + 1) || built(tx - 1, ty - 1) || built(tx + 1, ty - 1) || built(tx - 1, ty + 1) || built(tx + 1, ty + 1)) 4 else -1
     }
 
     /** Banks along the sides of a water tile that touch land, and in corners where only the diagonal does. */
@@ -1115,11 +1321,22 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         return fresh(e, cx, cy)
     }
 
-    private fun fresh(e: Entry?, cx: Int, cy: Int) = e != null && e.version == versions[cy * chunksX + cx]
+    private fun fresh(e: Entry?, cx: Int, cy: Int) = e != null && e.version == versions[cy * chunksX + cx] && (!e.lit || e.staffCount == staffCount)
 
-    private fun want(k: Long, cx: Int, cy: Int, level: Int, look: Int, step: Int, sun: Sun) {
+    private fun want(k: Long, cx: Int, cy: Int, level: Int, look: Int, step: Int, sun: Sun, lights: Int) {
         if (k in baking || !queued.add(k)) return
-        queue += Request(k, cx, cy, level, look, if (step >= 0) sun else null, versions[cy * chunksX + cx])
+        val version = versions[cy * chunksX + cx]
+        val request = Request(k, cx, cy, level, look, if (step >= 0) sun else null, version, lights)
+        request.staff = staff
+        request.staffCount = staffCount
+        // Only the lights have changed: take the map from these lights baked for other staffing, the last lights, or the day.
+        if (lights >= 0) {
+            val from = cache[k]?.takeIf { it.version == version }
+                ?: cache[key(cx, cy, level, look, step, lastLights)]?.takeIf { it.version == version }
+                ?: cache[key(cx, cy, level, look, step, -1)]?.takeIf { it.version == version }
+            request.reuse = from?.baked
+        }
+        queue += request
     }
 
     /** Every chunk in the range that's on the map, nearest to [midX], [midY] first. */
@@ -1143,10 +1360,17 @@ internal class MapRenderer(private val map: CityMap, private val atlas: TileAtla
         }
     }
 
-    private fun key(cx: Int, cy: Int, level: Int, look: Int, step: Int): Long =
-        (cx.toLong() shl 40) or (cy.toLong() shl 24) or (level.toLong() shl 16) or (look.toLong() shl 8) or (step + 1).toLong()
+    // Step + 1 takes bits 0-7 (shadow steps run to 127), lights + 1 bits 8-12 (at most 25), look 13-15.
+    private fun key(cx: Int, cy: Int, level: Int, look: Int, step: Int, lights: Int): Long =
+        (cx.toLong() shl 40) or (cy.toLong() shl 24) or (level.toLong() shl 16) or (look.toLong() shl 13) or
+            ((lights + 1).toLong() shl 8) or (step + 1).toLong()
 
     companion object {
+        private val NO_STAFF = IntArray(0)
+
+        /** How far a street lamp's pool sits from the middle of its road tile towards the lots, in tiles. */
+        private const val LAMP_LEAN = 0.18f
+
         /** Residential, commercial and industrial, as RGB: the edge and dots, and the pale wash over the ground. */
         private const val LANE = 0xB8443A
         private const val LANE_ALPHA = 190

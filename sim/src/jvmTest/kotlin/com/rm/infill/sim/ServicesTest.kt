@@ -83,6 +83,10 @@ class ServicesTest {
         shortage[Education.EDUCATED] = 80
         assertTrue(c.strength(BuildingType.SCHOOL, 100) < full)
         assertTrue(c.staffed(BuildingType.SCHOOL) >= Balance.LEAST_STAFF)
+        // With nobody to take any of the jobs, the share filled has no floor.
+        shortage.fill(100)
+        assertEquals(0, c.staffShare(BuildingType.SCHOOL))
+        assertEquals(Balance.LEAST_STAFF, c.staffed(BuildingType.SCHOOL))
     }
 
     @Test

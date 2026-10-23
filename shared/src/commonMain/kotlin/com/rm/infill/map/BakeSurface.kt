@@ -45,6 +45,32 @@ internal interface BakeSurface {
     /** What went up onto the roofs, or null if this surface doesn't keep them. */
     fun finishRoofs(): ImageBitmap?
 
+    /** Starts a layer of lit windows. From now on what's blended solid hides the lights behind it. */
+    fun beginLights()
+
+    /** Hides the lights behind what's solid in the sprite with [index] at [dx], [dy], without drawing it. */
+    fun cover(index: Int, dx: Int, dy: Int)
+
+    /**
+     * Lights the windows in [panes] (from [WindowLights.panes]) of the sprite
+     * drawn at [dx], [dy] with look-free [index]: a pane is lit when its hash
+     * with [seed] falls under [share] out of 256, in one of two [colours] (RGB).
+     */
+    fun light(panes: IntArray, index: Int, dx: Int, dy: Int, seed: Int, share: Int, colours: IntArray)
+
+    /**
+     * A soft round pool of street light centred on [x], [y] in pixels of this
+     * surface, which may be outside it, [radius] pixels across from the middle,
+     * [peak] out of 255 in the middle, in [colour] (RGB). Where pools meet, the stronger shows.
+     */
+    fun pool(x: Float, y: Float, radius: Float, peak: Int, colour: Int)
+
+    /**
+     * The lit windows with a soft glow round them, or null if none were lit or
+     * there's no layer. [margin] pixels round the edge are left off, there only to glow into what's kept.
+     */
+    fun finishLights(margin: Int = 0): ImageBitmap?
+
     companion object {
         const val NO_ROOFS = Int.MIN_VALUE
     }
@@ -104,6 +130,7 @@ internal class PixelSurface(atlas: TileAtlas, private val level: Int, private va
         val h = Atlas.rects[r + 3] shr level
         val top = dy - (Atlas.rects[r + 4] shr level)
         val src = source(index)
+        val lights = lit
         for (row in 0 until h) {
             val y = top + row
             if (y < 0 || y >= size) continue
@@ -116,6 +143,7 @@ internal class PixelSurface(atlas: TileAtlas, private val level: Int, private va
                 val p = src[from + col]
                 val a = p ushr 24
                 if (a == 0) continue
+                if (lights != null && a >= SOLID) lights[to + x] = 0
                 if (up) {
                     over(roofs!!, to + x, p, a)
                     continue
@@ -250,6 +278,101 @@ internal class PixelSurface(atlas: TileAtlas, private val level: Int, private va
 
     override fun finishRoofs(): ImageBitmap? = roofs?.let { imageBitmapOf(it, size, size) }
 
+    /** The lit windows, as ARGB, while there's a layer of them. */
+    private var lit: IntArray? = null
+
+    override fun beginLights() {
+        lit = IntArray(size * size)
+    }
+
+    override fun cover(index: Int, dx: Int, dy: Int) {
+        val lights = lit ?: return
+        val r = index * 5
+        val sx = Atlas.rects[r] shr level
+        val sy = Atlas.rects[r + 1] shr level
+        val w = Atlas.rects[r + 2] shr level
+        val h = Atlas.rects[r + 3] shr level
+        val top = dy - (Atlas.rects[r + 4] shr level)
+        val src = source(index)
+        val x0 = max(0, dx)
+        val x1 = min(size, dx + w)
+        for (row in 0 until h) {
+            val y = top + row
+            if (y < 0 || y >= size) continue
+            val from = (sy + row) * srcWidth + sx - dx
+            val to = y * size
+            for (x in x0 until x1) if (src[from + x] ushr 24 >= SOLID) lights[to + x] = 0
+        }
+    }
+
+    override fun light(panes: IntArray, index: Int, dx: Int, dy: Int, seed: Int, share: Int, colours: IntArray) {
+        val into = lit ?: return
+        val top = dy - (Atlas.rects[index * 5 + 4] shr level)
+        // Coarser sheets have less of each pixel as glass, so they're lit up a little more.
+        val boost = 4 + level * 2
+        var k = 0
+        while (k < panes.size) {
+            val at = panes[k]
+            val v = panes[k + 1]
+            k += 2
+            val pane = v ushr 8
+            val h = MapRenderer.tileHash(seed, pane)
+            if (h and 0xff >= share) continue
+            val x = dx + at % WindowLights.ROW
+            val y = top + at / WindowLights.ROW
+            if (x < 0 || x >= size || y < 0 || y >= size) continue
+            val a = min(255, (v and 0xff) * boost / 4)
+            into[y * size + x] = (a shl 24) or colours[(h shr 8) and 1]
+        }
+    }
+
+    override fun pool(x: Float, y: Float, radius: Float, peak: Int, colour: Int) {
+        val into = lit ?: return
+        val left = max(0, floor(x - radius).toInt())
+        val right = min(size - 1, ceil(x + radius).toInt())
+        val top = max(0, floor(y - radius).toInt())
+        val bottom = min(size - 1, ceil(y + radius).toInt())
+        val r2 = radius * radius
+        for (py in top..bottom) for (px in left..right) {
+            val ddx = px + 0.5f - x
+            val ddy = py + 0.5f - y
+            val f = 1f - (ddx * ddx + ddy * ddy) / r2
+            if (f <= 0f) continue
+            val a = (peak * f * f).toInt()
+            if (a < 4) continue
+            val k = py * size + px
+            if (into[k] ushr 24 < a) into[k] = (a shl 24) or colour
+        }
+    }
+
+    override fun finishLights(margin: Int): ImageBitmap? {
+        val from = lit ?: return null
+        lit = null
+        if (from.all { it == 0 }) return null
+        if (level == MapRenderer.LEVELS - 1) return imageBitmapOf(crop(from, margin), size - 2 * margin, size - 2 * margin)
+        // A faint glow on the pixels round each lit one, taken from the brightest beside it.
+        val glow = from.copyOf()
+        for (y in 0 until size) for (x in 0 until size) {
+            if (from[y * size + x] != 0) continue
+            var best = 0
+            for (ny in max(0, y - 1)..min(size - 1, y + 1)) for (nx in max(0, x - 1)..min(size - 1, x + 1)) {
+                val q = from[ny * size + nx]
+                if (q ushr 24 > best ushr 24) best = q
+            }
+            if (best != 0) glow[y * size + x] = (((best ushr 24) * GLOW / 255) shl 24) or (best and 0xffffff)
+        }
+        return imageBitmapOf(crop(glow, margin), size - 2 * margin, size - 2 * margin)
+    }
+
+    /** [pixels] without [margin] pixels round the edge. */
+    private fun crop(pixels: IntArray, margin: Int): IntArray {
+        if (margin == 0) return pixels
+        val inner = size - 2 * margin
+        val out = IntArray(inner * inner)
+        for (y in 0 until inner) pixels.copyInto(out, y * inner, (y + margin) * size + margin, (y + margin) * size + margin + inner)
+        return out
+    }
+
     /** [p], [a] out of 255 solid, laid over pixel [k] of [into], which may be see-through. */
     private fun over(into: IntArray, k: Int, p: Int, a: Int) {
         if (a == 255) {
@@ -264,5 +387,13 @@ internal class PixelSurface(atlas: TileAtlas, private val level: Int, private va
         val gg = (((p shr 8) and 0xff) * a + ((q shr 8) and 0xff) * qa) / oa
         val bb = ((p and 0xff) * a + (q and 0xff) * qa) / oa
         into[k] = (oa shl 24) or (rr shl 16) or (gg shl 8) or bb
+    }
+
+    private companion object {
+        /** A sprite pixel at least this solid hides the lit windows behind it. */
+        const val SOLID = 128
+
+        /** How strong the glow round a lit window is, out of 255 of the window's. */
+        const val GLOW = 80
     }
 }

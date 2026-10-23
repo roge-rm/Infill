@@ -20,8 +20,9 @@ import kotlin.math.sin
  * Trains along the lines they ran last month: out along the track, a stop at
  * the far end, and back again. A busier line has more trains, up to [most].
  * Returns the level crossings a train is on, so the road traffic can wait.
+ * At night their lamps go into [night].
  */
-internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera: Camera, time: Float, most: Int, smoke: Boolean, steam: Boolean = true, behind: (Float, Float) -> Boolean = { _, _ -> false }): Set<Int> {
+internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera: Camera, time: Float, most: Int, smoke: Boolean, steam: Boolean = true, behind: (Float, Float) -> Boolean = { _, _ -> false }, night: NightLights? = null): Set<Int> {
     val t = camera.tilePx
     if (most == 0 || routes.isEmpty() || t < MIN_TILE_PX) return emptySet()
     val crossings = HashSet<Int>()
@@ -50,7 +51,12 @@ internal fun DrawScope.drawTrains(routes: List<TrainRoute>, map: CityMap, camera
                     1 -> if (steam) Car.Tender else Car.Diesel
                     else -> if (route.passengers) Car.Coach else if (route.containers) Car.Container else FREIGHT[(k * 3 + c) % FREIGHT.size]
                 }
-                if (!behind(x, y)) car(camera.tileToScreen(x, y, size), t, heading, kind, k + c)
+                if (!behind(x, y)) {
+                    val at = camera.tileToScreen(x, y, size)
+                    car(at, t, heading, kind, k + c)
+                    // Its lamps face the way it's going, which is back along the track on the way home.
+                    night?.railCar(x, y, at, t, if (forward) heading else heading + 180f, t * CAR_LENGTH, t * 0.36f, c == 0, c == cars + 1, kind == Car.Coach, steam)
+                }
                 if (c == 0 && smoke && steam) puffs(camera.tileToScreen(x, y, size), t, time, k * 7 + n)
             }
         }

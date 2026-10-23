@@ -46,6 +46,8 @@ Each month the town collects taxes and pays upkeep on everything you've built. T
 
 Each month is one day and night on screen. The arrows in the strip change the speed, and the button beside them pauses. When a new era arrives the game pauses and says what it brings.
 
+At night the windows of lived-in buildings light up, fewer of them late at night. Street lamps go from gas to electric, then orange sodium and white LED as the eras go by. Headlights, traffic lights and sirens show in the dark.
+
 ## Saving
 
 The town saves itself at the start of every month and when you leave the app, and **Continue** on the first screen picks up from there. **Save** in the menu keeps a copy under the town's name.

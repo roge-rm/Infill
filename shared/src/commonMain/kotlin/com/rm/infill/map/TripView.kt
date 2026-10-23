@@ -1360,8 +1360,8 @@ internal class TripMovers {
         }
     }
 
-    /** Each mover on screen where it is now, as it looked in [year]. */
-    fun DrawScope.draw(map: CityMap, camera: Camera, year: Int, behind: (Float, Float) -> Boolean = { _, _ -> false }) {
+    /** Each mover on screen where it is now, as it looked in [year], its lights into [night] if it's dark. */
+    fun DrawScope.draw(map: CityMap, camera: Camera, year: Int, behind: (Float, Float) -> Boolean = { _, _ -> false }, night: NightLights? = null) {
         val t = camera.tilePx
         if (t < MIN_VEHICLE_PX) return
         val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -1382,7 +1382,10 @@ internal class TripMovers {
             when (m.kind) {
                 TripSample.WALKER -> person(at, t, year, m.seed, m.fade)
                 TripSample.CYCLIST -> rider(at, t, m.heading[s], year, m.seed, m.fade)
-                else -> roadVehicle(at, t, m.heading[s], year, m.seed, truck = m.kind == TripSample.TRUCK, alpha = m.fade)
+                else -> {
+                    roadVehicle(at, t, m.heading[s], year, m.seed, truck = m.kind == TripSample.TRUCK, alpha = m.fade)
+                    if (night != null) roadVehicleLights(night, cx, cy, at, t, m.heading[s], year, m.seed, truck = m.kind == TripSample.TRUCK, alpha = m.fade)
+                }
             }
         }
     }

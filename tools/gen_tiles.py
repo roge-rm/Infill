@@ -890,7 +890,18 @@ def roof_feature(d, roof, feature, look):
         d.rectangle([x, y, x + 1, y + 1], c("#9a9aa0"))
 
 
+# The glass colours windows are drawn in on the summer look, for the lights sheet.
+GLASS_SEEN = set()
+CURRENT_LOOK = None
+
+
+def seen_glass(glass):
+    if CURRENT_LOOK == "summer":
+        GLASS_SEEN.add(tuple(glass))
+
+
 def windows(d, wall, storeys, glass=WINDOW, sill=None, every=5, width=2, height=3, skip_door=False, skip=()):
+    seen_glass(glass)
     x0, y0, x1, y1 = wall
     per = (y1 - y0 + 1) / storeys
     for s_ in range(storeys):
@@ -6075,6 +6086,7 @@ def green_patch(d, x0, y0, x1, y1, look):
 
 def ribbon_windows(d, wall, storeys, glass=GLASS_NEW, gap=None):
     """Long bands of glass across each storey."""
+    seen_glass(glass)
     x0, y0, x1, y1 = wall
     per = (y1 - y0 + 1) / storeys
     for k in range(storeys):
@@ -10484,6 +10496,8 @@ def forest(look, variant):
 
 def sprites_for(look):
     """Every sprite in one look: (name, image, lift, casters). Same order in every look."""
+    global CURRENT_LOOK
+    CURRENT_LOOK = look
     out = []
     for v in range(4):
         out.append((f"grass_{v}", grass(look, v), 0, []))
@@ -10629,8 +10643,57 @@ def main():
         premul = atlas.convert("RGBa")
         premul.reduce(2).convert("RGBA").save(OUT_PNG / f"atlas_16_{name}.png", optimize=True)
         premul.reduce(4).convert("RGBA").save(OUT_PNG / f"atlas_8_{name}.png", optimize=True)
+    summer = looks[LOOKS.index("summer")]
+    write_lights(names, summer, pos, size)
     write_kotlin(names, flat, pos * len(LOOKS), size)
     print(f"{len(flat)} sprites, {len(names)} a look, {len(LOOKS)} sheets of {size[0]}x{size[1]}")
+
+
+# Glass drawn straight onto walls rather than through windows(): shop fronts, a terminal's bands, small panes.
+DIRECT_GLASS = [PLATE_GLASS, TERMINAL_GLASS, c("#6c7f8a")]
+
+
+def write_lights(names, summer, pos, size):
+    """The lights sheet, atlas_32_lights.png and the _16_ and _8_ ones: where the
+    buildings have glass, matched by colour on the summer look. Red is a number
+    for the window, the same over all of a pane, so the game can light panes one
+    by one; green is how much of the pixel is glass; alpha is 255 on glass."""
+    glass = GLASS_SEEN | {tuple(g) for g in DIRECT_GLASS}
+    buildings = tuple(b[0] + "_" for b in BUILDINGS)
+    sheets = {k: Image.new("RGBA", (size[0] >> k, size[1] >> k), (0, 0, 0, 0)) for k in (0, 1, 2)}
+    panes = 0
+    for name, (_, img, _, _), (px, py) in zip(names, summer, pos):
+        if not name.startswith(buildings) or name.startswith("site_"):
+            continue
+        w, h = img.size
+        data = img.load()
+        ids = [[0] * w for _ in range(h)]
+        for y in range(h):
+            for x in range(w):
+                if ids[y][x] or data[x, y] not in glass:
+                    continue
+                # A pane: the glass joined to this pixel, numbered by where it starts.
+                pane = (x * 73 + y * 151 + px * 7 + py * 13) % 255 + 1
+                panes += 1
+                todo = [(x, y)]
+                ids[y][x] = pane
+                while todo:
+                    ax, ay = todo.pop()
+                    for bx, by in ((ax + 1, ay), (ax - 1, ay), (ax, ay + 1), (ax, ay - 1)):
+                        if 0 <= bx < w and 0 <= by < h and not ids[by][bx] and data[bx, by] in glass:
+                            ids[by][bx] = pane
+                            todo.append((bx, by))
+        for k, sheet in sheets.items():
+            n = 1 << k
+            out = sheet.load()
+            for y in range(h >> k):
+                for x in range(w >> k):
+                    hits = [ids[y * n + j][x * n + i] for j in range(n) for i in range(n) if ids[y * n + j][x * n + i]]
+                    if hits:
+                        out[(px >> k) + x, (py >> k) + y] = (hits[0], 255 * len(hits) // (n * n), 0, 255)
+    for k, sheet in sheets.items():
+        sheet.save(OUT_PNG / f"atlas_{32 >> k}_lights.png", optimize=True)
+    print(f"{panes} panes lit, in {len(glass)} glass colours")
 
 
 def write_kotlin(names, flat, pos, size):

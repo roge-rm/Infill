@@ -27,7 +27,7 @@ import kotlin.math.min
  * traffic waits either side, and at lights traffic waits on amber and red
  * with that way across clear. A road shut for works has nothing on it.
  */
-internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, time: Float, most: Int, crossings: Set<Int> = emptySet(), behind: (Float, Float) -> Boolean = { _, _ -> false }) {
+internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, time: Float, most: Int, crossings: Set<Int> = emptySet(), behind: (Float, Float) -> Boolean = { _, _ -> false }, night: NightLights? = null) {
     val t = camera.tilePx
     if (most == 0 || t < MIN_TILE_PX) return
     val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -38,6 +38,11 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
     val y1 = ceil(bottomRight.y).toInt().coerceAtMost(map.height - 1)
     val cars = carShare(year)
     fun load(i: Int) = map.congestion[i].toInt() and 0xff
+    fun looper(cx: Float, cy: Float, angle: Float, car: Boolean, seed: Int) {
+        val at = camera.tileToScreen(cx, cy, size)
+        vehicle(at, t, angle, car, seed)
+        night?.vehicle(cx, cy, at, t, angle, t * 0.28f, t * 0.13f, car)
+    }
     fun road(x: Int, y: Int) = map.inside(x, y) && map.road[map.index(x, y)].toInt() != 0
     // Whether traffic passes between x, y and its neighbour toward [h] one way or the other: not across the middle of a boulevard.
     fun linked(x: Int, y: Int, h: Int): Boolean {
@@ -83,7 +88,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                         val u = if (forward) 0.8f - k * 0.3f else 0.2f + k * 0.3f
                         val cx = if (across) x + u else x + side
                         val cy = if (across) y + side else y + u
-                        if (!behind(cx, cy)) vehicle(camera.tileToScreen(cx, cy, size), t, DEGREES[dir], unit(seed * 5) < cars, seed)
+                        if (!behind(cx, cy)) looper(cx, cy, DEGREES[dir], unit(seed * 5) < cars, seed)
                     }
                     continue
                 }
@@ -112,12 +117,12 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                         val other = exits[(unit(seed * 11) * exits.size).toInt().coerceAtMost(exits.size - 1)]
                         val offset = (side - 0.5f) * (if (dir == Heading.EAST.toInt() || dir == Heading.NORTH.toInt()) 1f else -1f)
                         val (cx, cy, angle) = if (inbound) pointThrough(stem, i, other, into, map.width, offset) else pointThrough(other, i, stem, into, map.width, offset)
-                        if (!behind(cx, cy)) vehicle(camera.tileToScreen(cx, cy, size), t, angle, unit(seed * 5) < cars, seed)
+                        if (!behind(cx, cy)) looper(cx, cy, angle, unit(seed * 5) < cars, seed)
                         continue
                     }
                     val cx = if (across) pos else x + side
                     val cy = if (across) y + side else pos
-                    if (!behind(cx, cy)) vehicle(camera.tileToScreen(cx, cy, size), t, DEGREES[dir], unit(seed * 5) < cars, seed)
+                    if (!behind(cx, cy)) looper(cx, cy, DEGREES[dir], unit(seed * 5) < cars, seed)
                 }
             }
         }
@@ -138,7 +143,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                     if (k == 0 && unit(seed) * 128f > busy + 16) continue
                     val along = (time * speed + (k + unit(seed * 3) * 0.5f) / slots) % 1f
                     val (cx, cy, angle) = if (lane == 0) pointThrough(a, i, b, along, map.width, LANE) else pointThrough(b, i, a, along, map.width, LANE)
-                    if (!behind(cx, cy)) vehicle(camera.tileToScreen(cx, cy, size), t, angle, unit(seed * 5) < cars, seed)
+                    if (!behind(cx, cy)) looper(cx, cy, angle, unit(seed * 5) < cars, seed)
                 }
                 continue
             }
@@ -156,7 +161,7 @@ internal fun DrawScope.drawVehicles(map: CityMap, camera: Camera, year: Int, tim
                     if (k == 0 && unit(seed) * 128f > busy + 16) continue
                     val along = (time * speed + (k + unit(seed * 3) * 0.5f) / slots) % 1f
                     val (cx, cy, angle) = pointThrough(from, i, to, along, map.width, if (lane == 0) LANE else -LANE)
-                    if (!behind(cx, cy)) vehicle(camera.tileToScreen(cx, cy, size), t, angle, unit(seed * 5) < cars, seed)
+                    if (!behind(cx, cy)) looper(cx, cy, angle, unit(seed * 5) < cars, seed)
                 }
                 continue
             }
@@ -224,7 +229,7 @@ private fun lineSpeed(map: CityMap, across: Boolean, at: Int): Float {
  * traffic where there's no lane kept for them; the fuller the line, the more
  * riders show in the windows.
  */
-internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, lines: Collection<LineState>, room: TransitRoom, behind: (Float, Float) -> Boolean = { _, _ -> false }) {
+internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, lines: Collection<LineState>, room: TransitRoom, behind: (Float, Float) -> Boolean = { _, _ -> false }, night: NightLights? = null) {
     val t = camera.tilePx
     if (!transitShown(camera)) return
     val topLeft = camera.screenToTile(Offset.Zero, size)
@@ -263,6 +268,8 @@ internal fun DrawScope.drawTransit(map: CityMap, camera: Camera, time: Float, li
             else -> car(spot, t, heading, 0.45f, 0.17f, BUS_BODY, GLASS)
         }
         if (seated > 0 && t >= RIDERS_TILE_PX) riders(spot, t, heading, if (tram) 0.7f else 0.45f, seats, seated)
+        night?.vehicle(cx, cy, spot, t, heading, t * (if (tram) 0.7f else 0.45f), t * (if (tram) 0.24f else 0.17f), motor = true)
+        if (tram && night != null && night.shows(cx, cy) && t >= NightLights.MIN_TILE_PX) night.windows(spot, t, t * 0.7f, t * 0.24f, NightLights.CABIN)
     }
 }
 
@@ -415,6 +422,13 @@ internal fun carShare(year: Int) = ((year - 1905) / 40f).coerceIn(0f, 0.9f)
 internal fun DrawScope.roadVehicle(at: Offset, t: Float, heading: Float, year: Int, seed: Int, truck: Boolean, alpha: Float = 1f) {
     val motor = unit(seed * 5) < carShare(year)
     if (truck) lorry(at, t, heading, motor, alpha) else vehicle(at, t, heading, motor, seed, alpha)
+}
+
+/** The lights of the vehicle [roadVehicle] draws, at [x], [y] tiles, into [night]. */
+internal fun roadVehicleLights(night: NightLights, x: Float, y: Float, at: Offset, t: Float, heading: Float, year: Int, seed: Int, truck: Boolean, alpha: Float = 1f) {
+    val motor = unit(seed * 5) < carShare(year)
+    if (truck) night.vehicle(x, y, at, t, heading, t * 0.4f, t * 0.15f, motor, alpha)
+    else night.vehicle(x, y, at, t, heading, t * 0.28f, t * 0.13f, motor, alpha)
 }
 
 /** A goods wagon behind a horse, or a lorry with its cab ahead of the box. */
