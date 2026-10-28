@@ -31,7 +31,7 @@ Nuclear power, river turbines, treatment plants, recycling, the international ai
 
 Needs 85% of the zoned land built on.
 
-Wind and solar farms, tidal turbines, offshore wind, and the tallest towers. The community health centre (2000), the community school and the media library (2005).
+Wind and solar farms, tidal turbines, offshore wind, batteries, and the tallest towers. The community health centre (2000), the community school and the media library (2005).
 
 People want to live in town again: high-density homes and towers need 10 less appeal from 2000.
 
@@ -41,7 +41,7 @@ From 2020 people work from home: that year three in ten office jobs move home, s
 
 Needs nine tenths of the roads, pipes and track within their life, two in five commutes on foot, by bicycle or by transit, and carbon down to 500 kg a person a month.
 
-Batteries.
+Floating offshore wind, the small modular reactor, the tidal array and long-duration storage.
 
 ## Legacy
 

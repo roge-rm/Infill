@@ -71,4 +71,4 @@ A line with track on the edge of the map runs trains to and from outside. A stat
 
 Trains run on steam until 1955, then diesel.
 
-Stations, yards and ports need a phone from 1920, power from 1930 and broadband from 2005 to work their best, and stop altogether below half.
+Stations need a phone from 1920, power from 1930 and broadband from 2005 to work their best, and stop altogether below half. The others have their own years: a freight yard needs a phone from 1930 and power from 1940, a freight terminal power and a phone from 1965 and broadband from 2000, a wharf a phone from 1940 and power from 1950, docks power from 1920 and a phone from 1930, and a container port power, water and a phone from 1966 and broadband from 2000.

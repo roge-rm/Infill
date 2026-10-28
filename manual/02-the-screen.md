@@ -36,7 +36,7 @@ With **Inspect**, one finger moves the map and a tap opens a card on what's ther
 
 **Map view** opens the views, in four tabs:
 
-- **Town**: land value, pollution, wealth, age, heat, what's in the ground, visitors, carbon, noise, leisure, why lots aren't growing, upset, empty homes and heritage.
+- **Town**: land value, pollution, wealth, age, heat, what's in the ground, visitors, carbon, noise, leisure, why lots aren't growing, upset, mood, empty homes and heritage.
 - **Utilities**: power, line load, phone and internet, water, runoff and garbage.
 - **Services**: crime, theft, vice, rackets, police, fire cover, ladders, ambulances, schooling and health.
 - **Transport**: traffic, railway, transit, goods, junctions, trips and reach.
@@ -78,9 +78,9 @@ The game can be played with a controller too. **Controller** under **Keys** in S
 
 **Classic**, for a d-pad, four buttons, L and R, Start and Select: the same, but L and R step along the toolbar, and with Select held they step through the tray's choices, up and down zoom, and X and Y make a zone less or more dense.
 
-**Left hand**: the d-pad moves the cursor, L uses the tool and the left trigger goes back. Holding Select, left and right step along the toolbar, up and down through the choices, and L and the left trigger zoom. Select tapped opens the menu.
+**Left hand**: the d-pad moves the cursor, L uses the tool and the left trigger goes back. Holding Select, left and right step along the toolbar, up and down through the choices, and L and the left trigger zoom. Select tapped opens the menu. Clicking the left stick picks Inspect, and the same click with Select held steps through the map views.
 
-**Right hand**: the same with the four buttons as the ways, Y up, A down, X left and B right, R and the right trigger in place of L and the left one, and Start in place of Select.
+**Right hand**: the same with the four buttons as the ways, Y up, A down, X left and B right, R and the right trigger in place of L and the left one, and Start in place of Select. Clicking the right stick picks Inspect, and with Start held it steps through the map views.
 
 In a window, the ways move between its buttons, Use presses one and Back closes it. Setting a button of your own under **Keys** makes the buttons your own.
 

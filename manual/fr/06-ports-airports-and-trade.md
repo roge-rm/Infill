@@ -26,13 +26,11 @@ Un port se place le long de l'eau, sur son côté long, et les navires doivent p
 
 Sur une île entourée de mer, aucune route ne peut atteindre le bord, alors le port est la sortie : tant qu'il n'y en a pas, les usines vendent à moins de la moitié du marché et leurs marchandises n'ont nulle part où aller.
 
-Sur une île entourée de mer, aucune route ne peut atteindre le bord, alors le port est la sortie : tant qu'il n'y en a pas, les usines vendent à moins de la moitié du marché et leurs marchandises n'ont nulle part où aller.
-
 ## Aéroports
 
 Sous **Transport**, **Aérien** :
 
-- **Aérodrome**, dès 1920.
+- **Aérodrome**, dès 1920, qui a besoin du téléphone dès 1940.
 - **Aéroport**, dès 1950, qui a besoin d'électricité, d'eau et du téléphone.
 - **Aéroport international**, dès 1975.
 

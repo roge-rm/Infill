@@ -93,7 +93,7 @@ DESKTOP_SENTENCES = {
         "Buildings go where you let go of the button.",
     "With **Inspect**, one finger moves the map and a tap opens a card on what's there:":
         "With **Inspect**, dragging moves the map and a click opens a card on what's there:",
-    "Settings are kept on this phone and change as you go.":
+    "Settings are kept on this device and change as you go.":
         "Settings are kept in this browser and change as you go.",
 }
 

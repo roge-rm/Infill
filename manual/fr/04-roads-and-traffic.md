@@ -54,7 +54,7 @@ Le nombre de gens qui peuvent conduire augmente avec les années : presque pers
 Une route ou une voie ferrée au-dessus de l'eau est un pont, droit, d'une seule travée par étendue d'eau. **Pont le moins cher** choisit le type le moins cher qui la franchit cette année-là, ou vous pouvez en choisir un :
 
 - **Pont à chevalets** : bon marché, court et bas. Les navires ne passent pas et les camions ne peuvent pas l'utiliser.
-- **Pont tournant** et **Pont levant** (dès 1920) : ils s'ouvrent pour les navires et retiennent la circulation pendant ce temps.
+- **Pont tournant** (dès 1900) et **Pont levant** (dès 1920) : ils s'ouvrent pour les navires et retiennent la circulation pendant ce temps.
 - **Pont en treillis** : assez haut pour les navires, jusqu'à huit cases.
 - **Pont en béton** (dès 1930) : bas, peu coûteux à entretenir et durable.
 - **Pont suspendu** (dès 1930) et **Pont à haubans** (dès 1975) : longs et hauts, pour les routes seulement.
@@ -73,4 +73,4 @@ Les tunnels ont besoin d'électricité pour leurs pompes, dessus ou à côté. S
 
 ## Stationnement
 
-Il n'y a pas de stationnements à construire. La politique de quartier **Limiter le stationnement** fait que moins de gens conduisent.
+Les automobilistes cherchent une place à la fin d'un trajet, et plus il y a d'emplois dans la rue, plus c'est long. Le stationnement incitatif (dès 1960) et le stationnement étagé (dès 1990) ajoutent des places près du transport en commun ; voir Transport en commun et rail. La politique de quartier **Limiter le stationnement** fait que moins de gens conduisent.

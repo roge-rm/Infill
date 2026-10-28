@@ -16,14 +16,14 @@ Dan
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="screenshots/streetcar.png" width="100%" alt="A streetcar town in 1930"></td>
-    <td align="center" width="33%"><img src="screenshots/town.png" width="100%" alt="The same town in 2010"></td>
-    <td align="center" width="33%"><img src="screenshots/street.png" width="100%" alt="A fire engine on its way to a fire"></td>
+    <td align="center" width="33%"><img src="screenshots/town1935.png" width="100%" alt="A town in 1935"></td>
+    <td align="center" width="33%"><img src="screenshots/town2015.png" width="100%" alt="A town in 2015"></td>
+    <td align="center" width="33%"><img src="screenshots/night.png" width="100%" alt="The same town at night"></td>
   </tr>
   <tr>
-    <td align="center" width="33%"><img src="screenshots/ferry.png" width="100%" alt="The waterfront and a ferry"></td>
-    <td align="center" width="33%"><img src="screenshots/eras.png" width="100%" alt="A new era, then and now"></td>
-    <td align="center" width="33%"><img src="screenshots/challenges.png" width="100%" alt="Challenges"></td>
+    <td align="center" width="33%"><img src="screenshots/street.png" width="100%" alt="Traffic and people downtown"></td>
+    <td align="center" width="33%"><img src="screenshots/winter.png" width="100%" alt="A river town in winter"></td>
+    <td align="center" width="33%"><img src="screenshots/opinion.png" width="100%" alt="What people think"></td>
   </tr>
 </table>
 
@@ -48,6 +48,7 @@ Dan
 - Land that changes: mines and wells that run out, droughts, storm surges and high tides as the seas rise, woods that spread, and water you can fill in or dig out
 - Districts with their own taxes and rules, and neighbouring towns to trade and commute with
 - Weather, seasons, floods, fires and the odd disaster, or one you start yourself
+- Day and night, with lit windows and street lamps from gas to LED, and clouds drifting over
 - Fire engines, ambulances, police and garbage trucks out on the roads, and people walking and cycling along the streets
 - A late game: working from home, offices and old works turned into homes, and legacy goals after the last era
 - A guided first town, challenges, a sandbox, landmarks to earn, and achievements

@@ -54,7 +54,7 @@ How many people can drive goes up with the years: almost no one before 1910, a f
 A road or track across water is a bridge, straight and one span to a stretch of water. **Cheapest bridge** picks the cheapest kind that spans it in the year, or you can pick one:
 
 - **Trestle bridge**: cheap, short and low. Ships can't pass and trucks can't use it.
-- **Swing bridge** and **Lift bridge** (from 1920): open for ships, holding up the traffic while they do.
+- **Swing bridge** (from 1900) and **Lift bridge** (from 1920): open for ships, holding up the traffic while they do.
 - **Truss bridge**: high enough for ships, up to eight tiles.
 - **Concrete bridge** (from 1930): low, cheap to keep, and long lived.
 - **Suspension bridge** (from 1930) and **Cable-stayed bridge** (from 1975): long and high, for roads only.
@@ -73,4 +73,4 @@ Tunnels need power for their pumps, on or beside them. Without it they flood in 
 
 ## Parking
 
-There are no car parks to build. The **Limit parking** district policy has fewer people drive.
+Drivers look for a space at the end of a drive, and the more jobs on the street, the longer it takes. Park and ride (from 1960) and the parking garage (from 1990) add spaces near transit; see Transit and rail. The **Limit parking** district policy has fewer people drive.

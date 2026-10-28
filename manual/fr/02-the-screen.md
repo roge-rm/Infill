@@ -36,7 +36,7 @@ Avec **Inspecter**, un doigt déplace la carte et toucher ouvre une fiche sur ce
 
 **Vue** ouvre les vues, en quatre onglets :
 
-- **Ville** : valeur foncière, pollution, richesse, âge, chaleur, sous-sol, visiteurs, carbone, bruit, loisirs, pourquoi les lots ne se développent pas, mécontentement, logements vides et patrimoine.
+- **Ville** : valeur foncière, pollution, richesse, âge, chaleur, sous-sol, visiteurs, carbone, bruit, loisirs, pourquoi les lots ne se développent pas, mécontentement, humeur, logements vides et patrimoine.
 - **Réseaux** : électricité, charge des lignes, téléphone et Internet, eau, ruissellement et ordures.
 - **Services** : criminalité, vols, vice, racket, police, couverture incendie, échelles, ambulances, scolarité et santé.
 - **Transport** : circulation, chemin de fer, transport en commun, marchandises, intersections, trajets et portée.
@@ -78,9 +78,9 @@ La partie peut aussi se jouer avec une manette. **Manette**, sous **Touches** da
 
 **Classique**, pour une croix, quatre boutons, L et R, Start et Select : la même chose, mais L et R passent d'un bouton de la barre à l'autre, et Select tenu, ils passent d'un choix à l'autre, le haut et le bas zooment, et X et Y rendent une zone moins ou plus dense.
 
-**Main gauche** : la croix déplace le curseur, L utilise l'outil et la gâchette gauche revient en arrière. Select tenu, la gauche et la droite passent d'un bouton de la barre à l'autre, le haut et le bas d'un choix à l'autre, et L et la gâchette gauche zooment. Select appuyé seul ouvre le menu.
+**Main gauche** : la croix déplace le curseur, L utilise l'outil et la gâchette gauche revient en arrière. Select tenu, la gauche et la droite passent d'un bouton de la barre à l'autre, le haut et le bas d'un choix à l'autre, et L et la gâchette gauche zooment. Select appuyé seul ouvre le menu. Cliquer le levier gauche choisit Inspecter, et le même clic avec Select tenu passe d'une vue de la carte à l'autre.
 
-**Main droite** : la même chose avec les quatre boutons comme directions, Y en haut, A en bas, X à gauche et B à droite, R et la gâchette droite au lieu de L et de la gauche, et Start au lieu de Select.
+**Main droite** : la même chose avec les quatre boutons comme directions, Y en haut, A en bas, X à gauche et B à droite, R et la gâchette droite au lieu de L et de la gauche, et Start au lieu de Select. Cliquer le levier droit choisit Inspecter, et avec Start tenu il passe d'une vue de la carte à l'autre.
 
 Dans une fenêtre, les directions passent d'un bouton à l'autre, Utiliser en active un et Retour la ferme. Choisir un bouton soi-même sous **Touches** rend la disposition personnalisée.
 

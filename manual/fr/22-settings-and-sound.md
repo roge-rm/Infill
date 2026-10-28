@@ -5,10 +5,11 @@
 
 ## Affichage
 
-- **Graphismes** : **Faible** enlève les ombres, la météo, les véhicules, les trains, les navires, les avions et la fumée des cheminées. **Moyen** a des ombres fixes et une partie du reste. **Élevé** a tout, avec des ombres qui suivent le soleil, immobiles à 10× et 30× quand les jours passent trop vite pour elles, et une circulation qui passe derrière les bâtiments au pixel près. Il prend plus de mémoire, alors le jeu choisit le niveau qui convient à votre téléphone tant que vous n'en choisissez pas un.
+- **Graphismes** : **Faible** enlève les ombres, la météo, les ombres de nuages et les bancs de brouillard qui passent, les véhicules, les trains, les navires, les avions et la fumée des cheminées, et utilise des tuiles plus grossières. **Moyen** a des ombres fixes, les nuages et une partie du reste. **Élevé** a tout, avec des ombres qui suivent le soleil, immobiles à 10× et 30× quand les jours passent trop vite pour elles, et une circulation qui passe derrière les bâtiments au pixel près. Il prend plus de mémoire, alors le jeu choisit le niveau qui convient à votre téléphone tant que vous n'en choisissez pas un.
 - **Thème** : **Auto**, **Clair** ou **Sombre**.
 - **Côté des outils** : où va la barre d'outils quand elle descend le long de l'écran, à l'opposé de la caméra ou toujours à gauche ou à droite.
 - **Taille des commandes et du texte** : de 100 % à 130 %.
+- **Langue** : **Auto**, **English** ou **Français**.
 
 ## Son
 
@@ -25,6 +26,7 @@ Le son s'arrête quand vous quittez l'appli et reprend quand vous revenez.
 ## Jeu
 
 - **Catastrophes** : **Désactivé**, **Moins** ou **Normale**.
+- **Argent** : **En dollars de 1900** ou **En dollars de l'époque**.
 
 ## Touches
 

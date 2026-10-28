@@ -23,7 +23,7 @@ The era card shows the challenge's goals and how each stands. Meet them all in t
 
 ## The first streets
 
-1. Tap **Transport**, then **Road**, and drag a street in from the edge of the map. A road reaching the edge is how people and goods get in and out: when it asks, choose **Link it**. On an island, drag a street across it instead: people come by boat, and a wharf later takes the goods out. On an island, drag a street across it instead: people come by boat, and a wharf later takes the goods out.
+1. Tap **Transport**, then **Road**, and drag a street in from the edge of the map. A road reaching the edge is how people and goods get in and out: when it asks, choose **Link it**. On an island, drag a street across it instead: people come by boat, and a wharf later takes the goods out.
 2. Tap **Zones**, pick **Residential** and drag a block along the street. Lots grow up to three tiles from a road.
 3. Zone some **Commercial** and **Industrial** too. Homes need jobs, and shops need people.
 4. Press play.
@@ -44,7 +44,7 @@ Each month the town collects taxes and pays upkeep on everything you've built. T
 
 ## Time and speed
 
-Each month is one day and night on screen. The arrows in the strip change the speed, and the button beside them pauses. When a new era arrives the game pauses and says what it brings.
+Each month is one day and night on screen. The button in the strip pauses, and the speed button beside it steps through the speeds. Hold it to go back to normal. When a new era arrives the game pauses and says what it brings.
 
 At night the windows of lived-in buildings light up, fewer of them late at night. Street lamps go from gas to electric, then orange sodium and white LED as the eras go by. Headlights, traffic lights and sirens show in the dark.
 

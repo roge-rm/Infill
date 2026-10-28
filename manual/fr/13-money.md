@@ -11,6 +11,8 @@ Touchez l'argent dans la barre pour le budget. Il y a trois taux, chacun de 0 à
 - **Commerces**, payée sur les emplois des commerces. Les bureaux paient une fois et demie le taux des commerces. Un commerce qui ne reçoit pas de marchandises paie moins.
 - **Industrie**, payée sur les emplois des usines et des fermes.
 
+Un commerce, un bureau, une usine ou une ferme paie des taxes selon la part de son personnel qu'il a, alors un bâtiment à court de personnel paie moins.
+
 Tout paie plus sur un terrain cher. Le zonage mixte paie les deux : ses appartements au taux des logements et ses commerces au taux des commerces. Les bâtiments en construction ne paient rien, pas plus que les commerces fermés par une inondation.
 
 Chaque point de taxe sous 7 % rend ses zones plus demandées, et chaque point au-dessus, moins. Des taxes basses font aussi monter l'approbation, et des taxes élevées la font baisser (voir Opinion publique).
@@ -47,4 +49,4 @@ La cote de crédit va de AAA à B. Elle baisse d'un cran pour chaque tranche de 
 
 L'entretien peut faire passer la ville sous zéro. L'argent s'affiche alors en rouge, et la ligne de conseils le dit. Augmentez les taxes ou réduisez les dépenses pour en sortir.
 
-Si la dette dépasse six mois de revenus, la tutelle prend en main les comptes de la ville. Rien de nouveau ne peut être construit, seulement démoli ou rénové, le financement de chaque service est plafonné à 80 % et la cote tombe à B. La tutelle se retire dès que la ville n'est plus endettée.
+Si la dette dépasse six mois de revenus, ou 20 000 $ si c'est plus, la tutelle prend en main les comptes de la ville. Rien de nouveau ne peut être construit, seulement démoli ou rénové, le financement de chaque service est plafonné à 80 % et la cote tombe à B. La tutelle se retire dès que la ville n'est plus endettée.

@@ -23,7 +23,7 @@ La carte de l'ère montre les objectifs du défi et où chacun en est. Si vous l
 
 ## Les premières rues
 
-1. Touchez **Transport**, puis **Route**, et glissez une rue à partir du bord de la carte. Une route qui atteint le bord permet aux gens et aux marchandises d'entrer et de sortir : quand on vous le demande, choisissez **Relier**. Sur une île, glissez plutôt une rue à travers l'île : les gens arrivent par bateau, et un quai fera plus tard sortir les marchandises. Sur une île, glissez plutôt une rue à travers l'île : les gens arrivent par bateau, et un quai fera plus tard sortir les marchandises.
+1. Touchez **Transport**, puis **Route**, et glissez une rue à partir du bord de la carte. Une route qui atteint le bord permet aux gens et aux marchandises d'entrer et de sortir : quand on vous le demande, choisissez **Relier**. Sur une île, glissez plutôt une rue à travers l'île : les gens arrivent par bateau, et un quai fera plus tard sortir les marchandises.
 2. Touchez **Zonage**, choisissez **Résidentiel** et glissez un îlot le long de la rue. Les lots se développent jusqu'à trois cases d'une route.
 3. Zonez aussi du **Commercial** et de l'**Industriel**. Les logements ont besoin d'emplois, et les commerces ont besoin de gens.
 4. Touchez le bouton de lecture.
@@ -44,7 +44,7 @@ Chaque mois, la ville perçoit les taxes et paie l'entretien de tout ce que vous
 
 ## Temps et vitesse
 
-Chaque mois dure un jour et une nuit à l'écran. Les flèches dans la barre changent la vitesse, et le bouton à côté met en pause. Quand une nouvelle ère arrive, la partie se met en pause et dit ce qu'elle apporte.
+Chaque mois dure un jour et une nuit à l'écran. Le bouton dans la barre met en pause, et le bouton de vitesse à côté passe d'une vitesse à l'autre. Maintenez-le pour revenir à la vitesse normale. Quand une nouvelle ère arrive, la partie se met en pause et dit ce qu'elle apporte.
 
 La nuit, les fenêtres des bâtiments habités s'allument, moins nombreuses tard dans la nuit. Les réverbères passent du gaz à l'électricité, puis au sodium orangé et aux DEL blanches au fil des ères. Les phares, les feux et les sirènes se voient dans le noir.
 

@@ -11,6 +11,8 @@ Tap the money in the strip for the budget. There are three rates, each from 0 to
 - **Shops**, paid on shop jobs. Offices pay one and a half times the shop rate. A shop that can't get stock pays less.
 - **Industry**, paid on works and farm jobs.
 
+A shop, office, works or farm pays tax on the share of its staff it has, so a short-staffed one pays less.
+
 Everything pays more on dear land. Mixed use pays both: its flats on the homes rate and its shops on the shops rate. Buildings still going up pay nothing, and nor do businesses closed by a flood.
 
 Each point of tax under 7% makes its zones more wanted, and each point over makes them less. Low taxes also raise approval, and high ones lower it (see Public opinion).
@@ -47,4 +49,4 @@ The credit rating runs from AAA down to B. It falls a step for every three month
 
 Upkeep can take the town below zero, and the money shows red and the advice line says so. Raise taxes or cut spending to climb back out.
 
-If the debt goes past six months of income, an overseer takes over the town's books. Nothing new can be built, only bulldozed or renovated, every service's funding is capped at 80%, and the rating drops to B. The overseer leaves once the town's out of debt.
+If the debt goes past six months of income, or $20,000 if that's more, an overseer takes over the town's books. Nothing new can be built, only bulldozed or renovated, every service's funding is capped at 80%, and the rating drops to B. The overseer leaves once the town's out of debt.

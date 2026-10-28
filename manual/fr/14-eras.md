@@ -31,7 +31,7 @@ Centrales nucléaires, hydroliennes de rivière, usines de traitement des eaux, 
 
 Demande que 85 % des terrains zonés soient construits.
 
-Parcs éoliens et solaires, hydroliennes marémotrices, éoliennes en mer, et les plus hautes tours. Le centre de santé communautaire (2000), l'école communautaire et la médiathèque (2005).
+Parcs éoliens et solaires, hydroliennes marémotrices, éoliennes en mer, batteries, et les plus hautes tours. Le centre de santé communautaire (2000), l'école communautaire et la médiathèque (2005).
 
 Les gens veulent de nouveau vivre en ville : à partir de 2000, les logements à haute densité et les tours demandent 10 points d'attrait de moins.
 
@@ -41,7 +41,7 @@ Les gens veulent de nouveau vivre en ville : à partir de 2000, les logements �
 
 Demande que neuf dixièmes des routes, des conduites et des voies ferrées soient dans leur durée de vie, que deux trajets au travail sur cinq se fassent à pied, à vélo ou en transport en commun, et que le carbone descende à 500 kg par personne par mois.
 
-Les batteries.
+Éolien flottant en mer, petit réacteur modulaire, parc d'hydroliennes et stockage longue durée.
 
 ## Héritage
 

@@ -71,4 +71,4 @@ Une ligne dont la voie atteint le bord de la carte fait circuler des trains vers
 
 Les trains roulent à la vapeur jusqu'en 1955, puis au diesel.
 
-Les gares, les gares de triage et les ports ont besoin du téléphone dès 1920, de l'électricité dès 1930 et d'Internet haute vitesse dès 2005 pour donner leur plein rendement, et cessent complètement de fonctionner sous la moitié.
+Les gares ont besoin du téléphone dès 1920, de l'électricité dès 1930 et d'Internet haute vitesse dès 2005 pour donner leur plein rendement, et cessent complètement de fonctionner sous la moitié. Les autres ont leurs propres années : une gare de triage a besoin du téléphone dès 1930 et de l'électricité dès 1940, un terminal de fret de l'électricité et du téléphone dès 1965 et d'Internet haute vitesse dès 2000, un quai du téléphone dès 1940 et de l'électricité dès 1950, les docks de l'électricité dès 1920 et du téléphone dès 1930, et un port à conteneurs de l'électricité, de l'eau et du téléphone dès 1966 et d'Internet haute vitesse dès 2000.

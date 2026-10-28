@@ -26,13 +26,11 @@ A port goes along water on its long side, and ships have to be able to reach it 
 
 On an island with sea all round, no road can reach the edge, so a port is the way out: until there's one, the works sell to less than half the market and their goods have nowhere to go.
 
-On an island with sea all round, no road can reach the edge, so a port is the way out: until there's one, the works sell to less than half the market and their goods have nowhere to go.
-
 ## Airports
 
 Under **Transport**, **Air**:
 
-- **Airfield**, from 1920.
+- **Airfield**, from 1920, which needs a phone from 1940.
 - **Airport**, from 1950, which needs power, water and a phone.
 - **International airport**, from 1975.
 

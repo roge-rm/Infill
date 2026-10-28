@@ -1,14 +1,15 @@
 # Settings and sound
 > The settings, and what you hear.
 
-**Settings** is on the first screen and in the menu. Settings are kept on this phone and change as you go.
+**Settings** is on the first screen and in the menu. Settings are kept on this device and change as you go.
 
 ## Display
 
-- **Graphics**: **Low** leaves out shadows, weather, vehicles, trains, ships, planes and smoke from stacks. **Medium** has fixed shadows and some of the rest. **High** has it all, with shadows that follow the sun, held still at 10× and 30× when the days go by too fast for them, and traffic that passes behind the buildings to the pixel. It takes more memory, so the game picks the level that suits your phone until you choose one.
+- **Graphics**: **Low** leaves out shadows, weather, the drifting cloud shadows and fog banks, vehicles, trains, ships, planes and smoke from stacks, and uses coarser tile art. **Medium** has fixed shadows, the clouds and some of the rest. **High** has it all, with shadows that follow the sun, held still at 10× and 30× when the days go by too fast for them, and traffic that passes behind the buildings to the pixel. It takes more memory, so the game picks the level that suits your phone until you choose one.
 - **Theme**: **Auto**, **Light** or **Dark**.
 - **Tools on their side**: where the toolbar goes when it runs down the side of the screen, away from the camera or always on the left or right.
 - **Size of controls and text**: from 100% to 130%.
+- **Language**: **Auto**, **English** or **Français**.
 
 ## Sound
 
@@ -25,6 +26,7 @@ The sound stops when you leave the app and picks up when you come back.
 ## Game
 
 - **Disasters**: **Off**, **Fewer** or **Normal**.
+- **Money**: **In 1900 dollars** or **In dollars of the day**.
 
 ## Keys
 

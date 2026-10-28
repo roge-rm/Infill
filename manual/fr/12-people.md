@@ -25,7 +25,7 @@ Quand le terrain devient cher, des ménages pauvres sont évincés de temps en t
 
 Les adultes ont une scolarité nulle, primaire ou secondaire. Ce que reçoivent les enfants dépend des écoles à leur portée et de leur remplissage, et ça s'accumule au fil des ans. Les emplois demandent des travailleurs qui ont la bonne scolarité : les ateliers et les fermes prennent presque tout le monde, les banques et les bureaux veulent des gens qui ont fait le primaire et le secondaire. Un travailleur peut prendre un emploi de son niveau ou d'un niveau plus bas.
 
-Quand un type d'entreprise ne trouve pas assez des travailleurs dont il a besoin, il cesse de croître, et la ligne de conseils le dit.
+Un commerce, un bureau, une usine ou une ferme à moins de 40 % de son personnel six mois de suite cesse de se développer et peut descendre d'un échelon, que ses travailleurs ne puissent pas s'y rendre ou que la ville manque de la scolarité voulue. Il se développe de nouveau après un mois à 40 % ou plus. **Inspecter** dit pourquoi il en manque.
 
 ## Travail
 

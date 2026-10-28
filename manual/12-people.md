@@ -25,7 +25,7 @@ When land gets dear, poor households are priced out now and then, and a better-o
 
 Grown-ups are schooled to none, school or high school. What children get depends on the schools within reach and how crowded they are, and it builds up over years. Jobs want workers with the right schooling: workshops and farms take almost anyone, banks and offices want people who went to school and high school. A worker can take a job at their own level or below.
 
-When a kind of business can't find enough of the workers it needs, it stops growing, and the advice line says so.
+A shop, office, works or farm under 40% staffed for six months in a row stops growing and may drop a rung, whether its workers can't get there or the town lacks the schooling it wants. It grows again after a month at 40% or more. **Inspect** says why it's short.
 
 ## Work
 
